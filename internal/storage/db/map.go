@@ -10,6 +10,7 @@ import (
 
 type MapRepository interface {
 	GetRegions(ctx context.Context) ([]models.Region, error)
+	GetCities(ctx context.Context) ([]models.City, error)
 	GetDistricts(ctx context.Context) ([]models.District, error)
 	GetMarks(ctx context.Context) ([]models.Mark, error)
 	AddMark(ctx context.Context, mark models.Mark) error
@@ -34,6 +35,19 @@ func (repo *MapRepo) GetRegions(ctx context.Context) ([]models.Region, error) {
 	}
 
 	return regions, nil
+}
+
+func (repo *MapRepo) GetCities(ctx context.Context) ([]models.City, error) {
+	const op = "storage.db.GetCities"
+
+	var cities []models.City
+
+	query := "SELECT name, ST_AsEWKB(geom) FROM cities"
+	if err := repo.Conn.SelectContext(ctx, &cities, query); err != nil {
+		return cities, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return cities, nil
 }
 
 func (repo *MapRepo) GetDistricts(ctx context.Context) ([]models.District, error) {
@@ -70,19 +84,20 @@ func (repo *MapRepo) AddMark(ctx context.Context, mark models.Mark) error {
 	query := `INSERT INTO 
 				marks (name, geom, type_mark_id, user_id, district_id, number_votes, number_checks) 
 			VALUES 
-				(:name, :geom, :type_mark_id, :user_id, :district_id, :number_votes, :number_checks)`
+				($1, ST_GeomFromEWKB($2), $3, $4, $5, $6, $7);`
 
-	if _, err := repo.Conn.NamedExecContext(ctx, query, mark); err != nil {
+	if _, err := repo.Conn.ExecContext(ctx, query, mark.Name, &mark.Geom, mark.TypeMarkID, mark.UserID, mark.DistrictID, mark.NumberVotes, mark.NumberChecks); err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
-	return nil
-}
+	// query := `INSERT INTO
+	// 			marks (name, geom, type_mark_id, user_id, district_id, number_votes, number_checks)
+	// 		VALUES
+	// 			(:name, :geom, :type_mark_id, :user_id, :district_id, :number_votes, :number_checks)`
 
-func (repo *MapRepo) AddPhotos(ctx context.Context) error {
-	// const op = "storage.db.AddPhotos"
-
-	// query := ""
+	// if _, err := repo.Conn.NamedExecContext(ctx, query, mark); err != nil {
+	// 	return fmt.Errorf("%s: %w", op, err)
+	// }
 
 	return nil
 }

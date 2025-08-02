@@ -9,26 +9,6 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/storage/db"
 )
 
-func TestNewMap(t *testing.T) {
-	type args struct {
-		repo db.MapRepository
-	}
-	tests := []struct {
-		name string
-		args args
-		want *MapUseCase
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := NewMap(tt.args.repo); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("NewMap() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestMapUseCase_GetRegions(t *testing.T) {
 	type fields struct {
 		mapRepo db.MapRepository

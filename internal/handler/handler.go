@@ -4,6 +4,7 @@ import (
 	"log/slog"
 
 	"github.com/PritOriginal/problem-map-server/internal/storage/db"
+	"github.com/PritOriginal/problem-map-server/internal/storage/local"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -20,11 +21,13 @@ func GetRoute(log *slog.Logger, dbConn *sqlx.DB) *chi.Mux {
 	r.Use(middleware.URLFormat)
 
 	mapRepo := db.NewMap(dbConn)
-	mapUseCase := usecase.NewMap(mapRepo)
-	mapHandler := NewMap(mapUseCase)
+	photoRepo := local.NewPhotos()
+	mapUseCase := usecase.NewMap(mapRepo, photoRepo)
+	mapHandler := NewMap(log, mapUseCase)
 
 	r.Route("/map", func(r chi.Router) {
-		// r.Get("/regions", Handler)
+		r.Get("/regions", mapHandler.GetRegions())
+		r.Get("/cities", mapHandler.GetCities())
 		r.Get("/districts", mapHandler.GetDistricts())
 		r.Get("/marks", mapHandler.GetMarks())
 		r.Post("/marks", mapHandler.AddMark())

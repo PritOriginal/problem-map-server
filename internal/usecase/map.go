@@ -10,17 +10,25 @@ import (
 
 type Map interface {
 	GetRegions(ctx context.Context) ([]models.Region, error)
+	GetCities(ctx context.Context) ([]models.City, error)
 	GetDistricts(ctx context.Context) ([]models.District, error)
 	GetMarks(ctx context.Context) ([]models.Mark, error)
 	AddMark(ctx context.Context, mark models.Mark) error
+	PhotosRepository
+}
+
+type PhotosRepository interface {
+	AddPhotos(photos [][]byte) error
+	GetPhotos() error
 }
 
 type MapUseCase struct {
-	mapRepo db.MapRepository
+	mapRepo    db.MapRepository
+	photosRepo PhotosRepository
 }
 
-func NewMap(repo db.MapRepository) *MapUseCase {
-	return &MapUseCase{mapRepo: repo}
+func NewMap(mapRepo db.MapRepository, photosRepo PhotosRepository) *MapUseCase {
+	return &MapUseCase{mapRepo, photosRepo}
 }
 
 func (uc *MapUseCase) GetRegions(ctx context.Context) ([]models.Region, error) {
@@ -31,6 +39,16 @@ func (uc *MapUseCase) GetRegions(ctx context.Context) ([]models.Region, error) {
 		return regions, fmt.Errorf("%s: %w", op, err)
 	}
 	return regions, nil
+}
+
+func (uc *MapUseCase) GetCities(ctx context.Context) ([]models.City, error) {
+	const op = "usecase.Map.GetCities"
+
+	cities, err := uc.mapRepo.GetCities(ctx)
+	if err != nil {
+		return cities, fmt.Errorf("%s: %w", op, err)
+	}
+	return cities, nil
 }
 
 func (uc *MapUseCase) GetDistricts(ctx context.Context) ([]models.District, error) {
@@ -59,6 +77,20 @@ func (uc *MapUseCase) AddMark(ctx context.Context, mark models.Mark) error {
 	if err := uc.mapRepo.AddMark(ctx, mark); err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
+
+	return nil
+}
+
+func (uc *MapUseCase) AddPhotos(photos [][]byte) error {
+	const op = "usecase.Map.AddPhotos"
+
+	if err := uc.photosRepo.AddPhotos(photos); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	return nil
+}
+
+func (uc *MapUseCase) GetPhotos() error {
 
 	return nil
 }
