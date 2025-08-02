@@ -3,7 +3,7 @@ package s3
 type PhotosRepo struct {
 }
 
-func (repo *PhotosRepo) AddPhotos() error {
+func (repo *PhotosRepo) AddPhotos(photo []byte) error {
 
 	return nil
 }
