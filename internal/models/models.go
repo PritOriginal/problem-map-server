@@ -34,15 +34,3 @@ type TypeMark struct {
 	ID   int    `json:"type_mark_id" db:"type_mark_id"`
 	Name string `json:"name"`
 }
-
-type User struct {
-	ID     int    `json:"user_id" db:"user_id"`
-	Name   string `json:"name"`
-	Rating int    `json:"rating"`
-}
-
-type Task struct {
-	ID     int    `json:"task_id" db:"task_id"`
-	Name   string `json:"name"`
-	UserID int    `json:"user_id" db:"user_id"`
-}

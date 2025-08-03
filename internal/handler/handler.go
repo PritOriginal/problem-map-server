@@ -34,5 +34,26 @@ func GetRoute(log *slog.Logger, dbConn *sqlx.DB) *chi.Mux {
 		r.Post("/photos", mapHandler.AddPhotos())
 	})
 
+	usersRepo := db.NewUsers(dbConn)
+	usersUseCase := usecase.NewUsers(usersRepo)
+	usersHandler := NewUsers(log, usersUseCase)
+
+	r.Route("/users", func(r chi.Router) {
+		r.Get("/", usersHandler.GetUsers())
+		r.Get("/{id}", usersHandler.GetUserById())
+		r.Post("/", usersHandler.AddUser())
+	})
+
+	tasksRepo := db.NewTasks(dbConn)
+	taksUseCase := usecase.NewTasks(tasksRepo)
+	tasksHandler := NewTasks(log, taksUseCase)
+
+	r.Route("/tasks", func(r chi.Router) {
+		r.Get("/", tasksHandler.GetTasks())
+		r.Get("/{id}", tasksHandler.GetTaskById())
+		r.Get("/user/{id}", tasksHandler.GetTasksByUserId())
+		r.Post("/", tasksHandler.AddTask())
+	})
+
 	return r
 }
