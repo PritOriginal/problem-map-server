@@ -56,11 +56,10 @@ func (h *PrettyHandler) Handle(ctx context.Context, r slog.Record) error {
 		}
 	}
 
-	timeStr := r.Time.Format("[15:05:05.000]")
+	timeStr := r.Time.Format("[15:04:05.000]")
 	msg := color.CyanString(r.Message)
 
 	h.l.Println(color.BlackString(timeStr), level, msg, color.WhiteString(string(b)))
-	// h.l.Println(color.BlackString(timeStr), level, msg, strings.Replace(string(b), "method", color.HiBlackString("method"), 1))
 
 	return nil
 }
