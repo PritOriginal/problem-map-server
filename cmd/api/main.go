@@ -14,11 +14,10 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/storage/db"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/go-chi/chi/v5"
-	"github.com/spf13/viper"
 )
 
 func main() {
-	cfg, err := getConfig()
+	cfg, err := configs.Init()
 	if err != nil {
 		log.Fatalf("error get config: %v", err)
 	}
@@ -52,28 +51,13 @@ func main() {
 	server.Start()
 }
 
-func getConfig() (configs.Config, error) {
-	var cfg configs.Config
-
-	viper.AddConfigPath("./configs")
-	if err := viper.ReadInConfig(); err != nil {
-		return cfg, err
-	}
-
-	err := viper.Unmarshal(&cfg)
-	if err != nil {
-		return cfg, err
-	}
-	return cfg, nil
-}
-
 type Server struct {
-	cfg    configs.Config
+	cfg    *configs.Config
 	log    *slog.Logger
 	router *chi.Mux
 }
 
-func New(cfg configs.Config, log *slog.Logger, router *chi.Mux) (*Server, error) {
+func New(cfg *configs.Config, log *slog.Logger, router *chi.Mux) (*Server, error) {
 	s := &Server{cfg: cfg, log: log, router: router}
 	return s, nil
 }

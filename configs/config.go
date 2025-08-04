@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
+	"github.com/spf13/viper"
 )
 
 type Config struct {
@@ -43,4 +44,19 @@ type AwsConfig struct {
 	Key       string
 	SecretKey string
 	EndPoint  string
+}
+
+func Init() (*Config, error) {
+	var cfg *Config
+
+	viper.AddConfigPath("./configs")
+	if err := viper.ReadInConfig(); err != nil {
+		return cfg, err
+	}
+
+	err := viper.Unmarshal(&cfg)
+	if err != nil {
+		return cfg, err
+	}
+	return cfg, nil
 }
