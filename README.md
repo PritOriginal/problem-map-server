@@ -13,5 +13,5 @@ make run
 или
 
 ```bash
-go run ./cmd/
+go run ./cmd/api/
 ```
