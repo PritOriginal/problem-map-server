@@ -1,11 +1,17 @@
 package configs
 
-import "time"
+import (
+	"time"
+
+	"github.com/PritOriginal/problem-map-server/pkg/logger"
+)
 
 type Config struct {
-	Env    string         `mapstructure:"env"`
-	Server ServerConfig   `mapstructure:"server"`
-	DB     DatabaseConfig `mapstructure:"DB"`
+	Env    logger.Environment `mapstructure:"env"`
+	Server ServerConfig       `mapstructure:"server"`
+	DB     DatabaseConfig     `mapstructure:"db"`
+	Redis  RedisConfig        `mapstructure:"redis"`
+	Aws    AwsConfig          `mapstructure:"aws"`
 }
 
 type ServerConfig struct {
@@ -25,4 +31,16 @@ type DatabaseConfig struct {
 	Username string
 	Password string
 	Name     string
+}
+
+type RedisConfig struct {
+	Host     string
+	Port     int
+	Password string
+}
+
+type AwsConfig struct {
+	Key       string
+	SecretKey string
+	EndPoint  string
 }

@@ -23,21 +23,27 @@ func main() {
 		log.Fatalf("error get config: %v", err)
 	}
 
-	f, err := os.OpenFile("log.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		log.Fatalf("error opening file: %v", err)
+	var logFIle *os.File
+	if cfg.Env == slogger.Prod {
+		logFIle, err = os.OpenFile("log.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+		if err != nil {
+			log.Fatalf("error opening file: %v", err)
+		}
+		defer logFIle.Close()
 	}
-	defer f.Close()
 
-	logger := slogger.SetupLogger(cfg.Env, f)
+	logger, err := slogger.SetupLogger(cfg.Env, logFIle)
+	if err != nil {
+		log.Fatalf("error init logger: %v", err)
+	}
 
 	// Init DB
 	dbConn, err := db.Initialize(cfg.DB)
 	if err != nil {
-		logger.Error("Failed Connection to database", slogger.Err(err))
+		logger.Error("failed connection to database", slogger.Err(err))
 		panic(err)
 	}
-	logger.Info("PostgreSQL Connected!")
+	logger.Info("PostgreSQL connected!")
 	defer dbConn.Close()
 
 	r := handler.GetRoute(logger, dbConn)
