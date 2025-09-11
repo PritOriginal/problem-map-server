@@ -27,9 +27,9 @@ func SetupLogger(env Environment, logFIle *os.File) (*slog.Logger, error) {
 	var logger *slog.Logger
 	switch env {
 	case Local:
-		logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug, AddSource: true}))
-	case Dev:
 		logger = slog.New(prettylog.NewPrettyHandler(os.Stdout, prettylog.PrettyHandlerOptions{SlogOpts: slog.HandlerOptions{Level: slog.LevelDebug}}))
+	case Dev:
+		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	case Prod:
 		logger = slog.New(slog.NewJSONHandler(logFIle, &slog.HandlerOptions{Level: slog.LevelInfo, AddSource: true}))
 	default:
