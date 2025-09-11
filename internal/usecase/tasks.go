@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage/db"
+	"github.com/PritOriginal/problem-map-server/internal/storage/postgres"
 )
 
 type Tasks interface {
@@ -16,10 +16,10 @@ type Tasks interface {
 }
 
 type TasksUseCase struct {
-	tasksRepo db.TasksRepository
+	tasksRepo postgres.TasksRepository
 }
 
-func NewTasks(tasksRepo db.TasksRepository) *TasksUseCase {
+func NewTasks(tasksRepo postgres.TasksRepository) *TasksUseCase {
 	return &TasksUseCase{tasksRepo: tasksRepo}
 }
 

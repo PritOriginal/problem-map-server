@@ -3,8 +3,9 @@ package handler
 import (
 	"log/slog"
 
-	"github.com/PritOriginal/problem-map-server/internal/storage/db"
+	mwLogger "github.com/PritOriginal/problem-map-server/internal/middleware/logger"
 	"github.com/PritOriginal/problem-map-server/internal/storage/local"
+	"github.com/PritOriginal/problem-map-server/internal/storage/postgres"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -16,13 +17,13 @@ func GetRoute(log *slog.Logger, dbConn *sqlx.DB) *chi.Mux {
 
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
+	r.Use(mwLogger.New(log))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.URLFormat)
 
-	mapRepo := db.NewMap(dbConn)
+	mapRepo := postgres.NewMap(dbConn)
 	photoRepo := local.NewPhotos()
-	mapUseCase := usecase.NewMap(mapRepo, photoRepo)
+	mapUseCase := usecase.NewMap(log, mapRepo, photoRepo)
 	mapHandler := NewMap(log, mapUseCase)
 
 	r.Route("/map", func(r chi.Router) {
@@ -34,7 +35,7 @@ func GetRoute(log *slog.Logger, dbConn *sqlx.DB) *chi.Mux {
 		r.Post("/photos", mapHandler.AddPhotos())
 	})
 
-	usersRepo := db.NewUsers(dbConn)
+	usersRepo := postgres.NewUsers(dbConn)
 	usersUseCase := usecase.NewUsers(usersRepo)
 	usersHandler := NewUsers(log, usersUseCase)
 
@@ -44,7 +45,7 @@ func GetRoute(log *slog.Logger, dbConn *sqlx.DB) *chi.Mux {
 		r.Post("/", usersHandler.AddUser())
 	})
 
-	tasksRepo := db.NewTasks(dbConn)
+	tasksRepo := postgres.NewTasks(dbConn)
 	taksUseCase := usecase.NewTasks(tasksRepo)
 	tasksHandler := NewTasks(log, taksUseCase)
 

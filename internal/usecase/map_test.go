@@ -6,12 +6,12 @@ import (
 	"testing"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage/db"
+	"github.com/PritOriginal/problem-map-server/internal/storage/postgres"
 )
 
 func TestMapUseCase_GetRegions(t *testing.T) {
 	type fields struct {
-		mapRepo db.MapRepository
+		mapRepo postgres.MapRepository
 	}
 	type args struct {
 		ctx context.Context
@@ -44,7 +44,7 @@ func TestMapUseCase_GetRegions(t *testing.T) {
 
 func TestMapUseCase_GetDistricts(t *testing.T) {
 	type fields struct {
-		mapRepo db.MapRepository
+		mapRepo postgres.MapRepository
 	}
 	type args struct {
 		ctx context.Context
@@ -77,7 +77,7 @@ func TestMapUseCase_GetDistricts(t *testing.T) {
 
 func TestMapUseCase_GetMarks(t *testing.T) {
 	type fields struct {
-		mapRepo db.MapRepository
+		mapRepo postgres.MapRepository
 	}
 	type args struct {
 		ctx context.Context
@@ -110,7 +110,7 @@ func TestMapUseCase_GetMarks(t *testing.T) {
 
 func TestMapUseCase_AddMark(t *testing.T) {
 	type fields struct {
-		mapRepo db.MapRepository
+		mapRepo postgres.MapRepository
 	}
 	type args struct {
 		ctx  context.Context

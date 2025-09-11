@@ -5,7 +5,7 @@ import (
 	"fmt"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage/db"
+	"github.com/PritOriginal/problem-map-server/internal/storage/postgres"
 )
 
 type Users interface {
@@ -15,10 +15,10 @@ type Users interface {
 }
 
 type UsersUseCase struct {
-	usersRepo db.UsersRepository
+	usersRepo postgres.UsersRepository
 }
 
-func NewUsers(usersRepo db.UsersRepository) *UsersUseCase {
+func NewUsers(usersRepo postgres.UsersRepository) *UsersUseCase {
 	return &UsersUseCase{usersRepo: usersRepo}
 }
 

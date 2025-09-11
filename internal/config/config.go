@@ -1,6 +1,8 @@
-package configs
+package config
 
 import (
+	"flag"
+	"os"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
@@ -10,6 +12,7 @@ import (
 type Config struct {
 	Env    logger.Environment `mapstructure:"env"`
 	Server ServerConfig       `mapstructure:"server"`
+	GRPC   GRPCConfig         `mapstructure:"grpc"`
 	DB     DatabaseConfig     `mapstructure:"db"`
 	Redis  RedisConfig        `mapstructure:"redis"`
 	Aws    AwsConfig          `mapstructure:"aws"`
@@ -17,13 +20,18 @@ type Config struct {
 
 type ServerConfig struct {
 	Host    string `mapstructure:"host"`
-	Port    string `mapstructure:"port"`
+	Port    int    `mapstructure:"port"`
 	Timeout struct {
 		Server time.Duration `mapstructure:"server"`
 		Write  time.Duration `mapstructure:"write"`
 		Read   time.Duration `mapstructure:"read"`
 		Idle   time.Duration `mapstructure:"idle"`
 	} `mapstructure:"timeout"`
+}
+
+type GRPCConfig struct {
+	Port    int           `mapstructure:"port"`
+	Timeout time.Duration `mapstructure:"timeout"`
 }
 
 type DatabaseConfig struct {
@@ -46,17 +54,40 @@ type AwsConfig struct {
 	EndPoint  string
 }
 
-func Init() (*Config, error) {
+func MustLoad() *Config {
+	configPath := fetchConfigPath()
+	if configPath == "" {
+		panic("config path is empty")
+	}
+
+	return MustLoadPath(configPath)
+}
+
+func MustLoadPath(configPath string) *Config {
 	var cfg *Config
 
-	viper.AddConfigPath("./configs")
+	viper.AddConfigPath(configPath)
 	if err := viper.ReadInConfig(); err != nil {
-		return cfg, err
+		panic("failed read config file")
 	}
 
 	err := viper.Unmarshal(&cfg)
 	if err != nil {
-		return cfg, err
+		panic("failed unmarshal config file")
 	}
-	return cfg, nil
+
+	return cfg
+}
+
+func fetchConfigPath() string {
+	var res string
+
+	flag.StringVar(&res, "config", "", "path to config file")
+	flag.Parse()
+
+	if res == "" {
+		res = os.Getenv("CONFIG_PATH")
+	}
+
+	return res
 }

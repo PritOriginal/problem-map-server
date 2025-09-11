@@ -3,9 +3,10 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage/db"
+	"github.com/PritOriginal/problem-map-server/internal/storage/postgres"
 )
 
 type Map interface {
@@ -23,12 +24,13 @@ type PhotosRepository interface {
 }
 
 type MapUseCase struct {
-	mapRepo    db.MapRepository
+	log        *slog.Logger
+	mapRepo    postgres.MapRepository
 	photosRepo PhotosRepository
 }
 
-func NewMap(mapRepo db.MapRepository, photosRepo PhotosRepository) *MapUseCase {
-	return &MapUseCase{mapRepo, photosRepo}
+func NewMap(log *slog.Logger, mapRepo postgres.MapRepository, photosRepo PhotosRepository) *MapUseCase {
+	return &MapUseCase{log, mapRepo, photosRepo}
 }
 
 func (uc *MapUseCase) GetRegions(ctx context.Context) ([]models.Region, error) {

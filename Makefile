@@ -1,7 +1,8 @@
-run:
-	go run ./cmd/api/
-build:
-	go build ./cmd/api/
+run-rest:
+	go run ./cmd/rest/ --config=./configs/
+build-rest:
+	go build ./cmd/rest/
+
 
 test:
 	go test ./...

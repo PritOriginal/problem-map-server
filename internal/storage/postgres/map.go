@@ -1,4 +1,4 @@
-package db
+package postgres
 
 import (
 	"context"
@@ -29,7 +29,7 @@ func (repo *MapRepo) GetRegions(ctx context.Context) ([]models.Region, error) {
 
 	var regions []models.Region
 
-	query := "SELECT name, ST_AsEWKB(geom) FROM regions"
+	query := "SELECT name, ST_AsEWKB(geom) AS geom FROM regions"
 	if err := repo.Conn.SelectContext(ctx, &regions, query); err != nil {
 		return regions, fmt.Errorf("%s: %w", op, err)
 	}
@@ -42,7 +42,7 @@ func (repo *MapRepo) GetCities(ctx context.Context) ([]models.City, error) {
 
 	var cities []models.City
 
-	query := "SELECT name, ST_AsEWKB(geom) FROM cities"
+	query := "SELECT name, ST_AsEWKB(geom) AS geom FROM cities"
 	if err := repo.Conn.SelectContext(ctx, &cities, query); err != nil {
 		return cities, fmt.Errorf("%s: %w", op, err)
 	}
