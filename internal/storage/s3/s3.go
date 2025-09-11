@@ -4,47 +4,47 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"os"
 
-	"github.com/PritOriginal/problem-map-server/pkg/logger"
+	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
-type S3Repo struct {
+type S3 struct {
 	Client *s3.Client
 }
 
-func Initialize(log *slog.Logger) *S3Repo {
-	clientS3 := S3Repo{}
+func New(log *slog.Logger, cfg config.AwsConfig) (*S3, error) {
+	clientS3 := S3{}
 	options := s3.Options{
 		Region:       "ru-1",
-		BaseEndpoint: aws.String(os.Getenv("AWS_END_POINT")),
-		Credentials:  aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(os.Getenv("AWS_KEY"), os.Getenv("AWS_SECRET_KEY"), "")),
+		BaseEndpoint: aws.String(cfg.EndPoint),
+		Credentials:  aws.NewCredentialsCache(credentials.NewStaticCredentialsProvider(cfg.Key, cfg.SecretKey, "")),
 		UsePathStyle: true,
 	}
 	clientS3.Client = s3.New(options)
 	log.Info("S3 Client created!")
 
 	// Запрашиваем список бакетов
-	result, err := clientS3.Client.ListBuckets(context.TODO(), &s3.ListBucketsInput{})
+	buckets, err := clientS3.GetBuckets(context.Background())
+
 	if err != nil {
-		log.Error("failed get list buckets", logger.Err(err))
+		return &clientS3, fmt.Errorf("failed get list buckets: %w", err)
 	}
 
-	for _, bucket := range result.Buckets {
+	for _, bucket := range buckets {
 		log.Info(
 			"bucket info",
 			slog.String("bucket", aws.ToString(bucket.Name)),
 			slog.String("creation time", bucket.CreationDate.Format("2006-01-02 15:04:05 Monday")))
 	}
 
-	return &clientS3
+	return &clientS3, nil
 }
 
-func (client *S3Repo) GetBuckets(ctx context.Context) ([]types.Bucket, error) {
+func (client *S3) GetBuckets(ctx context.Context) ([]types.Bucket, error) {
 	const op = "storage.s3.GetBuckets"
 
 	// Запрашиваем список бакетов
