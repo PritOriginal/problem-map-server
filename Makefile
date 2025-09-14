@@ -3,6 +3,10 @@ run-rest:
 build-rest:
 	go build ./cmd/rest/
 
+run-grpc:
+	go run ./cmd/grpc/ --config=./configs/
+build-grpc:
+	go build ./cmd/grpc/
 
 test:
 	go test ./...
