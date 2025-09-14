@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 
+	pb "github.com/PritOriginal/problem-map-protos/gen/go"
 	"github.com/twpayne/go-geom"
 	"github.com/twpayne/go-geom/encoding/ewkb"
 	"github.com/twpayne/go-geom/encoding/geojson"
@@ -55,6 +56,16 @@ func (p *Point) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (p *Point) MarshalProtobuf() *pb.Point {
+	return &pb.Point{
+		Type: "Point",
+		Coordinates: &pb.Coordinates{
+			Longitude: p.Ewkb.Coords().X(),
+			Latitude:  p.Ewkb.Coords().Y(),
+		},
+	}
+}
+
 type Polygon struct {
 	Ewkb ewkb.Polygon
 }
@@ -99,4 +110,12 @@ func (p *Polygon) UnmarshalJSON(data []byte) error {
 	p.Ewkb = ewkbPolygon
 
 	return nil
+}
+
+func (p *Polygon) MarshalProtobuf() *pb.Polygon {
+	p.Ewkb.Polygon.Coords()
+	return &pb.Polygon{
+		Type: "Polygon",
+		// TODO: Coordinates
+	}
 }
