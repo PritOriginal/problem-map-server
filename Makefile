@@ -16,3 +16,10 @@ test-cover:
 	type cover.test.tmp | findstr -v "mocks" > cover.test 
 	del cover.test.tmp 
 	go tool cover -func cover.test 
+
+migrate:
+	migrate create -ext=sql -dir=./migrations -seq ${NAME_MIGRATION}     
+migrate-up:
+	migrate -path ./migrations/ -database postgres://postgres:postgres@localhost/problem_map?sslmode=disable up
+migrate-down:
+	migrate -path ./migrations/ -database postgres://postgres:postgres@localhost/problem_map?sslmode=disable down
