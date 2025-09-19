@@ -6,12 +6,26 @@
 
 ## Запуск
 
-Запуск REST API сервера
+### Запуск REST API сервера
+
 ```bash
 make run-rest
 ```
 
-Запуск gRPC сервера
+Docker:
+
+```bash
+make docker-rest
+```
+
+### Запуск gRPC сервера
+
 ```bash
 make run-grpc
+```
+
+Docker:
+
+```bash
+make docker-grpc
 ```
