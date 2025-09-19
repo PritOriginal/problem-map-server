@@ -3,6 +3,11 @@ run-rest:
 build-rest:
 	go build ./cmd/rest/
 
+docker-rest:
+	docker compose -f docker/rest/compose.yaml --project-directory . up --build -d
+docker-grpc:
+	docker compose -f docker/grpc/compose.yaml --project-directory . up --build -d   
+
 run-grpc:
 	go run ./cmd/grpc/ --config=./configs/
 build-grpc:
