@@ -1,0 +1,40 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: ./docker/rest/Dockerfile
+      target: final
+    container_name: server-rest
+    ports:
+      - 6666:6666
+    volumes:
+      - ./log.txt:/bin/log.txt
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+  postgres:
+    image: postgis/postgis
+    container_name: postgres
+    restart: always
+    user: postgres
+    expose:
+      - 5432
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: problem_map
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: [ "CMD", "pg_isready" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  migrate:
+    image: migrate/migrate
+    container_name: migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    
+    volumes:
+      - ./migrations:/migrations
+    command: ["-path", "/migrations/", "-database", "postgres://postgres:postgres@postgres/problem_map?sslmode=disable", "up"]
