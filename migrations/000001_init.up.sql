@@ -1,0 +1,13 @@
+DROP TABLE IF EXIST regions;
+
+DROP TABLE IF EXIST cities;
+
+DROP TABLE IF EXIST districts;
+
+DROP TABLE IF EXIST types_marks;
+
+DROP TABLE IF EXIST users;
+
+DROP TABLE IF EXIST marks;
+
+DROP TABLE IF EXIST tasks;

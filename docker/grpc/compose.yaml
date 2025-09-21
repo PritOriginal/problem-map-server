@@ -1,0 +1,48 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: ./docker/grpc/Dockerfile
+      target: final
+    container_name: server-grpc
+    networks:
+      - server-network
+    ports:
+      - ${GRPC_PORT}:${GRPC_PORT}
+    volumes:
+      - ./log.txt:/bin/log.txt
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+  postgres:
+    image: postgis/postgis
+    container_name: postgres
+    restart: always
+    user: postgres
+    expose:
+      - ${POSTGRES_PORT}
+    networks:
+      - server-network
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  migrate:
+    image: migrate/migrate
+    container_name: migrate
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - server-network
+    volumes:
+      - ./migrations:/migrations
+    command: ["-path", "/migrations/", "-database", "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=disable", "up"]
+
+networks:
+  server-network:
