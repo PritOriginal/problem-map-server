@@ -36,9 +36,9 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	server := &http.Server{
 		Addr:         cfg.Server.Host + ":" + strconv.Itoa(cfg.Server.Port),
 		Handler:      router,
-		ReadTimeout:  cfg.Server.Timeout.Read * time.Second,
-		WriteTimeout: cfg.Server.Timeout.Write * time.Second,
-		IdleTimeout:  cfg.Server.Timeout.Idle * time.Second,
+		ReadTimeout:  cfg.Server.Timeout.Read,
+		WriteTimeout: cfg.Server.Timeout.Write,
+		IdleTimeout:  cfg.Server.Timeout.Idle,
 	}
 
 	return &App{
