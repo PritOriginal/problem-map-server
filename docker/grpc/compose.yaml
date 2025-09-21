@@ -5,8 +5,10 @@ services:
       dockerfile: ./docker/grpc/Dockerfile
       target: final
     container_name: server-grpc
+    networks:
+      - server-network
     ports:
-      - 44044:44044
+      - ${GRPC_PORT}:${GRPC_PORT}
     volumes:
       - ./log.txt:/bin/log.txt
     depends_on:
@@ -18,13 +20,15 @@ services:
     restart: always
     user: postgres
     expose:
-      - 5432
+      - ${POSTGRES_PORT}
+    networks:
+      - server-network
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_DB: problem_map
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     healthcheck:
-      test: [ "CMD", "pg_isready" ]
+      test: [ "CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -34,42 +38,11 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    
+    networks:
+      - server-network
     volumes:
       - ./migrations:/migrations
-    command: ["-path", "/migrations/", "-database", "postgres://postgres:postgres@postgres/problem_map?sslmode=disable", "up"]
+    command: ["-path", "/migrations/", "-database", "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=disable", "up"]
 
-
-# The commented out section below is an example of how to define a PostgreSQL
-# database that your application can use. `depends_on` tells Docker Compose to
-# start the database before your application. The `db-data` volume persists the
-# database data between container restarts. The `db-password` secret is used
-# to set the database password. You must create `db/password.txt` and add
-# a password of your choosing to it before running `docker compose up`.
-#     depends_on:
-#       db:
-#         condition: service_healthy
-#   db:
-#     image: postgres
-#     restart: always
-#     user: postgres
-#     secrets:
-#       - db-password
-#     volumes:
-#       - db-data:/var/lib/postgresql/data
-#     environment:
-#       - POSTGRES_DB=example
-#       - POSTGRES_PASSWORD_FILE=/run/secrets/db-password
-#     expose:
-#       - 5432
-#     healthcheck:
-#       test: [ "CMD", "pg_isready" ]
-#       interval: 10s
-#       timeout: 5s
-#       retries: 5
-# volumes:
-#   db-data:
-# secrets:
-#   db-password:
-#     file: db/password.txt
-
+networks:
+  server-network:

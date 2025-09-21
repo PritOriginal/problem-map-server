@@ -73,8 +73,5 @@ COPY --from=build /bin/server-rest /bin/
 
 COPY ./configs/config-docker.yaml /bin/configs/config.yaml
 
-# Expose the port that the application listens on.
-EXPOSE 6666
-
 # What the container should run when it is started.
 ENTRYPOINT [ "/bin/server-rest", "--config=/bin/configs/" ]
