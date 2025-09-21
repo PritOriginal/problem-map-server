@@ -1,3 +1,5 @@
+include .env
+
 run-rest:
 	go run ./cmd/rest/ --config=./configs/
 build-rest:
@@ -25,6 +27,6 @@ test-cover:
 migrate:
 	migrate create -ext=sql -dir=./migrations -seq ${NAME_MIGRATION}     
 migrate-up:
-	migrate -path ./migrations/ -database postgres://postgres:postgres@localhost/problem_map?sslmode=disable up
+	migrate -path ./migrations/ -database postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=disable up
 migrate-down:
-	migrate -path ./migrations/ -database postgres://postgres:postgres@localhost/problem_map?sslmode=disable down
+	migrate -path ./migrations/ -database postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=disable down
