@@ -1,10 +1,10 @@
 run-rest:
-	go run ./cmd/rest/ --config=./configs/
+	go run ./cmd/rest/ --config=./configs/config.yaml
 build-rest:
 	go build ./cmd/rest/
 
 run-grpc:
-	go run ./cmd/grpc/ --config=./configs/
+	go run ./cmd/grpc/ --config=./configs/config.yaml
 build-grpc:
 	go build ./cmd/grpc/
 
