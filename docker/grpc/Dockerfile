@@ -71,7 +71,7 @@ USER appuser
 # Copy the executable from the "build" stage.
 COPY --from=build /bin/server-grpc /bin/
 
-COPY ./configs/config-docker.yaml /bin/configs/config.yaml
+COPY ./configs/.env.docker /bin/configs/.env
 
 # What the container should run when it is started.
-ENTRYPOINT [ "/bin/server-grpc", "--config=/bin/configs/" ]
+ENTRYPOINT [ "/bin/server-rest", "--config=/bin/configs/.env" ]
