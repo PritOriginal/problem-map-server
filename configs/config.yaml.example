@@ -1,12 +1,15 @@
-env: dev
+env: local
 server:
   host: 127.0.0.1
   port: 3333
   timeout:
-    server: 30
-    read: 15
-    write: 10
-    idle: 5
+    server: 30s
+    read: 15s
+    write: 10s
+    idle: 5s
+grpc:
+  port: 44044
+  timeout: 5s
 db:
   host: 127.0.0.1
   port: 5432

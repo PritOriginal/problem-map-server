@@ -1,4 +1,4 @@
-include .env
+include configs/.env
 
 run-rest:
 	go run ./cmd/rest/ --config=./configs/config.yaml
@@ -6,9 +6,9 @@ build-rest:
 	go build ./cmd/rest/
 
 docker-rest:
-	docker compose -f docker/rest/compose.yaml --project-directory . up --build -d
+	docker compose -f docker/rest/compose.yaml --env-file configs/.env.docker --project-directory . up --build -d
 docker-grpc:
-	docker compose -f docker/grpc/compose.yaml --project-directory . up --build -d   
+	docker compose -f docker/grpc/compose.yaml --env-file configs/.env.docker --project-directory . up --build -d   
 
 run-grpc:
 	go run ./cmd/grpc/ --config=./configs/config.yaml
