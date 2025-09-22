@@ -16,7 +16,7 @@
 cp ./configs/config-docker.yaml ./configs/config.yaml
 ```
 
-Для `.env` (если предпочитайте переменные окружения)
+Для `.env` (если предпочитаете переменные окружения)
 
 ```bash
 cp ./configs/.env.example ./configs/.env
