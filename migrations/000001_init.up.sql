@@ -28,6 +28,9 @@ CREATE TABLE types_marks (
 CREATE TABLE users (
     user_id SERIAL PRIMARY KEY,
     name VARCHAR(40) NOT NULL,
+    login VARCHAR(40) NOT NULL,
+    password_hash VARCHAR(40) NOT NULL,
+    home_point GEOMETRY,
     rating INTEGER
 );
 
@@ -45,9 +48,18 @@ CREATE TABLE marks (
     CONSTRAINT fk_district FOREIGN KEY (district_id) REFERENCES districts(district_id)
 );
 
+CREATE TABLE task_statuses (
+    status_id SERIAL PRIMARY KEY,
+    name VARCHAR(40) NOT NULL
+);
+
 CREATE TABLE tasks (
     task_id SERIAL PRIMARY KEY,
     name VARCHAR(40) NOT NULL,
-    user_id INTEGER,
-    CONSTRAINT fk_user_task FOREIGN KEY (task_id) REFERENCES users(user_id)
+    user_id INTEGER NOT NULL,
+    mark_id INTEGER NOT NULL,
+    status_id INTEGER NOT NULL,
+    CONSTRAINT fk_user_task FOREIGN KEY (user_id) REFERENCES users(user_id),
+    CONSTRAINT fk_task_mark FOREIGN KEY (mark_id) REFERENCES marks(mark_id),
+    CONSTRAINT fk_task_status FOREIGN KEY(status_id) REFERENCES task_statuses(status_id)
 );
