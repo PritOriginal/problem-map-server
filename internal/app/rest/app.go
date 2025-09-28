@@ -34,11 +34,11 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	router := handler.GetRoute(log, postgresDB.DB)
 
 	server := &http.Server{
-		Addr:         cfg.Server.Host + ":" + strconv.Itoa(cfg.Server.Port),
+		Addr:         cfg.REST.Host + ":" + strconv.Itoa(cfg.REST.Port),
 		Handler:      router,
-		ReadTimeout:  cfg.Server.Timeout.Read,
-		WriteTimeout: cfg.Server.Timeout.Write,
-		IdleTimeout:  cfg.Server.Timeout.Idle,
+		ReadTimeout:  cfg.REST.Timeout.Read,
+		WriteTimeout: cfg.REST.Timeout.Write,
+		IdleTimeout:  cfg.REST.Timeout.Idle,
 	}
 
 	return &App{
@@ -46,7 +46,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		log:    log,
 		db:     postgresDB,
 		router: router,
-		port:   cfg.Server.Port,
+		port:   cfg.REST.Port,
 	}
 }
 

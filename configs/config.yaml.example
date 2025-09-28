@@ -1,9 +1,8 @@
 env: local
-server:
+rest:
   host: 127.0.0.1
   port: 3333
   timeout:
-    server: 30s
     read: 15s
     write: 10s
     idle: 5s

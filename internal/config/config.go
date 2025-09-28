@@ -10,22 +10,21 @@ import (
 )
 
 type Config struct {
-	Env    logger.Environment `yaml:"env" env:"ENV" env-default:"local"`
-	Server ServerConfig       `yaml:"server"`
-	GRPC   GRPCConfig         `yaml:"grpc"`
-	DB     DatabaseConfig     `yaml:"db"`
-	Redis  RedisConfig        `yaml:"redis"`
-	Aws    AwsConfig          `yaml:"aws"`
+	Env   logger.Environment `yaml:"env" env:"ENV" env-default:"local"`
+	REST  RESTConfig         `yaml:"rest"`
+	GRPC  GRPCConfig         `yaml:"grpc"`
+	DB    DatabaseConfig     `yaml:"db"`
+	Redis RedisConfig        `yaml:"redis"`
+	Aws   AwsConfig          `yaml:"aws"`
 }
 
-type ServerConfig struct {
-	Host    string `yaml:"host" env:"SERVER_HOST"`
-	Port    int    `yaml:"port" env:"SERVER_PORT"`
+type RESTConfig struct {
+	Host    string `yaml:"host" env:"REST_HOST"`
+	Port    int    `yaml:"port" env:"REST_PORT"`
 	Timeout struct {
-		Server time.Duration `yaml:"server" env:"SERVER_TIMEOUT_SERVER"`
-		Write  time.Duration `yaml:"write" env:"SERVER_TIMEOUT_WRITE"`
-		Read   time.Duration `yaml:"read" env:"SERVER_TIMEOUT_READ"`
-		Idle   time.Duration `yaml:"idle" env:"SERVER_TIMEOUT_IDLE"`
+		Write time.Duration `yaml:"write" env:"REST_TIMEOUT_WRITE"`
+		Read  time.Duration `yaml:"read" env:"REST_TIMEOUT_READ"`
+		Idle  time.Duration `yaml:"idle" env:"REST_TIMEOUT_IDLE"`
 	} `yaml:"timeout"`
 }
 
