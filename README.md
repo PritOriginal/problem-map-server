@@ -6,6 +6,12 @@
 
 > Этот проект находится в стадии активной разработки, и на данный момент в нём ещё много чего не реализовано, поэтому не исключены ошибки.
 
+### Работа с геоданными
+
+Для работы с геоданными и PostGIS были написаны структуры-обёртки для пакета [github.com/twpayne/go-geom](https://github.com/twpayne/go-geom). 
+
+А именно пакеты [ewkb](https://github.com/twpayne/go-geom) и [geojson](github.com/twpayne/go-geom/encoding/geojson).
+
 ## Подготовка
 
 ### Для локального запуска
