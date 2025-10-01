@@ -8,7 +8,7 @@
 
 ### Работа с геоданными
 
-Для работы с геоданными и PostGIS были написаны структуры-обёртки для пакета [github.com/twpayne/go-geom](https://github.com/twpayne/go-geom). 
+Для работы с геоданными и PostGIS были написаны структуры-обёртки для пакета [github.com/twpayne/go-geom](https://github.com/twpayne/go-geom).
 
 А именно для пакетов [ewkb](https://github.com/twpayne/go-geom) и [geojson](github.com/twpayne/go-geom/encoding/geojson).
 
@@ -54,6 +54,18 @@ Docker:
 
 ```bash
 make docker-grpc
+```
+
+## Тесты
+
+```bash
+make test
+```
+
+или
+
+```bash
+make test-cover
 ```
 
 ## Миграции
