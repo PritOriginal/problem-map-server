@@ -14,16 +14,7 @@ import (
 func main() {
 	cfg := config.MustLoad()
 
-	var logFIle *os.File
-	if cfg.Env != slogger.Local {
-		logFIle, err := os.OpenFile("log.txt", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-		if err != nil {
-			log.Fatalf("error opening file: %v", err)
-		}
-		defer logFIle.Close()
-	}
-
-	logger, err := slogger.SetupLogger(cfg.Env, logFIle)
+	logger, err := slogger.SetupLogger(cfg.Env)
 	if err != nil {
 		log.Fatalf("error init logger: %v", err)
 	}
