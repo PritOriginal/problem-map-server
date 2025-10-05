@@ -2,6 +2,7 @@ package logger
 
 import (
 	"errors"
+	"io"
 	"log/slog"
 	"os"
 
@@ -23,15 +24,19 @@ func Err(err error) slog.Attr {
 	}
 }
 
-func SetupLogger(env Environment, logFIle *os.File) (*slog.Logger, error) {
+func SetupLogger(env Environment) (*slog.Logger, error) {
+	return SetupLoggerWithWriter(env, os.Stdout)
+}
+
+func SetupLoggerWithWriter(env Environment, out io.Writer) (*slog.Logger, error) {
 	var logger *slog.Logger
 	switch env {
 	case Local:
-		logger = slog.New(prettylog.NewPrettyHandler(os.Stdout, prettylog.PrettyHandlerOptions{SlogOpts: slog.HandlerOptions{Level: slog.LevelDebug}}))
+		logger = slog.New(prettylog.NewPrettyHandler(out, prettylog.PrettyHandlerOptions{SlogOpts: slog.HandlerOptions{Level: slog.LevelDebug}}))
 	case Dev:
-		logger = slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+		logger = slog.New(slog.NewJSONHandler(out, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	case Prod:
-		logger = slog.New(slog.NewJSONHandler(logFIle, &slog.HandlerOptions{Level: slog.LevelInfo, AddSource: true}))
+		logger = slog.New(slog.NewJSONHandler(out, &slog.HandlerOptions{Level: slog.LevelInfo, AddSource: true}))
 	default:
 		return logger, errors.New("invalid name environment")
 	}
