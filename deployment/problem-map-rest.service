@@ -1,0 +1,15 @@
+[Unit]
+Description=API Server
+After=network.target
+
+[Service]
+User=root
+Group=root
+WorkingDirectory=/root/apps/cryptolabs-back
+ExecStart=/root/apps/cryptolabs-back/server-rest --config=./configs/config.yaml
+Restart=always
+RestartSec=4
+StandardOutput=inherit
+
+[Install]
+WantedBy=multi-user.target
