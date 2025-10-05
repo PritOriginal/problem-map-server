@@ -1,0 +1,62 @@
+name: Deployment Workflow
+on:
+  push:
+    branches: [ "main" ]
+    
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4  
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '>=1.23.0'
+      
+      - name: Start tests
+        run: |
+          go test ./...
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: tests
+    env:
+      HOST: ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4  
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '>=1.23.0'
+      
+      - name: Build app
+        run: |
+          go mod download
+          go build -o server-rest ./cmd/rest
+
+      - name: Deploy to VM
+        run: |
+          sudo apt-get install -y ssh rsync
+          echo "$DEPLOY_SSH_KEY" > deploy_key.pem
+          chmod 600 deploy_key.pem
+          ssh -i deploy_key.pem -o StrictHostKeyChecking=no ${{ env.HOST }} "mkdir -p ${{ vars.DEPLOY_DIRECTORY }}"
+          rsync -avz -e 'ssh -i deploy_key.pem -o StrictHostKeyChecking=no' --exclude='.git' ./ ${{ env.HOST }}:${{ vars.DEPLOY_DIRECTORY }}
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: Remove old systemd service file
+        run: |
+          ssh -i deploy_key.pem -o StrictHostKeyChecking=no ${{ env.HOST }} "rm -f /etc/systemd/system/problem-map-rest.service"
+      
+      - name: Copy systemd service file
+        run: |
+          scp -i deploy_key.pem -o StrictHostKeyChecking=no ${{ github.workspace }}/deployment/problem-map-rest.service ${{ env.HOST }}:/tmp/problem-map-rest.service
+          ssh -i deploy_key.pem -o StrictHostKeyChecking=no ${{ env.HOST }} "mv /tmp/problem-map-rest.service /etc/systemd/system/problem-map-rest.service"
+
+      - name: Start application
+        run: |
+          ssh -i deploy_key.pem -o StrictHostKeyChecking=no ${{ env.HOST }} "systemctl daemon-reload && systemctl restart problem-map-rest.service"
