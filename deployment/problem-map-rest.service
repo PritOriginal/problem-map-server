@@ -6,7 +6,7 @@ After=network.target
 User=root
 Group=root
 WorkingDirectory=/root/apps/cryptolabs-back
-ExecStart=/root/apps/cryptolabs-back/server-rest --config=./configs/config.yaml
+ExecStart=/root/apps/problem-map-server/server-rest --config=./configs/config.yaml
 Restart=always
 RestartSec=4
 StandardOutput=inherit
