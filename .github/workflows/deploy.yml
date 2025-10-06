@@ -63,7 +63,7 @@ jobs:
 
       - name: Run migrations
         run: |
-          ssh -i deploy_key.pem -o StrictHostKeyChecking=no ${{ env.HOST }} "${{ vars.DEPLOY_DIRECTORY }}/migrator --migrations-path=${{ vars.DEPLOY_DIRECTORY }}/migrations --config=${{ env.DEPLOY_DIRECTORY }}/configs/config.yaml"
+          ssh -i deploy_key.pem -o StrictHostKeyChecking=no ${{ env.HOST }} "${{ vars.DEPLOY_DIRECTORY }}/migrator --migrations-path=${{ vars.DEPLOY_DIRECTORY }}/migrations --config=${{ vars.DEPLOY_DIRECTORY }}/configs/config.yaml"
 
       - name: Start application
         run: |
