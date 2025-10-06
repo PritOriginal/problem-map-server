@@ -38,6 +38,10 @@ jobs:
           go mod download
           go build -o server-rest ./cmd/rest
 
+      - name: Build migrator
+        run: |
+          go build -o migrator ./cmd/migrator
+
       - name: Deploy to VM
         run: |
           sudo apt-get install -y ssh rsync
@@ -56,6 +60,10 @@ jobs:
         run: |
           scp -i deploy_key.pem -o StrictHostKeyChecking=no ${{ github.workspace }}/deployment/problem-map-rest.service ${{ env.HOST }}:/tmp/problem-map-rest.service
           ssh -i deploy_key.pem -o StrictHostKeyChecking=no ${{ env.HOST }} "mv /tmp/problem-map-rest.service /etc/systemd/system/problem-map-rest.service"
+
+      - name: Run migrations
+        run: |
+          ssh -i deploy_key.pem -o StrictHostKeyChecking=no ${{ env.HOST }} "${{ env.DEPLOY_DIRECTORY }}/migrator --migrations-path=${{ env.DEPLOY_DIRECTORY }}/migrations --config=${{ env.DEPLOY_DIRECTORY }}/configs/config.yaml"
 
       - name: Start application
         run: |
