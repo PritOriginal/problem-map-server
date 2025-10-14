@@ -4,8 +4,8 @@
 
 В даннои репозитории представлены наработки Golang REST API и gRPC серверов дипломной работы по теме "Разработка информационного обеспечения системы анализа и визуализации проблемных мест города".
 
-[problem-map.pritoriginal.ru](https://problem-map.pritoriginal.ru/) - сайт, на котором можно посмотреть визуализацию. 
-`(Находится в актиной разработке)`
+[problem-map.pritoriginal.ru](https://problem-map.pritoriginal.ru/) - сайт, на котором можно посмотреть визуализацию.
+`(Находится в активной разработке)`
 
 [problem-map-react](https://github.com/PritOriginal/problem-map-react) - репозиторий фронта.
 
