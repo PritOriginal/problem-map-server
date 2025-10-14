@@ -25,7 +25,7 @@ func NewUsers(conn *sqlx.DB) *UsersRepo {
 }
 
 func (r *UsersRepo) GetUserById(ctx context.Context, id int) (models.User, error) {
-	const op = "storage.db.GetUserById"
+	const op = "storage.postgres.GetUserById"
 
 	var user models.User
 
@@ -43,7 +43,7 @@ func (r *UsersRepo) GetUserById(ctx context.Context, id int) (models.User, error
 }
 
 func (r *UsersRepo) GetUsers(ctx context.Context) ([]models.User, error) {
-	const op = "storage.db.GetUsers"
+	const op = "storage.postgres.GetUsers"
 
 	users := make([]models.User, 0)
 
@@ -56,7 +56,7 @@ func (r *UsersRepo) GetUsers(ctx context.Context) ([]models.User, error) {
 }
 
 func (r *UsersRepo) AddUser(ctx context.Context, user models.User) (int64, error) {
-	const op = "storage.db.AddUser"
+	const op = "storage.postgres.AddUser"
 
 	result, err := r.Conn.NamedExecContext(ctx, "INSERT INTO users (name) VALUES (:name)", user)
 	if err != nil {

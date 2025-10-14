@@ -25,7 +25,7 @@ func NewMap(conn *sqlx.DB) *MapRepo {
 }
 
 func (repo *MapRepo) GetRegions(ctx context.Context) ([]models.Region, error) {
-	const op = "storage.db.GetRegions"
+	const op = "storage.postgres.GetRegions"
 
 	var regions []models.Region
 
@@ -38,7 +38,7 @@ func (repo *MapRepo) GetRegions(ctx context.Context) ([]models.Region, error) {
 }
 
 func (repo *MapRepo) GetCities(ctx context.Context) ([]models.City, error) {
-	const op = "storage.db.GetCities"
+	const op = "storage.postgres.GetCities"
 
 	var cities []models.City
 
@@ -51,7 +51,7 @@ func (repo *MapRepo) GetCities(ctx context.Context) ([]models.City, error) {
 }
 
 func (repo *MapRepo) GetDistricts(ctx context.Context) ([]models.District, error) {
-	const op = "storage.db.GetDistricts"
+	const op = "storage.postgres.GetDistricts"
 
 	var districts []models.District
 
@@ -64,7 +64,7 @@ func (repo *MapRepo) GetDistricts(ctx context.Context) ([]models.District, error
 }
 
 func (repo *MapRepo) GetMarks(ctx context.Context) ([]models.Mark, error) {
-	const op = "storage.db.GetMarks"
+	const op = "storage.postgres.GetMarks"
 
 	var marks []models.Mark
 
@@ -79,7 +79,7 @@ func (repo *MapRepo) GetMarks(ctx context.Context) ([]models.Mark, error) {
 }
 
 func (repo *MapRepo) AddMark(ctx context.Context, mark models.Mark) error {
-	const op = "storage.db.GetMarks"
+	const op = "storage.postgres.GetMarks"
 
 	query := `INSERT INTO 
 				marks (name, geom, type_mark_id, user_id, district_id, number_votes, number_checks) 
