@@ -1,14 +1,12 @@
-package handler
+package usersrest
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 	"strconv"
 
-	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
@@ -16,16 +14,46 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type UsersHandler struct {
+type SignUpRequest struct {
+	Name     string `json:"name"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type SignInRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type SignInResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+type RefreshTokensRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+type RefreshTokensResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+type handler struct {
 	handlers.BaseHandler
 	uc usecase.Users
 }
 
-func NewUsers(log *slog.Logger, uc usecase.Users) *UsersHandler {
-	return &UsersHandler{handlers.BaseHandler{Log: log}, uc}
+func Register(r *chi.Mux, log *slog.Logger, uc usecase.Users) {
+	handler := &handler{handlers.BaseHandler{Log: log}, uc}
+
+	r.Route("/users", func(r chi.Router) {
+		r.Get("/", handler.GetUsers())
+		r.Get("/{id}", handler.GetUserById())
+	})
 }
 
-func (h *UsersHandler) GetUserById() http.HandlerFunc {
+func (h *handler) GetUserById() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.Atoi(chi.URLParam(r, "id"))
 		if err != nil {
@@ -50,7 +78,7 @@ func (h *UsersHandler) GetUserById() http.HandlerFunc {
 	}
 }
 
-func (h *UsersHandler) GetUsers() http.HandlerFunc {
+func (h *handler) GetUsers() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		users, err := h.uc.GetUsers(context.Background())
 		if err != nil {
@@ -58,26 +86,5 @@ func (h *UsersHandler) GetUsers() http.HandlerFunc {
 			return
 		}
 		h.Render(w, r, responses.SucceededRenderer(users))
-	}
-}
-
-func (h *UsersHandler) AddUser() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var user models.User
-		if err := json.NewDecoder(r.Body).Decode(&user); err != nil {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "failed decode request body", Err: err},
-				responses.ErrBadRequest,
-			)
-			return
-		}
-
-		_, err := h.uc.AddUser(context.Background(), user)
-		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "failed add user", Err: err})
-			return
-		}
-
-		h.Render(w, r, responses.SucceededResponseOK)
 	}
 }

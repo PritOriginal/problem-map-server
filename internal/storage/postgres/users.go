@@ -12,6 +12,7 @@ import (
 
 type UsersRepository interface {
 	GetUserById(ctx context.Context, id int) (models.User, error)
+	GetUserByUsername(ctx context.Context, username string) (models.User, error)
 	GetUsers(ctx context.Context) ([]models.User, error)
 	AddUser(ctx context.Context, user models.User) (int64, error)
 }
@@ -42,6 +43,17 @@ func (r *UsersRepo) GetUserById(ctx context.Context, id int) (models.User, error
 	return user, nil
 }
 
+func (r *UsersRepo) GetUserByUsername(ctx context.Context, username string) (models.User, error) {
+	const op = "storage.postgres.GetUserByUsername"
+
+	var user models.User
+	if err := r.Conn.GetContext(ctx, &user, "SELECT * FROM users WHERE username = ?", username); err != nil {
+		return user, fmt.Errorf("%s: %w", op, storage.ErrNotFound)
+	}
+	return user, nil
+
+}
+
 func (r *UsersRepo) GetUsers(ctx context.Context) ([]models.User, error) {
 	const op = "storage.postgres.GetUsers"
 
@@ -58,7 +70,7 @@ func (r *UsersRepo) GetUsers(ctx context.Context) ([]models.User, error) {
 func (r *UsersRepo) AddUser(ctx context.Context, user models.User) (int64, error) {
 	const op = "storage.postgres.AddUser"
 
-	result, err := r.Conn.NamedExecContext(ctx, "INSERT INTO users (name) VALUES (:name)", user)
+	result, err := r.Conn.NamedExecContext(ctx, "INSERT INTO users (name, login, password_hash) VALUES (:name, :login, :password_hash)", user)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}

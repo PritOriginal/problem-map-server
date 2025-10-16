@@ -1,4 +1,4 @@
-package handler
+package maprest
 
 import (
 	"bytes"
@@ -12,62 +12,96 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
+	"github.com/go-chi/chi/v5"
 )
 
-type MapHandler struct {
+type GetRegionsResponse struct {
+	Regions []models.Region `json:"regions"`
+}
+
+type GetCitiesResponse struct {
+	Cities []models.City `json:"cities"`
+}
+
+type GetDistrictsResponse struct {
+	Districts []models.District `json:"districts"`
+}
+
+type GetMarksResponse struct {
+	Marks []models.Mark `json:"marks"`
+}
+
+type handler struct {
 	handlers.BaseHandler
 	uc usecase.Map
 }
 
-func NewMap(log *slog.Logger, uc usecase.Map) *MapHandler {
-	return &MapHandler{handlers.BaseHandler{Log: log}, uc}
+func Register(r *chi.Mux, log *slog.Logger, uc usecase.Map) {
+	handler := &handler{handlers.BaseHandler{Log: log}, uc}
+
+	r.Route("/map", func(r chi.Router) {
+		r.Get("/regions", handler.GetRegions())
+		r.Get("/cities", handler.GetCities())
+		r.Get("/districts", handler.GetDistricts())
+		r.Get("/marks", handler.GetMarks())
+		r.Post("/marks", handler.AddMark())
+		r.Post("/photos", handler.AddPhotos())
+	})
 }
 
-func (h *MapHandler) GetRegions() http.HandlerFunc {
+func (h *handler) GetRegions() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		regions, err := h.uc.GetRegions(context.Background())
 		if err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get regions", Err: err})
 			return
 		}
-		h.Render(w, r, responses.SucceededRenderer(regions))
+		h.Render(w, r, responses.SucceededRenderer(GetRegionsResponse{
+			Regions: regions,
+		}))
 	}
 }
 
-func (h *MapHandler) GetCities() http.HandlerFunc {
+func (h *handler) GetCities() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cities, err := h.uc.GetCities(context.Background())
 		if err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get cities", Err: err})
 			return
 		}
-		h.Render(w, r, responses.SucceededRenderer(cities))
+		h.Render(w, r, responses.SucceededRenderer(GetCitiesResponse{
+			Cities: cities,
+		}))
 	}
 }
 
-func (h *MapHandler) GetDistricts() http.HandlerFunc {
+func (h *handler) GetDistricts() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		districts, err := h.uc.GetDistricts(context.Background())
 		if err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get districts", Err: err})
 			return
 		}
-		h.Render(w, r, responses.SucceededRenderer(districts))
+		h.Render(w, r, responses.SucceededRenderer(GetDistrictsResponse{
+			Districts: districts,
+		}))
 	}
 }
 
-func (h *MapHandler) GetMarks() http.HandlerFunc {
+func (h *handler) GetMarks() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		marks, err := h.uc.GetMarks(context.Background())
 		if err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get marks", Err: err})
 			return
 		}
-		h.Render(w, r, responses.SucceededRenderer(marks))
+		h.Render(w, r, responses.SucceededRenderer(GetMarksResponse{
+			Marks: marks,
+		}))
 	}
 }
 
-func (h *MapHandler) AddMark() http.HandlerFunc {
+func (h *handler) AddMark() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		err := r.ParseMultipartForm(32 << 10) // 32 MB
 		if err != nil {
@@ -103,7 +137,7 @@ func (h *MapHandler) AddMark() http.HandlerFunc {
 	}
 }
 
-func (h *MapHandler) AddPhotos() http.HandlerFunc {
+func (h *handler) AddPhotos() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		err := r.ParseMultipartForm(32 << 10) // 32 MB
 		if err != nil {

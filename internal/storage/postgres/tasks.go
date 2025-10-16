@@ -26,7 +26,7 @@ func NewTasks(conn *sqlx.DB) *TasksRepo {
 }
 
 func (r *TasksRepo) GetTasks(ctx context.Context) ([]models.Task, error) {
-	const op = "storage.db.GetTasks"
+	const op = "storage.postgres.GetTasks"
 
 	tasks := make([]models.Task, 0)
 
@@ -39,7 +39,7 @@ func (r *TasksRepo) GetTasks(ctx context.Context) ([]models.Task, error) {
 }
 
 func (r *TasksRepo) GetTaskById(ctx context.Context, id int) (models.Task, error) {
-	const op = "storage.db.GetTaskById"
+	const op = "storage.postgres.GetTaskById"
 
 	var task models.Task
 
@@ -57,7 +57,7 @@ func (r *TasksRepo) GetTaskById(ctx context.Context, id int) (models.Task, error
 }
 
 func (r *TasksRepo) GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error) {
-	const op = "storage.db.GetTasksByUserId"
+	const op = "storage.postgres.GetTasksByUserId"
 
 	var tasks []models.Task
 
@@ -74,7 +74,7 @@ func (r *TasksRepo) GetTasksByUserId(ctx context.Context, userId int) ([]models.
 	return tasks, nil
 }
 func (r *TasksRepo) AddTask(ctx context.Context, task models.Task) (int64, error) {
-	const op = "storage.db.AddTask"
+	const op = "storage.postgres.AddTask"
 
 	result, err := r.Conn.NamedExecContext(ctx, "INSERT INTO tasks (name, user_id) VALUES (:name, :user_id)", task)
 	if err != nil {

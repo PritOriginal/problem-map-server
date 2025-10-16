@@ -1,4 +1,4 @@
-package handler
+package tasksrest
 
 import (
 	"context"
@@ -16,27 +16,48 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type TasksHandler struct {
+type GetTasksResponse struct {
+	Tasks []models.Task `json:"tasks"`
+}
+
+type GetTaskByIdResponse struct {
+	Task models.Task `json:"task"`
+}
+
+type GetTasksByUserId struct {
+	Tasks []models.Task `json:"tasks"`
+}
+
+type handler struct {
 	handlers.BaseHandler
 	uc usecase.Tasks
 }
 
-func NewTasks(log *slog.Logger, uc usecase.Tasks) *TasksHandler {
-	return &TasksHandler{handlers.BaseHandler{Log: log}, uc}
+func Register(r *chi.Mux, log *slog.Logger, uc usecase.Tasks) {
+	handler := &handler{handlers.BaseHandler{Log: log}, uc}
+
+	r.Route("/tasks", func(r chi.Router) {
+		r.Get("/", handler.GetTasks())
+		r.Get("/{id}", handler.GetTaskById())
+		r.Get("/user/{id}", handler.GetTasksByUserId())
+		r.Post("/", handler.AddTask())
+	})
 }
 
-func (h *TasksHandler) GetTasks() http.HandlerFunc {
+func (h *handler) GetTasks() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tasks, err := h.uc.GetTasks(context.Background())
 		if err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get tasks", Err: err})
 			return
 		}
-		h.Render(w, r, responses.SucceededRenderer(tasks))
+		h.Render(w, r, responses.SucceededRenderer(GetTasksResponse{
+			Tasks: tasks,
+		}))
 	}
 }
 
-func (h *TasksHandler) GetTaskById() http.HandlerFunc {
+func (h *handler) GetTaskById() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.Atoi(chi.URLParam(r, "id"))
 		if err != nil {
@@ -57,11 +78,13 @@ func (h *TasksHandler) GetTaskById() http.HandlerFunc {
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(task))
+		h.Render(w, r, responses.SucceededRenderer(GetTaskByIdResponse{
+			Task: task,
+		}))
 	}
 }
 
-func (h *TasksHandler) GetTasksByUserId() http.HandlerFunc {
+func (h *handler) GetTasksByUserId() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userId, err := strconv.Atoi(chi.URLParam(r, "id"))
 		if err != nil {
@@ -82,11 +105,13 @@ func (h *TasksHandler) GetTasksByUserId() http.HandlerFunc {
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(tasks))
+		h.Render(w, r, responses.SucceededRenderer(GetTasksByUserId{
+			Tasks: tasks,
+		}))
 	}
 }
 
-func (h *TasksHandler) AddTask() http.HandlerFunc {
+func (h *handler) AddTask() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var task models.Task
 		if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
