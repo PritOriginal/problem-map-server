@@ -44,7 +44,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	maprest.Register(router, log, mapUseCase)
 
 	usersRepo := postgres.NewUsers(postgresDB.DB)
-	usersUseCase := usecase.NewUsers(usersRepo, cfg.Auth)
+	usersUseCase := usecase.NewUsers(usersRepo)
 	usersrest.Register(router, log, usersUseCase)
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB)
