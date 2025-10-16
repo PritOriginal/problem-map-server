@@ -3,9 +3,12 @@ package models
 import pb "github.com/PritOriginal/problem-map-protos/gen/go"
 
 type User struct {
-	Id     int    `json:"user_id" db:"user_id"`
-	Name   string `json:"name" db:"name"`
-	Rating int    `json:"rating" db:"rating"`
+	Id           int    `json:"user_id" db:"user_id"`
+	Name         string `json:"name" db:"name"`
+	Username     string `json:"username" db:"login"`
+	PasswordHash string `json:"-" db:"password_hash"`
+	HomePoint    Point  `json:"home_point" db:"home_point"`
+	Rating       int    `json:"rating" db:"rating"`
 }
 
 func (u *User) MarshalProtobuf() *pb.User {
@@ -17,9 +20,11 @@ func (u *User) MarshalProtobuf() *pb.User {
 }
 
 type Task struct {
-	ID     int    `json:"task_id" db:"task_id"`
-	Name   string `json:"name"`
-	UserID int    `json:"user_id" db:"user_id"`
+	ID       int    `json:"task_id" db:"task_id"`
+	Name     string `json:"name" db:"name"`
+	UserID   int    `json:"user_id" db:"user_id"`
+	MarkID   int    `json:"mark_id" db:"mark_id"`
+	StatusID int    `json:"status_id" db:"status_id"`
 }
 
 func (t *Task) MarshalProtobuf() *pb.Task {
