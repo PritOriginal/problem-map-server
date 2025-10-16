@@ -70,7 +70,7 @@ func (r *UsersRepo) GetUsers(ctx context.Context) ([]models.User, error) {
 func (r *UsersRepo) AddUser(ctx context.Context, user models.User) (int64, error) {
 	const op = "storage.postgres.AddUser"
 
-	result, err := r.Conn.NamedExecContext(ctx, "INSERT INTO users (name) VALUES (:name)", user)
+	result, err := r.Conn.NamedExecContext(ctx, "INSERT INTO users (name, login, password_hash) VALUES (:name, :login, :password_hash)", user)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
