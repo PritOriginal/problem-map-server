@@ -10,7 +10,12 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/handler"
+	maprest "github.com/PritOriginal/problem-map-server/internal/handler/map"
+	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
+	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
+	"github.com/PritOriginal/problem-map-server/internal/storage/local"
 	"github.com/PritOriginal/problem-map-server/internal/storage/postgres"
+	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/go-chi/chi/v5"
 )
@@ -31,7 +36,20 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	}
 	log.Info("PostgreSQL connected!")
 
-	router := handler.GetRoute(log, postgresDB.DB)
+	router := handler.GetRouter(log)
+
+	mapRepo := postgres.NewMap(postgresDB.DB)
+	photoRepo := local.NewPhotos()
+	mapUseCase := usecase.NewMap(log, mapRepo, photoRepo)
+	maprest.Register(router, log, mapUseCase)
+
+	usersRepo := postgres.NewUsers(postgresDB.DB)
+	usersUseCase := usecase.NewUsers(usersRepo, cfg.Auth)
+	usersrest.Register(router, log, usersUseCase)
+
+	tasksRepo := postgres.NewTasks(postgresDB.DB)
+	taksUseCase := usecase.NewTasks(tasksRepo)
+	tasksrest.Register(router, log, taksUseCase)
 
 	server := &http.Server{
 		Addr:         cfg.REST.Host + ":" + strconv.Itoa(cfg.REST.Port),
