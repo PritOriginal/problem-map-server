@@ -12,6 +12,7 @@ import (
 
 type UsersRepository interface {
 	GetUserById(ctx context.Context, id int) (models.User, error)
+	GetUserByUsername(ctx context.Context, username string) (models.User, error)
 	GetUsers(ctx context.Context) ([]models.User, error)
 	AddUser(ctx context.Context, user models.User) (int64, error)
 }
@@ -40,6 +41,17 @@ func (r *UsersRepo) GetUserById(ctx context.Context, id int) (models.User, error
 	}
 
 	return user, nil
+}
+
+func (r *UsersRepo) GetUserByUsername(ctx context.Context, username string) (models.User, error) {
+	const op = "storage.postgres.GetUserByUsername"
+
+	var user models.User
+	if err := r.Conn.GetContext(ctx, &user, "SELECT * FROM users WHERE username = ?", username); err != nil {
+		return user, fmt.Errorf("%s: %w", op, storage.ErrNotFound)
+	}
+	return user, nil
+
 }
 
 func (r *UsersRepo) GetUsers(ctx context.Context) ([]models.User, error) {
