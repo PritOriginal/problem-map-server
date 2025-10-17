@@ -5,19 +5,23 @@ import (
 
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+type Users interface {
+	GetUserById(ctx context.Context, id int) (models.User, error)
+	GetUsers(ctx context.Context) ([]models.User, error)
+}
+
 type server struct {
-	users usecase.Users
+	users Users
 	pb.UnimplementedUsersServer
 }
 
-func Register(gRPCServer *grpc.Server, users usecase.Users) {
+func Register(gRPCServer *grpc.Server, users Users) {
 	pb.RegisterUsersServer(gRPCServer, &server{users: users})
 }
 

@@ -5,19 +5,33 @@ import (
 	"fmt"
 
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
-	"github.com/PritOriginal/problem-map-server/internal/usecase"
+	"github.com/PritOriginal/problem-map-server/internal/models"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+type Map interface {
+	GetRegions(ctx context.Context) ([]models.Region, error)
+	GetCities(ctx context.Context) ([]models.City, error)
+	GetDistricts(ctx context.Context) ([]models.District, error)
+	GetMarks(ctx context.Context) ([]models.Mark, error)
+	AddMark(ctx context.Context, mark models.Mark) error
+	PhotosRepository
+}
+
+type PhotosRepository interface {
+	AddPhotos(photos [][]byte) error
+	GetPhotos() error
+}
+
 type server struct {
-	uc usecase.Map
+	uc Map
 	pb.UnimplementedMapServer
 }
 
-func Register(gRPCServer *grpc.Server, uc usecase.Map) {
+func Register(gRPCServer *grpc.Server, uc Map) {
 	pb.RegisterMapServer(gRPCServer, &server{uc: uc})
 }
 
