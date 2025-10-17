@@ -10,6 +10,7 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/handler"
+	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
 	maprest "github.com/PritOriginal/problem-map-server/internal/handler/map"
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
@@ -18,6 +19,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/jwtauth/v5"
 )
 
 type App struct {
@@ -36,16 +38,21 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	}
 	log.Info("PostgreSQL connected!")
 
+	accessAuth := jwtauth.New("HS256", []byte(cfg.Auth.JWT.Access.Key), nil)
+
 	router := handler.GetRouter(log)
 
 	mapRepo := postgres.NewMap(postgresDB.DB)
 	photoRepo := local.NewPhotos()
 	mapUseCase := usecase.NewMap(log, mapRepo, photoRepo)
-	maprest.Register(router, log, mapUseCase)
+	maprest.Register(router, accessAuth, log, mapUseCase)
 
 	usersRepo := postgres.NewUsers(postgresDB.DB)
 	usersUseCase := usecase.NewUsers(usersRepo)
 	usersrest.Register(router, log, usersUseCase)
+
+	authUseCase := usecase.NewAuth(usersRepo, cfg.Auth)
+	authrest.Register(router, log, authUseCase)
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB)
 	taksUseCase := usecase.NewTasks(tasksRepo)

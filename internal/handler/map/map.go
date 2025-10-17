@@ -12,6 +12,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/jwtauth/v5"
 )
 
 type GetRegionsResponse struct {
@@ -57,8 +58,12 @@ func Register(r *chi.Mux, auth *jwtauth.JWTAuth, log *slog.Logger, uc Map) {
 		r.Get("/cities", handler.GetCities())
 		r.Get("/districts", handler.GetDistricts())
 		r.Get("/marks", handler.GetMarks())
-		r.Post("/marks", handler.AddMark())
-		r.Post("/photos", handler.AddPhotos())
+		r.Group(func(r chi.Router) {
+			r.Use(jwtauth.Verifier(auth))
+			r.Use(jwtauth.Authenticator(auth))
+			r.Post("/marks", handler.AddMark())
+			r.Post("/photos", handler.AddPhotos())
+		})
 	})
 }
 
