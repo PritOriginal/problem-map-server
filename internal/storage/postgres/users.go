@@ -47,8 +47,13 @@ func (r *UsersRepo) GetUserByUsername(ctx context.Context, username string) (mod
 	const op = "storage.postgres.GetUserByUsername"
 
 	var user models.User
-	if err := r.Conn.GetContext(ctx, &user, "SELECT * FROM users WHERE username = ?", username); err != nil {
-		return user, fmt.Errorf("%s: %w", op, storage.ErrNotFound)
+	if err := r.Conn.GetContext(ctx, &user, "SELECT * FROM users WHERE login = $1", username); err != nil {
+		switch err {
+		case sql.ErrNoRows:
+			return user, storage.ErrNotFound
+		default:
+			return user, fmt.Errorf("%s: %w", op, err)
+		}
 	}
 	return user, nil
 
@@ -70,13 +75,14 @@ func (r *UsersRepo) GetUsers(ctx context.Context) ([]models.User, error) {
 func (r *UsersRepo) AddUser(ctx context.Context, user models.User) (int64, error) {
 	const op = "storage.postgres.AddUser"
 
-	result, err := r.Conn.NamedExecContext(ctx, "INSERT INTO users (name, login, password_hash) VALUES (:name, :login, :password_hash)", user)
+	var id int64
+
+	stmt, err := r.Conn.PrepareNamedContext(ctx, "INSERT INTO users (name, login, password_hash) VALUES (:name, :login, :password_hash) RETURNING user_id")
+
+	err = stmt.GetContext(ctx, &id, user)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
-	id, err := result.LastInsertId()
-	if err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
-	}
+
 	return id, nil
 }
