@@ -7,19 +7,24 @@ import (
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
-	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+type Tasks interface {
+	GetTasks(ctx context.Context) ([]models.Task, error)
+	GetTaskById(ctx context.Context, id int) (models.Task, error)
+	GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error)
+	AddTask(ctx context.Context, task models.Task) (int64, error)
+}
 type server struct {
-	tasks usecase.Tasks
+	tasks Tasks
 	pb.UnimplementedTasksServer
 }
 
-func Register(gRPCServer *grpc.Server, tasks usecase.Tasks) {
+func Register(gRPCServer *grpc.Server, tasks Tasks) {
 	pb.RegisterTasksServer(gRPCServer, &server{tasks: tasks})
 }
 

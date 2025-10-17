@@ -9,10 +9,10 @@ import (
 	"net/http"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/jwtauth/v5"
 )
 
 type GetRegionsResponse struct {
@@ -31,12 +31,26 @@ type GetMarksResponse struct {
 	Marks []models.Mark `json:"marks"`
 }
 
-type handler struct {
-	handlers.BaseHandler
-	uc usecase.Map
+type Map interface {
+	GetRegions(ctx context.Context) ([]models.Region, error)
+	GetCities(ctx context.Context) ([]models.City, error)
+	GetDistricts(ctx context.Context) ([]models.District, error)
+	GetMarks(ctx context.Context) ([]models.Mark, error)
+	AddMark(ctx context.Context, mark models.Mark) error
+	PhotosRepository
 }
 
-func Register(r *chi.Mux, log *slog.Logger, uc usecase.Map) {
+type PhotosRepository interface {
+	AddPhotos(photos [][]byte) error
+	GetPhotos() error
+}
+
+type handler struct {
+	handlers.BaseHandler
+	uc Map
+}
+
+func Register(r *chi.Mux, auth *jwtauth.JWTAuth, log *slog.Logger, uc Map) {
 	handler := &handler{handlers.BaseHandler{Log: log}, uc}
 
 	r.Route("/map", func(r chi.Router) {
@@ -44,8 +58,12 @@ func Register(r *chi.Mux, log *slog.Logger, uc usecase.Map) {
 		r.Get("/cities", handler.GetCities())
 		r.Get("/districts", handler.GetDistricts())
 		r.Get("/marks", handler.GetMarks())
-		r.Post("/marks", handler.AddMark())
-		r.Post("/photos", handler.AddPhotos())
+		r.Group(func(r chi.Router) {
+			r.Use(jwtauth.Verifier(auth))
+			r.Use(jwtauth.Authenticator(auth))
+			r.Post("/marks", handler.AddMark())
+			r.Post("/photos", handler.AddPhotos())
+		})
 	})
 }
 
