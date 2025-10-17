@@ -8,22 +8,15 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/storage/postgres"
 )
 
-type Tasks interface {
-	GetTasks(ctx context.Context) ([]models.Task, error)
-	GetTaskById(ctx context.Context, id int) (models.Task, error)
-	GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error)
-	AddTask(ctx context.Context, task models.Task) (int64, error)
-}
-
-type TasksUseCase struct {
+type Tasks struct {
 	tasksRepo postgres.TasksRepository
 }
 
-func NewTasks(tasksRepo postgres.TasksRepository) *TasksUseCase {
-	return &TasksUseCase{tasksRepo: tasksRepo}
+func NewTasks(tasksRepo postgres.TasksRepository) *Tasks {
+	return &Tasks{tasksRepo: tasksRepo}
 }
 
-func (uc *TasksUseCase) GetTasks(ctx context.Context) ([]models.Task, error) {
+func (uc *Tasks) GetTasks(ctx context.Context) ([]models.Task, error) {
 	const op = "usecase.Tasks.GetTasks"
 
 	tasks, err := uc.tasksRepo.GetTasks(ctx)
@@ -34,7 +27,7 @@ func (uc *TasksUseCase) GetTasks(ctx context.Context) ([]models.Task, error) {
 	return tasks, nil
 }
 
-func (uc *TasksUseCase) GetTaskById(ctx context.Context, id int) (models.Task, error) {
+func (uc *Tasks) GetTaskById(ctx context.Context, id int) (models.Task, error) {
 	const op = "usecase.Tasks.GetTaskById"
 
 	task, err := uc.tasksRepo.GetTaskById(ctx, id)
@@ -45,7 +38,7 @@ func (uc *TasksUseCase) GetTaskById(ctx context.Context, id int) (models.Task, e
 	return task, nil
 }
 
-func (uc *TasksUseCase) GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error) {
+func (uc *Tasks) GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error) {
 	const op = "usecase.Tasks.GetTasksByUserId"
 
 	tasks, err := uc.tasksRepo.GetTasksByUserId(ctx, userId)
@@ -56,7 +49,7 @@ func (uc *TasksUseCase) GetTasksByUserId(ctx context.Context, userId int) ([]mod
 	return tasks, nil
 }
 
-func (uc *TasksUseCase) AddTask(ctx context.Context, task models.Task) (int64, error) {
+func (uc *Tasks) AddTask(ctx context.Context, task models.Task) (int64, error) {
 	const op = "usecase.Tasks.AddTask"
 
 	id, err := uc.tasksRepo.AddTask(ctx, task)

@@ -27,7 +27,7 @@ func TestMapUseCase_GetRegions(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uc := &MapUseCase{
+			uc := &Map{
 				mapRepo: tt.fields.mapRepo,
 			}
 			got, err := uc.GetRegions(tt.args.ctx)
@@ -60,7 +60,7 @@ func TestMapUseCase_GetDistricts(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uc := &MapUseCase{
+			uc := &Map{
 				mapRepo: tt.fields.mapRepo,
 			}
 			got, err := uc.GetDistricts(tt.args.ctx)
@@ -93,7 +93,7 @@ func TestMapUseCase_GetMarks(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uc := &MapUseCase{
+			uc := &Map{
 				mapRepo: tt.fields.mapRepo,
 			}
 			got, err := uc.GetMarks(tt.args.ctx)
@@ -126,7 +126,7 @@ func TestMapUseCase_AddMark(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			uc := &MapUseCase{
+			uc := &Map{
 				mapRepo: tt.fields.mapRepo,
 			}
 			if err := uc.AddMark(tt.args.ctx, tt.args.mark); (err != nil) != tt.wantErr {
