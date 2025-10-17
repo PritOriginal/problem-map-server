@@ -25,23 +25,6 @@ func Register(gRPCServer *grpc.Server, users Users) {
 	pb.RegisterUsersServer(gRPCServer, &server{users: users})
 }
 
-func (s *server) AddUser(ctx context.Context, in *pb.AddUserRequest) (*pb.AddUserResponse, error) {
-	user := models.User{
-		Id:     int(in.GetUser().GetId()),
-		Name:   in.GetUser().GetName(),
-		Rating: int(in.GetUser().GetRating()),
-	}
-
-	id, err := s.users.AddUser(ctx, user)
-	if err != nil {
-		return nil, status.Error(codes.Internal, "error add user")
-	}
-
-	return &pb.AddUserResponse{
-		UserId: id,
-	}, nil
-}
-
 func (s *server) GetUserById(ctx context.Context, in *pb.GetUserByIdRequest) (*pb.GetUserByIdResponse, error) {
 	id := in.GetId()
 
