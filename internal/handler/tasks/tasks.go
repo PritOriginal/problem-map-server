@@ -10,7 +10,6 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
-	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/go-chi/chi/v5"
@@ -28,12 +27,19 @@ type GetTasksByUserId struct {
 	Tasks []models.Task `json:"tasks"`
 }
 
-type handler struct {
-	handlers.BaseHandler
-	uc usecase.Tasks
+type Tasks interface {
+	GetTasks(ctx context.Context) ([]models.Task, error)
+	GetTaskById(ctx context.Context, id int) (models.Task, error)
+	GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error)
+	AddTask(ctx context.Context, task models.Task) (int64, error)
 }
 
-func Register(r *chi.Mux, log *slog.Logger, uc usecase.Tasks) {
+type handler struct {
+	handlers.BaseHandler
+	uc Tasks
+}
+
+func Register(r *chi.Mux, log *slog.Logger, uc Tasks) {
 	handler := &handler{handlers.BaseHandler{Log: log}, uc}
 
 	r.Route("/tasks", func(r chi.Router) {
