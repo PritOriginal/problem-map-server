@@ -7,44 +7,24 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
-	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/go-chi/chi/v5"
 )
 
-type SignUpRequest struct {
-	Name     string `json:"name"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-type SignInRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
-}
-
-type SignInResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-}
-
-type RefreshTokensRequest struct {
-	RefreshToken string `json:"refresh_token"`
-}
-
-type RefreshTokensResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
+type Users interface {
+	GetUserById(ctx context.Context, id int) (models.User, error)
+	GetUsers(ctx context.Context) ([]models.User, error)
 }
 
 type handler struct {
 	handlers.BaseHandler
-	uc usecase.Users
+	uc Users
 }
 
-func Register(r *chi.Mux, log *slog.Logger, uc usecase.Users) {
+func Register(r *chi.Mux, log *slog.Logger, uc Users) {
 	handler := &handler{handlers.BaseHandler{Log: log}, uc}
 
 	r.Route("/users", func(r chi.Router) {

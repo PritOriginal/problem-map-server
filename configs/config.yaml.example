@@ -9,6 +9,14 @@ rest:
 grpc:
   port: 44044
   timeout: 5s
+auth:
+  jwt:
+    access:
+      key: qwer
+      expired_in: 12h
+    refresh:
+      key: 1234
+      expired_in: 24h
 db:
   host: 127.0.0.1
   port: 5432

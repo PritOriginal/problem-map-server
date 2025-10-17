@@ -13,6 +13,7 @@ type Config struct {
 	Env   logger.Environment `yaml:"env" env:"ENV" env-default:"local"`
 	REST  RESTConfig         `yaml:"rest"`
 	GRPC  GRPCConfig         `yaml:"grpc"`
+	Auth  AuthConfing        `yaml:"auth"`
 	DB    DatabaseConfig     `yaml:"db"`
 	Redis RedisConfig        `yaml:"redis"`
 	Aws   AwsConfig          `yaml:"aws"`
@@ -31,6 +32,19 @@ type RESTConfig struct {
 type GRPCConfig struct {
 	Port    int           `yaml:"port" env:"GRPC_PORT"`
 	Timeout time.Duration `yaml:"timeout" env:"GRPC_TIMEOUT"`
+}
+
+type AuthConfing struct {
+	JWT struct {
+		Access struct {
+			Key       string        `yaml:"key" env:"JWT_ACCESS_TOKEN_KEY"`
+			ExpiredIn time.Duration `yaml:"expired_in" env:"JWT_ACCESS_TOKEN_EXPIRED_IN"`
+		} `yaml:"access"`
+		Refresh struct {
+			Key       string        `yaml:"key" env:"JWT_REFRESH_TOKEN_KEY"`
+			ExpiredIn time.Duration `yaml:"expired_in" env:"JWT_REFRESH_TOKEN_EXPIRED_IN"`
+		} `yaml:"refresh"`
+	} `yaml:"jwt"`
 }
 
 type DatabaseConfig struct {
