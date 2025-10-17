@@ -8,21 +8,15 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/storage/postgres"
 )
 
-type Users interface {
-	GetUserById(ctx context.Context, id int) (models.User, error)
-	GetUsers(ctx context.Context) ([]models.User, error)
-	AddUser(ctx context.Context, user models.User) (int64, error)
-}
-
-type UsersUseCase struct {
+type Users struct {
 	usersRepo postgres.UsersRepository
 }
 
-func NewUsers(usersRepo postgres.UsersRepository) *UsersUseCase {
-	return &UsersUseCase{usersRepo: usersRepo}
+func NewUsers(usersRepo postgres.UsersRepository) *Users {
+	return &Users{usersRepo: usersRepo}
 }
 
-func (uc *UsersUseCase) GetUserById(ctx context.Context, id int) (models.User, error) {
+func (uc *Users) GetUserById(ctx context.Context, id int) (models.User, error) {
 	const op = "usecase.Users.GetUserById"
 
 	user, err := uc.usersRepo.GetUserById(ctx, id)
@@ -33,7 +27,7 @@ func (uc *UsersUseCase) GetUserById(ctx context.Context, id int) (models.User, e
 	return user, nil
 }
 
-func (uc *UsersUseCase) GetUsers(ctx context.Context) ([]models.User, error) {
+func (uc *Users) GetUsers(ctx context.Context) ([]models.User, error) {
 	const op = "usecase.Users.GetUsers"
 
 	users, err := uc.usersRepo.GetUsers(ctx)
@@ -42,15 +36,4 @@ func (uc *UsersUseCase) GetUsers(ctx context.Context) ([]models.User, error) {
 	}
 
 	return users, nil
-}
-
-func (uc *UsersUseCase) AddUser(ctx context.Context, user models.User) (int64, error) {
-	const op = "usecase.Users.GetUserById"
-
-	id, err := uc.usersRepo.AddUser(ctx, user)
-	if err != nil {
-		return id, fmt.Errorf("%s: %w", op, err)
-	}
-
-	return id, nil
 }

@@ -9,31 +9,22 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/storage/postgres"
 )
 
-type Map interface {
-	GetRegions(ctx context.Context) ([]models.Region, error)
-	GetCities(ctx context.Context) ([]models.City, error)
-	GetDistricts(ctx context.Context) ([]models.District, error)
-	GetMarks(ctx context.Context) ([]models.Mark, error)
-	AddMark(ctx context.Context, mark models.Mark) error
-	PhotosRepository
-}
-
 type PhotosRepository interface {
 	AddPhotos(photos [][]byte) error
 	GetPhotos() error
 }
 
-type MapUseCase struct {
+type Map struct {
 	log        *slog.Logger
 	mapRepo    postgres.MapRepository
 	photosRepo PhotosRepository
 }
 
-func NewMap(log *slog.Logger, mapRepo postgres.MapRepository, photosRepo PhotosRepository) *MapUseCase {
-	return &MapUseCase{log, mapRepo, photosRepo}
+func NewMap(log *slog.Logger, mapRepo postgres.MapRepository, photosRepo PhotosRepository) *Map {
+	return &Map{log, mapRepo, photosRepo}
 }
 
-func (uc *MapUseCase) GetRegions(ctx context.Context) ([]models.Region, error) {
+func (uc *Map) GetRegions(ctx context.Context) ([]models.Region, error) {
 	const op = "usecase.Map.GetRegions"
 
 	regions, err := uc.mapRepo.GetRegions(ctx)
@@ -43,7 +34,7 @@ func (uc *MapUseCase) GetRegions(ctx context.Context) ([]models.Region, error) {
 	return regions, nil
 }
 
-func (uc *MapUseCase) GetCities(ctx context.Context) ([]models.City, error) {
+func (uc *Map) GetCities(ctx context.Context) ([]models.City, error) {
 	const op = "usecase.Map.GetCities"
 
 	cities, err := uc.mapRepo.GetCities(ctx)
@@ -53,7 +44,7 @@ func (uc *MapUseCase) GetCities(ctx context.Context) ([]models.City, error) {
 	return cities, nil
 }
 
-func (uc *MapUseCase) GetDistricts(ctx context.Context) ([]models.District, error) {
+func (uc *Map) GetDistricts(ctx context.Context) ([]models.District, error) {
 	const op = "usecase.Map.GetDistricts"
 
 	districts, err := uc.mapRepo.GetDistricts(ctx)
@@ -63,7 +54,7 @@ func (uc *MapUseCase) GetDistricts(ctx context.Context) ([]models.District, erro
 	return districts, nil
 }
 
-func (uc *MapUseCase) GetMarks(ctx context.Context) ([]models.Mark, error) {
+func (uc *Map) GetMarks(ctx context.Context) ([]models.Mark, error) {
 	const op = "usecase.Map.GetMarks"
 
 	marks, err := uc.mapRepo.GetMarks(ctx)
@@ -73,7 +64,7 @@ func (uc *MapUseCase) GetMarks(ctx context.Context) ([]models.Mark, error) {
 	return marks, nil
 }
 
-func (uc *MapUseCase) AddMark(ctx context.Context, mark models.Mark) error {
+func (uc *Map) AddMark(ctx context.Context, mark models.Mark) error {
 	const op = "usecase.Map.AddMark"
 
 	if err := uc.mapRepo.AddMark(ctx, mark); err != nil {
@@ -83,7 +74,7 @@ func (uc *MapUseCase) AddMark(ctx context.Context, mark models.Mark) error {
 	return nil
 }
 
-func (uc *MapUseCase) AddPhotos(photos [][]byte) error {
+func (uc *Map) AddPhotos(photos [][]byte) error {
 	const op = "usecase.Map.AddPhotos"
 
 	if err := uc.photosRepo.AddPhotos(photos); err != nil {
@@ -92,7 +83,7 @@ func (uc *MapUseCase) AddPhotos(photos [][]byte) error {
 	return nil
 }
 
-func (uc *MapUseCase) GetPhotos() error {
+func (uc *Map) GetPhotos() error {
 
 	return nil
 }
