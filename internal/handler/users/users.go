@@ -3,7 +3,6 @@ package usersrest
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -20,12 +19,12 @@ type Users interface {
 }
 
 type handler struct {
-	handlers.BaseHandler
+	*handlers.BaseHandler
 	uc Users
 }
 
-func Register(r *chi.Mux, log *slog.Logger, uc Users) {
-	handler := &handler{handlers.BaseHandler{Log: log}, uc}
+func Register(r *chi.Mux, uc Users, bh *handlers.BaseHandler) {
+	handler := &handler{BaseHandler: bh, uc: uc}
 
 	r.Route("/users", func(r chi.Router) {
 		r.Get("/", handler.GetUsers())

@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"io"
-	"log/slog"
 	"net/http"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
@@ -46,12 +45,12 @@ type PhotosRepository interface {
 }
 
 type handler struct {
-	handlers.BaseHandler
+	*handlers.BaseHandler
 	uc Map
 }
 
-func Register(r *chi.Mux, auth *jwtauth.JWTAuth, log *slog.Logger, uc Map) {
-	handler := &handler{handlers.BaseHandler{Log: log}, uc}
+func Register(r *chi.Mux, auth *jwtauth.JWTAuth, uc Map, bh *handlers.BaseHandler) {
+	handler := &handler{BaseHandler: bh, uc: uc}
 
 	r.Route("/map", func(r chi.Router) {
 		r.Get("/regions", handler.GetRegions())

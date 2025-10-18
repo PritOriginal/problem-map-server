@@ -7,10 +7,16 @@ import (
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/go-chi/render"
+	"github.com/go-playground/validator/v10"
 )
 
 type BaseHandler struct {
-	Log *slog.Logger
+	Log      *slog.Logger
+	Validate *validator.Validate
+}
+
+func (h *BaseHandler) ValidateStruct(req interface{}) error {
+	return h.Validate.Struct(req)
 }
 
 func (h *BaseHandler) Render(w http.ResponseWriter, r *http.Request, v render.Renderer) {
