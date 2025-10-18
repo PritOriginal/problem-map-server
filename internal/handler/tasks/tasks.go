@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -23,7 +22,7 @@ type GetTaskByIdResponse struct {
 	Task models.Task `json:"task"`
 }
 
-type GetTasksByUserId struct {
+type GetTasksByUserIdResponse struct {
 	Tasks []models.Task `json:"tasks"`
 }
 
@@ -35,12 +34,12 @@ type Tasks interface {
 }
 
 type handler struct {
-	handlers.BaseHandler
+	*handlers.BaseHandler
 	uc Tasks
 }
 
-func Register(r *chi.Mux, log *slog.Logger, uc Tasks) {
-	handler := &handler{handlers.BaseHandler{Log: log}, uc}
+func Register(r *chi.Mux, uc Tasks, bh *handlers.BaseHandler) {
+	handler := &handler{BaseHandler: bh, uc: uc}
 
 	r.Route("/tasks", func(r chi.Router) {
 		r.Get("/", handler.GetTasks())
@@ -111,7 +110,7 @@ func (h *handler) GetTasksByUserId() http.HandlerFunc {
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(GetTasksByUserId{
+		h.Render(w, r, responses.SucceededRenderer(GetTasksByUserIdResponse{
 			Tasks: tasks,
 		}))
 	}
