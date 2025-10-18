@@ -17,9 +17,11 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/storage/local"
 	"github.com/PritOriginal/problem-map-server/internal/storage/postgres"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
+	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/go-playground/validator/v10"
 )
 
 type App struct {
@@ -40,23 +42,27 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 	accessAuth := jwtauth.New("HS256", []byte(cfg.Auth.JWT.Access.Key), nil)
 
+	validate := validator.New()
+
 	router := handler.GetRouter(log)
+
+	baseHandler := &handlers.BaseHandler{Log: log, Validate: validate}
 
 	mapRepo := postgres.NewMap(postgresDB.DB)
 	photoRepo := local.NewPhotos()
 	mapUseCase := usecase.NewMap(log, mapRepo, photoRepo)
-	maprest.Register(router, accessAuth, log, mapUseCase)
+	maprest.Register(router, accessAuth, mapUseCase, baseHandler)
 
 	usersRepo := postgres.NewUsers(postgresDB.DB)
 	usersUseCase := usecase.NewUsers(usersRepo)
-	usersrest.Register(router, log, usersUseCase)
+	usersrest.Register(router, usersUseCase, baseHandler)
 
 	authUseCase := usecase.NewAuth(usersRepo, cfg.Auth)
-	authrest.Register(router, log, authUseCase)
+	authrest.Register(router, authUseCase, baseHandler)
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB)
 	taksUseCase := usecase.NewTasks(tasksRepo)
-	tasksrest.Register(router, log, taksUseCase)
+	tasksrest.Register(router, taksUseCase, baseHandler)
 
 	server := &http.Server{
 		Addr:         cfg.REST.Host + ":" + strconv.Itoa(cfg.REST.Port),

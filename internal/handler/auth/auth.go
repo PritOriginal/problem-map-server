@@ -3,13 +3,13 @@ package authrest
 import (
 	"context"
 	"encoding/json"
-	"log/slog"
 	"net/http"
 
 	"github.com/PritOriginal/problem-map-server/internal/storage"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-playground/validator/v10"
 )
 
 type SignUpRequest struct {
@@ -44,12 +44,12 @@ type Auth interface {
 }
 
 type handler struct {
-	handlers.BaseHandler
+	*handlers.BaseHandler
 	uc Auth
 }
 
-func Register(r *chi.Mux, log *slog.Logger, uc Auth) {
-	handler := &handler{handlers.BaseHandler{Log: log}, uc}
+func Register(r *chi.Mux, uc Auth, bh *handlers.BaseHandler) {
+	handler := &handler{BaseHandler: bh, uc: uc}
 
 	r.Route("/auth", func(r chi.Router) {
 		r.Post("/signup", handler.SignUp())
