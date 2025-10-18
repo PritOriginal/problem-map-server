@@ -23,7 +23,7 @@ type GetTaskByIdResponse struct {
 	Task models.Task `json:"task"`
 }
 
-type GetTasksByUserId struct {
+type GetTasksByUserIdResponse struct {
 	Tasks []models.Task `json:"tasks"`
 }
 
@@ -111,7 +111,7 @@ func (h *handler) GetTasksByUserId() http.HandlerFunc {
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(GetTasksByUserId{
+		h.Render(w, r, responses.SucceededRenderer(GetTasksByUserIdResponse{
 			Tasks: tasks,
 		}))
 	}
