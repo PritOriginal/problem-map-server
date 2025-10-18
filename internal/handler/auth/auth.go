@@ -13,14 +13,14 @@ import (
 )
 
 type SignUpRequest struct {
-	Name     string `json:"name"`
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Name     string `json:"name" validate:"required"`
+	Username string `json:"username" validate:"required"`
+	Password string `json:"password" validate:"required,min=8,max=64"`
 }
 
 type SignInRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Username string `json:"username" validate:"required"`
+	Password string `json:"password" validate:"required,min=8,max=64"`
 }
 
 type SignInResponse struct {
@@ -29,7 +29,7 @@ type SignInResponse struct {
 }
 
 type RefreshTokensRequest struct {
-	RefreshToken string `json:"refresh_token"`
+	RefreshToken string `json:"refresh_token" validate:"required"`
 }
 
 type RefreshTokensResponse struct {
@@ -60,8 +60,8 @@ func Register(r *chi.Mux, log *slog.Logger, uc Auth) {
 
 func (h *handler) SignUp() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var signUpRequest SignUpRequest
-		if err := json.NewDecoder(r.Body).Decode(&signUpRequest); err != nil {
+		var req SignUpRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			h.RenderError(w, r,
 				handlers.HandlerError{Msg: "failed decode request body", Err: err},
 				responses.ErrBadRequest,
@@ -69,7 +69,16 @@ func (h *handler) SignUp() http.HandlerFunc {
 			return
 		}
 
-		_, err := h.uc.SignUp(context.Background(), signUpRequest.Name, signUpRequest.Username, signUpRequest.Password)
+		if err := h.ValidateStruct(req); err != nil {
+			validateErr := err.(validator.ValidationErrors)
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "invalid request", Err: validateErr},
+				responses.ErrBadRequest,
+			)
+			return
+		}
+
+		_, err := h.uc.SignUp(context.Background(), req.Name, req.Username, req.Password)
 		if err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "failed sign up", Err: err})
 			return
@@ -81,8 +90,8 @@ func (h *handler) SignUp() http.HandlerFunc {
 
 func (h *handler) SignIn() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var signInRequest SignInRequest
-		if err := json.NewDecoder(r.Body).Decode(&signInRequest); err != nil {
+		var req SignInRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			h.RenderError(w, r,
 				handlers.HandlerError{Msg: "failed decode request body", Err: err},
 				responses.ErrBadRequest,
@@ -90,7 +99,16 @@ func (h *handler) SignIn() http.HandlerFunc {
 			return
 		}
 
-		accessToken, refreshToken, err := h.uc.SignIn(context.Background(), signInRequest.Username, signInRequest.Password)
+		if err := h.ValidateStruct(req); err != nil {
+			validateErr := err.(validator.ValidationErrors)
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "invalid request", Err: validateErr},
+				responses.ErrBadRequest,
+			)
+			return
+		}
+
+		accessToken, refreshToken, err := h.uc.SignIn(context.Background(), req.Username, req.Password)
 		if err != nil {
 			switch err {
 			case storage.ErrNotFound:
@@ -113,8 +131,8 @@ func (h *handler) SignIn() http.HandlerFunc {
 
 func (h *handler) RefreshTokens() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var refreshTokenRequest RefreshTokensRequest
-		if err := json.NewDecoder(r.Body).Decode(&refreshTokenRequest); err != nil {
+		var req RefreshTokensRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			h.RenderError(w, r,
 				handlers.HandlerError{Msg: "failed decode request body", Err: err},
 				responses.ErrBadRequest,
@@ -122,7 +140,16 @@ func (h *handler) RefreshTokens() http.HandlerFunc {
 			return
 		}
 
-		accessToken, refreshToken, err := h.uc.RefreshTokens(context.Background(), refreshTokenRequest.RefreshToken)
+		if err := h.ValidateStruct(req); err != nil {
+			validateErr := err.(validator.ValidationErrors)
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "invalid request", Err: validateErr},
+				responses.ErrBadRequest,
+			)
+			return
+		}
+
+		accessToken, refreshToken, err := h.uc.RefreshTokens(context.Background(), req.RefreshToken)
 		if err != nil {
 			switch err {
 			case storage.ErrNotFound:
