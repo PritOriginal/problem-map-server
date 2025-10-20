@@ -102,11 +102,7 @@ func (h *handler) GetTasksByUserId() http.HandlerFunc {
 
 		tasks, err := h.uc.GetTasksByUserId(context.Background(), userId)
 		if err != nil {
-			if errors.Is(err, storage.ErrNotFound) {
-				h.Render(w, r, responses.ErrNotFound)
-			} else {
-				h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get tasks by user id", Err: err})
-			}
+			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get tasks by user id", Err: err})
 			return
 		}
 
