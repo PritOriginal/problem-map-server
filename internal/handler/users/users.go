@@ -13,6 +13,14 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
+type GetUsersResponse struct {
+	Users []models.User `json:"users"`
+}
+
+type GetUserByIdResponse struct {
+	User models.User `json:"user"`
+}
+
 type Users interface {
 	GetUserById(ctx context.Context, id int) (models.User, error)
 	GetUsers(ctx context.Context) ([]models.User, error)
@@ -53,7 +61,9 @@ func (h *handler) GetUserById() http.HandlerFunc {
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(user))
+		h.Render(w, r, responses.SucceededRenderer(GetUserByIdResponse{
+			User: user,
+		}))
 	}
 }
 
@@ -64,6 +74,9 @@ func (h *handler) GetUsers() http.HandlerFunc {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get users", Err: err})
 			return
 		}
-		h.Render(w, r, responses.SucceededRenderer(users))
+
+		h.Render(w, r, responses.SucceededRenderer(GetUsersResponse{
+			Users: users,
+		}))
 	}
 }
