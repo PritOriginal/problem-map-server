@@ -62,13 +62,9 @@ func (r *TasksRepo) GetTasksByUserId(ctx context.Context, userId int) ([]models.
 	var tasks []models.Task
 
 	query := "SELECT * FROM tasks WHERE user_id = $1"
-	if err := r.Conn.SelectContext(ctx, &tasks, query, userId); err != nil {
-		switch err {
-		case sql.ErrNoRows:
-			return tasks, storage.ErrNotFound
-		default:
-			return tasks, fmt.Errorf("%s: %w", op, err)
-		}
+	err := r.Conn.SelectContext(ctx, &tasks, query, userId)
+	if err != nil {
+		return tasks, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return tasks, nil

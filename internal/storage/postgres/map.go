@@ -68,9 +68,13 @@ func (repo *MapRepo) GetMarks(ctx context.Context) ([]models.Mark, error) {
 
 	var marks []models.Mark
 
-	query := `SELECT 
+	query := `
+			SELECT 
 				mark_id, name, ST_AsEWKB(geom) AS geom, type_mark_id, user_id, district_id, number_votes, number_checks 
-			FROM marks`
+			FROM 
+				marks
+			`
+
 	if err := repo.Conn.SelectContext(ctx, &marks, query); err != nil {
 		return marks, fmt.Errorf("%s: %w", op, err)
 	}
@@ -81,23 +85,16 @@ func (repo *MapRepo) GetMarks(ctx context.Context) ([]models.Mark, error) {
 func (repo *MapRepo) AddMark(ctx context.Context, mark models.Mark) error {
 	const op = "storage.postgres.GetMarks"
 
-	query := `INSERT INTO 
+	query := `
+			INSERT INTO 
 				marks (name, geom, type_mark_id, user_id, district_id, number_votes, number_checks) 
 			VALUES 
-				($1, ST_GeomFromEWKB($2), $3, $4, $5, $6, $7);`
+				($1, ST_GeomFromEWKB($2), $3, $4, $5, $6, $7)
+			`
 
 	if _, err := repo.Conn.ExecContext(ctx, query, mark.Name, &mark.Geom, mark.TypeMarkID, mark.UserID, mark.DistrictID, mark.NumberVotes, mark.NumberChecks); err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
-
-	// query := `INSERT INTO
-	// 			marks (name, geom, type_mark_id, user_id, district_id, number_votes, number_checks)
-	// 		VALUES
-	// 			(:name, :geom, :type_mark_id, :user_id, :district_id, :number_votes, :number_checks)`
-
-	// if _, err := repo.Conn.NamedExecContext(ctx, query, mark); err != nil {
-	// 	return fmt.Errorf("%s: %w", op, err)
-	// }
 
 	return nil
 }
