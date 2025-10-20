@@ -6,16 +6,16 @@ import (
 	"github.com/go-chi/render"
 )
 
-type SucceededResponse struct {
+type SucceededResponse[T any] struct {
 	HTTPStatusCode int `json:"-"` // http response status code
 
-	Status  string       `json:"status"`
-	Message string       `json:"message"`
-	Payload *interface{} `json:"payload"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
+	Payload T      `json:"payload"`
 }
 
 // Render implements render.Renderer.
-func (s *SucceededResponse) Render(w http.ResponseWriter, r *http.Request) error {
+func (s *SucceededResponse[T]) Render(w http.ResponseWriter, r *http.Request) error {
 	render.Status(r, s.HTTPStatusCode)
 	return nil
 }
@@ -34,7 +34,7 @@ func (s *ErrorResponse) Render(w http.ResponseWriter, r *http.Request) error {
 }
 
 var (
-	SucceededResponseOK = &SucceededResponse{HTTPStatusCode: http.StatusOK, Status: "succeeded", Message: ""}
+	SucceededResponseOK = &SucceededResponse[any]{HTTPStatusCode: http.StatusOK, Status: "succeeded", Message: ""}
 	ErrConflict         = &ErrorResponse{HTTPStatusCode: http.StatusConflict, Status: "failed", Message: "Already exists"}
 	ErrMethodNotAllowed = &ErrorResponse{HTTPStatusCode: http.StatusMethodNotAllowed, Status: "failed", Message: "Method not allowed"}
 	ErrNotFound         = &ErrorResponse{HTTPStatusCode: http.StatusNotFound, Status: "failed", Message: "Resource not found"}
@@ -43,17 +43,17 @@ var (
 	ErrInternalServer   = &ErrorResponse{HTTPStatusCode: http.StatusInternalServerError, Status: "failed", Message: ""}
 )
 
-func SucceededRenderer(data interface{}) render.Renderer {
-	return &SucceededResponse{
+func SucceededRenderer[T any](data T) render.Renderer {
+	return &SucceededResponse[T]{
 		HTTPStatusCode: http.StatusOK,
 		Status:         "succeeded",
 		Message:        "",
-		Payload:        &data,
+		Payload:        data,
 	}
 }
 
 func SucceededCreatedRenderer() render.Renderer {
-	return &SucceededResponse{
+	return &SucceededResponse[any]{
 		HTTPStatusCode: http.StatusCreated,
 		Status:         "succeeded",
 		Message:        "",
