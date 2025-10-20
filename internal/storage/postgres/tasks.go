@@ -59,7 +59,7 @@ func (r *TasksRepo) GetTaskById(ctx context.Context, id int) (models.Task, error
 func (r *TasksRepo) GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error) {
 	const op = "storage.postgres.GetTasksByUserId"
 
-	var tasks []models.Task
+	tasks := []models.Task{}
 
 	query := "SELECT * FROM tasks WHERE user_id = $1"
 	err := r.Conn.SelectContext(ctx, &tasks, query, userId)

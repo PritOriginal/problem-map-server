@@ -27,7 +27,7 @@ func NewMap(conn *sqlx.DB) *MapRepo {
 func (repo *MapRepo) GetRegions(ctx context.Context) ([]models.Region, error) {
 	const op = "storage.postgres.GetRegions"
 
-	var regions []models.Region
+	regions := []models.Region{}
 
 	query := "SELECT name, ST_AsEWKB(geom) AS geom FROM regions"
 	if err := repo.Conn.SelectContext(ctx, &regions, query); err != nil {
@@ -40,7 +40,7 @@ func (repo *MapRepo) GetRegions(ctx context.Context) ([]models.Region, error) {
 func (repo *MapRepo) GetCities(ctx context.Context) ([]models.City, error) {
 	const op = "storage.postgres.GetCities"
 
-	var cities []models.City
+	cities := []models.City{}
 
 	query := "SELECT name, ST_AsEWKB(geom) AS geom FROM cities"
 	if err := repo.Conn.SelectContext(ctx, &cities, query); err != nil {
@@ -53,7 +53,7 @@ func (repo *MapRepo) GetCities(ctx context.Context) ([]models.City, error) {
 func (repo *MapRepo) GetDistricts(ctx context.Context) ([]models.District, error) {
 	const op = "storage.postgres.GetDistricts"
 
-	var districts []models.District
+	districts := []models.District{}
 
 	query := "SELECT district_id, name, ST_AsEWKB(geom) AS geom FROM districts"
 	if err := repo.Conn.SelectContext(ctx, &districts, query); err != nil {
@@ -66,7 +66,7 @@ func (repo *MapRepo) GetDistricts(ctx context.Context) ([]models.District, error
 func (repo *MapRepo) GetMarks(ctx context.Context) ([]models.Mark, error) {
 	const op = "storage.postgres.GetMarks"
 
-	var marks []models.Mark
+	marks := []models.Mark{}
 
 	query := `
 			SELECT 
