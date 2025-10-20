@@ -27,7 +27,7 @@ func NewMap(conn *sqlx.DB) *MapRepo {
 func (repo *MapRepo) GetRegions(ctx context.Context) ([]models.Region, error) {
 	const op = "storage.postgres.GetRegions"
 
-	var regions []models.Region
+	regions := []models.Region{}
 
 	query := "SELECT name, ST_AsEWKB(geom) AS geom FROM regions"
 	if err := repo.Conn.SelectContext(ctx, &regions, query); err != nil {
@@ -40,7 +40,7 @@ func (repo *MapRepo) GetRegions(ctx context.Context) ([]models.Region, error) {
 func (repo *MapRepo) GetCities(ctx context.Context) ([]models.City, error) {
 	const op = "storage.postgres.GetCities"
 
-	var cities []models.City
+	cities := []models.City{}
 
 	query := "SELECT name, ST_AsEWKB(geom) AS geom FROM cities"
 	if err := repo.Conn.SelectContext(ctx, &cities, query); err != nil {
@@ -53,7 +53,7 @@ func (repo *MapRepo) GetCities(ctx context.Context) ([]models.City, error) {
 func (repo *MapRepo) GetDistricts(ctx context.Context) ([]models.District, error) {
 	const op = "storage.postgres.GetDistricts"
 
-	var districts []models.District
+	districts := []models.District{}
 
 	query := "SELECT district_id, name, ST_AsEWKB(geom) AS geom FROM districts"
 	if err := repo.Conn.SelectContext(ctx, &districts, query); err != nil {
@@ -66,11 +66,15 @@ func (repo *MapRepo) GetDistricts(ctx context.Context) ([]models.District, error
 func (repo *MapRepo) GetMarks(ctx context.Context) ([]models.Mark, error) {
 	const op = "storage.postgres.GetMarks"
 
-	var marks []models.Mark
+	marks := []models.Mark{}
 
-	query := `SELECT 
+	query := `
+			SELECT 
 				mark_id, name, ST_AsEWKB(geom) AS geom, type_mark_id, user_id, district_id, number_votes, number_checks 
-			FROM marks`
+			FROM 
+				marks
+			`
+
 	if err := repo.Conn.SelectContext(ctx, &marks, query); err != nil {
 		return marks, fmt.Errorf("%s: %w", op, err)
 	}
@@ -81,23 +85,16 @@ func (repo *MapRepo) GetMarks(ctx context.Context) ([]models.Mark, error) {
 func (repo *MapRepo) AddMark(ctx context.Context, mark models.Mark) error {
 	const op = "storage.postgres.GetMarks"
 
-	query := `INSERT INTO 
+	query := `
+			INSERT INTO 
 				marks (name, geom, type_mark_id, user_id, district_id, number_votes, number_checks) 
 			VALUES 
-				($1, ST_GeomFromEWKB($2), $3, $4, $5, $6, $7);`
+				($1, ST_GeomFromEWKB($2), $3, $4, $5, $6, $7)
+			`
 
 	if _, err := repo.Conn.ExecContext(ctx, query, mark.Name, &mark.Geom, mark.TypeMarkID, mark.UserID, mark.DistrictID, mark.NumberVotes, mark.NumberChecks); err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
-
-	// query := `INSERT INTO
-	// 			marks (name, geom, type_mark_id, user_id, district_id, number_votes, number_checks)
-	// 		VALUES
-	// 			(:name, :geom, :type_mark_id, :user_id, :district_id, :number_votes, :number_checks)`
-
-	// if _, err := repo.Conn.NamedExecContext(ctx, query, mark); err != nil {
-	// 	return fmt.Errorf("%s: %w", op, err)
-	// }
 
 	return nil
 }
