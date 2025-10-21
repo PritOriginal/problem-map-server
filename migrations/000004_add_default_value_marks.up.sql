@@ -1,0 +1,2 @@
+ALTER TABLE marks ALTER COLUMN number_votes SET DEFAULT 0;
+ALTER TABLE marks ALTER COLUMN number_checks SET DEFAULT 0;
