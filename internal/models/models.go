@@ -53,6 +53,7 @@ type Mark struct {
 	Name         string `json:"name"`
 	Geom         *Point `json:"geom"`
 	TypeMarkID   int    `json:"type_mark_id" db:"type_mark_id"`
+	MarkStatusID int    `json:"mark_status_id" db:"mark_status_id"`
 	UserID       int    `json:"user_id" db:"user_id"`
 	DistrictID   int    `json:"district_id" db:"district_id"`
 	NumberVotes  int    `json:"number_votes" db:"number_votes"`
@@ -75,4 +76,9 @@ func (m *Mark) MarshalProtobuf() *pb.Mark {
 type TypeMark struct {
 	ID   int    `json:"type_mark_id" db:"type_mark_id"`
 	Name string `json:"name"`
+}
+
+type StatusMark struct {
+	ID   int    `json:"mark_status_id" db:"mark_status_id"`
+	Nmae string `json:"name" db:"name"`
 }
