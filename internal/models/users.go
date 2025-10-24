@@ -7,7 +7,7 @@ type User struct {
 	Name         string `json:"name" db:"name"`
 	Username     string `json:"username" db:"login"`
 	PasswordHash string `json:"-" db:"password_hash"`
-	HomePoint    Point  `json:"home_point" db:"home_point"`
+	HomePoint    *Point `json:"home_point" db:"home_point"`
 	Rating       int    `json:"rating" db:"rating"`
 }
 
