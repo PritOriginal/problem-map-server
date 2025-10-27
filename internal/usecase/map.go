@@ -6,8 +6,15 @@ import (
 	"log/slog"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage/postgres"
 )
+
+type MapRepository interface {
+	GetRegions(ctx context.Context) ([]models.Region, error)
+	GetCities(ctx context.Context) ([]models.City, error)
+	GetDistricts(ctx context.Context) ([]models.District, error)
+	GetMarks(ctx context.Context) ([]models.Mark, error)
+	AddMark(ctx context.Context, mark models.Mark) (int64, error)
+}
 
 type PhotosRepository interface {
 	AddPhotos(photos [][]byte) error
@@ -16,11 +23,11 @@ type PhotosRepository interface {
 
 type Map struct {
 	log        *slog.Logger
-	mapRepo    postgres.MapRepository
+	mapRepo    MapRepository
 	photosRepo PhotosRepository
 }
 
-func NewMap(log *slog.Logger, mapRepo postgres.MapRepository, photosRepo PhotosRepository) *Map {
+func NewMap(log *slog.Logger, mapRepo MapRepository, photosRepo PhotosRepository) *Map {
 	return &Map{log, mapRepo, photosRepo}
 }
 
@@ -64,14 +71,15 @@ func (uc *Map) GetMarks(ctx context.Context) ([]models.Mark, error) {
 	return marks, nil
 }
 
-func (uc *Map) AddMark(ctx context.Context, mark models.Mark) error {
+func (uc *Map) AddMark(ctx context.Context, mark models.Mark) (int64, error) {
 	const op = "usecase.Map.AddMark"
 
-	if err := uc.mapRepo.AddMark(ctx, mark); err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+	id, err := uc.mapRepo.AddMark(ctx, mark)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return nil
+	return id, nil
 }
 
 func (uc *Map) AddPhotos(photos [][]byte) error {

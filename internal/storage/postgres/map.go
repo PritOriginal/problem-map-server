@@ -8,23 +8,15 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type MapRepository interface {
-	GetRegions(ctx context.Context) ([]models.Region, error)
-	GetCities(ctx context.Context) ([]models.City, error)
-	GetDistricts(ctx context.Context) ([]models.District, error)
-	GetMarks(ctx context.Context) ([]models.Mark, error)
-	AddMark(ctx context.Context, mark models.Mark) error
-}
-
-type MapRepo struct {
+type MapRepository struct {
 	Conn *sqlx.DB
 }
 
-func NewMap(conn *sqlx.DB) *MapRepo {
-	return &MapRepo{Conn: conn}
+func NewMap(conn *sqlx.DB) *MapRepository {
+	return &MapRepository{Conn: conn}
 }
 
-func (repo *MapRepo) GetRegions(ctx context.Context) ([]models.Region, error) {
+func (repo *MapRepository) GetRegions(ctx context.Context) ([]models.Region, error) {
 	const op = "storage.postgres.GetRegions"
 
 	regions := []models.Region{}
@@ -37,7 +29,7 @@ func (repo *MapRepo) GetRegions(ctx context.Context) ([]models.Region, error) {
 	return regions, nil
 }
 
-func (repo *MapRepo) GetCities(ctx context.Context) ([]models.City, error) {
+func (repo *MapRepository) GetCities(ctx context.Context) ([]models.City, error) {
 	const op = "storage.postgres.GetCities"
 
 	cities := []models.City{}
@@ -50,7 +42,7 @@ func (repo *MapRepo) GetCities(ctx context.Context) ([]models.City, error) {
 	return cities, nil
 }
 
-func (repo *MapRepo) GetDistricts(ctx context.Context) ([]models.District, error) {
+func (repo *MapRepository) GetDistricts(ctx context.Context) ([]models.District, error) {
 	const op = "storage.postgres.GetDistricts"
 
 	districts := []models.District{}
@@ -63,7 +55,7 @@ func (repo *MapRepo) GetDistricts(ctx context.Context) ([]models.District, error
 	return districts, nil
 }
 
-func (repo *MapRepo) GetMarks(ctx context.Context) ([]models.Mark, error) {
+func (repo *MapRepository) GetMarks(ctx context.Context) ([]models.Mark, error) {
 	const op = "storage.postgres.GetMarks"
 
 	marks := []models.Mark{}
@@ -82,19 +74,27 @@ func (repo *MapRepo) GetMarks(ctx context.Context) ([]models.Mark, error) {
 	return marks, nil
 }
 
-func (repo *MapRepo) AddMark(ctx context.Context, mark models.Mark) error {
+func (repo *MapRepository) AddMark(ctx context.Context, mark models.Mark) (int64, error) {
 	const op = "storage.postgres.GetMarks"
+
+	var id int64
 
 	query := `
 			INSERT INTO 
 				marks (name, geom, type_mark_id, user_id, district_id, number_votes, number_checks) 
 			VALUES 
 				($1, ST_GeomFromEWKB($2), $3, $4, $5, $6, $7)
+			RETURNING mark_id
 			`
 
-	if _, err := repo.Conn.ExecContext(ctx, query, mark.Name, &mark.Geom, mark.TypeMarkID, mark.UserID, mark.DistrictID, mark.NumberVotes, mark.NumberChecks); err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+	stmt, err := repo.Conn.PreparexContext(ctx, query)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return nil
+	if err := stmt.GetContext(ctx, &id, mark.Name, &mark.Geom, mark.TypeMarkID, mark.UserID, mark.DistrictID, mark.NumberVotes, mark.NumberChecks); err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return id, nil
 }
