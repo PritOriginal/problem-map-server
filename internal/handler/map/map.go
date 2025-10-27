@@ -35,7 +35,7 @@ type Map interface {
 	GetCities(ctx context.Context) ([]models.City, error)
 	GetDistricts(ctx context.Context) ([]models.District, error)
 	GetMarks(ctx context.Context) ([]models.Mark, error)
-	AddMark(ctx context.Context, mark models.Mark) error
+	AddMark(ctx context.Context, mark models.Mark) (int64, error)
 	PhotosRepository
 }
 
@@ -56,12 +56,14 @@ func Register(r *chi.Mux, auth *jwtauth.JWTAuth, uc Map, bh *handlers.BaseHandle
 		r.Get("/regions", handler.GetRegions())
 		r.Get("/cities", handler.GetCities())
 		r.Get("/districts", handler.GetDistricts())
-		r.Get("/marks", handler.GetMarks())
-		r.Group(func(r chi.Router) {
-			r.Use(jwtauth.Verifier(auth))
-			r.Use(jwtauth.Authenticator(auth))
-			r.Post("/marks", handler.AddMark())
-			r.Post("/photos", handler.AddPhotos())
+		r.Route("/marks", func(r chi.Router) {
+			r.Get("/", handler.GetMarks())
+			r.Group(func(r chi.Router) {
+				r.Use(jwtauth.Verifier(auth))
+				r.Use(jwtauth.Authenticator(auth))
+				r.Post("/", handler.AddMark())
+				r.Post("/photos", handler.AddPhotos())
+			})
 		})
 	})
 }
@@ -141,7 +143,7 @@ func (h *handler) AddMark() http.HandlerFunc {
 		}
 		newMark.Geom.Ewkb.SetSRID(4326)
 
-		if err := h.uc.AddMark(context.Background(), newMark); err != nil {
+		if _, err := h.uc.AddMark(context.Background(), newMark); err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error add mark", Err: err})
 			return
 		}

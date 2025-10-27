@@ -54,14 +54,14 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	maprest.Register(router, accessAuth, mapUseCase, baseHandler)
 
 	usersRepo := postgres.NewUsers(postgresDB.DB)
-	usersUseCase := usecase.NewUsers(usersRepo)
+	usersUseCase := usecase.NewUsers(log, usersRepo)
 	usersrest.Register(router, usersUseCase, baseHandler)
 
-	authUseCase := usecase.NewAuth(usersRepo, cfg.Auth)
+	authUseCase := usecase.NewAuth(log, usersRepo, cfg.Auth)
 	authrest.Register(router, authUseCase, baseHandler)
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB)
-	taksUseCase := usecase.NewTasks(tasksRepo)
+	taksUseCase := usecase.NewTasks(log, tasksRepo)
 	tasksrest.Register(router, taksUseCase, baseHandler)
 
 	server := &http.Server{

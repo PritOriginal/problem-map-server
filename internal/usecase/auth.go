@@ -3,23 +3,25 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strconv"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
-	"github.com/PritOriginal/problem-map-server/internal/storage/postgres"
+	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	passwordUtils "github.com/PritOriginal/problem-map-server/pkg/password"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
 )
 
 type Auth struct {
-	usersRepo postgres.UsersRepository
+	log       *slog.Logger
+	usersRepo UsersRepository
 	authCfg   config.AuthConfing
 }
 
-func NewAuth(usersRepo postgres.UsersRepository, authCfg config.AuthConfing) *Auth {
-	return &Auth{usersRepo: usersRepo, authCfg: authCfg}
+func NewAuth(log *slog.Logger, usersRepo UsersRepository, authCfg config.AuthConfing) *Auth {
+	return &Auth{log: log, usersRepo: usersRepo, authCfg: authCfg}
 }
 
 func (uc *Auth) SignUp(ctx context.Context, name, username, password string) (int64, error) {
@@ -34,6 +36,20 @@ func (uc *Auth) SignUp(ctx context.Context, name, username, password string) (in
 		Name:         name,
 		Username:     username,
 		PasswordHash: passwordHash,
+	}
+
+	_, err = uc.usersRepo.GetUserByUsername(ctx, user.Username)
+	if err != nil {
+		uc.log.Debug("GetUserByUsername err", logger.Err(err))
+	}
+	if err != storage.ErrNotFound {
+		switch err {
+		case nil:
+			return 0, ErrConflict
+		default:
+			return 0, fmt.Errorf("%s: %w", op, err)
+
+		}
 	}
 
 	id, err := uc.usersRepo.AddUser(ctx, user)

@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/go-chi/chi/v5"
@@ -80,7 +81,15 @@ func (h *handler) SignUp() http.HandlerFunc {
 
 		_, err := h.uc.SignUp(context.Background(), req.Name, req.Username, req.Password)
 		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "failed sign up", Err: err})
+			switch err {
+			case usecase.ErrConflict:
+				h.RenderError(w, r,
+					handlers.HandlerError{Msg: "user already exists", Err: err},
+					responses.ErrConflict,
+				)
+			default:
+				h.RenderInternalError(w, r, handlers.HandlerError{Msg: "failed sign up", Err: err})
+			}
 			return
 		}
 
