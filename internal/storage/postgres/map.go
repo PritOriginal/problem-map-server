@@ -74,7 +74,7 @@ func (repo *MapRepository) GetMarks(ctx context.Context) ([]models.Mark, error) 
 	return marks, nil
 }
 
-func (repo *MapRepo) AddMark(ctx context.Context, mark models.Mark) (int64, error) {
+func (repo *MapRepository) AddMark(ctx context.Context, mark models.Mark) (int64, error) {
 	const op = "storage.postgres.GetMarks"
 
 	var id int64
