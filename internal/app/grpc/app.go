@@ -63,11 +63,11 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	mapgrpc.Register(gRPCServer, mapUseCase)
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB)
-	taksUseCase := usecase.NewTasks(tasksRepo)
+	taksUseCase := usecase.NewTasks(log, tasksRepo)
 	tasksgrpc.Register(gRPCServer, taksUseCase)
 
 	usersRepo := postgres.NewUsers(postgresDB.DB)
-	usersUseCase := usecase.NewUsers(usersRepo)
+	usersUseCase := usecase.NewUsers(log, usersRepo)
 	usersgrpc.Register(gRPCServer, usersUseCase)
 
 	return &App{
