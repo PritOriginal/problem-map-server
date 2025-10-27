@@ -103,9 +103,11 @@ func (r *UsersRepository) AddUser(ctx context.Context, user models.User) (int64,
 			`
 
 	stmt, err := r.Conn.PrepareNamedContext(ctx, query)
-
-	err = stmt.GetContext(ctx, &id, user)
 	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	if err := stmt.GetContext(ctx, &id, user); err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 

@@ -35,7 +35,7 @@ type Map interface {
 	GetCities(ctx context.Context) ([]models.City, error)
 	GetDistricts(ctx context.Context) ([]models.District, error)
 	GetMarks(ctx context.Context) ([]models.Mark, error)
-	AddMark(ctx context.Context, mark models.Mark) error
+	AddMark(ctx context.Context, mark models.Mark) (int64, error)
 	PhotosRepository
 }
 
@@ -143,7 +143,7 @@ func (h *handler) AddMark() http.HandlerFunc {
 		}
 		newMark.Geom.Ewkb.SetSRID(4326)
 
-		if err := h.uc.AddMark(context.Background(), newMark); err != nil {
+		if _, err := h.uc.AddMark(context.Background(), newMark); err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error add mark", Err: err})
 			return
 		}

@@ -65,13 +65,24 @@ func (r *TasksRepository) GetTasksByUserId(ctx context.Context, userId int) ([]m
 func (r *TasksRepository) AddTask(ctx context.Context, task models.Task) (int64, error) {
 	const op = "storage.postgres.AddTask"
 
-	result, err := r.Conn.NamedExecContext(ctx, "INSERT INTO tasks (name, user_id) VALUES (:name, :user_id)", task)
+	var id int64
+
+	query := `
+			INSERT INTO 
+				tasks (name, user_id, mark_id) 
+			VALUES 
+				(:name, :user_id, :mark_id)
+			RETURNING task_id
+			`
+
+	stmt, err := r.Conn.PrepareNamedContext(ctx, query)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
-	id, err := result.LastInsertId()
-	if err != nil {
+
+	if err := stmt.GetContext(ctx, &id, task); err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
+
 	return id, nil
 }

@@ -71,14 +71,15 @@ func (uc *Map) GetMarks(ctx context.Context) ([]models.Mark, error) {
 	return marks, nil
 }
 
-func (uc *Map) AddMark(ctx context.Context, mark models.Mark) error {
+func (uc *Map) AddMark(ctx context.Context, mark models.Mark) (int64, error) {
 	const op = "usecase.Map.AddMark"
 
-	if err := uc.mapRepo.AddMark(ctx, mark); err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+	id, err := uc.mapRepo.AddMark(ctx, mark)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return nil
+	return id, nil
 }
 
 func (uc *Map) AddPhotos(photos [][]byte) error {
