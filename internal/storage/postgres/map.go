@@ -82,19 +82,27 @@ func (repo *MapRepo) GetMarks(ctx context.Context) ([]models.Mark, error) {
 	return marks, nil
 }
 
-func (repo *MapRepo) AddMark(ctx context.Context, mark models.Mark) error {
+func (repo *MapRepo) AddMark(ctx context.Context, mark models.Mark) (int64, error) {
 	const op = "storage.postgres.GetMarks"
+
+	var id int64
 
 	query := `
 			INSERT INTO 
 				marks (name, geom, type_mark_id, user_id, district_id, number_votes, number_checks) 
 			VALUES 
 				($1, ST_GeomFromEWKB($2), $3, $4, $5, $6, $7)
+			RETURNING mark_id
 			`
 
-	if _, err := repo.Conn.ExecContext(ctx, query, mark.Name, &mark.Geom, mark.TypeMarkID, mark.UserID, mark.DistrictID, mark.NumberVotes, mark.NumberChecks); err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+	stmt, err := repo.Conn.PreparexContext(ctx, query)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return nil
+	if err := stmt.GetContext(ctx, &id, mark.Name, &mark.Geom, mark.TypeMarkID, mark.UserID, mark.DistrictID, mark.NumberVotes, mark.NumberChecks); err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return id, nil
 }
