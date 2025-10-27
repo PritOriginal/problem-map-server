@@ -4,6 +4,7 @@ go 1.25.1
 
 require (
 	github.com/PritOriginal/problem-map-protos v0.0.2
+	github.com/brianvoe/gofakeit/v7 v7.8.1
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/go-chi/jwtauth/v5 v5.3.3
 	github.com/go-chi/render v1.0.3

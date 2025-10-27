@@ -3,12 +3,14 @@
 package tests
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	"testing"
 
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
+	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/PritOriginal/problem-map-server/tests/rest/suite"
 	"github.com/stretchr/testify/require"
@@ -66,5 +68,25 @@ func TestGetTasksByUserId(t *testing.T) {
 }
 
 func TestAddTask(t *testing.T) {
-	// TODO
+	st := suite.New(t)
+
+	task := models.Task{
+		Name:   "",
+		UserID: 1,
+		MarkID: 1,
+	}
+
+	reqJSON, err := json.Marshal(task)
+	require.NoError(t, err)
+
+	resp, err := http.Post(
+		fmt.Sprintf("http://%s:%d/tasks", st.Cfg.REST.Host, st.Cfg.REST.Port),
+		"application/json",
+		bytes.NewBuffer(reqJSON),
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, http.StatusCreated, resp.StatusCode)
+
+	defer resp.Body.Close()
 }
