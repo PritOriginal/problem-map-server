@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/docgen"
 	"github.com/go-chi/jwtauth/v5"
 	"github.com/go-playground/validator/v10"
 )
@@ -115,4 +117,21 @@ func (a *App) Stop() {
 	if err := a.db.DB.Close(); err != nil {
 		a.log.Error("an error occurred while closing the connection to the database", slogger.Err(err))
 	}
+}
+
+func (a *App) MustGenerateRoutesDoc() {
+	if err := a.GenerateRoutesDoc(); err != nil {
+		panic(err)
+	}
+}
+
+func (a *App) GenerateRoutesDoc() error {
+	data := docgen.MarkdownRoutesDoc(a.router, docgen.MarkdownOpts{
+		ProjectPath: "github.com/PritOriginal/problem-map-server",
+		Intro:       "REST generated docs.",
+	})
+
+	err := os.WriteFile("routes.md", []byte(data), 0644)
+
+	return err
 }
