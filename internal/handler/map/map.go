@@ -56,12 +56,14 @@ func Register(r *chi.Mux, auth *jwtauth.JWTAuth, uc Map, bh *handlers.BaseHandle
 		r.Get("/regions", handler.GetRegions())
 		r.Get("/cities", handler.GetCities())
 		r.Get("/districts", handler.GetDistricts())
-		r.Get("/marks", handler.GetMarks())
-		r.Group(func(r chi.Router) {
-			r.Use(jwtauth.Verifier(auth))
-			r.Use(jwtauth.Authenticator(auth))
-			r.Post("/marks", handler.AddMark())
-			r.Post("/photos", handler.AddPhotos())
+		r.Route("/marks", func(r chi.Router) {
+			r.Get("/", handler.GetMarks())
+			r.Group(func(r chi.Router) {
+				r.Use(jwtauth.Verifier(auth))
+				r.Use(jwtauth.Authenticator(auth))
+				r.Post("/", handler.AddMark())
+				r.Post("/photos", handler.AddPhotos())
+			})
 		})
 	})
 }
