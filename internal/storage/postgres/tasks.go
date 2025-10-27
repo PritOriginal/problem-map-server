@@ -10,22 +10,15 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type TasksRepository interface {
-	GetTasks(ctx context.Context) ([]models.Task, error)
-	GetTaskById(ctx context.Context, id int) (models.Task, error)
-	GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error)
-	AddTask(ctx context.Context, task models.Task) (int64, error)
-}
-
-type TasksRepo struct {
+type TasksRepository struct {
 	Conn *sqlx.DB
 }
 
-func NewTasks(conn *sqlx.DB) *TasksRepo {
-	return &TasksRepo{Conn: conn}
+func NewTasks(conn *sqlx.DB) *TasksRepository {
+	return &TasksRepository{Conn: conn}
 }
 
-func (r *TasksRepo) GetTasks(ctx context.Context) ([]models.Task, error) {
+func (r *TasksRepository) GetTasks(ctx context.Context) ([]models.Task, error) {
 	const op = "storage.postgres.GetTasks"
 
 	tasks := make([]models.Task, 0)
@@ -38,7 +31,7 @@ func (r *TasksRepo) GetTasks(ctx context.Context) ([]models.Task, error) {
 	return tasks, nil
 }
 
-func (r *TasksRepo) GetTaskById(ctx context.Context, id int) (models.Task, error) {
+func (r *TasksRepository) GetTaskById(ctx context.Context, id int) (models.Task, error) {
 	const op = "storage.postgres.GetTaskById"
 
 	var task models.Task
@@ -56,7 +49,7 @@ func (r *TasksRepo) GetTaskById(ctx context.Context, id int) (models.Task, error
 	return task, nil
 }
 
-func (r *TasksRepo) GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error) {
+func (r *TasksRepository) GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error) {
 	const op = "storage.postgres.GetTasksByUserId"
 
 	tasks := []models.Task{}
@@ -69,7 +62,7 @@ func (r *TasksRepo) GetTasksByUserId(ctx context.Context, userId int) ([]models.
 
 	return tasks, nil
 }
-func (r *TasksRepo) AddTask(ctx context.Context, task models.Task) (int64, error) {
+func (r *TasksRepository) AddTask(ctx context.Context, task models.Task) (int64, error) {
 	const op = "storage.postgres.AddTask"
 
 	result, err := r.Conn.NamedExecContext(ctx, "INSERT INTO tasks (name, user_id) VALUES (:name, :user_id)", task)

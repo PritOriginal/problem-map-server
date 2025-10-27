@@ -10,22 +10,15 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type UsersRepository interface {
-	GetUserById(ctx context.Context, id int) (models.User, error)
-	GetUserByUsername(ctx context.Context, username string) (models.User, error)
-	GetUsers(ctx context.Context) ([]models.User, error)
-	AddUser(ctx context.Context, user models.User) (int64, error)
-}
-
-type UsersRepo struct {
+type UsersRepository struct {
 	Conn *sqlx.DB
 }
 
-func NewUsers(conn *sqlx.DB) *UsersRepo {
-	return &UsersRepo{Conn: conn}
+func NewUsers(conn *sqlx.DB) *UsersRepository {
+	return &UsersRepository{Conn: conn}
 }
 
-func (r *UsersRepo) GetUserById(ctx context.Context, id int) (models.User, error) {
+func (r *UsersRepository) GetUserById(ctx context.Context, id int) (models.User, error) {
 	const op = "storage.postgres.GetUserById"
 
 	var user models.User
@@ -51,7 +44,7 @@ func (r *UsersRepo) GetUserById(ctx context.Context, id int) (models.User, error
 	return user, nil
 }
 
-func (r *UsersRepo) GetUserByUsername(ctx context.Context, username string) (models.User, error) {
+func (r *UsersRepository) GetUserByUsername(ctx context.Context, username string) (models.User, error) {
 	const op = "storage.postgres.GetUserByUsername"
 
 	var user models.User
@@ -77,7 +70,7 @@ func (r *UsersRepo) GetUserByUsername(ctx context.Context, username string) (mod
 
 }
 
-func (r *UsersRepo) GetUsers(ctx context.Context) ([]models.User, error) {
+func (r *UsersRepository) GetUsers(ctx context.Context) ([]models.User, error) {
 	const op = "storage.postgres.GetUsers"
 
 	users := make([]models.User, 0)
@@ -96,7 +89,7 @@ func (r *UsersRepo) GetUsers(ctx context.Context) ([]models.User, error) {
 	return users, nil
 }
 
-func (r *UsersRepo) AddUser(ctx context.Context, user models.User) (int64, error) {
+func (r *UsersRepository) AddUser(ctx context.Context, user models.User) (int64, error) {
 	const op = "storage.postgres.AddUser"
 
 	var id int64
