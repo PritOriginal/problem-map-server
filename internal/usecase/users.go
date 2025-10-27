@@ -3,17 +3,25 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage/postgres"
 )
 
-type Users struct {
-	usersRepo postgres.UsersRepository
+type UsersRepository interface {
+	GetUserById(ctx context.Context, id int) (models.User, error)
+	GetUserByUsername(ctx context.Context, username string) (models.User, error)
+	GetUsers(ctx context.Context) ([]models.User, error)
+	AddUser(ctx context.Context, user models.User) (int64, error)
 }
 
-func NewUsers(usersRepo postgres.UsersRepository) *Users {
-	return &Users{usersRepo: usersRepo}
+type Users struct {
+	log       *slog.Logger
+	usersRepo UsersRepository
+}
+
+func NewUsers(log *slog.Logger, usersRepo UsersRepository) *Users {
+	return &Users{log: log, usersRepo: usersRepo}
 }
 
 func (uc *Users) GetUserById(ctx context.Context, id int) (models.User, error) {
