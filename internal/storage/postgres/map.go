@@ -8,23 +8,15 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
-type MapRepository interface {
-	GetRegions(ctx context.Context) ([]models.Region, error)
-	GetCities(ctx context.Context) ([]models.City, error)
-	GetDistricts(ctx context.Context) ([]models.District, error)
-	GetMarks(ctx context.Context) ([]models.Mark, error)
-	AddMark(ctx context.Context, mark models.Mark) error
-}
-
-type MapRepo struct {
+type MapRepository struct {
 	Conn *sqlx.DB
 }
 
-func NewMap(conn *sqlx.DB) *MapRepo {
-	return &MapRepo{Conn: conn}
+func NewMap(conn *sqlx.DB) *MapRepository {
+	return &MapRepository{Conn: conn}
 }
 
-func (repo *MapRepo) GetRegions(ctx context.Context) ([]models.Region, error) {
+func (repo *MapRepository) GetRegions(ctx context.Context) ([]models.Region, error) {
 	const op = "storage.postgres.GetRegions"
 
 	regions := []models.Region{}
@@ -37,7 +29,7 @@ func (repo *MapRepo) GetRegions(ctx context.Context) ([]models.Region, error) {
 	return regions, nil
 }
 
-func (repo *MapRepo) GetCities(ctx context.Context) ([]models.City, error) {
+func (repo *MapRepository) GetCities(ctx context.Context) ([]models.City, error) {
 	const op = "storage.postgres.GetCities"
 
 	cities := []models.City{}
@@ -50,7 +42,7 @@ func (repo *MapRepo) GetCities(ctx context.Context) ([]models.City, error) {
 	return cities, nil
 }
 
-func (repo *MapRepo) GetDistricts(ctx context.Context) ([]models.District, error) {
+func (repo *MapRepository) GetDistricts(ctx context.Context) ([]models.District, error) {
 	const op = "storage.postgres.GetDistricts"
 
 	districts := []models.District{}
@@ -63,7 +55,7 @@ func (repo *MapRepo) GetDistricts(ctx context.Context) ([]models.District, error
 	return districts, nil
 }
 
-func (repo *MapRepo) GetMarks(ctx context.Context) ([]models.Mark, error) {
+func (repo *MapRepository) GetMarks(ctx context.Context) ([]models.Mark, error) {
 	const op = "storage.postgres.GetMarks"
 
 	marks := []models.Mark{}

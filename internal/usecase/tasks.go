@@ -3,17 +3,25 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage/postgres"
 )
 
-type Tasks struct {
-	tasksRepo postgres.TasksRepository
+type TasksRepository interface {
+	GetTasks(ctx context.Context) ([]models.Task, error)
+	GetTaskById(ctx context.Context, id int) (models.Task, error)
+	GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error)
+	AddTask(ctx context.Context, task models.Task) (int64, error)
 }
 
-func NewTasks(tasksRepo postgres.TasksRepository) *Tasks {
-	return &Tasks{tasksRepo: tasksRepo}
+type Tasks struct {
+	log       *slog.Logger
+	tasksRepo TasksRepository
+}
+
+func NewTasks(log *slog.Logger, tasksRepo TasksRepository) *Tasks {
+	return &Tasks{log: log, tasksRepo: tasksRepo}
 }
 
 func (uc *Tasks) GetTasks(ctx context.Context) ([]models.Task, error) {
