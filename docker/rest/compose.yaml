@@ -8,7 +8,7 @@ services:
     networks:
       - server-network
     ports:
-      - ${SERVER_PORT}:${SERVER_PORT}
+      - ${REST_PORT}:${REST_PORT}
     volumes:
       - ./log.txt:/bin/log.txt
     depends_on:
