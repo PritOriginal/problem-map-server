@@ -13,6 +13,8 @@ type MapRepository interface {
 	GetCities(ctx context.Context) ([]models.City, error)
 	GetDistricts(ctx context.Context) ([]models.District, error)
 	GetMarks(ctx context.Context) ([]models.Mark, error)
+	GetMarkById(ctx context.Context, id int) (models.Mark, error)
+	GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error)
 	AddMark(ctx context.Context, mark models.Mark) (int64, error)
 }
 
