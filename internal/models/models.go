@@ -1,6 +1,10 @@
 package models
 
-import pb "github.com/PritOriginal/problem-map-protos/gen/go"
+import (
+	"time"
+
+	pb "github.com/PritOriginal/problem-map-protos/gen/go"
+)
 
 type Region struct {
 	ID   int      `json:"region_id" db:"region_id"`
@@ -81,4 +85,14 @@ type MarkType struct {
 type StatusMark struct {
 	ID   int    `json:"mark_status_id" db:"mark_status_id"`
 	Nmae string `json:"name" db:"name"`
+}
+
+type Review struct {
+	ID        int       `json:"review_id" db:"review_id"`
+	UserID    int       `json:"user_id" db:"user_id"`
+	MarkID    int       `json:"mark_id" db:"mark_id"`
+	Result    bool      `json:"result" db:"result"`
+	Comment   string    `json:"comment" db:"comment"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
