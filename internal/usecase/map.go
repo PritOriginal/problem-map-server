@@ -71,6 +71,26 @@ func (uc *Map) GetMarks(ctx context.Context) ([]models.Mark, error) {
 	return marks, nil
 }
 
+func (uc *Map) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
+	const op = "usecase.Map.GetMarkById"
+
+	mark, err := uc.mapRepo.GetMarkById(ctx, id)
+	if err != nil {
+		return mark, fmt.Errorf("%s: %w", op, err)
+	}
+	return mark, nil
+}
+
+func (uc *Map) GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error) {
+	const op = "usecase.Map.GetMarksByUserId"
+
+	marks, err := uc.mapRepo.GetMarksByUserId(ctx, userId)
+	if err != nil {
+		return marks, fmt.Errorf("%s: %w", op, err)
+	}
+	return marks, nil
+}
+
 func (uc *Map) AddMark(ctx context.Context, mark models.Mark) (int64, error) {
 	const op = "usecase.Map.AddMark"
 
