@@ -14,6 +14,7 @@ type MapRepository interface {
 	GetDistricts(ctx context.Context) ([]models.District, error)
 	GetMarks(ctx context.Context) ([]models.Mark, error)
 	AddMark(ctx context.Context, mark models.Mark) (int64, error)
+	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
 }
 
 type PhotosRepository interface {
