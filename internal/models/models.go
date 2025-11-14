@@ -73,7 +73,7 @@ func (m *Mark) MarshalProtobuf() *pb.Mark {
 	}
 }
 
-type TypeMark struct {
+type MarkType struct {
 	ID   int    `json:"type_mark_id" db:"type_mark_id"`
 	Name string `json:"name"`
 }
