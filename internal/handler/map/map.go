@@ -4,10 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
+	"strconv"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/internal/storage"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/go-chi/chi/v5"
@@ -26,6 +29,10 @@ type GetDistrictsResponse struct {
 	Districts []models.District `json:"districts"`
 }
 
+type GetMarkByIdResponse struct {
+	Mark models.Mark `json:"mark"`
+}
+
 type GetMarksResponse struct {
 	Marks []models.Mark `json:"marks"`
 }
@@ -35,6 +42,8 @@ type Map interface {
 	GetCities(ctx context.Context) ([]models.City, error)
 	GetDistricts(ctx context.Context) ([]models.District, error)
 	GetMarks(ctx context.Context) ([]models.Mark, error)
+	GetMarkById(ctx context.Context, id int) (models.Mark, error)
+	GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error)
 	AddMark(ctx context.Context, mark models.Mark) (int64, error)
 	PhotosRepository
 }
@@ -58,6 +67,8 @@ func Register(r *chi.Mux, auth *jwtauth.JWTAuth, uc Map, bh *handlers.BaseHandle
 		r.Get("/districts", handler.GetDistricts())
 		r.Route("/marks", func(r chi.Router) {
 			r.Get("/", handler.GetMarks())
+			r.Get("/{id}", handler.GetMarkById())
+			r.Get("/user/{userId}", handler.GetMarksByUserId())
 			r.Group(func(r chi.Router) {
 				r.Use(jwtauth.Verifier(auth))
 				r.Use(jwtauth.Authenticator(auth))
@@ -114,6 +125,56 @@ func (h *handler) GetMarks() http.HandlerFunc {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get marks", Err: err})
 			return
 		}
+		h.Render(w, r, responses.SucceededRenderer(GetMarksResponse{
+			Marks: marks,
+		}))
+	}
+}
+
+func (h *handler) GetMarkById() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.Atoi(chi.URLParam(r, "id"))
+		if err != nil {
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "failed parse id", Err: err},
+				responses.ErrBadRequest,
+			)
+			return
+		}
+
+		mark, err := h.uc.GetMarkById(context.Background(), id)
+		if err != nil {
+			if errors.Is(err, storage.ErrNotFound) {
+				h.Render(w, r, responses.ErrNotFound)
+			} else {
+				h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get mark by id", Err: err})
+			}
+			return
+		}
+
+		h.Render(w, r, responses.SucceededRenderer(GetMarkByIdResponse{
+			Mark: mark,
+		}))
+	}
+}
+
+func (h *handler) GetMarksByUserId() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userId, err := strconv.Atoi(chi.URLParam(r, "user_id"))
+		if err != nil {
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "failed parse id", Err: err},
+				responses.ErrBadRequest,
+			)
+			return
+		}
+
+		marks, err := h.uc.GetMarksByUserId(context.Background(), userId)
+		if err != nil {
+			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get marks", Err: err})
+			return
+		}
+
 		h.Render(w, r, responses.SucceededRenderer(GetMarksResponse{
 			Marks: marks,
 		}))
