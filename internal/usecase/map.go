@@ -82,6 +82,17 @@ func (uc *Map) AddMark(ctx context.Context, mark models.Mark) (int64, error) {
 	return id, nil
 }
 
+func (uc *Map) GetMarkTypes(ctx context.Context) ([]models.MarkType, error) {
+	const op = "usecase.Map.GetMarkTypes"
+
+	types, err := uc.mapRepo.GetMarkTypes(ctx)
+	if err != nil {
+		return types, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return types, nil
+}
+
 func (uc *Map) AddPhotos(photos [][]byte) error {
 	const op = "usecase.Map.AddPhotos"
 
