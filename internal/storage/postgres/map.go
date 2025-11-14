@@ -2,9 +2,11 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/internal/storage"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -68,6 +70,51 @@ func (repo *MapRepository) GetMarks(ctx context.Context) ([]models.Mark, error) 
 			`
 
 	if err := repo.Conn.SelectContext(ctx, &marks, query); err != nil {
+		return marks, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return marks, nil
+}
+
+func (repo *MapRepository) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
+	const op = "storage.postgres.GetMarkById"
+
+	mark := models.Mark{}
+
+	query := `SELECT
+				mark_id, name, ST_AsEWKB(geom) AS geom, type_mark_id, user_id, district_id, number_votes, number_checks 
+			FROM 
+				marks 
+			WHERE 
+				mark_id = $1
+			`
+
+	if err := repo.Conn.GetContext(ctx, &mark, query, id); err != nil {
+		switch err {
+		case sql.ErrNoRows:
+			return mark, storage.ErrNotFound
+		default:
+			return mark, fmt.Errorf("%s: %w", op, err)
+		}
+	}
+
+	return mark, nil
+}
+
+func (repo *MapRepository) GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error) {
+	const op = "storage.postgres.GetMarksByUserId"
+
+	marks := []models.Mark{}
+
+	query := `SELECT
+				mark_id, name, ST_AsEWKB(geom) AS geom, type_mark_id, user_id, district_id, number_votes, number_checks 
+			FROM 
+				marks 
+			WHERE 
+				user_id = $1
+			`
+
+	if err := repo.Conn.SelectContext(ctx, &marks, query, userId); err != nil {
 		return marks, fmt.Errorf("%s: %w", op, err)
 	}
 
