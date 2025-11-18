@@ -86,3 +86,42 @@ func (r *TasksRepository) AddTask(ctx context.Context, task models.Task) (int64,
 
 	return id, nil
 }
+
+func (r *TasksRepository) GetReviewById(ctx context.Context, id int) (models.Review, error) {
+	const op = "storage.postgres.GetReviewById"
+
+	var review models.Review
+
+	query := "SELECT * FROM reviews WHERE review_id = $1"
+	if err := r.Conn.GetContext(ctx, &review, query, id); err != nil {
+		return review, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return review, nil
+}
+
+func (r *TasksRepository) GetReviewsByMarkId(ctx context.Context, markId int) ([]models.Review, error) {
+	const op = "storage.postgres.GetReviewsByMarkId"
+
+	var reviews []models.Review
+
+	query := "SELECT * FROM reviews WHERE mark_id = $1"
+	if err := r.Conn.SelectContext(ctx, &reviews, query, markId); err != nil {
+		return reviews, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return reviews, nil
+}
+
+func (r *TasksRepository) GetReviewsByUserId(ctx context.Context, userId int) ([]models.Review, error) {
+	const op = "storage.postgres.GetReviewsByUserId"
+
+	var reviews []models.Review
+
+	query := "SELECT * FROM reviews WHERE user_id = $1"
+	if err := r.Conn.SelectContext(ctx, &reviews, query, userId); err != nil {
+		return reviews, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return reviews, nil
+}
