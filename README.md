@@ -29,7 +29,7 @@
 Для `.yaml`
 
 ```bash
-cp ./configs/config-docker.yaml ./configs/config.yaml
+cp ./configs/config.yaml.example ./configs/config.yaml
 ```
 
 Для `.env` (если предпочитаете переменные окружения)
