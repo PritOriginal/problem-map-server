@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 const (
@@ -26,18 +27,20 @@ func main() {
 
 		query, err := os.ReadFile(overpassFileName)
 		if err != nil {
-			log.Println("file reading error:", err)
+			log.Println("file reading error: ", err)
 			return
 		}
 
 		data, err := getOsmData(string(query))
 		if err != nil {
-			log.Println("request execution error:", err)
+			log.Println("request execution error: ", err)
 			return
 		}
 
 		osmFileName := "./osm/data/" + file.Name()[:len(fileName)-len(filepath.Ext(fileName))] + ".osm"
-		saveToFile(osmFileName, data)
+		if err := saveToFile(osmFileName, data); err != nil {
+			log.Fatal("save file error: ", err)
+		}
 	}
 }
 
@@ -67,6 +70,16 @@ func getOsmData(query string) ([]byte, error) {
 }
 
 func saveToFile(name string, data []byte) error {
+	dirName := name[:strings.LastIndex(name, "/")]
+	if _, err := os.Stat(dirName); err != nil {
+		if os.IsNotExist(err) {
+			err := os.Mkdir(dirName, 0755)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	err := os.WriteFile(name, data, 0644)
 	if err != nil {
 		return err
