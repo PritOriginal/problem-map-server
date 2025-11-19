@@ -78,7 +78,7 @@ type MarkType struct {
 	Name string `json:"name"`
 }
 
-type StatusMark struct {
+type MarkStatus struct {
 	ID   int    `json:"mark_status_id" db:"mark_status_id"`
 	Nmae string `json:"name" db:"name"`
 }
