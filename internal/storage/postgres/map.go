@@ -159,3 +159,17 @@ func (repo *MapRepository) GetMarkTypes(ctx context.Context) ([]models.MarkType,
 
 	return types, nil
 }
+
+func (repo *MapRepository) GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error) {
+	const op = "storage.postgres.GetMarkTypes"
+
+	statuses := []models.MarkStatus{}
+
+	query := "SELECT * FROM mark_statuses"
+
+	if err := repo.Conn.SelectContext(ctx, &statuses, query); err != nil {
+		return statuses, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return statuses, nil
+}

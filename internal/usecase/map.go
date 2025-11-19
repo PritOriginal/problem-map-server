@@ -17,6 +17,7 @@ type MapRepository interface {
 	GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error)
 	AddMark(ctx context.Context, mark models.Mark) (int64, error)
 	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
+	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
 }
 
 type PhotosRepository interface {
