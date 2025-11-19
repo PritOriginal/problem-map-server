@@ -64,7 +64,7 @@ func (repo *MapRepository) GetMarks(ctx context.Context) ([]models.Mark, error) 
 
 	query := `
 			SELECT 
-				mark_id, name, ST_AsEWKB(geom) AS geom, type_mark_id, user_id, district_id, number_votes, number_checks 
+				mark_id, name, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, district_id, number_votes, number_checks 
 			FROM 
 				marks
 			`
@@ -82,7 +82,7 @@ func (repo *MapRepository) GetMarkById(ctx context.Context, id int) (models.Mark
 	mark := models.Mark{}
 
 	query := `SELECT
-				mark_id, name, ST_AsEWKB(geom) AS geom, type_mark_id, user_id, district_id, number_votes, number_checks 
+				mark_id, name, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, district_id, number_votes, number_checks 
 			FROM 
 				marks 
 			WHERE 
@@ -107,7 +107,7 @@ func (repo *MapRepository) GetMarksByUserId(ctx context.Context, userId int) ([]
 	marks := []models.Mark{}
 
 	query := `SELECT
-				mark_id, name, ST_AsEWKB(geom) AS geom, type_mark_id, user_id, district_id, number_votes, number_checks 
+				mark_id, name, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, district_id, number_votes, number_checks 
 			FROM 
 				marks 
 			WHERE 
