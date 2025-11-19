@@ -41,6 +41,10 @@ type GetMarkTypesResponse struct {
 	MarkTypes []models.MarkType `json:"mark_types"`
 }
 
+type GetMarkStatusesResponse struct {
+	MarkStatuses []models.MarkStatus `json:"mark_statuses"`
+}
+
 type Map interface {
 	GetRegions(ctx context.Context) ([]models.Region, error)
 	GetCities(ctx context.Context) ([]models.City, error)
@@ -50,6 +54,7 @@ type Map interface {
 	GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error)
 	AddMark(ctx context.Context, mark models.Mark) (int64, error)
 	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
+	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
 	PhotosRepository
 }
 
@@ -81,6 +86,7 @@ func Register(r *chi.Mux, auth *jwtauth.JWTAuth, uc Map, bh *handlers.BaseHandle
 				r.Post("/photos", handler.AddPhotos())
 			})
 			r.Get("/types", handler.GetMarkTypes())
+			r.Get("/statuses", handler.GetMarkStatuses())
 		})
 	})
 }
@@ -234,6 +240,21 @@ func (h *handler) GetMarkTypes() http.HandlerFunc {
 
 		h.Render(w, r, responses.SucceededRenderer(GetMarkTypesResponse{
 			MarkTypes: types,
+		}))
+	}
+}
+
+func (h *handler) GetMarkStatuses() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		statuses, err := h.uc.GetMarkStatuses(context.Background())
+
+		if err != nil {
+			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get mark statuses", Err: err})
+			return
+		}
+
+		h.Render(w, r, responses.SucceededRenderer(GetMarkStatusesResponse{
+			MarkStatuses: statuses,
 		}))
 	}
 }
