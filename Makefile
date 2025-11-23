@@ -30,3 +30,8 @@ migrate-up:
 	migrate -path ./migrations/ -database postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=disable up
 migrate-down:
 	migrate -path ./migrations/ -database postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=disable down
+
+run-osm:
+	go run ./cmd/osm/
+build-osm:
+	go build ./cmd/osm/

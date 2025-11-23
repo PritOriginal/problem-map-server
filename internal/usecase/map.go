@@ -13,7 +13,11 @@ type MapRepository interface {
 	GetCities(ctx context.Context) ([]models.City, error)
 	GetDistricts(ctx context.Context) ([]models.District, error)
 	GetMarks(ctx context.Context) ([]models.Mark, error)
+	GetMarkById(ctx context.Context, id int) (models.Mark, error)
+	GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error)
 	AddMark(ctx context.Context, mark models.Mark) (int64, error)
+	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
+	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
 }
 
 type PhotosRepository interface {
@@ -71,6 +75,26 @@ func (uc *Map) GetMarks(ctx context.Context) ([]models.Mark, error) {
 	return marks, nil
 }
 
+func (uc *Map) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
+	const op = "usecase.Map.GetMarkById"
+
+	mark, err := uc.mapRepo.GetMarkById(ctx, id)
+	if err != nil {
+		return mark, fmt.Errorf("%s: %w", op, err)
+	}
+	return mark, nil
+}
+
+func (uc *Map) GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error) {
+	const op = "usecase.Map.GetMarksByUserId"
+
+	marks, err := uc.mapRepo.GetMarksByUserId(ctx, userId)
+	if err != nil {
+		return marks, fmt.Errorf("%s: %w", op, err)
+	}
+	return marks, nil
+}
+
 func (uc *Map) AddMark(ctx context.Context, mark models.Mark) (int64, error) {
 	const op = "usecase.Map.AddMark"
 
@@ -80,6 +104,28 @@ func (uc *Map) AddMark(ctx context.Context, mark models.Mark) (int64, error) {
 	}
 
 	return id, nil
+}
+
+func (uc *Map) GetMarkTypes(ctx context.Context) ([]models.MarkType, error) {
+	const op = "usecase.Map.GetMarkTypes"
+
+	types, err := uc.mapRepo.GetMarkTypes(ctx)
+	if err != nil {
+		return types, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return types, nil
+}
+
+func (uc *Map) GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error) {
+	const op = "usecase.Map.GetMarkTypes"
+
+	statuses, err := uc.mapRepo.GetMarkStatuses(ctx)
+	if err != nil {
+		return statuses, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return statuses, nil
 }
 
 func (uc *Map) AddPhotos(photos [][]byte) error {
