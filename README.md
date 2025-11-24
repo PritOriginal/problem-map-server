@@ -7,7 +7,7 @@
 [problem-map.pritoriginal.ru](https://problem-map.pritoriginal.ru/) - сайт, на котором можно посмотреть визуализацию.
 `(Находится в активной разработке)`
 
-[problem-map-react](https://github.com/PritOriginal/problem-map-react) - репозиторий фронта.
+[problem-map-react](https://github.com/PritOriginal/problem-map-react) - репозиторий фронта. (очень сырой, лучше не смотреть :) )
 
 [Сгенерированная документация к эндпоинтам](routes.md)
 
