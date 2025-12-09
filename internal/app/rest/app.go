@@ -43,13 +43,6 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	}
 	log.Info("PostgreSQL connected!")
 
-	_, err = s3.New(log, cfg.Aws)
-	if err != nil {
-		log.Error("failed connection to s3", slogger.Err(err))
-		panic(err)
-	}
-	log.Info("s3 connected!")
-
 	accessAuth := jwtauth.New("HS256", []byte(cfg.Auth.JWT.Access.Key), nil)
 
 	validate := validator.New()
@@ -59,7 +52,22 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	baseHandler := &handlers.BaseHandler{Log: log, Validate: validate}
 
 	mapRepo := postgres.NewMap(postgresDB.DB)
-	photoRepo := local.NewPhotos()
+
+	var photoRepo usecase.PhotosRepository
+	switch cfg.PhotoStorage {
+	case config.Local:
+		photoRepo = local.NewPhotos()
+	case config.S3:
+		s3Client, err := s3.New(log, cfg.Aws)
+		if err != nil {
+			log.Error("failed connection to s3", slogger.Err(err))
+			panic(err)
+		}
+		log.Info("s3 connected!")
+
+		photoRepo = s3.NewPhotos(s3Client)
+	}
+
 	mapUseCase := usecase.NewMap(log, mapRepo, photoRepo)
 	maprest.Register(router, accessAuth, mapUseCase, baseHandler)
 
