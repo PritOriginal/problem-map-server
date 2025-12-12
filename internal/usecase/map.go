@@ -129,10 +129,10 @@ func (uc *Map) GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
 	return statuses, nil
 }
 
-func (uc *Map) AddPhotos(photos [][]byte) error {
+func (uc *Map) AddPhotos(photos [][]byte, markId, reviewId int) error {
 	const op = "usecase.Map.AddPhotos"
 
-	if err := uc.photosRepo.AddPhotos(photos); err != nil {
+	if err := uc.photosRepo.AddPhotos(context.Background(), markId, reviewId, photos); err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 	return nil
