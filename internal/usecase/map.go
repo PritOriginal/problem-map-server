@@ -21,8 +21,9 @@ type MapRepository interface {
 }
 
 type PhotosRepository interface {
-	AddPhotos(photos [][]byte) error
-	GetPhotos() error
+	AddPhotos(ctx context.Context, markId, reviewId int, photos [][]byte) error
+	GetPhotos(ctx context.Context) (map[int]map[int][]string, error)
+	GetPhotosByMarkId(ctx context.Context, markId int) (map[int]map[int][]string, error)
 }
 
 type Map struct {
