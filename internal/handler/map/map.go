@@ -55,12 +55,11 @@ type Map interface {
 	AddMark(ctx context.Context, mark models.Mark) (int64, error)
 	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
 	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
-	PhotosRepository
+	PhotosAdder
 }
 
-type PhotosRepository interface {
-	AddPhotos(photos [][]byte) error
-	GetPhotos() error
+type PhotosAdder interface {
+	AddPhotos(ctx context.Context, markId, reviewId int, photos [][]byte) error
 }
 
 type handler struct {
@@ -216,11 +215,12 @@ func (h *handler) AddMark() http.HandlerFunc {
 		}
 		newMark.Geom.Ewkb.SetSRID(4326)
 
-		if _, err := h.uc.AddMark(context.Background(), newMark); err != nil {
+		markId, err := h.uc.AddMark(context.Background(), newMark)
+		if err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error add mark", Err: err})
 			return
 		}
-		if err := h.uc.AddPhotos(photos); err != nil {
+		if err := h.uc.AddPhotos(context.Background(), int(markId), 0, photos); err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error add photos", Err: err})
 			return
 		}
@@ -273,7 +273,7 @@ func (h *handler) AddPhotos() http.HandlerFunc {
 			return
 		}
 
-		if err := h.uc.AddPhotos(photos); err != nil {
+		if err := h.uc.AddPhotos(context.Background(), 0, 0, photos); err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error add photos", Err: err})
 			return
 		}

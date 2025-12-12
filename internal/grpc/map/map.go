@@ -18,12 +18,11 @@ type Map interface {
 	GetDistricts(ctx context.Context) ([]models.District, error)
 	GetMarks(ctx context.Context) ([]models.Mark, error)
 	AddMark(ctx context.Context, mark models.Mark) (int64, error)
-	PhotosRepository
+	PhotosAdder
 }
 
-type PhotosRepository interface {
-	AddPhotos(photos [][]byte) error
-	GetPhotos() error
+type PhotosAdder interface {
+	AddPhotos(ctx context.Context, markId, reviewId int, photos [][]byte) error
 }
 
 type server struct {

@@ -47,10 +47,21 @@ func New(log *slog.Logger, cfg config.AwsConfig) (*S3, error) {
 func (client *S3) GetBuckets(ctx context.Context) ([]types.Bucket, error) {
 	const op = "storage.s3.GetBuckets"
 
-	// Запрашиваем список бакетов
+	var accessibleBuckets []types.Bucket
+
 	result, err := client.Client.ListBuckets(ctx, &s3.ListBucketsInput{})
 	if err != nil {
-		return result.Buckets, fmt.Errorf("%s: %w", op, err)
+		return accessibleBuckets, fmt.Errorf("%s: %w", op, err)
 	}
-	return result.Buckets, nil
+
+	for _, bucket := range result.Buckets {
+		_, err := client.Client.HeadBucket(context.Background(), &s3.HeadBucketInput{
+			Bucket: bucket.Name,
+		})
+		if err == nil {
+			accessibleBuckets = append(accessibleBuckets, bucket)
+		}
+	}
+
+	return accessibleBuckets, nil
 }

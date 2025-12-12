@@ -10,14 +10,22 @@ import (
 )
 
 type Config struct {
-	Env   logger.Environment `yaml:"env" env:"ENV" env-default:"local"`
-	REST  RESTConfig         `yaml:"rest"`
-	GRPC  GRPCConfig         `yaml:"grpc"`
-	Auth  AuthConfing        `yaml:"auth"`
-	DB    DatabaseConfig     `yaml:"db"`
-	Redis RedisConfig        `yaml:"redis"`
-	Aws   AwsConfig          `yaml:"aws"`
+	Env          logger.Environment `yaml:"env" env:"ENV" env-default:"local"`
+	REST         RESTConfig         `yaml:"rest"`
+	GRPC         GRPCConfig         `yaml:"grpc"`
+	PhotoStorage PhotoStorageType   `yaml:"photo-storage" env:"PHOTO_STORAGE" env-default:"local"`
+	Auth         AuthConfing        `yaml:"auth"`
+	DB           DatabaseConfig     `yaml:"db"`
+	Redis        RedisConfig        `yaml:"redis"`
+	Aws          AwsConfig          `yaml:"aws"`
 }
+
+type PhotoStorageType string
+
+const (
+	Local PhotoStorageType = "local"
+	S3    PhotoStorageType = "s3"
+)
 
 type RESTConfig struct {
 	Host    string `yaml:"host" env:"REST_HOST"`
