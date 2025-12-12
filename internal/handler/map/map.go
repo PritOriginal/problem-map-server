@@ -215,11 +215,12 @@ func (h *handler) AddMark() http.HandlerFunc {
 		}
 		newMark.Geom.Ewkb.SetSRID(4326)
 
-		if _, err := h.uc.AddMark(context.Background(), newMark); err != nil {
+		markId, err := h.uc.AddMark(context.Background(), newMark)
+		if err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error add mark", Err: err})
 			return
 		}
-		if err := h.uc.AddPhotos(photos); err != nil {
+		if err := h.uc.AddPhotos(context.Background(), int(markId), 0, photos); err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error add photos", Err: err})
 			return
 		}
@@ -272,7 +273,7 @@ func (h *handler) AddPhotos() http.HandlerFunc {
 			return
 		}
 
-		if err := h.uc.AddPhotos(photos); err != nil {
+		if err := h.uc.AddPhotos(context.Background(), 0, 0, photos); err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error add photos", Err: err})
 			return
 		}
