@@ -55,12 +55,11 @@ type Map interface {
 	AddMark(ctx context.Context, mark models.Mark) (int64, error)
 	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
 	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
-	PhotosRepository
+	PhotosAdder
 }
 
-type PhotosRepository interface {
-	AddPhotos(photos [][]byte) error
-	GetPhotos() error
+type PhotosAdder interface {
+	AddPhotos(ctx context.Context, markId, reviewId int, photos [][]byte) error
 }
 
 type handler struct {
