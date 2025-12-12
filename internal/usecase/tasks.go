@@ -13,6 +13,10 @@ type TasksRepository interface {
 	GetTaskById(ctx context.Context, id int) (models.Task, error)
 	GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error)
 	AddTask(ctx context.Context, task models.Task) (int64, error)
+	AddReview(ctx context.Context, review models.Review) (int64, error)
+	GetReviewById(ctx context.Context, id int) (models.Review, error)
+	GetReviewsByMarkId(ctx context.Context, markId int) ([]models.Review, error)
+	GetReviewsByUserId(ctx context.Context, userId int) ([]models.Review, error)
 }
 
 type Tasks struct {
@@ -66,4 +70,48 @@ func (uc *Tasks) AddTask(ctx context.Context, task models.Task) (int64, error) {
 	}
 
 	return id, nil
+}
+
+func (uc *Tasks) AddReview(ctx context.Context, review models.Review) (int64, error) {
+	const op = "usecase.Tasks.AddReview"
+
+	id, err := uc.tasksRepo.AddReview(ctx, review)
+	if err != nil {
+		return id, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return id, nil
+}
+
+func (uc *Tasks) GetReviewById(ctx context.Context, id int) (models.Review, error) {
+	const op = "usecase.Tasks.GetReviewById"
+
+	review, err := uc.tasksRepo.GetReviewById(ctx, id)
+	if err != nil {
+		return review, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return review, nil
+}
+
+func (uc *Tasks) GetReviewsByMarkId(ctx context.Context, markId int) ([]models.Review, error) {
+	const op = "usecase.Tasks.GetReviewsByMarkId"
+
+	reviews, err := uc.tasksRepo.GetReviewsByMarkId(ctx, markId)
+	if err != nil {
+		return reviews, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return reviews, nil
+}
+
+func (uc *Tasks) GetReviewsByUserId(ctx context.Context, userId int) ([]models.Review, error) {
+	const op = "usecase.Tasks.GetReviewsByUserId"
+
+	reviews, err := uc.tasksRepo.GetReviewsByUserId(ctx, userId)
+	if err != nil {
+		return reviews, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return reviews, nil
 }
