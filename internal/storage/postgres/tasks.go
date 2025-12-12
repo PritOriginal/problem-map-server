@@ -87,6 +87,31 @@ func (r *TasksRepository) AddTask(ctx context.Context, task models.Task) (int64,
 	return id, nil
 }
 
+func (r *TasksRepository) AddReview(ctx context.Context, review models.Review) (int64, error) {
+	const op = "storage.postgres.AddTask"
+
+	var id int64
+
+	query := `
+			INSERT INTO 
+				reviews (user_id, mark_id, comment) 
+			VALUES 
+				(:user_id, :mark_id, :comment)
+			RETURNING review_id
+			`
+
+	stmt, err := r.Conn.PrepareNamedContext(ctx, query)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	if err := stmt.GetContext(ctx, &id, review); err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return id, nil
+}
+
 func (r *TasksRepository) GetReviewById(ctx context.Context, id int) (models.Review, error) {
 	const op = "storage.postgres.GetReviewById"
 

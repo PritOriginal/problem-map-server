@@ -128,9 +128,9 @@ func (repo *MapRepository) AddMark(ctx context.Context, mark models.Mark) (int64
 
 	query := `
 			INSERT INTO 
-				marks (name, geom, type_mark_id, user_id, district_id, number_votes, number_checks) 
+				marks (name, geom, type_mark_id, user_id, district_id) 
 			VALUES 
-				($1, ST_GeomFromEWKB($2), $3, $4, $5, $6, $7)
+				($1, ST_GeomFromEWKB($2), $3, $4, $5)
 			RETURNING mark_id
 			`
 
