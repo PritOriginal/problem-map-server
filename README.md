@@ -4,6 +4,8 @@
 
 В даннои репозитории представлены наработки Golang REST API и gRPC серверов дипломной работы по теме "Разработка информационного обеспечения системы анализа и визуализации проблемных мест города".
 
+## О проекте
+
 [problem-map.pritoriginal.ru](https://problem-map.pritoriginal.ru/) - сайт, на котором можно посмотреть визуализацию.
 `(Находится в активной разработке)`
 
@@ -19,6 +21,21 @@
 Для работы с геоданными и PostGIS были написаны структуры-обёртки для пакета [github.com/twpayne/go-geom](https://github.com/twpayne/go-geom).
 
 А именно для пакетов [ewkb](https://github.com/twpayne/go-geom) и [geojson](github.com/twpayne/go-geom/encoding/geojson).
+
+### Стек
+
+- `Chi` - Роутер
+- `PostgreSQL` - БД
+- `PostGIS` - Для поддержки хранения геоданных
+- `Redis` - Кеширование `В процессе`
+- `S3` - Для хранения фото меток
+- `Docker` - Контейнеризация
+- `CI/CD`
+
+API:
+- `REST` (Основа)
+- `gRPC`
+
 
 ## Подготовка
 
