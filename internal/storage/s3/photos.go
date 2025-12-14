@@ -19,7 +19,7 @@ func NewPhotos(S3 *S3) *PhotosRepo {
 	return &PhotosRepo{S3: S3}
 }
 
-func (repo *PhotosRepo) AddPhotos(ctx context.Context, markId, reviewId int, photos [][]byte) error {
+func (repo *PhotosRepo) AddPhotos(ctx context.Context, markId, checkId int, photos [][]byte) error {
 	const op = "storage.s3.AddPhotos"
 
 	buckets, err := repo.S3.GetBuckets(ctx)
@@ -28,7 +28,7 @@ func (repo *PhotosRepo) AddPhotos(ctx context.Context, markId, reviewId int, pho
 	}
 
 	for i, photo := range photos {
-		objectKey := fmt.Sprintf("marks/%v/%v/%v.png", markId, reviewId, i+1)
+		objectKey := fmt.Sprintf("marks/%v/%v/%v.png", markId, checkId, i+1)
 		err := repo.AddPhoto(ctx, *buckets[0].Name, objectKey, photo)
 		if err != nil {
 			return fmt.Errorf("%s: %w", op, err)
