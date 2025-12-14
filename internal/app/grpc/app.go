@@ -8,10 +8,12 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	mapgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/map"
+	marksgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/marks"
 	tasksgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/tasks"
 	usersgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/users"
 	"github.com/PritOriginal/problem-map-server/internal/storage/local"
 	"github.com/PritOriginal/problem-map-server/internal/storage/postgres"
+	"github.com/PritOriginal/problem-map-server/internal/storage/s3"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
@@ -57,14 +59,33 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		logging.UnaryServerInterceptor(InterceptorLogger(log), loggingOpts...),
 	))
 
+	var photoRepo usecase.PhotosRepository
+	switch cfg.PhotoStorage {
+	case config.Local:
+		photoRepo = local.NewPhotos()
+	case config.S3:
+		s3Client, err := s3.New(log, cfg.Aws)
+		if err != nil {
+			log.Error("failed connection to s3", slogger.Err(err))
+			panic(err)
+		}
+		log.Info("s3 connected!")
+
+		photoRepo = s3.NewPhotos(s3Client)
+	}
+
 	mapRepo := postgres.NewMap(postgresDB.DB)
-	photoRepo := local.NewPhotos()
-	mapUseCase := usecase.NewMap(log, mapRepo, photoRepo)
+	mapUseCase := usecase.NewMap(log, mapRepo)
 	mapgrpc.Register(gRPCServer, mapUseCase)
 
+	marksRepo := postgres.NewMarks(postgresDB.DB)
+	checksRepo := postgres.NewChecks(postgresDB.DB)
+	marksUseCase := usecase.NewMarks(log, marksRepo, checksRepo, photoRepo)
+	marksgrpc.Register(gRPCServer, marksUseCase)
+
 	tasksRepo := postgres.NewTasks(postgresDB.DB)
-	taksUseCase := usecase.NewTasks(log, tasksRepo)
-	tasksgrpc.Register(gRPCServer, taksUseCase)
+	tasksUseCase := usecase.NewTasks(log, tasksRepo)
+	tasksgrpc.Register(gRPCServer, tasksUseCase)
 
 	usersRepo := postgres.NewUsers(postgresDB.DB)
 	usersUseCase := usecase.NewUsers(log, usersRepo)
