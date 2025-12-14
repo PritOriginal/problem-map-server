@@ -13,6 +13,7 @@ import (
 
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
 	maprest "github.com/PritOriginal/problem-map-server/internal/handler/map"
+	marksrest "github.com/PritOriginal/problem-map-server/internal/handler/marks"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/PritOriginal/problem-map-server/tests/rest/suite"
@@ -82,7 +83,7 @@ func TestGetMarks(t *testing.T) {
 
 	defer resp.Body.Close()
 
-	var response responses.SucceededResponse[maprest.GetMarksResponse]
+	var response responses.SucceededResponse[marksrest.GetMarksResponse]
 
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	require.NoError(t, err)

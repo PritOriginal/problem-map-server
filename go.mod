@@ -3,7 +3,7 @@ module github.com/PritOriginal/problem-map-server
 go 1.25.1
 
 require (
-	github.com/PritOriginal/problem-map-protos v0.0.2
+	github.com/PritOriginal/problem-map-protos v0.0.4
 	github.com/brianvoe/gofakeit/v7 v7.9.0
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/go-chi/docgen v1.3.0
@@ -42,7 +42,6 @@ require (
 	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-multierror v1.1.1 // indirect
-	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
@@ -67,7 +66,6 @@ require (
 
 require (
 	github.com/ajg/form v1.5.1 // indirect
-	github.com/aws/aws-sdk-go v1.55.8
 	github.com/aws/aws-sdk-go-v2 v1.39.6
 	github.com/aws/aws-sdk-go-v2/credentials v1.18.21
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.90.0
