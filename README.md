@@ -22,6 +22,21 @@
 
 А именно для пакетов [ewkb](https://github.com/twpayne/go-geom) и [geojson](github.com/twpayne/go-geom/encoding/geojson).
 
+### Стек
+
+- `Chi` - Роутер
+- `PostgreSQL` - БД
+- `PostGIS` - Для поддержки хранения геоданных
+- `Redis` - Кеширование `В процессе`
+- `S3` - Для хранения фото меток
+- `Docker` - Контейнеризация
+- `CI/CD`
+
+API:
+- `REST` (Основа)
+- `gRPC`
+
+
 ## Подготовка
 
 ### Для локального запуска
