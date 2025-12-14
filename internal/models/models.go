@@ -87,7 +87,7 @@ type MarkStatus struct {
 	Nmae string `json:"name" db:"name"`
 }
 
-type Review struct {
+type Check struct {
 	ID        int       `json:"review_id" db:"review_id"`
 	UserID    int       `json:"user_id" db:"user_id"`
 	MarkID    int       `json:"mark_id" db:"mark_id"`
