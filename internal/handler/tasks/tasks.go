@@ -31,10 +31,6 @@ type Tasks interface {
 	GetTaskById(ctx context.Context, id int) (models.Task, error)
 	GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error)
 	AddTask(ctx context.Context, task models.Task) (int64, error)
-	AddReview(ctx context.Context, review models.Review) (int64, error)
-	GetReviewById(ctx context.Context, id int) (models.Review, error)
-	GetReviewsByMarkId(ctx context.Context, markId int) ([]models.Review, error)
-	GetReviewsByUserId(ctx context.Context, userId int) ([]models.Review, error)
 }
 
 type handler struct {
