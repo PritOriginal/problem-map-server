@@ -83,7 +83,7 @@ func (repo *MarksRepository) GetMarksByUserId(ctx context.Context, userId int) (
 }
 
 func (repo *MarksRepository) AddMark(ctx context.Context, mark models.Mark) (int64, error) {
-	const op = "storage.postgres.GetMarks"
+	const op = "storage.postgres.AddMark"
 
 	var id int64
 
@@ -100,7 +100,7 @@ func (repo *MarksRepository) AddMark(ctx context.Context, mark models.Mark) (int
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
-	if err := stmt.GetContext(ctx, &id, mark.Name, &mark.Geom, mark.TypeMarkID, mark.UserID, mark.DistrictID, mark.NumberVotes, mark.NumberChecks); err != nil {
+	if err := stmt.GetContext(ctx, &id, mark.Name, &mark.Geom, mark.TypeMarkID, mark.UserID, mark.DistrictID); err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
