@@ -12,6 +12,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/handler"
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
+	checksrest "github.com/PritOriginal/problem-map-server/internal/handler/checks"
 	maprest "github.com/PritOriginal/problem-map-server/internal/handler/map"
 	marksrest "github.com/PritOriginal/problem-map-server/internal/handler/marks"
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
@@ -76,6 +77,9 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	checksRepo := postgres.NewChecks(postgresDB.DB)
 	marksUseCase := usecase.NewMarks(log, marksRepo, checksRepo, photoRepo)
 	marksrest.Register(router, accessAuth, marksUseCase, baseHandler)
+
+	checksUseCase := usecase.NewChecks(log, checksRepo, photoRepo)
+	checksrest.Register(router, accessAuth, checksUseCase, baseHandler)
 
 	usersRepo := postgres.NewUsers(postgresDB.DB)
 	usersUseCase := usecase.NewUsers(log, usersRepo)
