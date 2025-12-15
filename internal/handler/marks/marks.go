@@ -106,7 +106,7 @@ func (h *handler) GetMarkById() http.HandlerFunc {
 
 func (h *handler) GetMarksByUserId() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userId, err := strconv.Atoi(chi.URLParam(r, "user_id"))
+		userId, err := strconv.Atoi(chi.URLParam(r, "userId"))
 		if err != nil {
 			h.RenderError(w, r,
 				handlers.HandlerError{Msg: "failed parse id", Err: err},
