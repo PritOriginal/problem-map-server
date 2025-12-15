@@ -9,7 +9,7 @@ import (
 )
 
 type ChecksRepository interface {
-	AddCheck(ctx context.Context, review models.Check) (int64, error)
+	AddCheck(ctx context.Context, check models.Check) (int64, error)
 	GetCheckById(ctx context.Context, id int) (models.Check, error)
 	GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error)
 	GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error)
@@ -18,21 +18,27 @@ type ChecksRepository interface {
 type Checks struct {
 	log        *slog.Logger
 	checksRepo ChecksRepository
+	photosRepo PhotosRepository
 }
 
-func NewChecks(log *slog.Logger, checksRepo ChecksRepository) *Checks {
+func NewChecks(log *slog.Logger, checksRepo ChecksRepository, photosRepo PhotosRepository) *Checks {
 	return &Checks{
 		log:        log,
 		checksRepo: checksRepo,
+		photosRepo: photosRepo,
 	}
 }
 
-func (uc *Checks) AddCheck(ctx context.Context, review models.Check) (int64, error) {
+func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos [][]byte) (int64, error) {
 	const op = "usecase.Tasks.AddReview"
 
-	id, err := uc.checksRepo.AddCheck(ctx, review)
+	id, err := uc.checksRepo.AddCheck(ctx, check)
 	if err != nil {
 		return id, fmt.Errorf("%s: %w", op, err)
+	}
+
+	if err := uc.photosRepo.AddPhotos(ctx, check.MarkID, int(id), photos); err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return id, nil
