@@ -12,27 +12,15 @@ type MapRepository interface {
 	GetRegions(ctx context.Context) ([]models.Region, error)
 	GetCities(ctx context.Context) ([]models.City, error)
 	GetDistricts(ctx context.Context) ([]models.District, error)
-	GetMarks(ctx context.Context) ([]models.Mark, error)
-	GetMarkById(ctx context.Context, id int) (models.Mark, error)
-	GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error)
-	AddMark(ctx context.Context, mark models.Mark) (int64, error)
-	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
-	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
-}
-
-type PhotosRepository interface {
-	AddPhotos(photos [][]byte) error
-	GetPhotos() error
 }
 
 type Map struct {
-	log        *slog.Logger
-	mapRepo    MapRepository
-	photosRepo PhotosRepository
+	log     *slog.Logger
+	mapRepo MapRepository
 }
 
-func NewMap(log *slog.Logger, mapRepo MapRepository, photosRepo PhotosRepository) *Map {
-	return &Map{log, mapRepo, photosRepo}
+func NewMap(log *slog.Logger, mapRepo MapRepository) *Map {
+	return &Map{log, mapRepo}
 }
 
 func (uc *Map) GetRegions(ctx context.Context) ([]models.Region, error) {
@@ -63,81 +51,4 @@ func (uc *Map) GetDistricts(ctx context.Context) ([]models.District, error) {
 		return districts, fmt.Errorf("%s: %w", op, err)
 	}
 	return districts, nil
-}
-
-func (uc *Map) GetMarks(ctx context.Context) ([]models.Mark, error) {
-	const op = "usecase.Map.GetMarks"
-
-	marks, err := uc.mapRepo.GetMarks(ctx)
-	if err != nil {
-		return marks, fmt.Errorf("%s: %w", op, err)
-	}
-	return marks, nil
-}
-
-func (uc *Map) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
-	const op = "usecase.Map.GetMarkById"
-
-	mark, err := uc.mapRepo.GetMarkById(ctx, id)
-	if err != nil {
-		return mark, fmt.Errorf("%s: %w", op, err)
-	}
-	return mark, nil
-}
-
-func (uc *Map) GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error) {
-	const op = "usecase.Map.GetMarksByUserId"
-
-	marks, err := uc.mapRepo.GetMarksByUserId(ctx, userId)
-	if err != nil {
-		return marks, fmt.Errorf("%s: %w", op, err)
-	}
-	return marks, nil
-}
-
-func (uc *Map) AddMark(ctx context.Context, mark models.Mark) (int64, error) {
-	const op = "usecase.Map.AddMark"
-
-	id, err := uc.mapRepo.AddMark(ctx, mark)
-	if err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
-	}
-
-	return id, nil
-}
-
-func (uc *Map) GetMarkTypes(ctx context.Context) ([]models.MarkType, error) {
-	const op = "usecase.Map.GetMarkTypes"
-
-	types, err := uc.mapRepo.GetMarkTypes(ctx)
-	if err != nil {
-		return types, fmt.Errorf("%s: %w", op, err)
-	}
-
-	return types, nil
-}
-
-func (uc *Map) GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error) {
-	const op = "usecase.Map.GetMarkTypes"
-
-	statuses, err := uc.mapRepo.GetMarkStatuses(ctx)
-	if err != nil {
-		return statuses, fmt.Errorf("%s: %w", op, err)
-	}
-
-	return statuses, nil
-}
-
-func (uc *Map) AddPhotos(photos [][]byte) error {
-	const op = "usecase.Map.AddPhotos"
-
-	if err := uc.photosRepo.AddPhotos(photos); err != nil {
-		return fmt.Errorf("%s: %w", op, err)
-	}
-	return nil
-}
-
-func (uc *Map) GetPhotos() error {
-
-	return nil
 }

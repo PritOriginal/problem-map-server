@@ -12,11 +12,14 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/handler"
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
+	checksrest "github.com/PritOriginal/problem-map-server/internal/handler/checks"
 	maprest "github.com/PritOriginal/problem-map-server/internal/handler/map"
+	marksrest "github.com/PritOriginal/problem-map-server/internal/handler/marks"
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
 	"github.com/PritOriginal/problem-map-server/internal/storage/local"
 	"github.com/PritOriginal/problem-map-server/internal/storage/postgres"
+	"github.com/PritOriginal/problem-map-server/internal/storage/s3"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
@@ -51,9 +54,32 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	baseHandler := &handlers.BaseHandler{Log: log, Validate: validate}
 
 	mapRepo := postgres.NewMap(postgresDB.DB)
-	photoRepo := local.NewPhotos()
-	mapUseCase := usecase.NewMap(log, mapRepo, photoRepo)
-	maprest.Register(router, accessAuth, mapUseCase, baseHandler)
+
+	var photoRepo usecase.PhotosRepository
+	switch cfg.PhotoStorage {
+	case config.Local:
+		photoRepo = local.NewPhotos()
+	case config.S3:
+		s3Client, err := s3.New(log, cfg.Aws)
+		if err != nil {
+			log.Error("failed connection to s3", slogger.Err(err))
+			panic(err)
+		}
+		log.Info("s3 connected!")
+
+		photoRepo = s3.NewPhotos(s3Client)
+	}
+
+	mapUseCase := usecase.NewMap(log, mapRepo)
+	maprest.Register(router, mapUseCase, baseHandler)
+
+	marksRepo := postgres.NewMarks(postgresDB.DB)
+	checksRepo := postgres.NewChecks(postgresDB.DB)
+	marksUseCase := usecase.NewMarks(log, marksRepo, checksRepo, photoRepo)
+	marksrest.Register(router, accessAuth, marksUseCase, baseHandler)
+
+	checksUseCase := usecase.NewChecks(log, checksRepo, photoRepo)
+	checksrest.Register(router, accessAuth, checksUseCase, baseHandler)
 
 	usersRepo := postgres.NewUsers(postgresDB.DB)
 	usersUseCase := usecase.NewUsers(log, usersRepo)
@@ -63,8 +89,8 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	authrest.Register(router, authUseCase, baseHandler)
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB)
-	taksUseCase := usecase.NewTasks(log, tasksRepo)
-	tasksrest.Register(router, taksUseCase, baseHandler)
+	tasksUseCase := usecase.NewTasks(log, tasksRepo)
+	tasksrest.Register(router, tasksUseCase, baseHandler)
 
 	server := &http.Server{
 		Addr:         cfg.REST.Host + ":" + strconv.Itoa(cfg.REST.Port),

@@ -9,6 +9,7 @@ rest:
 grpc:
   port: 44044
   timeout: 5s
+photo-storage: local
 auth:
   jwt:
     access:

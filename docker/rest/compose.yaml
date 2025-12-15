@@ -19,8 +19,8 @@ services:
     container_name: postgres
     restart: always
     user: postgres
-    expose:
-      - ${POSTGRES_PORT}
+    ports:
+      - ${POSTGRES_PORT}:${POSTGRES_PORT}
     networks:
       - server-network
     environment:

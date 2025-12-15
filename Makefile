@@ -28,8 +28,12 @@ migrate:
 	migrate create -ext=sql -dir=./migrations -seq ${NAME_MIGRATION}     
 migrate-up:
 	migrate -path ./migrations/ -database postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=disable up
+migrate-up-1:
+	migrate -path ./migrations/ -database postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=disable up 1
 migrate-down:
 	migrate -path ./migrations/ -database postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=disable down
+migrate-down-1:
+	migrate -path ./migrations/ -database postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=disable down 1
 
 run-osm:
 	go run ./cmd/osm/

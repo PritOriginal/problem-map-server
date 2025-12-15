@@ -16,14 +16,6 @@ type Map interface {
 	GetRegions(ctx context.Context) ([]models.Region, error)
 	GetCities(ctx context.Context) ([]models.City, error)
 	GetDistricts(ctx context.Context) ([]models.District, error)
-	GetMarks(ctx context.Context) ([]models.Mark, error)
-	AddMark(ctx context.Context, mark models.Mark) (int64, error)
-	PhotosRepository
-}
-
-type PhotosRepository interface {
-	AddPhotos(photos [][]byte) error
-	GetPhotos() error
 }
 
 type server struct {
@@ -82,24 +74,4 @@ func (s *server) GetDistricts(ctx context.Context, in *emptypb.Empty) (*pb.GetDi
 	return &pb.GetDistrictsResponse{
 		Districts: districtsPb,
 	}, nil
-}
-
-func (s *server) GetMarks(ctx context.Context, in *emptypb.Empty) (*pb.GetMarksResponse, error) {
-	marks, err := s.uc.GetMarks(ctx)
-	if err != nil {
-		return nil, status.Error(codes.Internal, "error get marks")
-	}
-
-	marksPb := make([]*pb.Mark, len(marks))
-	for i, mark := range marks {
-		marksPb[i] = mark.MarshalProtobuf()
-	}
-
-	return &pb.GetMarksResponse{
-		Marks: marksPb,
-	}, nil
-}
-
-func (s *server) AddMark(ctx context.Context, in *pb.AddMarkRequest) (*pb.AddMarkResponse, error) {
-	return &pb.AddMarkResponse{}, nil
 }
