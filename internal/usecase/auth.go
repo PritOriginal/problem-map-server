@@ -73,6 +73,9 @@ func (uc *Auth) SignIn(ctx context.Context, username, password string) (string, 
 	}
 
 	accessToken, refreshToken, err := uc.generateTokens(user.Id)
+	if err != nil {
+		return "", "", fmt.Errorf("%s: %w", op, err)
+	}
 
 	return accessToken, refreshToken, nil
 }
@@ -96,6 +99,9 @@ func (uc *Auth) RefreshTokens(ctx context.Context, refreshToken string) (string,
 	}
 
 	accessToken, refreshToken, err := uc.generateTokens(user.Id)
+	if err != nil {
+		return "", "", fmt.Errorf("%s: %w", op, err)
+	}
 
 	return accessToken, refreshToken, nil
 }
