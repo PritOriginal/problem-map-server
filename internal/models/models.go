@@ -88,7 +88,7 @@ type MarkStatus struct {
 }
 
 type Check struct {
-	ID        int       `json:"review_id" db:"review_id"`
+	ID        int       `json:"check_id" db:"check_id"`
 	UserID    int       `json:"user_id" db:"user_id"`
 	MarkID    int       `json:"mark_id" db:"mark_id"`
 	Result    bool      `json:"result" db:"result"`

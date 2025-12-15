@@ -26,7 +26,7 @@ func (r *ChecksRepository) AddCheck(ctx context.Context, check models.Check) (in
 				checks (user_id, mark_id, comment) 
 			VALUES 
 				(:user_id, :mark_id, :comment)
-			RETURNING review_id
+			RETURNING check_id
 			`
 
 	stmt, err := r.Conn.PrepareNamedContext(ctx, query)
@@ -46,7 +46,7 @@ func (r *ChecksRepository) GetCheckById(ctx context.Context, id int) (models.Che
 
 	var check models.Check
 
-	query := "SELECT * FROM checks WHERE review_id = $1"
+	query := "SELECT * FROM checks WHERE check_id = $1"
 	if err := r.Conn.GetContext(ctx, &check, query, id); err != nil {
 		return check, fmt.Errorf("%s: %w", op, err)
 	}
