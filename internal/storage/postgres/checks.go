@@ -17,15 +17,15 @@ func NewChecks(conn *sqlx.DB) *ChecksRepository {
 }
 
 func (r *ChecksRepository) AddCheck(ctx context.Context, check models.Check) (int64, error) {
-	const op = "storage.postgres.AddTask"
+	const op = "storage.postgres.AddCheck"
 
 	var id int64
 
 	query := `
 			INSERT INTO 
-				checks (user_id, mark_id, comment) 
+				checks (user_id, mark_id, comment, result) 
 			VALUES 
-				(:user_id, :mark_id, :comment)
+				(:user_id, :mark_id, :comment, :result)
 			RETURNING check_id
 			`
 
