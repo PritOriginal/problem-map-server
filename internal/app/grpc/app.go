@@ -13,6 +13,7 @@ import (
 	usersgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/users"
 	"github.com/PritOriginal/problem-map-server/internal/storage/local"
 	"github.com/PritOriginal/problem-map-server/internal/storage/postgres"
+	"github.com/PritOriginal/problem-map-server/internal/storage/redis"
 	"github.com/PritOriginal/problem-map-server/internal/storage/s3"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
@@ -37,6 +38,13 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		panic(err)
 	}
 	log.Info("PostgreSQL connected!")
+
+	redis, err := redis.New(cfg.Redis)
+	if err != nil {
+		log.Error("failed connection to redis", slogger.Err(err))
+		panic(err)
+	}
+	log.Info("Redis connected!")
 
 	loggingOpts := []logging.Option{
 		logging.WithLogOnEvents(
