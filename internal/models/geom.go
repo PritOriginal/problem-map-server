@@ -56,7 +56,7 @@ func (p *Point) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (p *Point) MarshalProtobuf() *pb.Point {
+func (p *Point) ToProtobufObject() *pb.Point {
 	return &pb.Point{
 		Type: "Point",
 		Coordinates: &pb.Coordinates{
@@ -112,7 +112,7 @@ func (p *Polygon) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (p *Polygon) MarshalProtobuf() *pb.Polygon {
+func (p *Polygon) ToProtobufObject() *pb.Polygon {
 	p.Ewkb.Polygon.Coords()
 	return &pb.Polygon{
 		Type: "Polygon",
