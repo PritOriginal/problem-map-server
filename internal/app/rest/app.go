@@ -19,6 +19,7 @@ import (
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
 	"github.com/PritOriginal/problem-map-server/internal/storage/local"
 	"github.com/PritOriginal/problem-map-server/internal/storage/postgres"
+	"github.com/PritOriginal/problem-map-server/internal/storage/redis"
 	"github.com/PritOriginal/problem-map-server/internal/storage/s3"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
@@ -44,6 +45,13 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		panic(err)
 	}
 	log.Info("PostgreSQL connected!")
+
+	redis, err := redis.New(cfg.Redis)
+	if err != nil {
+		log.Error("failed connection to redis", slogger.Err(err))
+		panic(err)
+	}
+	log.Info("Redis connected!")
 
 	accessAuth := jwtauth.New("HS256", []byte(cfg.Auth.JWT.Access.Key), nil)
 
@@ -71,12 +79,12 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	}
 
 	mapUseCase := usecase.NewMap(log, mapRepo)
-	maprest.Register(router, mapUseCase, baseHandler)
+	maprest.Register(router, mapUseCase, redis, baseHandler)
 
 	marksRepo := postgres.NewMarks(postgresDB.DB)
 	checksRepo := postgres.NewChecks(postgresDB.DB)
 	marksUseCase := usecase.NewMarks(log, marksRepo, checksRepo, photoRepo)
-	marksrest.Register(router, accessAuth, marksUseCase, baseHandler)
+	marksrest.Register(router, accessAuth, marksUseCase, redis, baseHandler)
 
 	checksUseCase := usecase.NewChecks(log, checksRepo, photoRepo)
 	checksrest.Register(router, accessAuth, checksUseCase, baseHandler)
