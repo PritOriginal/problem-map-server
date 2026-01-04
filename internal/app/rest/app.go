@@ -79,12 +79,12 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	}
 
 	mapUseCase := usecase.NewMap(log, mapRepo)
-	maprest.Register(router, mapUseCase, baseHandler)
+	maprest.Register(router, mapUseCase, redis, baseHandler)
 
 	marksRepo := postgres.NewMarks(postgresDB.DB)
 	checksRepo := postgres.NewChecks(postgresDB.DB)
 	marksUseCase := usecase.NewMarks(log, marksRepo, checksRepo, photoRepo)
-	marksrest.Register(router, accessAuth, marksUseCase, baseHandler)
+	marksrest.Register(router, accessAuth, marksUseCase, redis, baseHandler)
 
 	checksUseCase := usecase.NewChecks(log, checksRepo, photoRepo)
 	checksrest.Register(router, accessAuth, checksUseCase, baseHandler)
