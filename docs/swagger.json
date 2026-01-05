@@ -6,8 +6,6 @@
         "contact": {},
         "version": "1.0"
     },
-    "host": "localhost:3333",
-    "basePath": "/",
     "paths": {
         "/auth/signin": {
             "post": {
@@ -1636,9 +1634,5 @@
             "description": "Operations with users",
             "name": "users"
         }
-    ],
-    "externalDocs": {
-        "description": "OpenAPI",
-        "url": "https://swagger.io/resources/open-api/"
-    }
+    ]
 }
