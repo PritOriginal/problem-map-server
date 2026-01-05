@@ -39,3 +39,7 @@ run-osm:
 	go run ./cmd/osm/
 build-osm:
 	go build ./cmd/osm/
+
+swag:
+	swag init -g ./cmd/rest/main.go --parseDependency --overridesFile .swaggo
+	swag fmt
