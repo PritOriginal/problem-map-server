@@ -146,13 +146,28 @@ func (h *handler) GetTasksByUserId() http.HandlerFunc {
 //	@Router			/tasks [post]
 func (h *handler) AddTask() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var task models.Task
-		if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
+		var req AddTaskRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			h.RenderError(w, r,
 				handlers.HandlerError{Msg: "failed decode request body", Err: err},
 				responses.ErrBadRequest,
 			)
 			return
+		}
+
+		if err := h.ValidateStruct(req); err != nil {
+			validateErr := err.(validator.ValidationErrors)
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "invalid request", Err: validateErr},
+				responses.ErrBadRequest,
+			)
+			return
+		}
+
+		task := models.Task{
+			Name:   req.Name,
+			UserID: req.UserID,
+			MarkID: req.MarkID,
 		}
 
 		_, err := h.uc.AddTask(context.Background(), task)
@@ -161,6 +176,6 @@ func (h *handler) AddTask() http.HandlerFunc {
 			return
 		}
 
-		h.Render(w, r, responses.SucceededResponseOK)
+		h.Render(w, r, responses.SucceededCreatedRenderer())
 	}
 }
