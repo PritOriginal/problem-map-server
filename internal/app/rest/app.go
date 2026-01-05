@@ -59,6 +59,8 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 	router := handler.GetRouter(log)
 
+	handler.SetSwagger(router, &cfg.REST)
+
 	baseHandler := &handlers.BaseHandler{Log: log, Validate: validate}
 
 	mapRepo := postgres.NewMap(postgresDB.DB)
