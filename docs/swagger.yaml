@@ -1,0 +1,1071 @@
+basePath: /
+definitions:
+  github_com_PritOriginal_problem-map-server_internal_models.Check:
+    properties:
+      check_id:
+        type: integer
+      comment:
+        type: string
+      created_at:
+        type: string
+      mark_id:
+        type: integer
+      result:
+        type: boolean
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.City:
+    properties:
+      city_id:
+        type: integer
+      geom:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PolygonJSON'
+      name:
+        type: string
+      region_id:
+        type: integer
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.District:
+    properties:
+      city_id:
+        type: integer
+      district_id:
+        type: integer
+      geom:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PolygonJSON'
+      name:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.Mark:
+    properties:
+      district_id:
+        type: integer
+      geom:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON'
+      mark_id:
+        type: integer
+      mark_status_id:
+        type: integer
+      name:
+        type: string
+      number_checks:
+        type: integer
+      number_votes:
+        type: integer
+      type_mark_id:
+        type: integer
+      user_id:
+        type: integer
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.MarkStatus:
+    properties:
+      mark_status_id:
+        type: integer
+      name:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.MarkType:
+    properties:
+      name:
+        type: string
+      type_mark_id:
+        type: integer
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.PointJSON:
+    properties:
+      coordinates:
+        example:
+        - 0
+        - 0
+        items:
+          type: number
+        type: array
+      type:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.PolygonJSON:
+    properties:
+      coordinates:
+        items:
+          items:
+            format: float64
+            type: number
+          type: array
+        type: array
+      type:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.Region:
+    properties:
+      geom:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PolygonJSON'
+      name:
+        type: string
+      region_id:
+        type: integer
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.Task:
+    properties:
+      mark_id:
+        type: integer
+      name:
+        type: string
+      status_id:
+        type: integer
+      task_id:
+        type: integer
+      user_id:
+        type: integer
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.User:
+    properties:
+      home_point:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON'
+      name:
+        type: string
+      rating:
+        type: integer
+      user_id:
+        type: integer
+      username:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse:
+    properties:
+      message:
+        type: string
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any:
+    properties:
+      message:
+        type: string
+      payload: {}
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_auth_RefreshTokensResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_auth.RefreshTokensResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_auth_SignInResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_auth.SignInResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_GetCheckByIdResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_checks.GetCheckByIdResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_GetChecksByMarkIdResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_checks.GetChecksByMarkIdResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_GetChecksByUserIdResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_checks.GetChecksByUserIdResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_map_GetCitiesResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_map.GetCitiesResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_map_GetDistrictsResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_map.GetDistrictsResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_map_GetRegionsResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_map.GetRegionsResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkByIdResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_marks.GetMarkByIdResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkStatusesResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_marks.GetMarkStatusesResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkTypesResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_marks.GetMarkTypesResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarksByUserIdResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_marks.GetMarksByUserIdResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarksResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_marks.GetMarksResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_GetTaskByIdResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_tasks.GetTaskByIdResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_GetTasksByUserIdResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_tasks.GetTasksByUserIdResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_GetTasksResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_tasks.GetTasksResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_users_GetUserByIdResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_users.GetUserByIdResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_users_GetUsersResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_users.GetUsersResponse'
+      status:
+        type: string
+    type: object
+  internal_handler_auth.RefreshTokensRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  internal_handler_auth.RefreshTokensResponse:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  internal_handler_auth.SignInRequest:
+    properties:
+      password:
+        maxLength: 64
+        minLength: 8
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  internal_handler_auth.SignInResponse:
+    properties:
+      access_token:
+        type: string
+      refresh_token:
+        type: string
+    type: object
+  internal_handler_auth.SignUpRequest:
+    properties:
+      name:
+        type: string
+      password:
+        maxLength: 64
+        minLength: 8
+        type: string
+      username:
+        type: string
+    required:
+    - name
+    - password
+    - username
+    type: object
+  internal_handler_checks.GetCheckByIdResponse:
+    properties:
+      check:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Check'
+    type: object
+  internal_handler_checks.GetChecksByMarkIdResponse:
+    properties:
+      checks:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Check'
+        type: array
+    type: object
+  internal_handler_checks.GetChecksByUserIdResponse:
+    properties:
+      checks:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Check'
+        type: array
+    type: object
+  internal_handler_map.GetCitiesResponse:
+    properties:
+      cities:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.City'
+        type: array
+    type: object
+  internal_handler_map.GetDistrictsResponse:
+    properties:
+      districts:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.District'
+        type: array
+    type: object
+  internal_handler_map.GetRegionsResponse:
+    properties:
+      regions:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Region'
+        type: array
+    type: object
+  internal_handler_marks.GetMarkByIdResponse:
+    properties:
+      mark:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark'
+    type: object
+  internal_handler_marks.GetMarkStatusesResponse:
+    properties:
+      mark_statuses:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatus'
+        type: array
+    type: object
+  internal_handler_marks.GetMarkTypesResponse:
+    properties:
+      mark_types:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkType'
+        type: array
+    type: object
+  internal_handler_marks.GetMarksByUserIdResponse:
+    properties:
+      marks:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark'
+        type: array
+    type: object
+  internal_handler_marks.GetMarksResponse:
+    properties:
+      marks:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark'
+        type: array
+    type: object
+  internal_handler_tasks.AddTaskRequest:
+    properties:
+      mark_id:
+        type: integer
+      name:
+        type: string
+      user_id:
+        type: integer
+    required:
+    - mark_id
+    - name
+    - user_id
+    type: object
+  internal_handler_tasks.GetTaskByIdResponse:
+    properties:
+      task:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Task'
+    type: object
+  internal_handler_tasks.GetTasksByUserIdResponse:
+    properties:
+      tasks:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Task'
+        type: array
+    type: object
+  internal_handler_tasks.GetTasksResponse:
+    properties:
+      tasks:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Task'
+        type: array
+    type: object
+  internal_handler_users.GetUserByIdResponse:
+    properties:
+      user:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.User'
+    type: object
+  internal_handler_users.GetUsersResponse:
+    properties:
+      users:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.User'
+        type: array
+    type: object
+externalDocs:
+  description: OpenAPI
+  url: https://swagger.io/resources/open-api/
+host: localhost:3333
+info:
+  contact: {}
+  description: This is the API documentation for the "Problem Map" project.
+  title: Problem Map API
+  version: "1.0"
+paths:
+  /auth/signin:
+    post:
+      consumes:
+      - application/json
+      description: sign in user
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_auth.SignInRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_auth_SignInResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: Sign In
+      tags:
+      - auth
+  /auth/signup:
+    post:
+      consumes:
+      - application/json
+      description: sign up a new user
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_auth.SignUpRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: Sign Up
+      tags:
+      - auth
+  /auth/tokens/refresh:
+    post:
+      consumes:
+      - application/json
+      description: refresh access and refresh tokens
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_auth.RefreshTokensRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_auth_RefreshTokensResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: Refresh tokens
+      tags:
+      - auth
+  /checks:
+    post:
+      consumes:
+      - multipart/form-data
+      description: add check
+      parameters:
+      - default: Bearer <Add access token here>
+        description: Insert your access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: Add check
+      tags:
+      - checks
+  /checks/{id}:
+    get:
+      description: get check by id
+      parameters:
+      - description: check id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_GetCheckByIdResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: Get check by id
+      tags:
+      - checks
+  /checks/mark/{id}:
+    get:
+      description: get check by mark id
+      parameters:
+      - description: mark id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_GetChecksByMarkIdResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: Get check by mark id
+      tags:
+      - checks
+  /checks/user/{id}:
+    get:
+      description: get checks by user id
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_GetChecksByUserIdResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: List checks by user id
+      tags:
+      - checks
+  /map/cities:
+    get:
+      consumes:
+      - application/json
+      description: get cities
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_map_GetCitiesResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: List cities
+      tags:
+      - map
+  /map/districts:
+    get:
+      consumes:
+      - application/json
+      description: get districts
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_map_GetDistrictsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: List districts
+      tags:
+      - map
+  /map/regions:
+    get:
+      consumes:
+      - application/json
+      description: get regions
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_map_GetRegionsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: List regions
+      tags:
+      - map
+  /marks:
+    get:
+      consumes:
+      - application/json
+      description: get markers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarksResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: List markers
+      tags:
+      - marks
+    post:
+      consumes:
+      - multipart/form-data
+      description: add mark
+      parameters:
+      - default: Bearer <Add access token here>
+        description: Insert your access token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: Add mark
+      tags:
+      - marks
+  /marks/{id}:
+    get:
+      consumes:
+      - application/json
+      description: get mark by id
+      parameters:
+      - description: mark id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkByIdResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: Get mark by id
+      tags:
+      - marks
+  /marks/statuses:
+    get:
+      consumes:
+      - application/json
+      description: get mark statuses
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkStatusesResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: List mark statuses
+      tags:
+      - marks
+  /marks/types:
+    get:
+      consumes:
+      - application/json
+      description: get mark types
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkTypesResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: List mark types
+      tags:
+      - marks
+  /marks/user/{id}:
+    get:
+      description: get markers by user id
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarksByUserIdResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: List markers by user id
+      tags:
+      - marks
+  /tasks:
+    get:
+      description: get tasks
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_GetTasksResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: List tasks
+      tags:
+      - tasks
+    post:
+      description: add new task
+      parameters:
+      - description: query params
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_tasks.AddTaskRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: Add task
+      tags:
+      - tasks
+  /tasks/{id}:
+    get:
+      description: get task by id
+      parameters:
+      - description: task id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_GetTaskByIdResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: Get task by id
+      tags:
+      - tasks
+  /tasks/user/{id}:
+    get:
+      description: get tasks by user id
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_GetTasksByUserIdResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: Get tasks by user id
+      tags:
+      - tasks
+  /users:
+    get:
+      description: get users
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_users_GetUsersResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: List users
+      tags:
+      - users
+  /users/{id}:
+    get:
+      description: get user by id
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_users_GetUserByIdResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: Get user by id
+      tags:
+      - users
+swagger: "2.0"
+tags:
+- description: Authorization and authentication
+  name: auth
+- description: Operations with geodata
+  name: map
+- description: Operations with markers
+  name: marks
+- description: Operations with checks
+  name: checks
+- description: Operations with tasks
+  name: tasks
+- description: Operations with users
+  name: users
