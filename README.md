@@ -11,7 +11,9 @@
 
 [problem-map-react](https://github.com/PritOriginal/problem-map-react) - репозиторий фронта.
 
-[Сгенерированная документация к эндпоинтам](routes.md)
+[Swagger документация](./docs/swagger.json) - доступна по адресу `http://[host]:[port]/swagger/index.html`
+
+[Сгенерированная документация к эндпоинтам](routes.md) (go-chi/docgen)
 
 > [!NOTE]  
 > Этот проект находится в стадии активной разработки, и на данный момент в нём ещё много чего не реализовано, поэтому не исключены ошибки.
@@ -31,6 +33,7 @@
 - `S3` - Для хранения фото меток
 - `Docker` - Контейнеризация
 - `CI/CD`
+- `swaggo/swag` - OpenAPI (Swagger)
 
 API:
 - `REST` (Основа)
