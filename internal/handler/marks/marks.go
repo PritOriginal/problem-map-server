@@ -145,7 +145,7 @@ func (h *handler) GetMarksByUserId() http.HandlerFunc {
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(GetMarksResponse{
+		h.Render(w, r, responses.SucceededRenderer(GetMarksByUserIdResponse{
 			Marks: marks,
 		}))
 	}
