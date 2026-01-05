@@ -49,6 +49,15 @@ func Register(r *chi.Mux, uc Tasks, bh *handlers.BaseHandler) {
 	})
 }
 
+// GetTasks lists all existing tasks
+//
+//	@Summary		List tasks
+//	@Description	get tasks
+//	@Tags			tasks
+//	@Produce		json
+//	@Success		200	{object}	responses.SucceededResponse[tasksrest.GetTasksResponse]
+//	@Failure		500	{object}	responses.ErrorResponse
+//	@Router			/tasks [get]
 func (h *handler) GetTasks() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		tasks, err := h.uc.GetTasks(context.Background())
@@ -62,6 +71,18 @@ func (h *handler) GetTasks() http.HandlerFunc {
 	}
 }
 
+// GetTaskById get task by id
+//
+//	@Summary		Get task by id
+//	@Description	get task by id
+//	@Tags			tasks
+//	@Produce		json
+//	@Param			id	path		int	true	"task id"
+//	@Success		200	{object}	responses.SucceededResponse[tasksrest.GetTaskByIdResponse]
+//	@Failure		400	{object}	responses.ErrorResponse
+//	@Failure		404	{object}	responses.ErrorResponse
+//	@Failure		500	{object}	responses.ErrorResponse
+//	@Router			/tasks/{id} [get]
 func (h *handler) GetTaskById() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.Atoi(chi.URLParam(r, "id"))
@@ -89,6 +110,17 @@ func (h *handler) GetTaskById() http.HandlerFunc {
 	}
 }
 
+// GetTasksByUserId get tasks by user id
+//
+//	@Summary		Get tasks by user id
+//	@Description	get tasks by user id
+//	@Tags			tasks
+//	@Produce		json
+//	@Param			id	path		int	true	"user id"
+//	@Success		200	{object}	responses.SucceededResponse[tasksrest.GetTasksByUserIdResponse]
+//	@Failure		400	{object}	responses.ErrorResponse
+//	@Failure		500	{object}	responses.ErrorResponse
+//	@Router			/tasks/user/{id} [get]
 func (h *handler) GetTasksByUserId() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userId, err := strconv.Atoi(chi.URLParam(r, "id"))
@@ -112,6 +144,17 @@ func (h *handler) GetTasksByUserId() http.HandlerFunc {
 	}
 }
 
+// AddTask add new task
+//
+//	@Summary		Add task
+//	@Description	add new task
+//	@Tags			tasks
+//	@Produce		json
+//	@Param			request	body		tasksrest.AddTaskRequest	true	"query params"
+//	@Success		201		{object}	responses.SucceededResponse[any]
+//	@Failure		400		{object}	responses.ErrorResponse
+//	@Failure		500		{object}	responses.ErrorResponse
+//	@Router			/tasks [post]
 func (h *handler) AddTask() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var task models.Task

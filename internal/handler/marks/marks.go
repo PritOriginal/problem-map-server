@@ -70,6 +70,16 @@ func Register(r *chi.Mux, auth *jwtauth.JWTAuth, uc Marks, redis *redis.Redis, b
 	})
 }
 
+// GetMarks lists all existing markers
+//
+//	@Summary		List markers
+//	@Description	get markers
+//	@Tags			marks
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object}	responses.SucceededResponse[marksrest.GetMarksResponse]
+//	@Failure		500	{object}	responses.ErrorResponse
+//	@Router			/marks [get]
 func (h *handler) GetMarks() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		marks, err := h.uc.GetMarks(context.Background())
@@ -83,6 +93,19 @@ func (h *handler) GetMarks() http.HandlerFunc {
 	}
 }
 
+// GetMarkById get mark by id
+//
+//	@Summary		Get mark by id
+//	@Description	get mark by id
+//	@Tags			marks
+//	@Accept			json
+//	@Produce		json
+//	@Param			id	path		int	true	"mark id"
+//	@Success		200	{object}	responses.SucceededResponse[marksrest.GetMarkByIdResponse]
+//	@Failure		400	{object}	responses.ErrorResponse
+//	@Failure		404	{object}	responses.ErrorResponse
+//	@Failure		500	{object}	responses.ErrorResponse
+//	@Router			/marks/{id} [get]
 func (h *handler) GetMarkById() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.Atoi(chi.URLParam(r, "id"))
@@ -110,6 +133,17 @@ func (h *handler) GetMarkById() http.HandlerFunc {
 	}
 }
 
+// GetMarkById List markers by user id
+//
+//	@Summary		List markers by user id
+//	@Description	get markers by user id
+//	@Tags			marks
+//	@Produce		json
+//	@Param			id	path		int	true	"user id"
+//	@Success		200	{object}	responses.SucceededResponse[marksrest.GetMarksByUserIdResponse]
+//	@Failure		400	{object}	responses.ErrorResponse
+//	@Failure		500	{object}	responses.ErrorResponse
+//	@Router			/marks/user/{id} [get]
 func (h *handler) GetMarksByUserId() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userId, err := strconv.Atoi(chi.URLParam(r, "userId"))
@@ -133,6 +167,18 @@ func (h *handler) GetMarksByUserId() http.HandlerFunc {
 	}
 }
 
+// AddMark add mark
+//
+//	@Summary		Add mark
+//	@Description	add mark
+//	@Tags			marks
+//	@Accept			mpfd
+//	@Produce		json
+//	@Param			Authorization	header		string	true	"Insert your access token"	default(Bearer <Add access token here>)
+//	@Success		201				{object}	responses.SucceededResponse[any]
+//	@Failure		400				{object}	responses.ErrorResponse
+//	@Failure		500				{object}	responses.ErrorResponse
+//	@Router			/marks [post]
 func (h *handler) AddMark() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		err := r.ParseMultipartForm(32 << 10) // 32 MB
@@ -167,6 +213,16 @@ func (h *handler) AddMark() http.HandlerFunc {
 	}
 }
 
+// GetMarkTypes lists all existing mark types
+//
+//	@Summary		List mark types
+//	@Description	get mark types
+//	@Tags			marks
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object}	responses.SucceededResponse[marksrest.GetMarkTypesResponse]
+//	@Failure		500	{object}	responses.ErrorResponse
+//	@Router			/marks/types [get]
 func (h *handler) GetMarkTypes() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		types, err := h.uc.GetMarkTypes(context.Background())
@@ -182,6 +238,16 @@ func (h *handler) GetMarkTypes() http.HandlerFunc {
 	}
 }
 
+// GetMarkStatuses lists all existing mark statuses
+//
+//	@Summary		List mark statuses
+//	@Description	get mark statuses
+//	@Tags			marks
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object}	responses.SucceededResponse[marksrest.GetMarkStatusesResponse]
+//	@Failure		500	{object}	responses.ErrorResponse
+//	@Router			/marks/statuses [get]
 func (h *handler) GetMarkStatuses() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		statuses, err := h.uc.GetMarkStatuses(context.Background())
