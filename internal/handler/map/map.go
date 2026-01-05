@@ -13,18 +13,6 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type GetRegionsResponse struct {
-	Regions []models.Region `json:"regions"`
-}
-
-type GetCitiesResponse struct {
-	Cities []models.City `json:"cities"`
-}
-
-type GetDistrictsResponse struct {
-	Districts []models.District `json:"districts"`
-}
-
 type Map interface {
 	GetRegions(ctx context.Context) ([]models.Region, error)
 	GetCities(ctx context.Context) ([]models.City, error)
@@ -47,6 +35,16 @@ func Register(r *chi.Mux, uc Map, redis *redis.Redis, bh *handlers.BaseHandler) 
 	})
 }
 
+// GetCities lists all existing regions
+//
+//	@Summary		List regions
+//	@Description	get regions
+//	@Tags			map
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object}	responses.SucceededResponse[maprest.GetRegionsResponse]
+//	@Failure		500	{object}	responses.ErrorResponse
+//	@Router			/map/regions [get]
 func (h *handler) GetRegions() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		regions, err := h.uc.GetRegions(context.Background())
@@ -60,6 +58,16 @@ func (h *handler) GetRegions() http.HandlerFunc {
 	}
 }
 
+// GetCities lists all existing cities
+//
+//	@Summary		List cities
+//	@Description	get cities
+//	@Tags			map
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object}	responses.SucceededResponse[maprest.GetCitiesResponse]
+//	@Failure		500	{object}	responses.ErrorResponse
+//	@Router			/map/cities [get]
 func (h *handler) GetCities() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		cities, err := h.uc.GetCities(context.Background())
@@ -73,6 +81,16 @@ func (h *handler) GetCities() http.HandlerFunc {
 	}
 }
 
+// GetDistricts lists all existing districts
+//
+//	@Summary		List districts
+//	@Description	get districts
+//	@Tags			map
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object}	responses.SucceededResponse[maprest.GetDistrictsResponse]
+//	@Failure		500	{object}	responses.ErrorResponse
+//	@Router			/map/districts [get]
 func (h *handler) GetDistricts() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		districts, err := h.uc.GetDistricts(context.Background())

@@ -1,0 +1,2 @@
+replace github.com/PritOriginal/problem-map-server/internal/models.Point github.com/PritOriginal/problem-map-server/internal/models.PointJSON
+replace github.com/PritOriginal/problem-map-server/internal/models.Polygon github.com/PritOriginal/problem-map-server/internal/models.PolygonJSON
