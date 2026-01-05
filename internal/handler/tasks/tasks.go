@@ -12,19 +12,8 @@ import (
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/go-chi/chi/v5"
+	"github.com/go-playground/validator/v10"
 )
-
-type GetTasksResponse struct {
-	Tasks []models.Task `json:"tasks"`
-}
-
-type GetTaskByIdResponse struct {
-	Task models.Task `json:"task"`
-}
-
-type GetTasksByUserIdResponse struct {
-	Tasks []models.Task `json:"tasks"`
-}
 
 type Tasks interface {
 	GetTasks(ctx context.Context) ([]models.Task, error)

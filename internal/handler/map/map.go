@@ -13,18 +13,6 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type GetRegionsResponse struct {
-	Regions []models.Region `json:"regions"`
-}
-
-type GetCitiesResponse struct {
-	Cities []models.City `json:"cities"`
-}
-
-type GetDistrictsResponse struct {
-	Districts []models.District `json:"districts"`
-}
-
 type Map interface {
 	GetRegions(ctx context.Context) ([]models.Region, error)
 	GetCities(ctx context.Context) ([]models.City, error)

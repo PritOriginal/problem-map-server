@@ -13,14 +13,6 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type GetUsersResponse struct {
-	Users []models.User `json:"users"`
-}
-
-type GetUserByIdResponse struct {
-	User models.User `json:"user"`
-}
-
 type Users interface {
 	GetUserById(ctx context.Context, id int) (models.User, error)
 	GetUsers(ctx context.Context) ([]models.User, error)

@@ -20,22 +20,6 @@ import (
 	"github.com/go-chi/jwtauth/v5"
 )
 
-type GetMarkByIdResponse struct {
-	Mark models.Mark `json:"mark"`
-}
-
-type GetMarksResponse struct {
-	Marks []models.Mark `json:"marks"`
-}
-
-type GetMarkTypesResponse struct {
-	MarkTypes []models.MarkType `json:"mark_types"`
-}
-
-type GetMarkStatusesResponse struct {
-	MarkStatuses []models.MarkStatus `json:"mark_statuses"`
-}
-
 type Marks interface {
 	GetMarks(ctx context.Context) ([]models.Mark, error)
 	GetMarkById(ctx context.Context, id int) (models.Mark, error)
