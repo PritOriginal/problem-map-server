@@ -36,7 +36,7 @@ func (s *server) GetRegions(ctx context.Context, in *emptypb.Empty) (*pb.GetRegi
 
 	regionsPb := make([]*pb.Region, len(regions))
 	for i, region := range regions {
-		regionsPb[i] = region.MarshalProtobuf()
+		regionsPb[i] = region.ToProtobufObject()
 	}
 
 	return &pb.GetRegionsResponse{
@@ -52,7 +52,7 @@ func (s *server) GetCities(ctx context.Context, in *emptypb.Empty) (*pb.GetCitie
 
 	citiesPb := make([]*pb.City, len(cities))
 	for i, city := range cities {
-		citiesPb[i] = city.MarshalProtobuf()
+		citiesPb[i] = city.ToProtobufObject()
 	}
 
 	return &pb.GetCitiesResponse{
@@ -68,7 +68,7 @@ func (s *server) GetDistricts(ctx context.Context, in *emptypb.Empty) (*pb.GetDi
 
 	districtsPb := make([]*pb.District, len(districts))
 	for i, district := range districts {
-		districtsPb[i] = district.MarshalProtobuf()
+		districtsPb[i] = district.ToProtobufObject()
 	}
 
 	return &pb.GetDistrictsResponse{

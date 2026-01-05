@@ -37,7 +37,7 @@ func (s *server) GetMarks(ctx context.Context, in *emptypb.Empty) (*pb.GetMarksR
 
 	marksPb := make([]*pb.Mark, len(marks))
 	for i, mark := range marks {
-		marksPb[i] = mark.MarshalProtobuf()
+		marksPb[i] = mark.ToProtobufObject()
 	}
 
 	return &pb.GetMarksResponse{

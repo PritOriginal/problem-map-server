@@ -13,14 +13,6 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-type GetUsersResponse struct {
-	Users []models.User `json:"users"`
-}
-
-type GetUserByIdResponse struct {
-	User models.User `json:"user"`
-}
-
 type Users interface {
 	GetUserById(ctx context.Context, id int) (models.User, error)
 	GetUsers(ctx context.Context) ([]models.User, error)
@@ -40,6 +32,18 @@ func Register(r *chi.Mux, uc Users, bh *handlers.BaseHandler) {
 	})
 }
 
+// GetUserById lists all existing users
+//
+//	@Summary		Get user by id
+//	@Description	get user by id
+//	@Tags			users
+//	@Produce		json
+//	@Param			id	path		int	true	"user id"
+//	@Success		200	{object}	responses.SucceededResponse[usersrest.GetUserByIdResponse]
+//	@Failure		400	{object}	responses.ErrorResponse
+//	@Failure		404	{object}	responses.ErrorResponse
+//	@Failure		500	{object}	responses.ErrorResponse
+//	@Router			/users/{id} [get]
 func (h *handler) GetUserById() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.Atoi(chi.URLParam(r, "id"))
@@ -67,6 +71,15 @@ func (h *handler) GetUserById() http.HandlerFunc {
 	}
 }
 
+// GetUsers lists all existing users
+//
+//	@Summary		List users
+//	@Description	get users
+//	@Tags			users
+//	@Produce		json
+//	@Success		200	{object}	responses.SucceededResponse[usersrest.GetUsersResponse]
+//	@Failure		500	{object}	responses.ErrorResponse
+//	@Router			/users [get]
 func (h *handler) GetUsers() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		users, err := h.uc.GetUsers(context.Background())

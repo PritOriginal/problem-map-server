@@ -13,31 +13,6 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-type SignUpRequest struct {
-	Name     string `json:"name" validate:"required"`
-	Username string `json:"username" validate:"required"`
-	Password string `json:"password" validate:"required,min=8,max=64"`
-}
-
-type SignInRequest struct {
-	Username string `json:"username" validate:"required"`
-	Password string `json:"password" validate:"required,min=8,max=64"`
-}
-
-type SignInResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-}
-
-type RefreshTokensRequest struct {
-	RefreshToken string `json:"refresh_token" validate:"required"`
-}
-
-type RefreshTokensResponse struct {
-	AccessToken  string `json:"access_token"`
-	RefreshToken string `json:"refresh_token"`
-}
-
 type Auth interface {
 	SignUp(ctx context.Context, name, username, password string) (int64, error)
 	SignIn(ctx context.Context, username, password string) (string, string, error)
@@ -59,6 +34,19 @@ func Register(r *chi.Mux, uc Auth, bh *handlers.BaseHandler) {
 	})
 }
 
+// SignUp sign up a new user
+//
+//	@Summary		Sign Up
+//	@Description	sign up a new user
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		authrest.SignUpRequest	true	"query params"
+//	@Success		200		{object}	responses.SucceededResponse[any]
+//	@Failure		400		{object}	responses.ErrorResponse
+//	@Failure		409		{object}	responses.ErrorResponse
+//	@Failure		500		{object}	responses.ErrorResponse
+//	@Router			/auth/signup [post]
 func (h *handler) SignUp() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req SignUpRequest
@@ -97,6 +85,19 @@ func (h *handler) SignUp() http.HandlerFunc {
 	}
 }
 
+// SignIn sign up a new user
+//
+//	@Summary		Sign In
+//	@Description	sign in user
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		authrest.SignInRequest	true	"query params"
+//	@Success		200		{object}	responses.SucceededResponse[authrest.SignInResponse]
+//	@Failure		400		{object}	responses.ErrorResponse
+//	@Failure		401		{object}	responses.ErrorResponse
+//	@Failure		500		{object}	responses.ErrorResponse
+//	@Router			/auth/signin [post]
 func (h *handler) SignIn() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req SignInRequest
@@ -138,6 +139,19 @@ func (h *handler) SignIn() http.HandlerFunc {
 	}
 }
 
+// RefreshTokens Refresh access and refresh tokens
+//
+//	@Summary		Refresh tokens
+//	@Description	refresh access and refresh tokens
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			request	body		authrest.RefreshTokensRequest	true	"query params"
+//	@Success		200		{object}	responses.SucceededResponse[authrest.RefreshTokensResponse]
+//	@Failure		400		{object}	responses.ErrorResponse
+//	@Failure		401		{object}	responses.ErrorResponse
+//	@Failure		500		{object}	responses.ErrorResponse
+//	@Router			/auth/tokens/refresh [post]
 func (h *handler) RefreshTokens() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req RefreshTokensRequest

@@ -12,11 +12,11 @@ type Region struct {
 	Geom *Polygon `json:"geom"`
 }
 
-func (r *Region) MarshalProtobuf() *pb.Region {
+func (r *Region) ToProtobufObject() *pb.Region {
 	return &pb.Region{
 		Id:   int64(r.ID),
 		Name: r.Name,
-		Geom: r.Geom.MarshalProtobuf(),
+		Geom: r.Geom.ToProtobufObject(),
 	}
 }
 
@@ -27,12 +27,12 @@ type City struct {
 	Geom     *Polygon `json:"geom"`
 }
 
-func (c *City) MarshalProtobuf() *pb.City {
+func (c *City) ToProtobufObject() *pb.City {
 	return &pb.City{
 		Id:       int64(c.ID),
 		Name:     c.Name,
 		RegionId: int64(c.RegionID),
-		Geom:     c.Geom.MarshalProtobuf(),
+		Geom:     c.Geom.ToProtobufObject(),
 	}
 }
 
@@ -43,12 +43,12 @@ type District struct {
 	Geom   *Polygon `json:"geom"`
 }
 
-func (m *District) MarshalProtobuf() *pb.District {
+func (d *District) ToProtobufObject() *pb.District {
 	return &pb.District{
-		Id:     int64(m.ID),
-		Name:   m.Name,
-		CityId: int64(m.CityID),
-		Geom:   m.Geom.MarshalProtobuf(),
+		Id:     int64(d.ID),
+		Name:   d.Name,
+		CityId: int64(d.CityID),
+		Geom:   d.Geom.ToProtobufObject(),
 	}
 }
 
@@ -64,11 +64,11 @@ type Mark struct {
 	NumberChecks int    `json:"number_checks" db:"number_checks"`
 }
 
-func (m *Mark) MarshalProtobuf() *pb.Mark {
+func (m *Mark) ToProtobufObject() *pb.Mark {
 	return &pb.Mark{
 		Id:           int64(m.ID),
 		Name:         m.Name,
-		Geom:         m.Geom.MarshalProtobuf(),
+		Geom:         m.Geom.ToProtobufObject(),
 		TypeMarkId:   int64(m.TypeMarkID),
 		UserId:       int64(m.UserID),
 		DistrictId:   int64(m.DistrictID),

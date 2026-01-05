@@ -17,25 +17,6 @@ import (
 	"github.com/go-chi/jwtauth/v5"
 )
 
-type GetCheckByIdResponse struct {
-	Check models.Check `json:"check"`
-}
-
-type GetChecksByMarkIdResponse struct {
-	Checks []models.Check `json:"checks"`
-}
-
-type GetChecksByUserIdResponse struct {
-	Checks []models.Check `json:"checks"`
-}
-
-type AddCheckRequest struct {
-	UserID  int    `json:"user_id"`
-	MarkID  int    `json:"mark_id"`
-	Result  bool   `json:"result"`
-	Comment string `json:"comment"`
-}
-
 type Checks interface {
 	AddCheck(ctx context.Context, check models.Check, photos [][]byte) (int64, error)
 	GetCheckById(ctx context.Context, id int) (models.Check, error)
@@ -63,6 +44,18 @@ func Register(r *chi.Mux, auth *jwtauth.JWTAuth, uc Checks, bh *handlers.BaseHan
 	})
 }
 
+// GetCheckById get check by id
+//
+//	@Summary		Get check by id
+//	@Description	get check by id
+//	@Tags			checks
+//	@Produce		json
+//	@Param			id	path		int	true	"check id"
+//	@Success		200	{object}	responses.SucceededResponse[checksrest.GetCheckByIdResponse]
+//	@Failure		400	{object}	responses.ErrorResponse
+//	@Failure		404	{object}	responses.ErrorResponse
+//	@Failure		500	{object}	responses.ErrorResponse
+//	@Router			/checks/{id} [get]
 func (h *handler) GetCheckById() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		id, err := strconv.Atoi(chi.URLParam(r, "id"))
@@ -90,6 +83,17 @@ func (h *handler) GetCheckById() http.HandlerFunc {
 	}
 }
 
+// GetChecksByMarkId get check by mark id
+//
+//	@Summary		Get check by mark id
+//	@Description	get check by mark id
+//	@Tags			checks
+//	@Produce		json
+//	@Param			id	path		int	true	"mark id"
+//	@Success		200	{object}	responses.SucceededResponse[checksrest.GetChecksByMarkIdResponse]
+//	@Failure		400	{object}	responses.ErrorResponse
+//	@Failure		500	{object}	responses.ErrorResponse
+//	@Router			/checks/mark/{id} [get]
 func (h *handler) GetChecksByMarkId() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		markId, err := strconv.Atoi(chi.URLParam(r, "markId"))
@@ -113,6 +117,17 @@ func (h *handler) GetChecksByMarkId() http.HandlerFunc {
 	}
 }
 
+// GetChecksByUserId get checks by user id
+//
+//	@Summary		List checks by user id
+//	@Description	get checks by user id
+//	@Tags			checks
+//	@Produce		json
+//	@Param			id	path		int	true	"user id"
+//	@Success		200	{object}	responses.SucceededResponse[checksrest.GetChecksByUserIdResponse]
+//	@Failure		400	{object}	responses.ErrorResponse
+//	@Failure		500	{object}	responses.ErrorResponse
+//	@Router			/checks/user/{id} [get]
 func (h *handler) GetChecksByUserId() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		userId, err := strconv.Atoi(chi.URLParam(r, "userId"))
@@ -136,6 +151,18 @@ func (h *handler) GetChecksByUserId() http.HandlerFunc {
 	}
 }
 
+// AddCheck add check
+//
+//	@Summary		Add check
+//	@Description	add check
+//	@Tags			checks
+//	@Accept			mpfd
+//	@Produce		json
+//	@Param			Authorization	header		string	true	"Insert your access token"	default(Bearer <Add access token here>)
+//	@Success		201				{object}	responses.SucceededResponse[any]
+//	@Failure		400				{object}	responses.ErrorResponse
+//	@Failure		500				{object}	responses.ErrorResponse
+//	@Router			/checks [post]
 func (h *handler) AddCheck() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		err := r.ParseMultipartForm(32 << 10) // 32 MB
