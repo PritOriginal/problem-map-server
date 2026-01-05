@@ -14,6 +14,11 @@ type Point struct {
 	Ewkb ewkb.Point
 }
 
+type PointJSON struct {
+	Type        string     `json:"type"`
+	Coordinates [2]float64 `json:"coordinates" example:"0,0"`
+}
+
 func NewPoint(coords geom.Coord) *Point {
 	return &Point{
 		Ewkb: ewkb.Point{
@@ -68,6 +73,11 @@ func (p *Point) ToProtobufObject() *pb.Point {
 
 type Polygon struct {
 	Ewkb ewkb.Polygon
+}
+
+type PolygonJSON struct {
+	Type        string       `json:"type"`
+	Coordinates [][2]float64 `json:"coordinates"`
 }
 
 func NewPolygon(coords [][]geom.Coord) *Polygon {
