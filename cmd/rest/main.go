@@ -15,9 +15,6 @@ import (
 //	@version		1.0
 //	@description	This is the API documentation for the "Problem Map" project.
 
-//	@host		localhost:3333
-//	@BasePath	/
-
 //	@tag.name			auth
 //	@tag.description	Authorization and authentication
 
@@ -35,9 +32,6 @@ import (
 
 //	@tag.name			users
 //	@tag.description	Operations with users
-
-//	@externalDocs.description	OpenAPI
-//	@externalDocs.url			https://swagger.io/resources/open-api/
 
 func main() {
 	cfg := config.MustLoad()
