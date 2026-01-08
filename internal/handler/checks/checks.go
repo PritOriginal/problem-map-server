@@ -15,6 +15,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/go-playground/validator/v10"
 )
 
 type Checks interface {
@@ -181,6 +182,15 @@ func (h *handler) AddCheck() http.HandlerFunc {
 		if err := json.Unmarshal([]byte(r.FormValue("data")), &req); err != nil {
 			h.RenderError(w, r,
 				handlers.HandlerError{Msg: "error unmarshal data", Err: err},
+				responses.ErrBadRequest,
+			)
+			return
+		}
+
+		if err := h.ValidateStruct(req); err != nil {
+			validateErr := err.(validator.ValidationErrors)
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "invalid request", Err: validateErr},
 				responses.ErrBadRequest,
 			)
 			return

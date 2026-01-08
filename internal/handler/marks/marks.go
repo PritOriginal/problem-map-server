@@ -17,6 +17,8 @@ import (
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/go-playground/validator/v10"
+	"github.com/twpayne/go-geom"
 )
 
 type Marks interface {
@@ -176,15 +178,31 @@ func (h *handler) AddMark() http.HandlerFunc {
 			return
 		}
 
-		var newMark models.Mark
-		if err := json.Unmarshal([]byte(r.FormValue("data")), &newMark); err != nil {
+		var req AddMarkRequest
+		if err := json.Unmarshal([]byte(r.FormValue("data")), &req); err != nil {
 			h.RenderError(w, r,
 				handlers.HandlerError{Msg: "error unmarshal data", Err: err},
 				responses.ErrBadRequest,
 			)
 			return
 		}
-		newMark.Geom.Ewkb.SetSRID(4326)
+
+		if err := h.ValidateStruct(req); err != nil {
+			validateErr := err.(validator.ValidationErrors)
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "invalid request", Err: validateErr},
+				responses.ErrBadRequest,
+			)
+			return
+		}
+
+		newMark := models.Mark{
+			Geom:         models.NewPoint(geom.Coord{req.Point.Latitude, req.Point.Longitude}),
+			TypeMarkID:   req.TypeMarkID,
+			MarkStatusID: req.MarkStatusID,
+			UserID:       req.UserID,
+			DistrictID:   req.DistrictID,
+		}
 
 		_, err = h.uc.AddMark(context.Background(), newMark, photos)
 		if err != nil {

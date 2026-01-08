@@ -17,7 +17,7 @@ type SignInResponse struct {
 }
 
 type RefreshTokensRequest struct {
-	RefreshToken string `json:"refresh_token" validate:"required"`
+	RefreshToken string `json:"refresh_token" validate:"required,jwt"`
 }
 
 type RefreshTokensResponse struct {
