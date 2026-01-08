@@ -39,16 +39,13 @@ func (uc *Auth) SignUp(ctx context.Context, name, username, password string) (in
 	}
 
 	_, err = uc.usersRepo.GetUserByUsername(ctx, user.Username)
-	if err != nil {
-		uc.log.Debug("GetUserByUsername err", logger.Err(err))
-	}
 	if err != storage.ErrNotFound {
 		switch err {
 		case nil:
 			return 0, ErrConflict
 		default:
+			uc.log.Debug("GetUserByUsername err", logger.Err(err))
 			return 0, fmt.Errorf("%s: %w", op, err)
-
 		}
 	}
 
