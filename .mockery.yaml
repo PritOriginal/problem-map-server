@@ -1,0 +1,13 @@
+template: testify
+packages:
+  github.com/PritOriginal/problem-map-server/internal/usecase:
+    config:
+      all: true
+  github.com/PritOriginal/problem-map-server/internal/handler:
+    config:
+      all: true
+      recursive: true
+  github.com/PritOriginal/problem-map-server/internal/middleware/cache:
+    config:
+      all: true
+      filename: "mocks.go"
