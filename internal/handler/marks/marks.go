@@ -13,7 +13,6 @@ import (
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
-	"github.com/PritOriginal/problem-map-server/internal/storage/redis"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/go-chi/chi/v5"
@@ -34,7 +33,7 @@ type handler struct {
 	uc Marks
 }
 
-func Register(r *chi.Mux, auth *jwtauth.JWTAuth, uc Marks, redis *redis.Redis, bh *handlers.BaseHandler) {
+func Register(r *chi.Mux, auth *jwtauth.JWTAuth, uc Marks, cacher mwcache.Cacher, bh *handlers.BaseHandler) {
 	handler := &handler{BaseHandler: bh, uc: uc}
 
 	r.Route("/marks", func(r chi.Router) {
@@ -47,7 +46,7 @@ func Register(r *chi.Mux, auth *jwtauth.JWTAuth, uc Marks, redis *redis.Redis, b
 			r.Post("/", handler.AddMark())
 		})
 		r.Group(func(r chi.Router) {
-			r.Use(mwcache.New(redis, 24*time.Hour))
+			r.Use(mwcache.New(cacher, 24*time.Hour))
 			r.Get("/types", handler.GetMarkTypes())
 			r.Get("/statuses", handler.GetMarkStatuses())
 		})

@@ -5,9 +5,8 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/PritOriginal/problem-map-server/internal/middleware/cache"
+	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage/redis"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/go-chi/chi/v5"
@@ -24,11 +23,11 @@ type handler struct {
 	uc Map
 }
 
-func Register(r *chi.Mux, uc Map, redis *redis.Redis, bh *handlers.BaseHandler) {
+func Register(r *chi.Mux, uc Map, cacher mwcache.Cacher, bh *handlers.BaseHandler) {
 	handler := &handler{BaseHandler: bh, uc: uc}
 
 	r.Route("/map", func(r chi.Router) {
-		r.Use(cache.New(redis, 24*time.Hour))
+		r.Use(mwcache.New(cacher, 24*time.Hour))
 		r.Get("/regions", handler.GetRegions())
 		r.Get("/cities", handler.GetCities())
 		r.Get("/districts", handler.GetDistricts())
