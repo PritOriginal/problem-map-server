@@ -13,11 +13,12 @@ import (
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
-	"github.com/PritOriginal/problem-map-server/internal/storage/redis"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/jwtauth/v5"
+	"github.com/go-playground/validator/v10"
+	"github.com/twpayne/go-geom"
 )
 
 type Marks interface {
@@ -34,7 +35,7 @@ type handler struct {
 	uc Marks
 }
 
-func Register(r *chi.Mux, auth *jwtauth.JWTAuth, uc Marks, redis *redis.Redis, bh *handlers.BaseHandler) {
+func Register(r *chi.Mux, auth *jwtauth.JWTAuth, uc Marks, cacher mwcache.Cacher, bh *handlers.BaseHandler) {
 	handler := &handler{BaseHandler: bh, uc: uc}
 
 	r.Route("/marks", func(r chi.Router) {
@@ -47,7 +48,7 @@ func Register(r *chi.Mux, auth *jwtauth.JWTAuth, uc Marks, redis *redis.Redis, b
 			r.Post("/", handler.AddMark())
 		})
 		r.Group(func(r chi.Router) {
-			r.Use(mwcache.New(redis, 24*time.Hour))
+			r.Use(mwcache.New(cacher, 24*time.Hour))
 			r.Get("/types", handler.GetMarkTypes())
 			r.Get("/statuses", handler.GetMarkStatuses())
 		})
@@ -177,15 +178,31 @@ func (h *handler) AddMark() http.HandlerFunc {
 			return
 		}
 
-		var newMark models.Mark
-		if err := json.Unmarshal([]byte(r.FormValue("data")), &newMark); err != nil {
+		var req AddMarkRequest
+		if err := json.Unmarshal([]byte(r.FormValue("data")), &req); err != nil {
 			h.RenderError(w, r,
 				handlers.HandlerError{Msg: "error unmarshal data", Err: err},
 				responses.ErrBadRequest,
 			)
 			return
 		}
-		newMark.Geom.Ewkb.SetSRID(4326)
+
+		if err := h.ValidateStruct(req); err != nil {
+			validateErr := err.(validator.ValidationErrors)
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "invalid request", Err: validateErr},
+				responses.ErrBadRequest,
+			)
+			return
+		}
+
+		newMark := models.Mark{
+			Geom:         models.NewPoint(geom.Coord{req.Point.Latitude, req.Point.Longitude}),
+			TypeMarkID:   req.TypeMarkID,
+			MarkStatusID: req.MarkStatusID,
+			UserID:       req.UserID,
+			DistrictID:   req.DistrictID,
+		}
 
 		_, err = h.uc.AddMark(context.Background(), newMark, photos)
 		if err != nil {

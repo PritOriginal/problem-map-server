@@ -47,6 +47,64 @@ REST generated docs.
 
 </details>
 <details>
+<summary>`/checks`</summary>
+
+- [RequestID]()
+- [RealIP]()
+- [github.com/PritOriginal/problem-map-server/internal/handler.GetRouter.New.func1]()
+- [Recoverer]()
+- [URLFormat]()
+- **/checks**
+	- **/**
+		- _POST_
+			- [github.com/PritOriginal/problem-map-server/internal/handler/checks.Register.func1.1.Verifier.Verify.3]()
+			- [github.com/PritOriginal/problem-map-server/internal/handler/checks.Register.func1.1.Authenticator.1]()
+			- [github.com/PritOriginal/problem-map-server/internal/handler/checks.Register.func1.1.(*handler).AddCheck.2]()
+
+</details>
+<details>
+<summary>`/checks/mark/{markId}`</summary>
+
+- [RequestID]()
+- [RealIP]()
+- [github.com/PritOriginal/problem-map-server/internal/handler.GetRouter.New.func1]()
+- [Recoverer]()
+- [URLFormat]()
+- **/checks**
+	- **/mark/{markId}**
+		- _GET_
+			- [github.com/PritOriginal/problem-map-server/internal/handler/checks.Register.func1.(*handler).GetChecksByMarkId.3]()
+
+</details>
+<details>
+<summary>`/checks/user/{userId}`</summary>
+
+- [RequestID]()
+- [RealIP]()
+- [github.com/PritOriginal/problem-map-server/internal/handler.GetRouter.New.func1]()
+- [Recoverer]()
+- [URLFormat]()
+- **/checks**
+	- **/user/{userId}**
+		- _GET_
+			- [github.com/PritOriginal/problem-map-server/internal/handler/checks.Register.func1.(*handler).GetChecksByUserId.4]()
+
+</details>
+<details>
+<summary>`/checks/{id}`</summary>
+
+- [RequestID]()
+- [RealIP]()
+- [github.com/PritOriginal/problem-map-server/internal/handler.GetRouter.New.func1]()
+- [Recoverer]()
+- [URLFormat]()
+- **/checks**
+	- **/{id}**
+		- _GET_
+			- [github.com/PritOriginal/problem-map-server/internal/handler/checks.Register.func1.(*handler).GetCheckById.2]()
+
+</details>
+<details>
 <summary>`/map/cities`</summary>
 
 - [RequestID]()
@@ -55,6 +113,7 @@ REST generated docs.
 - [Recoverer]()
 - [URLFormat]()
 - **/map**
+	- [github.com/PritOriginal/problem-map-server/internal/handler/map.Register.func1.New.1]()
 	- **/cities**
 		- _GET_
 			- [github.com/PritOriginal/problem-map-server/internal/handler/map.Register.func1.(*handler).GetCities.3]()
@@ -69,45 +128,10 @@ REST generated docs.
 - [Recoverer]()
 - [URLFormat]()
 - **/map**
+	- [github.com/PritOriginal/problem-map-server/internal/handler/map.Register.func1.New.1]()
 	- **/districts**
 		- _GET_
 			- [github.com/PritOriginal/problem-map-server/internal/handler/map.Register.func1.(*handler).GetDistricts.4]()
-
-</details>
-<details>
-<summary>`/map/marks`</summary>
-
-- [RequestID]()
-- [RealIP]()
-- [github.com/PritOriginal/problem-map-server/internal/handler.GetRouter.New.func1]()
-- [Recoverer]()
-- [URLFormat]()
-- **/map**
-	- **/marks**
-		- **/**
-			- _POST_
-				- [github.com/PritOriginal/problem-map-server/internal/handler/map.Register.func1.1.1.Verifier.Verify.4]()
-				- [github.com/PritOriginal/problem-map-server/internal/handler/map.Register.func1.1.1.Authenticator.1]()
-				- [github.com/PritOriginal/problem-map-server/internal/handler/map.Register.func1.1.1.(*handler).AddMark.2]()
-			- _GET_
-				- [github.com/PritOriginal/problem-map-server/internal/handler/map.Register.func1.1.(*handler).GetMarks.2]()
-
-</details>
-<details>
-<summary>`/map/marks/photos`</summary>
-
-- [RequestID]()
-- [RealIP]()
-- [github.com/PritOriginal/problem-map-server/internal/handler.GetRouter.New.func1]()
-- [Recoverer]()
-- [URLFormat]()
-- **/map**
-	- **/marks**
-		- **/photos**
-			- _POST_
-				- [github.com/PritOriginal/problem-map-server/internal/handler/map.Register.func1.1.1.Verifier.Verify.4]()
-				- [github.com/PritOriginal/problem-map-server/internal/handler/map.Register.func1.1.1.Authenticator.1]()
-				- [github.com/PritOriginal/problem-map-server/internal/handler/map.Register.func1.1.1.(*handler).AddPhotos.3]()
 
 </details>
 <details>
@@ -119,9 +143,99 @@ REST generated docs.
 - [Recoverer]()
 - [URLFormat]()
 - **/map**
+	- [github.com/PritOriginal/problem-map-server/internal/handler/map.Register.func1.New.1]()
 	- **/regions**
 		- _GET_
 			- [github.com/PritOriginal/problem-map-server/internal/handler/map.Register.func1.(*handler).GetRegions.2]()
+
+</details>
+<details>
+<summary>`/marks`</summary>
+
+- [RequestID]()
+- [RealIP]()
+- [github.com/PritOriginal/problem-map-server/internal/handler.GetRouter.New.func1]()
+- [Recoverer]()
+- [URLFormat]()
+- **/marks**
+	- **/**
+		- _POST_
+			- [github.com/PritOriginal/problem-map-server/internal/handler/marks.Register.func1.1.Verifier.Verify.3]()
+			- [github.com/PritOriginal/problem-map-server/internal/handler/marks.Register.func1.1.Authenticator.1]()
+			- [github.com/PritOriginal/problem-map-server/internal/handler/marks.Register.func1.1.(*handler).AddMark.2]()
+		- _GET_
+			- [github.com/PritOriginal/problem-map-server/internal/handler/marks.Register.func1.(*handler).GetMarks.3]()
+
+</details>
+<details>
+<summary>`/marks/statuses`</summary>
+
+- [RequestID]()
+- [RealIP]()
+- [github.com/PritOriginal/problem-map-server/internal/handler.GetRouter.New.func1]()
+- [Recoverer]()
+- [URLFormat]()
+- **/marks**
+	- **/statuses**
+		- _GET_
+			- [github.com/PritOriginal/problem-map-server/internal/handler/marks.Register.func1.2.New.1]()
+			- [github.com/PritOriginal/problem-map-server/internal/handler/marks.Register.func1.2.(*handler).GetMarkStatuses.3]()
+
+</details>
+<details>
+<summary>`/marks/types`</summary>
+
+- [RequestID]()
+- [RealIP]()
+- [github.com/PritOriginal/problem-map-server/internal/handler.GetRouter.New.func1]()
+- [Recoverer]()
+- [URLFormat]()
+- **/marks**
+	- **/types**
+		- _GET_
+			- [github.com/PritOriginal/problem-map-server/internal/handler/marks.Register.func1.2.New.1]()
+			- [github.com/PritOriginal/problem-map-server/internal/handler/marks.Register.func1.2.(*handler).GetMarkTypes.2]()
+
+</details>
+<details>
+<summary>`/marks/user/{userId}`</summary>
+
+- [RequestID]()
+- [RealIP]()
+- [github.com/PritOriginal/problem-map-server/internal/handler.GetRouter.New.func1]()
+- [Recoverer]()
+- [URLFormat]()
+- **/marks**
+	- **/user/{userId}**
+		- _GET_
+			- [github.com/PritOriginal/problem-map-server/internal/handler/marks.Register.func1.(*handler).GetMarksByUserId.5]()
+
+</details>
+<details>
+<summary>`/marks/{id}`</summary>
+
+- [RequestID]()
+- [RealIP]()
+- [github.com/PritOriginal/problem-map-server/internal/handler.GetRouter.New.func1]()
+- [Recoverer]()
+- [URLFormat]()
+- **/marks**
+	- **/{id}**
+		- _GET_
+			- [github.com/PritOriginal/problem-map-server/internal/handler/marks.Register.func1.(*handler).GetMarkById.4]()
+
+</details>
+<details>
+<summary>`/swagger`</summary>
+
+- [RequestID]()
+- [RealIP]()
+- [github.com/PritOriginal/problem-map-server/internal/handler.GetRouter.New.func1]()
+- [Recoverer]()
+- [URLFormat]()
+- **/swagger**
+	- _GET_
+		- [github.com/swaggo/http-swagger.Handler.func1]()
 
 </details>
 <details>
@@ -197,4 +311,4 @@ REST generated docs.
 
 </details>
 
-Total # of routes: 13
+Total # of routes: 21

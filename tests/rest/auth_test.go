@@ -35,7 +35,7 @@ func TestSignUp(t *testing.T) {
 			name:     name,
 			username: username,
 			password: password,
-			httpCode: http.StatusOK,
+			httpCode: http.StatusCreated,
 		},
 		{
 			testName: "user already exist",

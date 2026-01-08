@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
-	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/PritOriginal/problem-map-server/tests/rest/suite"
 	"github.com/stretchr/testify/require"
@@ -70,13 +69,13 @@ func TestGetTasksByUserId(t *testing.T) {
 func TestAddTask(t *testing.T) {
 	st := suite.New(t)
 
-	task := models.Task{
-		Name:   "",
+	req := tasksrest.AddTaskRequest{
+		Name:   "task",
 		UserID: 1,
-		MarkID: 1,
+		MarkID: 3000,
 	}
 
-	reqJSON, err := json.Marshal(task)
+	reqJSON, err := json.Marshal(req)
 	require.NoError(t, err)
 
 	resp, err := http.Post(

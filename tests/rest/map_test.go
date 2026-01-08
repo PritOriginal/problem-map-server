@@ -14,12 +14,10 @@ import (
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
 	maprest "github.com/PritOriginal/problem-map-server/internal/handler/map"
 	marksrest "github.com/PritOriginal/problem-map-server/internal/handler/marks"
-	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/PritOriginal/problem-map-server/tests/rest/suite"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/stretchr/testify/require"
-	"github.com/twpayne/go-geom"
 )
 
 func TestGetRegions(t *testing.T) {
@@ -76,7 +74,7 @@ func TestGetDistricts(t *testing.T) {
 func TestGetMarks(t *testing.T) {
 	st := suite.New(t)
 
-	resp, err := http.Get(fmt.Sprintf("http://%s:%d/map/marks", st.Cfg.REST.Host, st.Cfg.REST.Port))
+	resp, err := http.Get(fmt.Sprintf("http://%s:%d/marks", st.Cfg.REST.Host, st.Cfg.REST.Port))
 
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -98,29 +96,33 @@ func TestAddMark(t *testing.T) {
 		Password: "1234qwer",
 	})
 
-	mark := models.Mark{
-		Geom:         models.NewPoint(geom.Coord{41.497976, 52.707605}),
+	addMarkReq := marksrest.AddMarkRequest{
+		Point: marksrest.Point{
+			Longitude: 52.707605,
+			Latitude:  41.497976,
+		},
 		TypeMarkID:   1,
 		MarkStatusID: 1,
 		UserID:       1,
-		DistrictID:   1,
+		DistrictID:   240,
 	}
 
-	jsonData, err := json.Marshal(mark)
+	reqJSON, err := json.Marshal(addMarkReq)
 	require.NoError(t, err)
 
 	b := &bytes.Buffer{}
 	w := multipart.NewWriter(b)
 
-	w.WriteField("data", string(jsonData))
+	w.WriteField("data", string(reqJSON))
 
 	image := gofakeit.ImageJpeg(10, 10)
 	fw, err := w.CreateFormFile("photo", "test.jpg")
+	require.NoError(t, err)
 	io.Copy(fw, bytes.NewBuffer(image))
 
 	w.Close()
 
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s:%d/map/marks", st.Cfg.REST.Host, st.Cfg.REST.Port), b)
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s:%d/marks", st.Cfg.REST.Host, st.Cfg.REST.Port), b)
 	require.NoError(t, err)
 
 	req.Header.Set("Authorization", "Bearer "+signInResponse.Payload.AccessToken)
