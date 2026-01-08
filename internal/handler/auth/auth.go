@@ -42,7 +42,7 @@ func Register(r *chi.Mux, uc Auth, bh *handlers.BaseHandler) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			request	body		authrest.SignUpRequest	true	"query params"
-//	@Success		200		{object}	responses.SucceededResponse[any]
+//	@Success		201		{object}	responses.SucceededResponse[any]
 //	@Failure		400		{object}	responses.ErrorResponse
 //	@Failure		409		{object}	responses.ErrorResponse
 //	@Failure		500		{object}	responses.ErrorResponse
@@ -81,7 +81,7 @@ func (h *handler) SignUp() http.HandlerFunc {
 			return
 		}
 
-		h.Render(w, r, responses.SucceededResponseOK)
+		h.Render(w, r, responses.SucceededCreatedRenderer())
 	}
 }
 
