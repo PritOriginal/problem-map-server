@@ -29,7 +29,7 @@ type AuthSuite struct {
 func (suite *AuthSuite) SetupSuite() {
 	suite.log = slogdiscard.NewDiscardLogger()
 	suite.usersRepo = usecase.NewMockUsersRepository(suite.T())
-	cfg := config.MustLoadPath("../../configs/config.yaml")
+	cfg := config.MustLoadPath("../../configs/config-tests.yaml")
 	suite.authCfg = cfg.Auth
 	suite.uc = usecase.NewAuth(suite.log, suite.usersRepo, cfg.Auth)
 }
