@@ -1,0 +1,2 @@
+ALTER TABLE marks RENAME COLUMN name TO description;
+ALTER TABLE marks ALTER COLUMN description TYPE VARCHAR(256);

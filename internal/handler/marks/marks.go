@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -196,14 +197,40 @@ func (h *handler) AddMark() http.HandlerFunc {
 			return
 		}
 
-		newMark := models.Mark{
-			Geom:         models.NewPoint(geom.Coord{req.Point.Latitude, req.Point.Longitude}),
-			TypeMarkID:   req.TypeMarkID,
-			MarkStatusID: req.MarkStatusID,
-			UserID:       req.UserID,
-			DistrictID:   req.DistrictID,
+		_, claims, err := jwtauth.FromContext(r.Context())
+		if err != nil {
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "invalid token", Err: err},
+				responses.ErrUnauthorized,
+			)
+			return
 		}
 
+		userIdStr, ok := claims["sub"].(string)
+		if !ok {
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "invalid token", Err: err},
+				responses.ErrUnauthorized,
+			)
+			return
+		}
+		userId, err := strconv.Atoi(userIdStr)
+		if !ok {
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "invalid token", Err: err},
+				responses.ErrUnauthorized,
+			)
+			return
+		}
+
+		h.Log.Debug("Add mark", slog.Int("userId", userId))
+
+		newMark := models.Mark{
+			Geom:        models.NewPoint(geom.Coord{req.Point.Latitude, req.Point.Longitude}),
+			MarkTypeID:  req.MarkTypeID,
+			UserID:      userId,
+			Description: req.Description,
+		}
 		_, err = h.uc.AddMark(context.Background(), newMark, photos)
 		if err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error add mark", Err: err})

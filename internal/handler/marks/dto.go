@@ -23,11 +23,9 @@ type GetMarkStatusesResponse struct {
 }
 
 type AddMarkRequest struct {
-	Point        Point `json:"point" validate:"required"`
-	TypeMarkID   int   `json:"type_mark_id" validate:"required"`
-	MarkStatusID int   `json:"mark_status_id" validate:"required"`
-	UserID       int   `json:"user_id" validate:"required"`
-	DistrictID   int   `json:"district_id" validate:"required"`
+	Point       Point  `json:"point" validate:"required"`
+	MarkTypeID  int    `json:"mark_type_id" validate:"required"`
+	Description string `json:"description" validate:"max=256"`
 }
 
 type Point struct {

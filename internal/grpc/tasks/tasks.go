@@ -83,9 +83,9 @@ func (s *server) GetTasksByUserId(ctx context.Context, in *pb.GetTasksByUserIdRe
 
 func (s *server) AddTask(ctx context.Context, in *pb.AddTaskRequest) (*pb.AddTaskResponse, error) {
 	task := models.Task{
-		ID:     int(in.GetTask().GetId()),
-		Name:   in.GetTask().GetName(),
-		UserID: int(in.GetTask().GetUserId()),
+		Name:   in.GetName(),
+		UserID: int(in.GetUserId()),
+		MarkID: int(in.GetMarkId()),
 	}
 
 	taskId, err := s.tasks.AddTask(ctx, task)

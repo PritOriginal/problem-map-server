@@ -4,6 +4,7 @@ import (
 	"time"
 
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type Region struct {
@@ -53,27 +54,29 @@ func (d *District) ToProtobufObject() *pb.District {
 }
 
 type Mark struct {
-	ID           int    `json:"mark_id" db:"mark_id"`
-	Name         string `json:"name"`
-	Geom         *Point `json:"geom"`
-	TypeMarkID   int    `json:"type_mark_id" db:"type_mark_id"`
-	MarkStatusID int    `json:"mark_status_id" db:"mark_status_id"`
-	UserID       int    `json:"user_id" db:"user_id"`
-	DistrictID   int    `json:"district_id" db:"district_id"`
-	NumberVotes  int    `json:"number_votes" db:"number_votes"`
-	NumberChecks int    `json:"number_checks" db:"number_checks"`
+	ID           int       `json:"mark_id" db:"mark_id"`
+	Description  string    `json:"description" db:"description"`
+	Geom         *Point    `json:"geom" db:"geom"`
+	MarkTypeID   int       `json:"mark_type_id" db:"type_mark_id"`
+	MarkStatusID int       `json:"mark_status_id" db:"mark_status_id"`
+	UserID       int       `json:"user_id" db:"user_id"`
+	NumberVotes  int       `json:"number_votes" db:"number_votes"`
+	NumberChecks int       `json:"number_checks" db:"number_checks"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
 }
 
 func (m *Mark) ToProtobufObject() *pb.Mark {
 	return &pb.Mark{
 		Id:           int64(m.ID),
-		Name:         m.Name,
+		Description:  m.Description,
 		Geom:         m.Geom.ToProtobufObject(),
-		TypeMarkId:   int64(m.TypeMarkID),
+		MarkTypeId:   int64(m.MarkTypeID),
 		UserId:       int64(m.UserID),
-		DistrictId:   int64(m.DistrictID),
 		NumberVotes:  int64(m.NumberVotes),
 		NumberChecks: int64(m.NumberChecks),
+		CreatedAt:    timestamppb.New(m.CreatedAt),
+		UpdatedAt:    timestamppb.New(m.UpdatedAt),
 	}
 }
 
