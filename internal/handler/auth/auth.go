@@ -3,6 +3,7 @@ package authrest
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/PritOriginal/problem-map-server/internal/storage"
@@ -120,13 +121,12 @@ func (h *handler) SignIn() http.HandlerFunc {
 
 		accessToken, refreshToken, err := h.uc.SignIn(context.Background(), req.Login, req.Password)
 		if err != nil {
-			switch err {
-			case storage.ErrNotFound:
+			if errors.Is(err, storage.ErrNotFound) {
 				h.RenderError(w, r,
 					handlers.HandlerError{Msg: "failed sign in", Err: err},
 					responses.ErrUnauthorized,
 				)
-			default:
+			} else {
 				h.RenderInternalError(w, r, handlers.HandlerError{Msg: "failed sign in", Err: err})
 			}
 			return
