@@ -3,6 +3,7 @@ package authrest
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/PritOriginal/problem-map-server/internal/storage"
@@ -14,8 +15,8 @@ import (
 )
 
 type Auth interface {
-	SignUp(ctx context.Context, name, username, password string) (int64, error)
-	SignIn(ctx context.Context, username, password string) (string, string, error)
+	SignUp(ctx context.Context, username, login, password string) (int64, error)
+	SignIn(ctx context.Context, login, password string) (string, string, error)
 	RefreshTokens(ctx context.Context, refreshToken string) (string, string, error)
 }
 
@@ -67,7 +68,7 @@ func (h *handler) SignUp() http.HandlerFunc {
 			return
 		}
 
-		_, err := h.uc.SignUp(context.Background(), req.Name, req.Username, req.Password)
+		_, err := h.uc.SignUp(context.Background(), req.Username, req.Username, req.Password)
 		if err != nil {
 			switch err {
 			case usecase.ErrConflict:
@@ -118,15 +119,14 @@ func (h *handler) SignIn() http.HandlerFunc {
 			return
 		}
 
-		accessToken, refreshToken, err := h.uc.SignIn(context.Background(), req.Username, req.Password)
+		accessToken, refreshToken, err := h.uc.SignIn(context.Background(), req.Login, req.Password)
 		if err != nil {
-			switch err {
-			case storage.ErrNotFound:
+			if errors.Is(err, storage.ErrNotFound) {
 				h.RenderError(w, r,
 					handlers.HandlerError{Msg: "failed sign in", Err: err},
 					responses.ErrUnauthorized,
 				)
-			default:
+			} else {
 				h.RenderInternalError(w, r, handlers.HandlerError{Msg: "failed sign in", Err: err})
 			}
 			return

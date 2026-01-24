@@ -110,8 +110,8 @@ func (_c *MockAuth_RefreshTokens_Call) RunAndReturn(run func(ctx context.Context
 }
 
 // SignIn provides a mock function for the type MockAuth
-func (_mock *MockAuth) SignIn(ctx context.Context, username string, password string) (string, string, error) {
-	ret := _mock.Called(ctx, username, password)
+func (_mock *MockAuth) SignIn(ctx context.Context, login string, password string) (string, string, error) {
+	ret := _mock.Called(ctx, login, password)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SignIn")
@@ -121,20 +121,20 @@ func (_mock *MockAuth) SignIn(ctx context.Context, username string, password str
 	var r1 string
 	var r2 error
 	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) (string, string, error)); ok {
-		return returnFunc(ctx, username, password)
+		return returnFunc(ctx, login, password)
 	}
 	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string) string); ok {
-		r0 = returnFunc(ctx, username, password)
+		r0 = returnFunc(ctx, login, password)
 	} else {
 		r0 = ret.Get(0).(string)
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string) string); ok {
-		r1 = returnFunc(ctx, username, password)
+		r1 = returnFunc(ctx, login, password)
 	} else {
 		r1 = ret.Get(1).(string)
 	}
 	if returnFunc, ok := ret.Get(2).(func(context.Context, string, string) error); ok {
-		r2 = returnFunc(ctx, username, password)
+		r2 = returnFunc(ctx, login, password)
 	} else {
 		r2 = ret.Error(2)
 	}
@@ -148,13 +148,13 @@ type MockAuth_SignIn_Call struct {
 
 // SignIn is a helper method to define mock.On call
 //   - ctx context.Context
-//   - username string
+//   - login string
 //   - password string
-func (_e *MockAuth_Expecter) SignIn(ctx interface{}, username interface{}, password interface{}) *MockAuth_SignIn_Call {
-	return &MockAuth_SignIn_Call{Call: _e.mock.On("SignIn", ctx, username, password)}
+func (_e *MockAuth_Expecter) SignIn(ctx interface{}, login interface{}, password interface{}) *MockAuth_SignIn_Call {
+	return &MockAuth_SignIn_Call{Call: _e.mock.On("SignIn", ctx, login, password)}
 }
 
-func (_c *MockAuth_SignIn_Call) Run(run func(ctx context.Context, username string, password string)) *MockAuth_SignIn_Call {
+func (_c *MockAuth_SignIn_Call) Run(run func(ctx context.Context, login string, password string)) *MockAuth_SignIn_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -182,14 +182,14 @@ func (_c *MockAuth_SignIn_Call) Return(s string, s1 string, err error) *MockAuth
 	return _c
 }
 
-func (_c *MockAuth_SignIn_Call) RunAndReturn(run func(ctx context.Context, username string, password string) (string, string, error)) *MockAuth_SignIn_Call {
+func (_c *MockAuth_SignIn_Call) RunAndReturn(run func(ctx context.Context, login string, password string) (string, string, error)) *MockAuth_SignIn_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // SignUp provides a mock function for the type MockAuth
-func (_mock *MockAuth) SignUp(ctx context.Context, name string, username string, password string) (int64, error) {
-	ret := _mock.Called(ctx, name, username, password)
+func (_mock *MockAuth) SignUp(ctx context.Context, username string, login string, password string) (int64, error) {
+	ret := _mock.Called(ctx, username, login, password)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SignUp")
@@ -198,15 +198,15 @@ func (_mock *MockAuth) SignUp(ctx context.Context, name string, username string,
 	var r0 int64
 	var r1 error
 	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) (int64, error)); ok {
-		return returnFunc(ctx, name, username, password)
+		return returnFunc(ctx, username, login, password)
 	}
 	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) int64); ok {
-		r0 = returnFunc(ctx, name, username, password)
+		r0 = returnFunc(ctx, username, login, password)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
-		r1 = returnFunc(ctx, name, username, password)
+		r1 = returnFunc(ctx, username, login, password)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -220,14 +220,14 @@ type MockAuth_SignUp_Call struct {
 
 // SignUp is a helper method to define mock.On call
 //   - ctx context.Context
-//   - name string
 //   - username string
+//   - login string
 //   - password string
-func (_e *MockAuth_Expecter) SignUp(ctx interface{}, name interface{}, username interface{}, password interface{}) *MockAuth_SignUp_Call {
-	return &MockAuth_SignUp_Call{Call: _e.mock.On("SignUp", ctx, name, username, password)}
+func (_e *MockAuth_Expecter) SignUp(ctx interface{}, username interface{}, login interface{}, password interface{}) *MockAuth_SignUp_Call {
+	return &MockAuth_SignUp_Call{Call: _e.mock.On("SignUp", ctx, username, login, password)}
 }
 
-func (_c *MockAuth_SignUp_Call) Run(run func(ctx context.Context, name string, username string, password string)) *MockAuth_SignUp_Call {
+func (_c *MockAuth_SignUp_Call) Run(run func(ctx context.Context, username string, login string, password string)) *MockAuth_SignUp_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -260,7 +260,7 @@ func (_c *MockAuth_SignUp_Call) Return(n int64, err error) *MockAuth_SignUp_Call
 	return _c
 }
 
-func (_c *MockAuth_SignUp_Call) RunAndReturn(run func(ctx context.Context, name string, username string, password string) (int64, error)) *MockAuth_SignUp_Call {
+func (_c *MockAuth_SignUp_Call) RunAndReturn(run func(ctx context.Context, username string, login string, password string) (int64, error)) *MockAuth_SignUp_Call {
 	_c.Call.Return(run)
 	return _c
 }

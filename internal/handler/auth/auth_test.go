@@ -52,8 +52,8 @@ func (suite *AuthSuite) TestSignUp() {
 		{
 			name: "Ok201",
 			req: authrest.SignUpRequest{
-				Name:     "name",
-				Username: "username",
+				Username: "name",
+				Login:    "username",
 				Password: "password",
 			},
 			wantErrParseReq: false,
@@ -70,8 +70,8 @@ func (suite *AuthSuite) TestSignUp() {
 		{
 			name: "Err400InvalidReq",
 			req: authrest.SignUpRequest{
-				Name:     "name",
-				Username: "username",
+				Username: "name",
+				Login:    "username",
 			},
 			wantErrParseReq: true,
 			errSignUp:       nil,
@@ -80,8 +80,8 @@ func (suite *AuthSuite) TestSignUp() {
 		{
 			name: "Err409",
 			req: authrest.SignUpRequest{
-				Name:     "name",
-				Username: "username",
+				Username: "name",
+				Login:    "username",
 				Password: "password",
 			},
 			wantErrParseReq: false,
@@ -91,8 +91,8 @@ func (suite *AuthSuite) TestSignUp() {
 		{
 			name: "Err500",
 			req: authrest.SignUpRequest{
-				Name:     "name",
-				Username: "username",
+				Username: "name",
+				Login:    "username",
 				Password: "password",
 			},
 			wantErrParseReq: false,
@@ -139,7 +139,7 @@ func (suite *AuthSuite) TestSignIn() {
 		{
 			name: "Ok200",
 			req: authrest.SignInRequest{
-				Username: "username",
+				Login:    "username",
 				Password: "password",
 			},
 			wantErrParseReq: false,
@@ -156,7 +156,7 @@ func (suite *AuthSuite) TestSignIn() {
 		{
 			name: "Err400InvalidReq",
 			req: authrest.SignInRequest{
-				Username: "username",
+				Login: "username",
 			},
 			wantErrParseReq: true,
 			errSignIn:       nil,
@@ -165,7 +165,7 @@ func (suite *AuthSuite) TestSignIn() {
 		{
 			name: "Err409",
 			req: authrest.SignInRequest{
-				Username: "username",
+				Login:    "username",
 				Password: "password",
 			},
 			wantErrParseReq: false,
@@ -175,7 +175,7 @@ func (suite *AuthSuite) TestSignIn() {
 		{
 			name: "Err500",
 			req: authrest.SignInRequest{
-				Username: "username",
+				Login:    "username",
 				Password: "password",
 			},
 			wantErrParseReq: false,
