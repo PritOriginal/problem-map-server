@@ -62,7 +62,7 @@ func (suite *AuthSuite) TestSignUp() {
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			usersRepoCall := suite.usersRepo.On("GetUserByUsername", mock.Anything, mock.AnythingOfType("string")).Once()
+			usersRepoCall := suite.usersRepo.On("GetUserByLogin", mock.Anything, mock.AnythingOfType("string")).Once()
 			if !tt.GetUserByUsernameWantErr {
 				usersRepoCall.Return(models.User{}, storage.ErrNotFound)
 
@@ -76,7 +76,7 @@ func (suite *AuthSuite) TestSignUp() {
 				usersRepoCall.Return(models.User{}, errors.New(""))
 			}
 
-			_, gotErr := suite.uc.SignUp(context.Background(), "name", "username", "password")
+			_, gotErr := suite.uc.SignUp(context.Background(), "username", "login", "password")
 
 			if !tt.GetUserByUsernameWantErr && !tt.AddUserWantErr {
 				suite.NoError(gotErr)
