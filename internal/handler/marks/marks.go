@@ -25,7 +25,7 @@ type Marks interface {
 	GetMarks(ctx context.Context) ([]models.Mark, error)
 	GetMarkById(ctx context.Context, id int) (models.Mark, error)
 	GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error)
-	AddMark(ctx context.Context, mark models.Mark, photos [][]byte) (int64, error)
+	AddMark(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error)
 	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
 	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
 }
