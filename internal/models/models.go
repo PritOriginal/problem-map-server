@@ -68,13 +68,14 @@ type Mark struct {
 func (m *Mark) ToProtobufObject() *pb.Mark {
 	return &pb.Mark{
 		Id:           int64(m.ID),
-		Name:         m.Name,
+		Description:  m.Description,
 		Geom:         m.Geom.ToProtobufObject(),
-		TypeMarkId:   int64(m.TypeMarkID),
+		MarkTypeId:   int64(m.MarkTypeID),
 		UserId:       int64(m.UserID),
-		DistrictId:   int64(m.DistrictID),
 		NumberVotes:  int64(m.NumberVotes),
 		NumberChecks: int64(m.NumberChecks),
+		CreatedAt:    timestamppb.New(m.CreatedAt),
+		UpdatedAt:    timestamppb.New(m.UpdatedAt),
 	}
 }
 
