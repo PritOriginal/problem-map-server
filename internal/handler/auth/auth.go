@@ -14,8 +14,8 @@ import (
 )
 
 type Auth interface {
-	SignUp(ctx context.Context, name, username, password string) (int64, error)
-	SignIn(ctx context.Context, username, password string) (string, string, error)
+	SignUp(ctx context.Context, username, login, password string) (int64, error)
+	SignIn(ctx context.Context, login, password string) (string, string, error)
 	RefreshTokens(ctx context.Context, refreshToken string) (string, string, error)
 }
 
