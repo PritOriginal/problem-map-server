@@ -67,7 +67,7 @@ func (h *handler) SignUp() http.HandlerFunc {
 			return
 		}
 
-		_, err := h.uc.SignUp(context.Background(), req.Name, req.Username, req.Password)
+		_, err := h.uc.SignUp(context.Background(), req.Username, req.Username, req.Password)
 		if err != nil {
 			switch err {
 			case usecase.ErrConflict:
@@ -118,7 +118,7 @@ func (h *handler) SignIn() http.HandlerFunc {
 			return
 		}
 
-		accessToken, refreshToken, err := h.uc.SignIn(context.Background(), req.Username, req.Password)
+		accessToken, refreshToken, err := h.uc.SignIn(context.Background(), req.Login, req.Password)
 		if err != nil {
 			switch err {
 			case storage.ErrNotFound:
