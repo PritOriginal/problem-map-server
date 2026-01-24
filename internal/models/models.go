@@ -53,15 +53,16 @@ func (d *District) ToProtobufObject() *pb.District {
 }
 
 type Mark struct {
-	ID           int    `json:"mark_id" db:"mark_id"`
-	Name         string `json:"name"`
-	Geom         *Point `json:"geom"`
-	TypeMarkID   int    `json:"type_mark_id" db:"type_mark_id"`
-	MarkStatusID int    `json:"mark_status_id" db:"mark_status_id"`
-	UserID       int    `json:"user_id" db:"user_id"`
-	DistrictID   int    `json:"district_id" db:"district_id"`
-	NumberVotes  int    `json:"number_votes" db:"number_votes"`
-	NumberChecks int    `json:"number_checks" db:"number_checks"`
+	ID           int       `json:"mark_id" db:"mark_id"`
+	Description  string    `json:"description" db:"description"`
+	Geom         *Point    `json:"geom" db:"geom"`
+	MarkTypeID   int       `json:"mark_type_id" db:"type_mark_id"`
+	MarkStatusID int       `json:"mark_status_id" db:"mark_status_id"`
+	UserID       int       `json:"user_id" db:"user_id"`
+	NumberVotes  int       `json:"number_votes" db:"number_votes"`
+	NumberChecks int       `json:"number_checks" db:"number_checks"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
 }
 
 func (m *Mark) ToProtobufObject() *pb.Mark {
