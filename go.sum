@@ -13,6 +13,8 @@ github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERo
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
 github.com/PritOriginal/problem-map-protos v0.0.4 h1:JflNj36nbeOSd0qEFuHJK6IEFIuRirFF5bN6hMBJCZo=
 github.com/PritOriginal/problem-map-protos v0.0.4/go.mod h1:UkYmrszXUhxmi6Y2auTHvqJGaba426QoGsafdwpL/ZA=
+github.com/PritOriginal/problem-map-protos v0.0.5 h1:BEbrlZ6JylAel2/nnyE7SWoh/gG8vhYcJ7J+JalGLgM=
+github.com/PritOriginal/problem-map-protos v0.0.5/go.mod h1:UkYmrszXUhxmi6Y2auTHvqJGaba426QoGsafdwpL/ZA=
 github.com/ajg/form v1.5.1 h1:t9c7v8JUKu/XxOGBU0yjNpaMloxGEJhUkqFRq0ibGeU=
 github.com/ajg/form v1.5.1/go.mod h1:uL1WgH+h2mgNtvBq0339dVnzXdBETtL2LeUXaIv25UY=
 github.com/alecthomas/assert/v2 v2.10.0 h1:jjRCHsj6hBJhkmhznrCzoNpbA3zqy0fYiUcYZP/GkPY=
