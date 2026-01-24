@@ -1,7 +1,6 @@
 package checksrest
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -19,7 +18,7 @@ import (
 )
 
 type Checks interface {
-	AddCheck(ctx context.Context, check models.Check, photos [][]byte) (int64, error)
+	AddCheck(ctx context.Context, check models.Check, photos []io.Reader) (int64, error)
 	GetCheckById(ctx context.Context, id int) (models.Check, error)
 	GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error)
 	GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error)
@@ -172,7 +171,7 @@ func (h *handler) AddCheck() http.HandlerFunc {
 			return
 		}
 
-		photos, err := ParsePhotos(w, r)
+		photos, err := h.ParsePhotos(w, r)
 		if err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error parse photos", Err: err})
 			return
@@ -210,27 +209,4 @@ func (h *handler) AddCheck() http.HandlerFunc {
 
 		h.Render(w, r, responses.SucceededCreatedRenderer())
 	}
-}
-
-func ParsePhotos(w http.ResponseWriter, r *http.Request) ([][]byte, error) {
-	var photos [][]byte
-
-	for _, fheaders := range r.MultipartForm.File {
-		for _, header := range fheaders {
-			file, err := header.Open()
-			if err != nil {
-				return photos, err
-			}
-			defer file.Close()
-
-			buf := bytes.NewBuffer(nil)
-			if _, err := io.Copy(buf, file); err != nil {
-				return photos, err
-			}
-			photo := buf.Bytes()
-
-			photos = append(photos, photo)
-		}
-	}
-	return photos, nil
 }

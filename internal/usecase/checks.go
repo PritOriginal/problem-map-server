@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
@@ -29,8 +30,8 @@ func NewChecks(log *slog.Logger, checksRepo ChecksRepository, photosRepo PhotosR
 	}
 }
 
-func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos [][]byte) (int64, error) {
-	const op = "usecase.Tasks.AddReview"
+func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.Reader) (int64, error) {
+	const op = "usecase.Tasks.AddCheck"
 
 	id, err := uc.checksRepo.AddCheck(ctx, check)
 	if err != nil {

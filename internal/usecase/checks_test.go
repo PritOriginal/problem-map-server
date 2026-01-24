@@ -3,6 +3,7 @@ package usecase_test
 import (
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"testing"
 
@@ -70,7 +71,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 				checksRepoCall.Return(int64(0), errors.New(""))
 			}
 
-			_, gotErr := suite.uc.AddCheck(context.Background(), models.Check{}, [][]byte{})
+			_, gotErr := suite.uc.AddCheck(context.Background(), models.Check{}, []io.Reader{})
 
 			if !tt.addCheckWantErr && !tt.addPhotosWantErr {
 				suite.NoError(gotErr)

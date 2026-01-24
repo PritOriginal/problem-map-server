@@ -38,7 +38,7 @@ func (uc *Auth) SignUp(ctx context.Context, name, username, password string) (in
 		PasswordHash: passwordHash,
 	}
 
-	_, err = uc.usersRepo.GetUserByUsername(ctx, user.Username)
+	_, err = uc.usersRepo.GetUserByLogin(ctx, user.Username)
 	if err != storage.ErrNotFound {
 		switch err {
 		case nil:
@@ -60,7 +60,7 @@ func (uc *Auth) SignUp(ctx context.Context, name, username, password string) (in
 func (uc *Auth) SignIn(ctx context.Context, username, password string) (string, string, error) {
 	const op = "usecase.Users.SignIn"
 
-	user, err := uc.usersRepo.GetUserByUsername(ctx, username)
+	user, err := uc.usersRepo.GetUserByLogin(ctx, username)
 	if err != nil {
 		return "", "", fmt.Errorf("%s: %w", op, err)
 	}

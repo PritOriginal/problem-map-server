@@ -1,9 +1,9 @@
 package s3
 
 import (
-	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 
@@ -19,7 +19,7 @@ func NewPhotos(S3 *S3) *PhotosRepo {
 	return &PhotosRepo{S3: S3}
 }
 
-func (repo *PhotosRepo) AddPhotos(ctx context.Context, markId, checkId int, photos [][]byte) error {
+func (repo *PhotosRepo) AddPhotos(ctx context.Context, markId, checkId int, photos []io.Reader) error {
 	const op = "storage.s3.AddPhotos"
 
 	buckets, err := repo.S3.GetBuckets(ctx)
@@ -28,7 +28,7 @@ func (repo *PhotosRepo) AddPhotos(ctx context.Context, markId, checkId int, phot
 	}
 
 	for i, photo := range photos {
-		objectKey := fmt.Sprintf("marks/%v/%v/%v.png", markId, checkId, i+1)
+		objectKey := fmt.Sprintf("marks/%v/%v/%v.jpg", markId, checkId, i+1)
 		err := repo.AddPhoto(ctx, *buckets[0].Name, objectKey, photo)
 		if err != nil {
 			return fmt.Errorf("%s: %w", op, err)
@@ -38,15 +38,13 @@ func (repo *PhotosRepo) AddPhotos(ctx context.Context, markId, checkId int, phot
 	return nil
 }
 
-func (repo *PhotosRepo) AddPhoto(ctx context.Context, bucketName string, objectKey string, data []byte) error {
+func (repo *PhotosRepo) AddPhoto(ctx context.Context, bucketName string, objectKey string, photo io.Reader) error {
 	const op = "storage.s3.AddPhoto"
-
-	buf := bytes.NewBuffer(data)
 
 	_, err := repo.S3.Client.PutObject(ctx, &s3.PutObjectInput{
 		Bucket: aws.String(bucketName),
 		Key:    aws.String(objectKey),
-		Body:   buf,
+		Body:   photo,
 	})
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)

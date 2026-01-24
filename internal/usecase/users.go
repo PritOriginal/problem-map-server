@@ -10,7 +10,7 @@ import (
 
 type UsersRepository interface {
 	GetUserById(ctx context.Context, id int) (models.User, error)
-	GetUserByUsername(ctx context.Context, username string) (models.User, error)
+	GetUserByLogin(ctx context.Context, username string) (models.User, error)
 	GetUsers(ctx context.Context) ([]models.User, error)
 	AddUser(ctx context.Context, user models.User) (int64, error)
 }
