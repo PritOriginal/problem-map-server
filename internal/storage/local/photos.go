@@ -2,6 +2,7 @@ package local
 
 import (
 	"context"
+	"io"
 	"os"
 )
 
@@ -12,7 +13,7 @@ func NewPhotos() *PhotosRepo {
 	return &PhotosRepo{}
 }
 
-func (repo *PhotosRepo) AddPhotos(ctx context.Context, markId, reviewId int, photos [][]byte) error {
+func (repo *PhotosRepo) AddPhotos(ctx context.Context, markId, reviewId int, photos []io.Reader) error {
 	for _, photo := range photos {
 		file, err := os.CreateTemp("photos", "p")
 		if err != nil {
@@ -20,7 +21,9 @@ func (repo *PhotosRepo) AddPhotos(ctx context.Context, markId, reviewId int, pho
 		}
 		defer file.Close()
 
-		file.Write(photo)
+		if _, err := io.Copy(file, photo); err != nil {
+			return err
+		}
 	}
 
 	return nil
