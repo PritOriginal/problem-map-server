@@ -101,3 +101,17 @@ type Check struct {
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
+
+func (c *Check) ToProtobufObject() *pb.Check {
+	return &pb.Check{
+		Id:        int64(c.ID),
+		UserId:    int64(c.UserID),
+		Username:  c.Username,
+		MarkId:    int64(c.MarkID),
+		Result:    c.Result,
+		Comment:   c.Comment,
+		Photos:    c.Photos,
+		CreatedAt: timestamppb.New(c.CreatedAt),
+		UpdatedAt: timestamppb.New(c.UpdatedAt),
+	}
+}
