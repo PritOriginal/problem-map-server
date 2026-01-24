@@ -93,9 +93,25 @@ type MarkStatus struct {
 type Check struct {
 	ID        int       `json:"check_id" db:"check_id"`
 	UserID    int       `json:"user_id" db:"user_id"`
+	Username  string    `json:"username" db:"username"`
 	MarkID    int       `json:"mark_id" db:"mark_id"`
 	Result    bool      `json:"result" db:"result"`
 	Comment   string    `json:"comment" db:"comment"`
+	Photos    []string  `json:"photos"`
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+}
+
+func (c *Check) ToProtobufObject() *pb.Check {
+	return &pb.Check{
+		Id:        int64(c.ID),
+		UserId:    int64(c.UserID),
+		Username:  c.Username,
+		MarkId:    int64(c.MarkID),
+		Result:    c.Result,
+		Comment:   c.Comment,
+		Photos:    c.Photos,
+		CreatedAt: timestamppb.New(c.CreatedAt),
+		UpdatedAt: timestamppb.New(c.UpdatedAt),
+	}
 }

@@ -46,34 +46,34 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 }
 
 func (uc *Checks) GetCheckById(ctx context.Context, id int) (models.Check, error) {
-	const op = "usecase.Tasks.GetReviewById"
+	const op = "usecase.Tasks.GetCheckById"
 
-	review, err := uc.checksRepo.GetCheckById(ctx, id)
+	check, err := uc.checksRepo.GetCheckById(ctx, id)
 	if err != nil {
-		return review, fmt.Errorf("%s: %w", op, err)
+		return check, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return review, nil
+	return check, nil
 }
 
 func (uc *Checks) GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error) {
-	const op = "usecase.Tasks.GetReviewsByMarkId"
+	const op = "usecase.Tasks.GetChecksByMarkId"
 
-	reviews, err := uc.checksRepo.GetChecksByMarkId(ctx, markId)
+	checks, err := uc.checksRepo.GetChecksByMarkId(ctx, markId)
 	if err != nil {
-		return reviews, fmt.Errorf("%s: %w", op, err)
+		return checks, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return reviews, nil
+	return checks, nil
 }
 
 func (uc *Checks) GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error) {
-	const op = "usecase.Tasks.GetReviewsByUserId"
+	const op = "usecase.Tasks.GetChecksByUserId"
 
-	reviews, err := uc.checksRepo.GetChecksByUserId(ctx, userId)
+	checks, err := uc.checksRepo.GetChecksByUserId(ctx, userId)
 	if err != nil {
-		return reviews, fmt.Errorf("%s: %w", op, err)
+		return checks, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return reviews, nil
+	return checks, nil
 }
