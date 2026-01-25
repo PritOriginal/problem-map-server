@@ -1091,6 +1091,80 @@ func (_c *MockPhotosRepository_GetPhotos_Call) RunAndReturn(run func(ctx context
 	return _c
 }
 
+// GetPhotosByCheckId provides a mock function for the type MockPhotosRepository
+func (_mock *MockPhotosRepository) GetPhotosByCheckId(ctx context.Context, markId int, checkId int) ([]string, error) {
+	ret := _mock.Called(ctx, markId, checkId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetPhotosByCheckId")
+	}
+
+	var r0 []string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) ([]string, error)); ok {
+		return returnFunc(ctx, markId, checkId)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) []string); ok {
+		r0 = returnFunc(ctx, markId, checkId)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]string)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, int) error); ok {
+		r1 = returnFunc(ctx, markId, checkId)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockPhotosRepository_GetPhotosByCheckId_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPhotosByCheckId'
+type MockPhotosRepository_GetPhotosByCheckId_Call struct {
+	*mock.Call
+}
+
+// GetPhotosByCheckId is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markId int
+//   - checkId int
+func (_e *MockPhotosRepository_Expecter) GetPhotosByCheckId(ctx interface{}, markId interface{}, checkId interface{}) *MockPhotosRepository_GetPhotosByCheckId_Call {
+	return &MockPhotosRepository_GetPhotosByCheckId_Call{Call: _e.mock.On("GetPhotosByCheckId", ctx, markId, checkId)}
+}
+
+func (_c *MockPhotosRepository_GetPhotosByCheckId_Call) Run(run func(ctx context.Context, markId int, checkId int)) *MockPhotosRepository_GetPhotosByCheckId_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockPhotosRepository_GetPhotosByCheckId_Call) Return(strings []string, err error) *MockPhotosRepository_GetPhotosByCheckId_Call {
+	_c.Call.Return(strings, err)
+	return _c
+}
+
+func (_c *MockPhotosRepository_GetPhotosByCheckId_Call) RunAndReturn(run func(ctx context.Context, markId int, checkId int) ([]string, error)) *MockPhotosRepository_GetPhotosByCheckId_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetPhotosByMarkId provides a mock function for the type MockPhotosRepository
 func (_mock *MockPhotosRepository) GetPhotosByMarkId(ctx context.Context, markId int) (map[int]map[int][]string, error) {
 	ret := _mock.Called(ctx, markId)
