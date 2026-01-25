@@ -53,6 +53,11 @@ func (uc *Checks) GetCheckById(ctx context.Context, id int) (models.Check, error
 		return check, fmt.Errorf("%s: %w", op, err)
 	}
 
+	check.Photos, err = uc.photosRepo.GetPhotosByCheckId(ctx, check.MarkID, check.ID)
+	if err != nil {
+		return check, fmt.Errorf("%s: %w", op, err)
+	}
+
 	return check, nil
 }
 
@@ -64,6 +69,15 @@ func (uc *Checks) GetChecksByMarkId(ctx context.Context, markId int) ([]models.C
 		return checks, fmt.Errorf("%s: %w", op, err)
 	}
 
+	photosMap, err := uc.photosRepo.GetPhotosByMarkId(ctx, markId)
+	if err != nil {
+		return checks, fmt.Errorf("%s: %w", op, err)
+	}
+
+	for i := range len(checks) {
+		checks[i].Photos = photosMap[markId][checks[i].ID]
+	}
+
 	return checks, nil
 }
 
@@ -73,6 +87,13 @@ func (uc *Checks) GetChecksByUserId(ctx context.Context, userId int) ([]models.C
 	checks, err := uc.checksRepo.GetChecksByUserId(ctx, userId)
 	if err != nil {
 		return checks, fmt.Errorf("%s: %w", op, err)
+	}
+
+	for i := range len(checks) {
+		checks[i].Photos, err = uc.photosRepo.GetPhotosByCheckId(ctx, checks[i].MarkID, checks[i].ID)
+		if err != nil {
+			return checks, fmt.Errorf("%s: %w", op, err)
+		}
 	}
 
 	return checks, nil
