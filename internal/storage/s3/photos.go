@@ -79,10 +79,24 @@ func (repo *PhotosRepo) GetPhotosByMarkId(ctx context.Context, markId int) (map[
 	return photos, nil
 }
 
+func (repo *PhotosRepo) GetPhotosByCheckId(ctx context.Context, markId, checkId int) ([]string, error) {
+	const op = "storage.s3.GetPhotosByMarkId"
+
+	photos, err := repo.getPhotos(ctx, &s3.ListObjectsV2Input{
+		Prefix: aws.String(fmt.Sprintf("marks/%v/%v", markId, checkId)),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return photos[markId][checkId], nil
+}
+
 func (repo *PhotosRepo) getPhotos(ctx context.Context, params *s3.ListObjectsV2Input) (map[int]map[int][]string, error) {
 	const op = "storage.s3.getPhotos"
 
 	photos := make(map[int]map[int][]string)
+	endpoint := *repo.S3.Client.Options().BaseEndpoint
 
 	buckets, err := repo.S3.GetBuckets(ctx)
 	if err != nil {
@@ -111,13 +125,12 @@ func (repo *PhotosRepo) getPhotos(ctx context.Context, params *s3.ListObjectsV2I
 					return photos, err
 				}
 
-				photo := keyParts[3]
-
 				if photos[markId] == nil {
 					photos[markId] = make(map[int][]string)
 				}
 
-				photos[markId][reviewId] = append(photos[markId][reviewId], photo)
+				src := endpoint + "/" + *bucket.Name + "/" + *object.Key
+				photos[markId][reviewId] = append(photos[markId][reviewId], src)
 			}
 		}
 	}
