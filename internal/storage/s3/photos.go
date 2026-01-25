@@ -96,6 +96,7 @@ func (repo *PhotosRepo) getPhotos(ctx context.Context, params *s3.ListObjectsV2I
 	const op = "storage.s3.getPhotos"
 
 	photos := make(map[int]map[int][]string)
+	endpoint := *repo.S3.Client.Options().BaseEndpoint
 
 	buckets, err := repo.S3.GetBuckets(ctx)
 	if err != nil {
@@ -124,13 +125,12 @@ func (repo *PhotosRepo) getPhotos(ctx context.Context, params *s3.ListObjectsV2I
 					return photos, err
 				}
 
-				photo := keyParts[3]
-
 				if photos[markId] == nil {
 					photos[markId] = make(map[int][]string)
 				}
 
-				photos[markId][reviewId] = append(photos[markId][reviewId], photo)
+				src := endpoint + "/" + *bucket.Name + "/" + *object.Key
+				photos[markId][reviewId] = append(photos[markId][reviewId], src)
 			}
 		}
 	}
