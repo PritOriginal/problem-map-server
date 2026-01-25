@@ -85,9 +85,23 @@ type MarkType struct {
 	Name string `json:"name"`
 }
 
+func (t *MarkType) ToProtobufObject() *pb.MarkType {
+	return &pb.MarkType{
+		Id:   int64(t.ID),
+		Name: t.Name,
+	}
+}
+
 type MarkStatus struct {
 	ID   int    `json:"mark_status_id" db:"mark_status_id"`
 	Name string `json:"name" db:"name"`
+}
+
+func (s *MarkStatus) ToProtobufObject() *pb.MarkStatus {
+	return &pb.MarkStatus{
+		Id:   int64(s.ID),
+		Name: s.Name,
+	}
 }
 
 type Check struct {

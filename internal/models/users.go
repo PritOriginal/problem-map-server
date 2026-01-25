@@ -29,10 +29,12 @@ type Task struct {
 	StatusID int    `json:"status_id" db:"status_id"`
 }
 
-func (t *Task) MarshalProtobuf() *pb.Task {
+func (t *Task) ToProtobufObject() *pb.Task {
 	return &pb.Task{
-		Id:     int64(t.ID),
-		Name:   t.Name,
-		UserId: int64(t.UserID),
+		Id:       int64(t.ID),
+		Name:     t.Name,
+		UserId:   int64(t.UserID),
+		MarkId:   int64(t.MarkID),
+		StatusId: int64(t.StatusID),
 	}
 }
