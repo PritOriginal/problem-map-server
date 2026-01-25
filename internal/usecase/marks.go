@@ -80,9 +80,10 @@ func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos []io.Read
 	}
 
 	check := models.Check{
-		UserID: mark.UserID,
-		MarkID: int(markId),
-		Result: true,
+		UserID:  mark.UserID,
+		MarkID:  int(markId),
+		Result:  true,
+		Comment: mark.Description,
 	}
 
 	checkId, err := uc.checksRepo.AddCheck(ctx, check)
