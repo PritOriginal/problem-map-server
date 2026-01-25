@@ -81,7 +81,7 @@ func (m *Mark) ToProtobufObject() *pb.Mark {
 }
 
 type MarkType struct {
-	ID   int    `json:"type_mark_id" db:"type_mark_id"`
+	ID   int    `json:"mark_type_id" db:"type_mark_id"`
 	Name string `json:"name"`
 }
 
