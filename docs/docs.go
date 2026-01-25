@@ -92,8 +92,8 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
+                    "201": {
+                        "description": "Created",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any"
                         }
@@ -898,6 +898,12 @@ const docTemplate = `{
                 "mark_id": {
                     "type": "integer"
                 },
+                "photos": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "result": {
                     "type": "boolean"
                 },
@@ -906,6 +912,9 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "integer"
+                },
+                "username": {
+                    "type": "string"
                 }
             }
         },
@@ -946,8 +955,11 @@ const docTemplate = `{
         "github_com_PritOriginal_problem-map-server_internal_models.Mark": {
             "type": "object",
             "properties": {
-                "district_id": {
-                    "type": "integer"
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
                 },
                 "geom": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON"
@@ -958,8 +970,8 @@ const docTemplate = `{
                 "mark_status_id": {
                     "type": "integer"
                 },
-                "name": {
-                    "type": "string"
+                "mark_type_id": {
+                    "type": "integer"
                 },
                 "number_checks": {
                     "type": "integer"
@@ -967,8 +979,8 @@ const docTemplate = `{
                 "number_votes": {
                     "type": "integer"
                 },
-                "type_mark_id": {
-                    "type": "integer"
+                "updated_at": {
+                    "type": "string"
                 },
                 "user_id": {
                     "type": "integer"
@@ -989,11 +1001,11 @@ const docTemplate = `{
         "github_com_PritOriginal_problem-map-server_internal_models.MarkType": {
             "type": "object",
             "properties": {
+                "mark_type_id": {
+                    "type": "integer"
+                },
                 "name": {
                     "type": "string"
-                },
-                "type_mark_id": {
-                    "type": "integer"
                 }
             }
         },
@@ -1073,7 +1085,7 @@ const docTemplate = `{
                 "home_point": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON"
                 },
-                "name": {
+                "login": {
                     "type": "string"
                 },
                 "rating": {
@@ -1387,17 +1399,19 @@ const docTemplate = `{
         "internal_handler_auth.SignInRequest": {
             "type": "object",
             "required": [
-                "password",
-                "username"
+                "login",
+                "password"
             ],
             "properties": {
+                "login": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "minLength": 3
+                },
                 "password": {
                     "type": "string",
                     "maxLength": 64,
                     "minLength": 8
-                },
-                "username": {
-                    "type": "string"
                 }
             }
         },
@@ -1415,13 +1429,15 @@ const docTemplate = `{
         "internal_handler_auth.SignUpRequest": {
             "type": "object",
             "required": [
-                "name",
+                "login",
                 "password",
                 "username"
             ],
             "properties": {
-                "name": {
-                    "type": "string"
+                "login": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "minLength": 3
                 },
                 "password": {
                     "type": "string",
@@ -1429,7 +1445,9 @@ const docTemplate = `{
                     "minLength": 8
                 },
                 "username": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 40,
+                    "minLength": 2
                 }
             }
         },
