@@ -92,7 +92,7 @@ func TestAddMark(t *testing.T) {
 	st := suite.New(t)
 
 	signInResponse := signIn(t, st, authrest.SignInRequest{
-		Username: "user4",
+		Login:    "user4",
 		Password: "1234qwer",
 	})
 
@@ -101,10 +101,8 @@ func TestAddMark(t *testing.T) {
 			Longitude: 52.707605,
 			Latitude:  41.497976,
 		},
-		TypeMarkID:   1,
-		MarkStatusID: 1,
-		UserID:       1,
-		DistrictID:   240,
+		MarkTypeID:  1,
+		Description: "Тест",
 	}
 
 	reqJSON, err := json.Marshal(addMarkReq)
