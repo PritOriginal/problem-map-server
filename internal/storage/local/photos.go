@@ -36,3 +36,7 @@ func (repo *PhotosRepo) GetPhotos(ctx context.Context) (map[int]map[int][]string
 func (repo *PhotosRepo) GetPhotosByMarkId(ctx context.Context, arkId int) (map[int]map[int][]string, error) {
 	return map[int]map[int][]string{}, nil
 }
+
+func (repo *PhotosRepo) GetPhotosByCheckId(ctx context.Context, markId, checkId int) ([]string, error) {
+	return []string{}, nil
+}

@@ -22,6 +22,7 @@ type PhotosRepository interface {
 	AddPhotos(ctx context.Context, markId, checkId int, photos []io.Reader) error
 	GetPhotos(ctx context.Context) (map[int]map[int][]string, error)
 	GetPhotosByMarkId(ctx context.Context, markId int) (map[int]map[int][]string, error)
+	GetPhotosByCheckId(ctx context.Context, markId, checkId int) ([]string, error)
 }
 
 type Marks struct {
