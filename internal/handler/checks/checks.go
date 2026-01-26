@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -195,9 +196,37 @@ func (h *handler) AddCheck() http.HandlerFunc {
 			return
 		}
 
+		_, claims, err := jwtauth.FromContext(r.Context())
+		if err != nil {
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "invalid token", Err: err},
+				responses.ErrUnauthorized,
+			)
+			return
+		}
+
+		userIdStr, ok := claims["sub"].(string)
+		if !ok {
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "invalid token", Err: err},
+				responses.ErrUnauthorized,
+			)
+			return
+		}
+		userId, err := strconv.Atoi(userIdStr)
+		if !ok {
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "invalid token", Err: err},
+				responses.ErrUnauthorized,
+			)
+			return
+		}
+
+		h.Log.Debug("Add mark", slog.Int("userId", userId))
+
 		check := models.Check{
-			UserID:  req.UserID,
-			MarkID:  req.UserID,
+			UserID:  userId,
+			MarkID:  req.MarkID,
 			Result:  req.Result,
 			Comment: req.Comment,
 		}
