@@ -207,7 +207,6 @@ func (suite *ChecksSuite) TestAddCheck() {
 		{
 			name: "Ok201",
 			req: checksrest.AddCheckRequest{
-				UserID:  1,
 				MarkID:  1,
 				Result:  true,
 				Comment: "",
@@ -226,7 +225,6 @@ func (suite *ChecksSuite) TestAddCheck() {
 		{
 			name: "Err400InvalidReq",
 			req: checksrest.AddCheckRequest{
-				UserID:  1,
 				Result:  true,
 				Comment: "",
 			},
@@ -237,7 +235,6 @@ func (suite *ChecksSuite) TestAddCheck() {
 		{
 			name: "Err500",
 			req: checksrest.AddCheckRequest{
-				UserID:  1,
 				MarkID:  1,
 				Result:  true,
 				Comment: "",
