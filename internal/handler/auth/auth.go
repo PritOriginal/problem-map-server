@@ -43,7 +43,7 @@ func Register(r *chi.Mux, uc Auth, bh *handlers.BaseHandler) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			request	body		authrest.SignUpRequest	true	"query params"
-//	@Success		201		{object}	responses.SucceededResponse[any]
+//	@Success		201		{object}	responses.SucceededResponse[authrest.SignUpResponse]
 //	@Failure		400		{object}	responses.ErrorResponse
 //	@Failure		409		{object}	responses.ErrorResponse
 //	@Failure		500		{object}	responses.ErrorResponse
@@ -68,7 +68,7 @@ func (h *handler) SignUp() http.HandlerFunc {
 			return
 		}
 
-		_, err := h.uc.SignUp(context.Background(), req.Username, req.Username, req.Password)
+		userId, err := h.uc.SignUp(context.Background(), req.Username, req.Username, req.Password)
 		if err != nil {
 			switch err {
 			case usecase.ErrConflict:
@@ -82,7 +82,9 @@ func (h *handler) SignUp() http.HandlerFunc {
 			return
 		}
 
-		h.Render(w, r, responses.SucceededCreatedRenderer())
+		h.Render(w, r, responses.SucceededCreatedRenderer(SignUpResponse{
+			UserId: int(userId),
+		}))
 	}
 }
 

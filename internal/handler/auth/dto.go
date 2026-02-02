@@ -6,6 +6,10 @@ type SignUpRequest struct {
 	Password string `json:"password" validate:"required,min=8,max=64"`
 }
 
+type SignUpResponse struct {
+	UserId string `json:"user_id"`
+}
+
 type SignInRequest struct {
 	Login    string `json:"login" validate:"required,min=3,max=40,alphanum"`
 	Password string `json:"password" validate:"required,min=8,max=64"`
