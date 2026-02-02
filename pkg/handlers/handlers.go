@@ -55,20 +55,16 @@ func (h *BaseHandler) ParsePhotos(w http.ResponseWriter, r *http.Request) ([]io.
 				return photos, err
 			}
 
-			img, format, err := image.Decode(file)
+			img, _, err := image.Decode(file)
 			if err != nil {
 				return photos, err
 			}
 
-			if format == "png" {
-				buf := new(bytes.Buffer)
-				if err := jpeg.Encode(buf, img, nil); err != nil {
-					return photos, err
-				}
-				photos = append(photos, buf)
-			} else {
-				photos = append(photos, file)
+			buf := new(bytes.Buffer)
+			if err := jpeg.Encode(buf, img, nil); err != nil {
+				return photos, err
 			}
+			photos = append(photos, buf)
 		}
 	}
 	return photos, nil
