@@ -52,11 +52,12 @@ func SucceededRenderer[T any](data T) render.Renderer {
 	}
 }
 
-func SucceededCreatedRenderer() render.Renderer {
-	return &SucceededResponse[any]{
+func SucceededCreatedRenderer[T any](data T) render.Renderer {
+	return &SucceededResponse[T]{
 		HTTPStatusCode: http.StatusCreated,
 		Status:         "succeeded",
 		Message:        "",
+		Payload:        data,
 	}
 }
 

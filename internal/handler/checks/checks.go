@@ -160,7 +160,7 @@ func (h *handler) GetChecksByUserId() http.HandlerFunc {
 //	@Accept			mpfd
 //	@Produce		json
 //	@Param			Authorization	header		string	true	"Insert your access token"	default(Bearer <Add access token here>)
-//	@Success		201				{object}	responses.SucceededResponse[any]
+//	@Success		201				{object}	responses.SucceededResponse[checksrest.AddCheckResponse]
 //	@Failure		400				{object}	responses.ErrorResponse
 //	@Failure		500				{object}	responses.ErrorResponse
 //	@Router			/checks [post]
@@ -230,12 +230,14 @@ func (h *handler) AddCheck() http.HandlerFunc {
 			Result:  req.Result,
 			Comment: req.Comment,
 		}
-		_, err = h.uc.AddCheck(context.Background(), check, photos)
+		checkId, err := h.uc.AddCheck(context.Background(), check, photos)
 		if err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error add check", Err: err})
 			return
 		}
 
-		h.Render(w, r, responses.SucceededCreatedRenderer())
+		h.Render(w, r, responses.SucceededCreatedRenderer(AddCheckResponse{
+			CheckId: int(checkId),
+		}))
 	}
 }
