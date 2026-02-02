@@ -160,7 +160,7 @@ func (h *handler) GetMarksByUserId() http.HandlerFunc {
 //	@Accept			mpfd
 //	@Produce		json
 //	@Param			Authorization	header		string	true	"Insert your access token"	default(Bearer <Add access token here>)
-//	@Success		201				{object}	responses.SucceededResponse[any]
+//	@Success		201				{object}	responses.SucceededResponse[marksrest.AddMarkResponse]
 //	@Failure		400				{object}	responses.ErrorResponse
 //	@Failure		500				{object}	responses.ErrorResponse
 //	@Router			/marks [post]
@@ -222,7 +222,7 @@ func (h *handler) AddMark() http.HandlerFunc {
 			return
 		}
 
-		h.Log.Debug("Add mark", slog.Int("userId", userId))
+		h.Log.Debug("Add mark", slog.Int("userId", userId), slog.Int("photos", len(photos)))
 
 		newMark := models.Mark{
 			Geom:        models.NewPoint(geom.Coord{req.Point.Latitude, req.Point.Longitude}),
@@ -230,13 +230,15 @@ func (h *handler) AddMark() http.HandlerFunc {
 			UserID:      userId,
 			Description: req.Description,
 		}
-		_, err = h.uc.AddMark(context.Background(), newMark, photos)
+		markId, err := h.uc.AddMark(context.Background(), newMark, photos)
 		if err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error add mark", Err: err})
 			return
 		}
 
-		h.Render(w, r, responses.SucceededCreatedRenderer())
+		h.Render(w, r, responses.SucceededCreatedRenderer(AddMarkResponse{
+			MarkId: int(markId),
+		}))
 	}
 }
 
