@@ -19,3 +19,7 @@ type AddTaskRequest struct {
 	UserID int    `json:"user_id" validate:"required"`
 	MarkID int    `json:"mark_id" validate:"required"`
 }
+
+type AddTaskResponse struct {
+	TaskId int `json:"task_id"`
+}

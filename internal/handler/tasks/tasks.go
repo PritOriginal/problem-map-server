@@ -140,7 +140,7 @@ func (h *handler) GetTasksByUserId() http.HandlerFunc {
 //	@Tags			tasks
 //	@Produce		json
 //	@Param			request	body		tasksrest.AddTaskRequest	true	"query params"
-//	@Success		201		{object}	responses.SucceededResponse[any]
+//	@Success		201		{object}	responses.SucceededResponse[tasksrest.AddTaskResponse]
 //	@Failure		400		{object}	responses.ErrorResponse
 //	@Failure		500		{object}	responses.ErrorResponse
 //	@Router			/tasks [post]
@@ -170,12 +170,14 @@ func (h *handler) AddTask() http.HandlerFunc {
 			MarkID: req.MarkID,
 		}
 
-		_, err := h.uc.AddTask(context.Background(), task)
+		taskId, err := h.uc.AddTask(context.Background(), task)
 		if err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "failed add task", Err: err})
 			return
 		}
 
-		h.Render(w, r, responses.SucceededCreatedRenderer())
+		h.Render(w, r, responses.SucceededCreatedRenderer(AddTaskResponse{
+			TaskId: int(taskId),
+		}))
 	}
 }
