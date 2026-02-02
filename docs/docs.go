@@ -95,7 +95,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_auth_SignUpResponse"
                         }
                     },
                     "400": {
@@ -198,7 +198,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_AddCheckResponse"
                         }
                     },
                     "400": {
@@ -486,7 +486,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_AddMarkResponse"
                         }
                     },
                     "400": {
@@ -702,7 +702,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_AddTaskResponse"
                         }
                     },
                     "400": {
@@ -1110,18 +1110,6 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string"
-                },
-                "payload": {},
-                "status": {
-                    "type": "string"
-                }
-            }
-        },
         "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_auth_RefreshTokensResponse": {
             "type": "object",
             "properties": {
@@ -1144,6 +1132,34 @@ const docTemplate = `{
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_auth.SignInResponse"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_auth_SignUpResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_auth.SignUpResponse"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_AddCheckResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_checks.AddCheckResponse"
                 },
                 "status": {
                     "type": "string"
@@ -1234,6 +1250,20 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_AddMarkResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_marks.AddMarkResponse"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkByIdResponse": {
             "type": "object",
             "properties": {
@@ -1298,6 +1328,20 @@ const docTemplate = `{
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.GetMarksResponse"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_AddTaskResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_tasks.AddTaskResponse"
                 },
                 "status": {
                     "type": "string"
@@ -1451,6 +1495,22 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler_auth.SignUpResponse": {
+            "type": "object",
+            "properties": {
+                "user_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handler_checks.AddCheckResponse": {
+            "type": "object",
+            "properties": {
+                "check_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "internal_handler_checks.GetCheckByIdResponse": {
             "type": "object",
             "properties": {
@@ -1511,6 +1571,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Region"
                     }
+                }
+            }
+        },
+        "internal_handler_marks.AddMarkResponse": {
+            "type": "object",
+            "properties": {
+                "mark_id": {
+                    "type": "integer"
                 }
             }
         },
@@ -1581,6 +1649,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_handler_tasks.AddTaskResponse": {
+            "type": "object",
+            "properties": {
+                "task_id": {
                     "type": "integer"
                 }
             }

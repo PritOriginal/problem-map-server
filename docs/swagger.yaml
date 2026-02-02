@@ -147,14 +147,6 @@ definitions:
       status:
         type: string
     type: object
-  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any:
-    properties:
-      message:
-        type: string
-      payload: {}
-      status:
-        type: string
-    type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_auth_RefreshTokensResponse:
     properties:
       message:
@@ -170,6 +162,24 @@ definitions:
         type: string
       payload:
         $ref: '#/definitions/internal_handler_auth.SignInResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_auth_SignUpResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_auth.SignUpResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_AddCheckResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_checks.AddCheckResponse'
       status:
         type: string
     type: object
@@ -227,6 +237,15 @@ definitions:
       status:
         type: string
     type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_AddMarkResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_marks.AddMarkResponse'
+      status:
+        type: string
+    type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkByIdResponse:
     properties:
       message:
@@ -269,6 +288,15 @@ definitions:
         type: string
       payload:
         $ref: '#/definitions/internal_handler_marks.GetMarksResponse'
+      status:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_AddTaskResponse:
+    properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_tasks.AddTaskResponse'
       status:
         type: string
     type: object
@@ -371,6 +399,16 @@ definitions:
     - password
     - username
     type: object
+  internal_handler_auth.SignUpResponse:
+    properties:
+      user_id:
+        type: string
+    type: object
+  internal_handler_checks.AddCheckResponse:
+    properties:
+      check_id:
+        type: integer
+    type: object
   internal_handler_checks.GetCheckByIdResponse:
     properties:
       check:
@@ -410,6 +448,11 @@ definitions:
         items:
           $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Region'
         type: array
+    type: object
+  internal_handler_marks.AddMarkResponse:
+    properties:
+      mark_id:
+        type: integer
     type: object
   internal_handler_marks.GetMarkByIdResponse:
     properties:
@@ -456,6 +499,11 @@ definitions:
     - mark_id
     - name
     - user_id
+    type: object
+  internal_handler_tasks.AddTaskResponse:
+    properties:
+      task_id:
+        type: integer
     type: object
   internal_handler_tasks.GetTaskByIdResponse:
     properties:
@@ -546,7 +594,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any'
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_auth_SignUpResponse'
         "400":
           description: Bad Request
           schema:
@@ -614,7 +662,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any'
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_AddCheckResponse'
         "400":
           description: Bad Request
           schema:
@@ -804,7 +852,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any'
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_AddMarkResponse'
         "400":
           description: Bad Request
           schema:
@@ -946,7 +994,7 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any'
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_AddTaskResponse'
         "400":
           description: Bad Request
           schema:
