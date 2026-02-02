@@ -3,7 +3,7 @@ module github.com/PritOriginal/problem-map-server
 go 1.25.1
 
 require (
-	github.com/PritOriginal/problem-map-protos v0.0.4
+	github.com/PritOriginal/problem-map-protos v0.0.5
 	github.com/brianvoe/gofakeit/v7 v7.9.0
 	github.com/go-chi/chi/v5 v5.2.3
 	github.com/go-chi/docgen v1.3.0

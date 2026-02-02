@@ -24,7 +24,7 @@ func NewAuth(log *slog.Logger, usersRepo UsersRepository, authCfg config.AuthCon
 	return &Auth{log: log, usersRepo: usersRepo, authCfg: authCfg}
 }
 
-func (uc *Auth) SignUp(ctx context.Context, name, username, password string) (int64, error) {
+func (uc *Auth) SignUp(ctx context.Context, username, login, password string) (int64, error) {
 	const op = "usecase.Users.SignUp"
 
 	passwordHash, err := passwordUtils.HashPassword(password)
@@ -33,18 +33,18 @@ func (uc *Auth) SignUp(ctx context.Context, name, username, password string) (in
 	}
 
 	user := models.User{
-		Name:         name,
-		Username:     username,
+		Name:         username,
+		Login:        login,
 		PasswordHash: passwordHash,
 	}
 
-	_, err = uc.usersRepo.GetUserByUsername(ctx, user.Username)
+	_, err = uc.usersRepo.GetUserByLogin(ctx, user.Login)
 	if err != storage.ErrNotFound {
 		switch err {
 		case nil:
 			return 0, ErrConflict
 		default:
-			uc.log.Debug("GetUserByUsername err", logger.Err(err))
+			uc.log.Debug("GetUserByLogin err", logger.Err(err))
 			return 0, fmt.Errorf("%s: %w", op, err)
 		}
 	}
@@ -57,10 +57,10 @@ func (uc *Auth) SignUp(ctx context.Context, name, username, password string) (in
 	return id, nil
 }
 
-func (uc *Auth) SignIn(ctx context.Context, username, password string) (string, string, error) {
+func (uc *Auth) SignIn(ctx context.Context, login, password string) (string, string, error) {
 	const op = "usecase.Users.SignIn"
 
-	user, err := uc.usersRepo.GetUserByUsername(ctx, username)
+	user, err := uc.usersRepo.GetUserByLogin(ctx, login)
 	if err != nil {
 		return "", "", fmt.Errorf("%s: %w", op, err)
 	}

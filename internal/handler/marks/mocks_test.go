@@ -6,6 +6,7 @@ package marksrest
 
 import (
 	"context"
+	"io"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	mock "github.com/stretchr/testify/mock"
@@ -39,7 +40,7 @@ func (_m *MockMarks) EXPECT() *MockMarks_Expecter {
 }
 
 // AddMark provides a mock function for the type MockMarks
-func (_mock *MockMarks) AddMark(ctx context.Context, mark models.Mark, photos [][]byte) (int64, error) {
+func (_mock *MockMarks) AddMark(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error) {
 	ret := _mock.Called(ctx, mark, photos)
 
 	if len(ret) == 0 {
@@ -48,15 +49,15 @@ func (_mock *MockMarks) AddMark(ctx context.Context, mark models.Mark, photos []
 
 	var r0 int64
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Mark, [][]byte) (int64, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Mark, []io.Reader) (int64, error)); ok {
 		return returnFunc(ctx, mark, photos)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Mark, [][]byte) int64); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Mark, []io.Reader) int64); ok {
 		r0 = returnFunc(ctx, mark, photos)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, models.Mark, [][]byte) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.Mark, []io.Reader) error); ok {
 		r1 = returnFunc(ctx, mark, photos)
 	} else {
 		r1 = ret.Error(1)
@@ -72,12 +73,12 @@ type MockMarks_AddMark_Call struct {
 // AddMark is a helper method to define mock.On call
 //   - ctx context.Context
 //   - mark models.Mark
-//   - photos [][]byte
+//   - photos []io.Reader
 func (_e *MockMarks_Expecter) AddMark(ctx interface{}, mark interface{}, photos interface{}) *MockMarks_AddMark_Call {
 	return &MockMarks_AddMark_Call{Call: _e.mock.On("AddMark", ctx, mark, photos)}
 }
 
-func (_c *MockMarks_AddMark_Call) Run(run func(ctx context.Context, mark models.Mark, photos [][]byte)) *MockMarks_AddMark_Call {
+func (_c *MockMarks_AddMark_Call) Run(run func(ctx context.Context, mark models.Mark, photos []io.Reader)) *MockMarks_AddMark_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -87,9 +88,9 @@ func (_c *MockMarks_AddMark_Call) Run(run func(ctx context.Context, mark models.
 		if args[1] != nil {
 			arg1 = args[1].(models.Mark)
 		}
-		var arg2 [][]byte
+		var arg2 []io.Reader
 		if args[2] != nil {
-			arg2 = args[2].([][]byte)
+			arg2 = args[2].([]io.Reader)
 		}
 		run(
 			arg0,
@@ -105,7 +106,7 @@ func (_c *MockMarks_AddMark_Call) Return(n int64, err error) *MockMarks_AddMark_
 	return _c
 }
 
-func (_c *MockMarks_AddMark_Call) RunAndReturn(run func(ctx context.Context, mark models.Mark, photos [][]byte) (int64, error)) *MockMarks_AddMark_Call {
+func (_c *MockMarks_AddMark_Call) RunAndReturn(run func(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error)) *MockMarks_AddMark_Call {
 	_c.Call.Return(run)
 	return _c
 }

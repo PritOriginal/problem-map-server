@@ -3,6 +3,7 @@ package usecase_test
 import (
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"testing"
 
@@ -191,7 +192,7 @@ func (suite *MarksSuite) TestAddMark() {
 				marksRepoCall.Return(int64(0), errors.New(""))
 			}
 
-			_, gotErr := suite.uc.AddMark(context.Background(), models.Mark{}, [][]byte{})
+			_, gotErr := suite.uc.AddMark(context.Background(), models.Mark{}, []io.Reader{})
 
 			if !tt.addMarkWantErr && !tt.addCheckWantErr && !tt.addPhotosWantErr {
 				suite.NoError(gotErr)

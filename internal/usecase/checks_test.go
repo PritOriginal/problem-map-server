@@ -3,6 +3,7 @@ package usecase_test
 import (
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"testing"
 
@@ -70,7 +71,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 				checksRepoCall.Return(int64(0), errors.New(""))
 			}
 
-			_, gotErr := suite.uc.AddCheck(context.Background(), models.Check{}, [][]byte{})
+			_, gotErr := suite.uc.AddCheck(context.Background(), models.Check{}, []io.Reader{})
 
 			if !tt.addCheckWantErr && !tt.addPhotosWantErr {
 				suite.NoError(gotErr)
@@ -83,30 +84,38 @@ func (suite *ChecksSuite) TestAddCheck() {
 
 func (suite *ChecksSuite) TestGetCheckById() {
 	tests := []struct {
-		name    string
-		wantErr bool
+		name                  string
+		errGetCheckById       error
+		errGetPhotosByCheckId error
 	}{
 		{
-			name:    "Ok",
-			wantErr: false,
+			name:                  "Ok",
+			errGetCheckById:       nil,
+			errGetPhotosByCheckId: nil,
 		},
 		{
-			name:    "Err",
-			wantErr: true,
+			name:                  "ErrGetCheckById",
+			errGetCheckById:       errors.New(""),
+			errGetPhotosByCheckId: nil,
+		},
+		{
+			name:                  "ErrGetPhotosByCheckId",
+			errGetCheckById:       nil,
+			errGetPhotosByCheckId: errors.New(""),
 		},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			checksRepoCall := suite.checksRepo.On("GetCheckById", mock.Anything, mock.AnythingOfType("int")).Once()
-			if !tt.wantErr {
-				checksRepoCall.Return(models.Check{}, nil)
-			} else {
-				checksRepoCall.Return(models.Check{}, errors.New(""))
-			}
+			suite.checksRepo.On("GetCheckById", mock.Anything, mock.AnythingOfType("int")).Once().
+				Return(models.Check{}, tt.errGetCheckById)
 
+			if tt.errGetCheckById == nil {
+				suite.photosRepo.On("GetPhotosByCheckId", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int")).Once().
+					Return([]string{}, tt.errGetPhotosByCheckId)
+			}
 			_, gotErr := suite.uc.GetCheckById(context.Background(), 1)
 
-			if !tt.wantErr {
+			if tt.errGetCheckById == nil && tt.errGetPhotosByCheckId == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
@@ -117,30 +126,39 @@ func (suite *ChecksSuite) TestGetCheckById() {
 
 func (suite *ChecksSuite) TestGetChecksByMarkId() {
 	tests := []struct {
-		name    string
-		wantErr bool
+		name                 string
+		errGetChecksByMarkId error
+		errGetPhotosByMarkId error
 	}{
 		{
-			name:    "Ok",
-			wantErr: false,
+			name:                 "Ok",
+			errGetChecksByMarkId: nil,
+			errGetPhotosByMarkId: nil,
 		},
 		{
-			name:    "Err",
-			wantErr: true,
+			name:                 "ErrGetChecksByMarkId",
+			errGetChecksByMarkId: errors.New(""),
+			errGetPhotosByMarkId: nil,
+		},
+		{
+			name:                 "ErrGetPhotosByMarkId",
+			errGetChecksByMarkId: nil,
+			errGetPhotosByMarkId: errors.New(""),
 		},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			checksRepoCall := suite.checksRepo.On("GetChecksByMarkId", mock.Anything, mock.AnythingOfType("int")).Once()
-			if !tt.wantErr {
-				checksRepoCall.Return([]models.Check{}, nil)
-			} else {
-				checksRepoCall.Return([]models.Check{}, errors.New(""))
+			suite.checksRepo.On("GetChecksByMarkId", mock.Anything, mock.AnythingOfType("int")).Once().
+				Return([]models.Check{{}, {}}, tt.errGetChecksByMarkId)
+
+			if tt.errGetChecksByMarkId == nil {
+				suite.photosRepo.On("GetPhotosByMarkId", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(map[int]map[int][]string{}, tt.errGetPhotosByMarkId)
 			}
 
 			_, gotErr := suite.uc.GetChecksByMarkId(context.Background(), 1)
 
-			if !tt.wantErr {
+			if tt.errGetChecksByMarkId == nil && tt.errGetPhotosByMarkId == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
@@ -151,30 +169,39 @@ func (suite *ChecksSuite) TestGetChecksByMarkId() {
 
 func (suite *ChecksSuite) TestGetChecksByUserId() {
 	tests := []struct {
-		name    string
-		wantErr bool
+		name                  string
+		errGetChecksByUserId  error
+		errGetPhotosByCheckId error
 	}{
 		{
-			name:    "Ok",
-			wantErr: false,
+			name:                  "Ok",
+			errGetChecksByUserId:  nil,
+			errGetPhotosByCheckId: nil,
 		},
 		{
-			name:    "Err",
-			wantErr: true,
+			name:                  "ErrGetChecksByUserId",
+			errGetChecksByUserId:  errors.New(""),
+			errGetPhotosByCheckId: nil,
+		},
+		{
+			name:                  "ErrGetPhotosByCheckId",
+			errGetChecksByUserId:  nil,
+			errGetPhotosByCheckId: errors.New(""),
 		},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			checksRepoCall := suite.checksRepo.On("GetChecksByUserId", mock.Anything, mock.AnythingOfType("int")).Once()
-			if !tt.wantErr {
-				checksRepoCall.Return([]models.Check{}, nil)
-			} else {
-				checksRepoCall.Return([]models.Check{}, errors.New(""))
+			suite.checksRepo.On("GetChecksByUserId", mock.Anything, mock.AnythingOfType("int")).Once().
+				Return([]models.Check{{}}, tt.errGetChecksByUserId)
+			if tt.errGetChecksByUserId == nil {
+
+				suite.photosRepo.On("GetPhotosByCheckId", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int")).Once().
+					Return([]string{}, tt.errGetPhotosByCheckId)
 			}
 
 			_, gotErr := suite.uc.GetChecksByUserId(context.Background(), 1)
 
-			if !tt.wantErr {
+			if tt.errGetChecksByUserId == nil && tt.errGetPhotosByCheckId == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)

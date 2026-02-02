@@ -34,7 +34,7 @@ func (s *server) GetUserById(ctx context.Context, in *pb.GetUserByIdRequest) (*p
 	}
 
 	return &pb.GetUserByIdResponse{
-		User: user.MarshalProtobuf(),
+		User: user.ToProtobufObject(),
 	}, nil
 }
 
@@ -46,7 +46,7 @@ func (s *server) GetUsers(ctx context.Context, in *emptypb.Empty) (*pb.GetUsersR
 
 	usersPb := make([]*pb.User, len(users))
 	for i, user := range users {
-		usersPb[i] = user.MarshalProtobuf()
+		usersPb[i] = user.ToProtobufObject()
 	}
 
 	return &pb.GetUsersResponse{

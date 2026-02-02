@@ -6,6 +6,7 @@ package usecase
 
 import (
 	"context"
+	"io"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	mock "github.com/stretchr/testify/mock"
@@ -960,7 +961,7 @@ func (_m *MockPhotosRepository) EXPECT() *MockPhotosRepository_Expecter {
 }
 
 // AddPhotos provides a mock function for the type MockPhotosRepository
-func (_mock *MockPhotosRepository) AddPhotos(ctx context.Context, markId int, checkId int, photos [][]byte) error {
+func (_mock *MockPhotosRepository) AddPhotos(ctx context.Context, markId int, checkId int, photos []io.Reader) error {
 	ret := _mock.Called(ctx, markId, checkId, photos)
 
 	if len(ret) == 0 {
@@ -968,7 +969,7 @@ func (_mock *MockPhotosRepository) AddPhotos(ctx context.Context, markId int, ch
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int, [][]byte) error); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int, []io.Reader) error); ok {
 		r0 = returnFunc(ctx, markId, checkId, photos)
 	} else {
 		r0 = ret.Error(0)
@@ -985,12 +986,12 @@ type MockPhotosRepository_AddPhotos_Call struct {
 //   - ctx context.Context
 //   - markId int
 //   - checkId int
-//   - photos [][]byte
+//   - photos []io.Reader
 func (_e *MockPhotosRepository_Expecter) AddPhotos(ctx interface{}, markId interface{}, checkId interface{}, photos interface{}) *MockPhotosRepository_AddPhotos_Call {
 	return &MockPhotosRepository_AddPhotos_Call{Call: _e.mock.On("AddPhotos", ctx, markId, checkId, photos)}
 }
 
-func (_c *MockPhotosRepository_AddPhotos_Call) Run(run func(ctx context.Context, markId int, checkId int, photos [][]byte)) *MockPhotosRepository_AddPhotos_Call {
+func (_c *MockPhotosRepository_AddPhotos_Call) Run(run func(ctx context.Context, markId int, checkId int, photos []io.Reader)) *MockPhotosRepository_AddPhotos_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -1004,9 +1005,9 @@ func (_c *MockPhotosRepository_AddPhotos_Call) Run(run func(ctx context.Context,
 		if args[2] != nil {
 			arg2 = args[2].(int)
 		}
-		var arg3 [][]byte
+		var arg3 []io.Reader
 		if args[3] != nil {
-			arg3 = args[3].([][]byte)
+			arg3 = args[3].([]io.Reader)
 		}
 		run(
 			arg0,
@@ -1023,7 +1024,7 @@ func (_c *MockPhotosRepository_AddPhotos_Call) Return(err error) *MockPhotosRepo
 	return _c
 }
 
-func (_c *MockPhotosRepository_AddPhotos_Call) RunAndReturn(run func(ctx context.Context, markId int, checkId int, photos [][]byte) error) *MockPhotosRepository_AddPhotos_Call {
+func (_c *MockPhotosRepository_AddPhotos_Call) RunAndReturn(run func(ctx context.Context, markId int, checkId int, photos []io.Reader) error) *MockPhotosRepository_AddPhotos_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1086,6 +1087,80 @@ func (_c *MockPhotosRepository_GetPhotos_Call) Return(intToIntToStrings map[int]
 }
 
 func (_c *MockPhotosRepository_GetPhotos_Call) RunAndReturn(run func(ctx context.Context) (map[int]map[int][]string, error)) *MockPhotosRepository_GetPhotos_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetPhotosByCheckId provides a mock function for the type MockPhotosRepository
+func (_mock *MockPhotosRepository) GetPhotosByCheckId(ctx context.Context, markId int, checkId int) ([]string, error) {
+	ret := _mock.Called(ctx, markId, checkId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetPhotosByCheckId")
+	}
+
+	var r0 []string
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) ([]string, error)); ok {
+		return returnFunc(ctx, markId, checkId)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) []string); ok {
+		r0 = returnFunc(ctx, markId, checkId)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]string)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, int) error); ok {
+		r1 = returnFunc(ctx, markId, checkId)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockPhotosRepository_GetPhotosByCheckId_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetPhotosByCheckId'
+type MockPhotosRepository_GetPhotosByCheckId_Call struct {
+	*mock.Call
+}
+
+// GetPhotosByCheckId is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markId int
+//   - checkId int
+func (_e *MockPhotosRepository_Expecter) GetPhotosByCheckId(ctx interface{}, markId interface{}, checkId interface{}) *MockPhotosRepository_GetPhotosByCheckId_Call {
+	return &MockPhotosRepository_GetPhotosByCheckId_Call{Call: _e.mock.On("GetPhotosByCheckId", ctx, markId, checkId)}
+}
+
+func (_c *MockPhotosRepository_GetPhotosByCheckId_Call) Run(run func(ctx context.Context, markId int, checkId int)) *MockPhotosRepository_GetPhotosByCheckId_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockPhotosRepository_GetPhotosByCheckId_Call) Return(strings []string, err error) *MockPhotosRepository_GetPhotosByCheckId_Call {
+	_c.Call.Return(strings, err)
+	return _c
+}
+
+func (_c *MockPhotosRepository_GetPhotosByCheckId_Call) RunAndReturn(run func(ctx context.Context, markId int, checkId int) ([]string, error)) *MockPhotosRepository_GetPhotosByCheckId_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1606,12 +1681,12 @@ func (_c *MockUsersRepository_GetUserById_Call) RunAndReturn(run func(ctx contex
 	return _c
 }
 
-// GetUserByUsername provides a mock function for the type MockUsersRepository
-func (_mock *MockUsersRepository) GetUserByUsername(ctx context.Context, username string) (models.User, error) {
+// GetUserByLogin provides a mock function for the type MockUsersRepository
+func (_mock *MockUsersRepository) GetUserByLogin(ctx context.Context, username string) (models.User, error) {
 	ret := _mock.Called(ctx, username)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetUserByUsername")
+		panic("no return value specified for GetUserByLogin")
 	}
 
 	var r0 models.User
@@ -1632,19 +1707,19 @@ func (_mock *MockUsersRepository) GetUserByUsername(ctx context.Context, usernam
 	return r0, r1
 }
 
-// MockUsersRepository_GetUserByUsername_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetUserByUsername'
-type MockUsersRepository_GetUserByUsername_Call struct {
+// MockUsersRepository_GetUserByLogin_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetUserByLogin'
+type MockUsersRepository_GetUserByLogin_Call struct {
 	*mock.Call
 }
 
-// GetUserByUsername is a helper method to define mock.On call
+// GetUserByLogin is a helper method to define mock.On call
 //   - ctx context.Context
 //   - username string
-func (_e *MockUsersRepository_Expecter) GetUserByUsername(ctx interface{}, username interface{}) *MockUsersRepository_GetUserByUsername_Call {
-	return &MockUsersRepository_GetUserByUsername_Call{Call: _e.mock.On("GetUserByUsername", ctx, username)}
+func (_e *MockUsersRepository_Expecter) GetUserByLogin(ctx interface{}, username interface{}) *MockUsersRepository_GetUserByLogin_Call {
+	return &MockUsersRepository_GetUserByLogin_Call{Call: _e.mock.On("GetUserByLogin", ctx, username)}
 }
 
-func (_c *MockUsersRepository_GetUserByUsername_Call) Run(run func(ctx context.Context, username string)) *MockUsersRepository_GetUserByUsername_Call {
+func (_c *MockUsersRepository_GetUserByLogin_Call) Run(run func(ctx context.Context, username string)) *MockUsersRepository_GetUserByLogin_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -1662,12 +1737,12 @@ func (_c *MockUsersRepository_GetUserByUsername_Call) Run(run func(ctx context.C
 	return _c
 }
 
-func (_c *MockUsersRepository_GetUserByUsername_Call) Return(user models.User, err error) *MockUsersRepository_GetUserByUsername_Call {
+func (_c *MockUsersRepository_GetUserByLogin_Call) Return(user models.User, err error) *MockUsersRepository_GetUserByLogin_Call {
 	_c.Call.Return(user, err)
 	return _c
 }
 
-func (_c *MockUsersRepository_GetUserByUsername_Call) RunAndReturn(run func(ctx context.Context, username string) (models.User, error)) *MockUsersRepository_GetUserByUsername_Call {
+func (_c *MockUsersRepository_GetUserByLogin_Call) RunAndReturn(run func(ctx context.Context, username string) (models.User, error)) *MockUsersRepository_GetUserByLogin_Call {
 	_c.Call.Return(run)
 	return _c
 }

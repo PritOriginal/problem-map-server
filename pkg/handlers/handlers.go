@@ -1,6 +1,11 @@
 package handlers
 
 import (
+	"bytes"
+	"image"
+	"image/jpeg"
+	_ "image/png"
+	"io"
 	"log/slog"
 	"net/http"
 
@@ -39,4 +44,28 @@ func (h *BaseHandler) RenderError(w http.ResponseWriter, r *http.Request, handle
 
 func (h *BaseHandler) RenderInternalError(w http.ResponseWriter, r *http.Request, handlerErr HandlerError) {
 	h.RenderError(w, r, handlerErr, responses.ErrInternalServer)
+}
+
+func (h *BaseHandler) ParsePhotos(w http.ResponseWriter, r *http.Request) ([]io.Reader, error) {
+	var photos []io.Reader
+	for _, fheaders := range r.MultipartForm.File {
+		for _, header := range fheaders {
+			file, err := header.Open()
+			if err != nil {
+				return photos, err
+			}
+
+			img, _, err := image.Decode(file)
+			if err != nil {
+				return photos, err
+			}
+
+			buf := new(bytes.Buffer)
+			if err := jpeg.Encode(buf, img, nil); err != nil {
+				return photos, err
+			}
+			photos = append(photos, buf)
+		}
+	}
+	return photos, nil
 }

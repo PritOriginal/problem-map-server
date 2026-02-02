@@ -6,6 +6,7 @@ package checksrest
 
 import (
 	"context"
+	"io"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	mock "github.com/stretchr/testify/mock"
@@ -39,7 +40,7 @@ func (_m *MockChecks) EXPECT() *MockChecks_Expecter {
 }
 
 // AddCheck provides a mock function for the type MockChecks
-func (_mock *MockChecks) AddCheck(ctx context.Context, check models.Check, photos [][]byte) (int64, error) {
+func (_mock *MockChecks) AddCheck(ctx context.Context, check models.Check, photos []io.Reader) (int64, error) {
 	ret := _mock.Called(ctx, check, photos)
 
 	if len(ret) == 0 {
@@ -48,15 +49,15 @@ func (_mock *MockChecks) AddCheck(ctx context.Context, check models.Check, photo
 
 	var r0 int64
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Check, [][]byte) (int64, error)); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Check, []io.Reader) (int64, error)); ok {
 		return returnFunc(ctx, check, photos)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Check, [][]byte) int64); ok {
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Check, []io.Reader) int64); ok {
 		r0 = returnFunc(ctx, check, photos)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, models.Check, [][]byte) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.Check, []io.Reader) error); ok {
 		r1 = returnFunc(ctx, check, photos)
 	} else {
 		r1 = ret.Error(1)
@@ -72,12 +73,12 @@ type MockChecks_AddCheck_Call struct {
 // AddCheck is a helper method to define mock.On call
 //   - ctx context.Context
 //   - check models.Check
-//   - photos [][]byte
+//   - photos []io.Reader
 func (_e *MockChecks_Expecter) AddCheck(ctx interface{}, check interface{}, photos interface{}) *MockChecks_AddCheck_Call {
 	return &MockChecks_AddCheck_Call{Call: _e.mock.On("AddCheck", ctx, check, photos)}
 }
 
-func (_c *MockChecks_AddCheck_Call) Run(run func(ctx context.Context, check models.Check, photos [][]byte)) *MockChecks_AddCheck_Call {
+func (_c *MockChecks_AddCheck_Call) Run(run func(ctx context.Context, check models.Check, photos []io.Reader)) *MockChecks_AddCheck_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -87,9 +88,9 @@ func (_c *MockChecks_AddCheck_Call) Run(run func(ctx context.Context, check mode
 		if args[1] != nil {
 			arg1 = args[1].(models.Check)
 		}
-		var arg2 [][]byte
+		var arg2 []io.Reader
 		if args[2] != nil {
-			arg2 = args[2].([][]byte)
+			arg2 = args[2].([]io.Reader)
 		}
 		run(
 			arg0,
@@ -105,7 +106,7 @@ func (_c *MockChecks_AddCheck_Call) Return(n int64, err error) *MockChecks_AddCh
 	return _c
 }
 
-func (_c *MockChecks_AddCheck_Call) RunAndReturn(run func(ctx context.Context, check models.Check, photos [][]byte) (int64, error)) *MockChecks_AddCheck_Call {
+func (_c *MockChecks_AddCheck_Call) RunAndReturn(run func(ctx context.Context, check models.Check, photos []io.Reader) (int64, error)) *MockChecks_AddCheck_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -25,7 +25,7 @@ func (repo *MarksRepository) GetMarks(ctx context.Context) ([]models.Mark, error
 
 	query := `
 			SELECT 
-				mark_id, name, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, district_id, number_votes, number_checks 
+				mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, number_votes, number_checks, created_at, updated_at 
 			FROM 
 				marks
 			`
@@ -43,7 +43,7 @@ func (repo *MarksRepository) GetMarkById(ctx context.Context, id int) (models.Ma
 	mark := models.Mark{}
 
 	query := `SELECT
-				mark_id, name, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, district_id, number_votes, number_checks 
+				mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, number_votes, number_checks, created_at, updated_at 
 			FROM 
 				marks 
 			WHERE 
@@ -68,7 +68,7 @@ func (repo *MarksRepository) GetMarksByUserId(ctx context.Context, userId int) (
 	marks := []models.Mark{}
 
 	query := `SELECT
-				mark_id, name, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, district_id, number_votes, number_checks 
+				mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, number_votes, number_checks, created_at, updated_at
 			FROM 
 				marks 
 			WHERE 
@@ -89,9 +89,9 @@ func (repo *MarksRepository) AddMark(ctx context.Context, mark models.Mark) (int
 
 	query := `
 			INSERT INTO 
-				marks (name, geom, type_mark_id, user_id, district_id) 
+				marks (description, geom, type_mark_id, user_id) 
 			VALUES 
-				($1, ST_GeomFromEWKB($2), $3, $4, $5)
+				($1, ST_GeomFromEWKB($2), $3, $4)
 			RETURNING mark_id
 			`
 
@@ -100,7 +100,7 @@ func (repo *MarksRepository) AddMark(ctx context.Context, mark models.Mark) (int
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
-	if err := stmt.GetContext(ctx, &id, mark.Name, &mark.Geom, mark.TypeMarkID, mark.UserID, mark.DistrictID); err != nil {
+	if err := stmt.GetContext(ctx, &id, mark.Description, &mark.Geom, mark.MarkTypeID, mark.UserID); err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 

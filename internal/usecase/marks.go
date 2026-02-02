@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
@@ -18,9 +19,10 @@ type MarksRepository interface {
 }
 
 type PhotosRepository interface {
-	AddPhotos(ctx context.Context, markId, checkId int, photos [][]byte) error
+	AddPhotos(ctx context.Context, markId, checkId int, photos []io.Reader) error
 	GetPhotos(ctx context.Context) (map[int]map[int][]string, error)
 	GetPhotosByMarkId(ctx context.Context, markId int) (map[int]map[int][]string, error)
+	GetPhotosByCheckId(ctx context.Context, markId, checkId int) ([]string, error)
 }
 
 type Marks struct {
@@ -69,7 +71,7 @@ func (uc *Marks) GetMarksByUserId(ctx context.Context, userId int) ([]models.Mar
 	return marks, nil
 }
 
-func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos [][]byte) (int64, error) {
+func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error) {
 	const op = "usecase.Map.AddMark"
 
 	markId, err := uc.marksRepo.AddMark(ctx, mark)
@@ -78,9 +80,10 @@ func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos [][]byte)
 	}
 
 	check := models.Check{
-		UserID: mark.UserID,
-		MarkID: int(markId),
-		Result: true,
+		UserID:  mark.UserID,
+		MarkID:  int(markId),
+		Result:  true,
+		Comment: mark.Description,
 	}
 
 	checkId, err := uc.checksRepo.AddCheck(ctx, check)

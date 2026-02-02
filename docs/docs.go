@@ -92,10 +92,10 @@ const docTemplate = `{
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "OK",
+                    "201": {
+                        "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_auth_SignUpResponse"
                         }
                     },
                     "400": {
@@ -198,7 +198,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_AddCheckResponse"
                         }
                     },
                     "400": {
@@ -486,7 +486,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_AddMarkResponse"
                         }
                     },
                     "400": {
@@ -702,7 +702,7 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_AddTaskResponse"
                         }
                     },
                     "400": {
@@ -898,6 +898,12 @@ const docTemplate = `{
                 "mark_id": {
                     "type": "integer"
                 },
+                "photos": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "result": {
                     "type": "boolean"
                 },
@@ -906,6 +912,9 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "integer"
+                },
+                "username": {
+                    "type": "string"
                 }
             }
         },
@@ -946,8 +955,11 @@ const docTemplate = `{
         "github_com_PritOriginal_problem-map-server_internal_models.Mark": {
             "type": "object",
             "properties": {
-                "district_id": {
-                    "type": "integer"
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
                 },
                 "geom": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON"
@@ -958,8 +970,8 @@ const docTemplate = `{
                 "mark_status_id": {
                     "type": "integer"
                 },
-                "name": {
-                    "type": "string"
+                "mark_type_id": {
+                    "type": "integer"
                 },
                 "number_checks": {
                     "type": "integer"
@@ -967,8 +979,8 @@ const docTemplate = `{
                 "number_votes": {
                     "type": "integer"
                 },
-                "type_mark_id": {
-                    "type": "integer"
+                "updated_at": {
+                    "type": "string"
                 },
                 "user_id": {
                     "type": "integer"
@@ -989,11 +1001,11 @@ const docTemplate = `{
         "github_com_PritOriginal_problem-map-server_internal_models.MarkType": {
             "type": "object",
             "properties": {
+                "mark_type_id": {
+                    "type": "integer"
+                },
                 "name": {
                     "type": "string"
-                },
-                "type_mark_id": {
-                    "type": "integer"
                 }
             }
         },
@@ -1073,7 +1085,7 @@ const docTemplate = `{
                 "home_point": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON"
                 },
-                "name": {
+                "login": {
                     "type": "string"
                 },
                 "rating": {
@@ -1093,18 +1105,6 @@ const docTemplate = `{
                 "message": {
                     "type": "string"
                 },
-                "status": {
-                    "type": "string"
-                }
-            }
-        },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-any": {
-            "type": "object",
-            "properties": {
-                "message": {
-                    "type": "string"
-                },
-                "payload": {},
                 "status": {
                     "type": "string"
                 }
@@ -1132,6 +1132,34 @@ const docTemplate = `{
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_auth.SignInResponse"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_auth_SignUpResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_auth.SignUpResponse"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_AddCheckResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_checks.AddCheckResponse"
                 },
                 "status": {
                     "type": "string"
@@ -1222,6 +1250,20 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_AddMarkResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_marks.AddMarkResponse"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkByIdResponse": {
             "type": "object",
             "properties": {
@@ -1286,6 +1328,20 @@ const docTemplate = `{
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.GetMarksResponse"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_AddTaskResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_tasks.AddTaskResponse"
                 },
                 "status": {
                     "type": "string"
@@ -1387,17 +1443,19 @@ const docTemplate = `{
         "internal_handler_auth.SignInRequest": {
             "type": "object",
             "required": [
-                "password",
-                "username"
+                "login",
+                "password"
             ],
             "properties": {
+                "login": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "minLength": 3
+                },
                 "password": {
                     "type": "string",
                     "maxLength": 64,
                     "minLength": 8
-                },
-                "username": {
-                    "type": "string"
                 }
             }
         },
@@ -1415,13 +1473,15 @@ const docTemplate = `{
         "internal_handler_auth.SignUpRequest": {
             "type": "object",
             "required": [
-                "name",
+                "login",
                 "password",
                 "username"
             ],
             "properties": {
-                "name": {
-                    "type": "string"
+                "login": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "minLength": 3
                 },
                 "password": {
                     "type": "string",
@@ -1429,7 +1489,25 @@ const docTemplate = `{
                     "minLength": 8
                 },
                 "username": {
+                    "type": "string",
+                    "maxLength": 40,
+                    "minLength": 2
+                }
+            }
+        },
+        "internal_handler_auth.SignUpResponse": {
+            "type": "object",
+            "properties": {
+                "user_id": {
                     "type": "string"
+                }
+            }
+        },
+        "internal_handler_checks.AddCheckResponse": {
+            "type": "object",
+            "properties": {
+                "check_id": {
+                    "type": "integer"
                 }
             }
         },
@@ -1493,6 +1571,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Region"
                     }
+                }
+            }
+        },
+        "internal_handler_marks.AddMarkResponse": {
+            "type": "object",
+            "properties": {
+                "mark_id": {
+                    "type": "integer"
                 }
             }
         },
@@ -1563,6 +1649,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_handler_tasks.AddTaskResponse": {
+            "type": "object",
+            "properties": {
+                "task_id": {
                     "type": "integer"
                 }
             }

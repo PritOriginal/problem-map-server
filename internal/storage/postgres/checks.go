@@ -46,7 +46,16 @@ func (r *ChecksRepository) GetCheckById(ctx context.Context, id int) (models.Che
 
 	var check models.Check
 
-	query := "SELECT * FROM checks WHERE check_id = $1"
+	query := `
+		SELECT 
+			c.*, u.name as username 
+		FROM 
+			checks as c 
+		JOIN 
+			users AS u ON c.user_id = u.user_id 
+		WHERE 
+			check_id = $1`
+
 	if err := r.Conn.GetContext(ctx, &check, query, id); err != nil {
 		return check, fmt.Errorf("%s: %w", op, err)
 	}
@@ -57,9 +66,18 @@ func (r *ChecksRepository) GetCheckById(ctx context.Context, id int) (models.Che
 func (r *ChecksRepository) GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error) {
 	const op = "storage.postgres.GetReviewsByMarkId"
 
-	var checks []models.Check
+	checks := []models.Check{}
 
-	query := "SELECT * FROM checks WHERE mark_id = $1"
+	query := `
+		SELECT 
+			c.*, u.name as username 
+		FROM 
+			checks as c 
+		JOIN 
+			users AS u ON c.user_id = u.user_id 
+		WHERE 
+			mark_id = $1`
+
 	if err := r.Conn.SelectContext(ctx, &checks, query, markId); err != nil {
 		return checks, fmt.Errorf("%s: %w", op, err)
 	}
@@ -70,9 +88,18 @@ func (r *ChecksRepository) GetChecksByMarkId(ctx context.Context, markId int) ([
 func (r *ChecksRepository) GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error) {
 	const op = "storage.postgres.GetReviewsByUserId"
 
-	var checks []models.Check
+	checks := []models.Check{}
 
-	query := "SELECT * FROM checks WHERE user_id = $1"
+	query := `
+		SELECT 
+			c.*, u.name as username 
+		FROM 
+			checks as c 
+		JOIN 
+			users AS u ON c.user_id = u.user_id 
+		WHERE 
+			c.user_id = $1`
+
 	if err := r.Conn.SelectContext(ctx, &checks, query, userId); err != nil {
 		return checks, fmt.Errorf("%s: %w", op, err)
 	}

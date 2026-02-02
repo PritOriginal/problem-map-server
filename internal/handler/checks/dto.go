@@ -15,8 +15,11 @@ type GetChecksByUserIdResponse struct {
 }
 
 type AddCheckRequest struct {
-	UserID  int    `json:"user_id" validate:"required"`
 	MarkID  int    `json:"mark_id" validate:"required"`
 	Result  bool   `json:"result" validate:"required"`
 	Comment string `json:"comment"`
+}
+
+type AddCheckResponse struct {
+	CheckId int `json:"check_id"`
 }

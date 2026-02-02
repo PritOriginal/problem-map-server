@@ -4,18 +4,20 @@ import pb "github.com/PritOriginal/problem-map-protos/gen/go"
 
 type User struct {
 	Id           int    `json:"user_id" db:"user_id"`
-	Name         string `json:"name" db:"name"`
-	Username     string `json:"username" db:"login"`
+	Name         string `json:"username" db:"name"`
+	Login        string `json:"login" db:"login"`
 	PasswordHash string `json:"-" db:"password_hash"`
 	HomePoint    *Point `json:"home_point" db:"home_point"`
 	Rating       int    `json:"rating" db:"rating"`
 }
 
-func (u *User) MarshalProtobuf() *pb.User {
+func (u *User) ToProtobufObject() *pb.User {
 	return &pb.User{
-		Id:     int64(u.Id),
-		Name:   u.Name,
-		Rating: int64(u.Rating),
+		Id:        int64(u.Id),
+		Name:      u.Name,
+		Login:     u.Login,
+		HomePoint: u.HomePoint.ToProtobufObject(),
+		Rating:    int64(u.Rating),
 	}
 }
 
@@ -27,10 +29,12 @@ type Task struct {
 	StatusID int    `json:"status_id" db:"status_id"`
 }
 
-func (t *Task) MarshalProtobuf() *pb.Task {
+func (t *Task) ToProtobufObject() *pb.Task {
 	return &pb.Task{
-		Id:     int64(t.ID),
-		Name:   t.Name,
-		UserId: int64(t.UserID),
+		Id:       int64(t.ID),
+		Name:     t.Name,
+		UserId:   int64(t.UserID),
+		MarkId:   int64(t.MarkID),
+		StatusId: int64(t.StatusID),
 	}
 }

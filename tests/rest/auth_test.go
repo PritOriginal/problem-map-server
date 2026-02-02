@@ -19,29 +19,31 @@ import (
 func TestSignUp(t *testing.T) {
 	st := suite.New(t)
 
-	name := gofakeit.FirstName()
-	username := gofakeit.Username()
+	username := gofakeit.FirstName()
+	login := gofakeit.Username()
 	password := gofakeit.Password(true, true, true, true, true, 10)
 
 	tests := []struct {
 		testName string
-		name     string
-		username string
-		password string
+		req      authrest.SignUpRequest
 		httpCode int
 	}{
 		{
 			testName: "successful",
-			name:     name,
-			username: username,
-			password: password,
+			req: authrest.SignUpRequest{
+				Username: username,
+				Login:    login,
+				Password: password,
+			},
 			httpCode: http.StatusCreated,
 		},
 		{
 			testName: "user already exist",
-			name:     name,
-			username: username,
-			password: password,
+			req: authrest.SignUpRequest{
+				Username: username,
+				Login:    login,
+				Password: password,
+			},
 			httpCode: http.StatusConflict,
 		},
 	}
@@ -49,13 +51,7 @@ func TestSignUp(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.testName, func(t *testing.T) {
 
-			req := authrest.SignUpRequest{
-				Name:     tt.name,
-				Username: tt.username,
-				Password: tt.password,
-			}
-
-			reqJSON, err := json.Marshal(req)
+			reqJSON, err := json.Marshal(tt.req)
 			require.NoError(t, err)
 
 			resp, err := http.Post(
@@ -75,7 +71,7 @@ func TestSignIn(t *testing.T) {
 	st := suite.New(t)
 
 	req := authrest.SignInRequest{
-		Username: "user4",
+		Login:    "user4",
 		Password: "1234qwer",
 	}
 
@@ -109,7 +105,7 @@ func TestRefreshTokens(t *testing.T) {
 	st := suite.New(t)
 
 	signInResponse := signIn(t, st, authrest.SignInRequest{
-		Username: "user4",
+		Login:    "user4",
 		Password: "1234qwer",
 	})
 

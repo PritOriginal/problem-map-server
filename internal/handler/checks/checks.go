@@ -1,11 +1,11 @@
 package checksrest
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -19,7 +19,7 @@ import (
 )
 
 type Checks interface {
-	AddCheck(ctx context.Context, check models.Check, photos [][]byte) (int64, error)
+	AddCheck(ctx context.Context, check models.Check, photos []io.Reader) (int64, error)
 	GetCheckById(ctx context.Context, id int) (models.Check, error)
 	GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error)
 	GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error)
@@ -160,7 +160,7 @@ func (h *handler) GetChecksByUserId() http.HandlerFunc {
 //	@Accept			mpfd
 //	@Produce		json
 //	@Param			Authorization	header		string	true	"Insert your access token"	default(Bearer <Add access token here>)
-//	@Success		201				{object}	responses.SucceededResponse[any]
+//	@Success		201				{object}	responses.SucceededResponse[checksrest.AddCheckResponse]
 //	@Failure		400				{object}	responses.ErrorResponse
 //	@Failure		500				{object}	responses.ErrorResponse
 //	@Router			/checks [post]
@@ -172,7 +172,7 @@ func (h *handler) AddCheck() http.HandlerFunc {
 			return
 		}
 
-		photos, err := ParsePhotos(w, r)
+		photos, err := h.ParsePhotos(w, r)
 		if err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error parse photos", Err: err})
 			return
@@ -196,41 +196,48 @@ func (h *handler) AddCheck() http.HandlerFunc {
 			return
 		}
 
+		_, claims, err := jwtauth.FromContext(r.Context())
+		if err != nil {
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "invalid token", Err: err},
+				responses.ErrUnauthorized,
+			)
+			return
+		}
+
+		userIdStr, ok := claims["sub"].(string)
+		if !ok {
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "invalid token", Err: err},
+				responses.ErrUnauthorized,
+			)
+			return
+		}
+		userId, err := strconv.Atoi(userIdStr)
+		if !ok {
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "invalid token", Err: err},
+				responses.ErrUnauthorized,
+			)
+			return
+		}
+
+		h.Log.Debug("Add mark", slog.Int("userId", userId))
+
 		check := models.Check{
-			UserID:  req.UserID,
-			MarkID:  req.UserID,
+			UserID:  userId,
+			MarkID:  req.MarkID,
 			Result:  req.Result,
 			Comment: req.Comment,
 		}
-		_, err = h.uc.AddCheck(context.Background(), check, photos)
+		checkId, err := h.uc.AddCheck(context.Background(), check, photos)
 		if err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error add check", Err: err})
 			return
 		}
 
-		h.Render(w, r, responses.SucceededCreatedRenderer())
+		h.Render(w, r, responses.SucceededCreatedRenderer(AddCheckResponse{
+			CheckId: int(checkId),
+		}))
 	}
-}
-
-func ParsePhotos(w http.ResponseWriter, r *http.Request) ([][]byte, error) {
-	var photos [][]byte
-
-	for _, fheaders := range r.MultipartForm.File {
-		for _, header := range fheaders {
-			file, err := header.Open()
-			if err != nil {
-				return photos, err
-			}
-			defer file.Close()
-
-			buf := bytes.NewBuffer(nil)
-			if _, err := io.Copy(buf, file); err != nil {
-				return photos, err
-			}
-			photo := buf.Bytes()
-
-			photos = append(photos, photo)
-		}
-	}
-	return photos, nil
 }

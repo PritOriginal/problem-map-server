@@ -36,7 +36,7 @@ func (s *server) GetTasks(ctx context.Context, in *emptypb.Empty) (*pb.GetTasksR
 
 	tasksPb := make([]*pb.Task, len(tasks))
 	for i, task := range tasks {
-		tasksPb[i] = task.MarshalProtobuf()
+		tasksPb[i] = task.ToProtobufObject()
 	}
 
 	return &pb.GetTasksResponse{
@@ -56,7 +56,7 @@ func (s *server) GetTaskById(ctx context.Context, in *pb.GetTaskByIdRequest) (*p
 	}
 
 	return &pb.GetTaskByIdResponse{
-		Task: task.MarshalProtobuf(),
+		Task: task.ToProtobufObject(),
 	}, nil
 }
 
@@ -73,7 +73,7 @@ func (s *server) GetTasksByUserId(ctx context.Context, in *pb.GetTasksByUserIdRe
 
 	tasksPb := make([]*pb.Task, len(tasks))
 	for i, task := range tasks {
-		tasksPb[i] = task.MarshalProtobuf()
+		tasksPb[i] = task.ToProtobufObject()
 	}
 
 	return &pb.GetTasksByUserIdResponse{
@@ -83,9 +83,9 @@ func (s *server) GetTasksByUserId(ctx context.Context, in *pb.GetTasksByUserIdRe
 
 func (s *server) AddTask(ctx context.Context, in *pb.AddTaskRequest) (*pb.AddTaskResponse, error) {
 	task := models.Task{
-		ID:     int(in.GetTask().GetId()),
-		Name:   in.GetTask().GetName(),
-		UserID: int(in.GetTask().GetUserId()),
+		Name:   in.GetName(),
+		UserID: int(in.GetUserId()),
+		MarkID: int(in.GetMarkId()),
 	}
 
 	taskId, err := s.tasks.AddTask(ctx, task)

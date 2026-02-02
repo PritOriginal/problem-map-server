@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -199,10 +200,8 @@ func (suite *MarksSuite) TestAddMark() {
 					Longitude: 42,
 					Latitude:  52,
 				},
-				TypeMarkID:   1,
-				MarkStatusID: 1,
-				UserID:       1,
-				DistrictID:   1,
+				MarkTypeID:  1,
+				Description: "",
 			},
 			wantErrParseReq: false,
 			errAddCheck:     nil,
@@ -222,7 +221,6 @@ func (suite *MarksSuite) TestAddMark() {
 					Longitude: 42,
 					Latitude:  52,
 				},
-				TypeMarkID: 1,
 			},
 			wantErrParseReq: true,
 			errAddCheck:     nil,
@@ -234,10 +232,22 @@ func (suite *MarksSuite) TestAddMark() {
 				Point: marksrest.Point{
 					Longitude: 42,
 				},
-				TypeMarkID:   1,
-				MarkStatusID: 1,
-				UserID:       1,
-				DistrictID:   1,
+				MarkTypeID:  1,
+				Description: "",
+			},
+			wantErrParseReq: true,
+			errAddCheck:     nil,
+			statusCode:      400,
+		},
+		{
+			name: "Err400InvalidReq-3",
+			req: marksrest.AddMarkRequest{
+				Point: marksrest.Point{
+					Longitude: 42,
+					Latitude:  52,
+				},
+				MarkTypeID:  1,
+				Description: strings.Repeat("A", 257),
 			},
 			wantErrParseReq: true,
 			errAddCheck:     nil,
@@ -250,10 +260,8 @@ func (suite *MarksSuite) TestAddMark() {
 					Longitude: 42,
 					Latitude:  52,
 				},
-				TypeMarkID:   1,
-				MarkStatusID: 1,
-				UserID:       1,
-				DistrictID:   1,
+				MarkTypeID:  1,
+				Description: "",
 			},
 			wantErrParseReq: false,
 			errAddCheck:     errors.New(""),

@@ -1,11 +1,11 @@
 package marksrest
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
@@ -25,7 +25,7 @@ type Marks interface {
 	GetMarks(ctx context.Context) ([]models.Mark, error)
 	GetMarkById(ctx context.Context, id int) (models.Mark, error)
 	GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error)
-	AddMark(ctx context.Context, mark models.Mark, photos [][]byte) (int64, error)
+	AddMark(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error)
 	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
 	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
 }
@@ -160,7 +160,7 @@ func (h *handler) GetMarksByUserId() http.HandlerFunc {
 //	@Accept			mpfd
 //	@Produce		json
 //	@Param			Authorization	header		string	true	"Insert your access token"	default(Bearer <Add access token here>)
-//	@Success		201				{object}	responses.SucceededResponse[any]
+//	@Success		201				{object}	responses.SucceededResponse[marksrest.AddMarkResponse]
 //	@Failure		400				{object}	responses.ErrorResponse
 //	@Failure		500				{object}	responses.ErrorResponse
 //	@Router			/marks [post]
@@ -172,7 +172,7 @@ func (h *handler) AddMark() http.HandlerFunc {
 			return
 		}
 
-		photos, err := ParsePhotos(w, r)
+		photos, err := h.ParsePhotos(w, r)
 		if err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error parse photos", Err: err})
 			return
@@ -196,21 +196,49 @@ func (h *handler) AddMark() http.HandlerFunc {
 			return
 		}
 
-		newMark := models.Mark{
-			Geom:         models.NewPoint(geom.Coord{req.Point.Latitude, req.Point.Longitude}),
-			TypeMarkID:   req.TypeMarkID,
-			MarkStatusID: req.MarkStatusID,
-			UserID:       req.UserID,
-			DistrictID:   req.DistrictID,
+		_, claims, err := jwtauth.FromContext(r.Context())
+		if err != nil {
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "invalid token", Err: err},
+				responses.ErrUnauthorized,
+			)
+			return
 		}
 
-		_, err = h.uc.AddMark(context.Background(), newMark, photos)
+		userIdStr, ok := claims["sub"].(string)
+		if !ok {
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "invalid token", Err: err},
+				responses.ErrUnauthorized,
+			)
+			return
+		}
+		userId, err := strconv.Atoi(userIdStr)
+		if !ok {
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "invalid token", Err: err},
+				responses.ErrUnauthorized,
+			)
+			return
+		}
+
+		h.Log.Debug("Add mark", slog.Int("userId", userId), slog.Int("photos", len(photos)))
+
+		newMark := models.Mark{
+			Geom:        models.NewPoint(geom.Coord{req.Point.Latitude, req.Point.Longitude}),
+			MarkTypeID:  req.MarkTypeID,
+			UserID:      userId,
+			Description: req.Description,
+		}
+		markId, err := h.uc.AddMark(context.Background(), newMark, photos)
 		if err != nil {
 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error add mark", Err: err})
 			return
 		}
 
-		h.Render(w, r, responses.SucceededCreatedRenderer())
+		h.Render(w, r, responses.SucceededCreatedRenderer(AddMarkResponse{
+			MarkId: int(markId),
+		}))
 	}
 }
 
@@ -262,27 +290,4 @@ func (h *handler) GetMarkStatuses() http.HandlerFunc {
 			MarkStatuses: statuses,
 		}))
 	}
-}
-
-func ParsePhotos(w http.ResponseWriter, r *http.Request) ([][]byte, error) {
-	var photos [][]byte
-
-	for _, fheaders := range r.MultipartForm.File {
-		for _, header := range fheaders {
-			file, err := header.Open()
-			if err != nil {
-				return photos, err
-			}
-			defer file.Close()
-
-			buf := bytes.NewBuffer(nil)
-			if _, err := io.Copy(buf, file); err != nil {
-				return photos, err
-			}
-			photo := buf.Bytes()
-
-			photos = append(photos, photo)
-		}
-	}
-	return photos, nil
 }

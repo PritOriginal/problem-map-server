@@ -1,13 +1,17 @@
 package authrest
 
 type SignUpRequest struct {
-	Name     string `json:"name" validate:"required"`
-	Username string `json:"username" validate:"required"`
+	Username string `json:"username" validate:"required,min=2,max=40"`
+	Login    string `json:"login" validate:"required,min=3,max=40,alphanum"`
 	Password string `json:"password" validate:"required,min=8,max=64"`
 }
 
+type SignUpResponse struct {
+	UserId int `json:"user_id"`
+}
+
 type SignInRequest struct {
-	Username string `json:"username" validate:"required"`
+	Login    string `json:"login" validate:"required,min=3,max=40,alphanum"`
 	Password string `json:"password" validate:"required,min=8,max=64"`
 }
 

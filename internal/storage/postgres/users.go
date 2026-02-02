@@ -44,7 +44,7 @@ func (r *UsersRepository) GetUserById(ctx context.Context, id int) (models.User,
 	return user, nil
 }
 
-func (r *UsersRepository) GetUserByUsername(ctx context.Context, username string) (models.User, error) {
+func (r *UsersRepository) GetUserByLogin(ctx context.Context, username string) (models.User, error) {
 	const op = "storage.postgres.GetUserByUsername"
 
 	var user models.User
