@@ -68,7 +68,7 @@ func (h *handler) SignUp() http.HandlerFunc {
 			return
 		}
 
-		userId, err := h.uc.SignUp(context.Background(), req.Username, req.Username, req.Password)
+		userId, err := h.uc.SignUp(context.Background(), req.Username, req.Login, req.Password)
 		if err != nil {
 			switch err {
 			case usecase.ErrConflict:
