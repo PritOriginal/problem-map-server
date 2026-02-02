@@ -19,3 +19,7 @@ type AddCheckRequest struct {
 	Result  bool   `json:"result" validate:"required"`
 	Comment string `json:"comment"`
 }
+
+type AddCheckResponse struct {
+	CheckId int `json:"check_id"`
+}
