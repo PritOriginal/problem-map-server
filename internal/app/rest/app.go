@@ -88,7 +88,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	marksUseCase := usecase.NewMarks(log, marksRepo, checksRepo, photoRepo)
 	marksrest.Register(router, accessAuth, marksUseCase, redis, baseHandler)
 
-	checksUseCase := usecase.NewChecks(log, checksRepo, photoRepo)
+	checksUseCase := usecase.NewChecks(log, marksRepo, checksRepo, photoRepo)
 	checksrest.Register(router, accessAuth, checksUseCase, baseHandler)
 
 	usersRepo := postgres.NewUsers(postgresDB.DB)
