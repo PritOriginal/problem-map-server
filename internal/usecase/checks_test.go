@@ -18,15 +18,17 @@ type ChecksSuite struct {
 	suite.Suite
 	uc         *usecase.Checks
 	log        *slog.Logger
+	marksRepo  *usecase.MockMarksRepository
 	checksRepo *usecase.MockChecksRepository
 	photosRepo *usecase.MockPhotosRepository
 }
 
 func (suite *ChecksSuite) SetupSuite() {
 	suite.log = slogdiscard.NewDiscardLogger()
+	suite.marksRepo = usecase.NewMockMarksRepository(suite.T())
 	suite.checksRepo = usecase.NewMockChecksRepository(suite.T())
 	suite.photosRepo = usecase.NewMockPhotosRepository(suite.T())
-	suite.uc = usecase.NewChecks(suite.log, suite.checksRepo, suite.photosRepo)
+	suite.uc = usecase.NewChecks(suite.log, suite.marksRepo, suite.checksRepo, suite.photosRepo)
 }
 
 func TestChecks(t *testing.T) {
