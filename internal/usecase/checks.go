@@ -18,13 +18,15 @@ type ChecksRepository interface {
 
 type Checks struct {
 	log        *slog.Logger
+	marksRepo  MarksRepository
 	checksRepo ChecksRepository
 	photosRepo PhotosRepository
 }
 
-func NewChecks(log *slog.Logger, checksRepo ChecksRepository, photosRepo PhotosRepository) *Checks {
+func NewChecks(log *slog.Logger, marksRepo MarksRepository, checksRepo ChecksRepository, photosRepo PhotosRepository) *Checks {
 	return &Checks{
 		log:        log,
+		marksRepo:  marksRepo,
 		checksRepo: checksRepo,
 		photosRepo: photosRepo,
 	}
