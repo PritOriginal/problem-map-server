@@ -92,6 +92,18 @@ func (t *MarkType) ToProtobufObject() *pb.MarkType {
 	}
 }
 
+type MarkStatusType int
+
+const (
+	UnconfirmedStatus MarkStatusType = iota + 1
+	ConfirmedStatus
+	ResolvedStatus
+	UnderReviewStatus
+	RediscoveredStatus
+	ClosedStatus
+	RefutedStatus
+)
+
 type MarkStatus struct {
 	ID   int    `json:"mark_status_id" db:"mark_status_id"`
 	Name string `json:"name" db:"name"`
