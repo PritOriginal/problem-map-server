@@ -933,6 +933,69 @@ func (_c *MockMarksRepository_GetMarksByUserId_Call) RunAndReturn(run func(ctx c
 	return _c
 }
 
+// UpdateMarkStatus provides a mock function for the type MockMarksRepository
+func (_mock *MockMarksRepository) UpdateMarkStatus(ctx context.Context, markId int, markStatusId models.MarkStatusType) error {
+	ret := _mock.Called(ctx, markId, markStatusId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateMarkStatus")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, models.MarkStatusType) error); ok {
+		r0 = returnFunc(ctx, markId, markStatusId)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockMarksRepository_UpdateMarkStatus_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateMarkStatus'
+type MockMarksRepository_UpdateMarkStatus_Call struct {
+	*mock.Call
+}
+
+// UpdateMarkStatus is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markId int
+//   - markStatusId models.MarkStatusType
+func (_e *MockMarksRepository_Expecter) UpdateMarkStatus(ctx interface{}, markId interface{}, markStatusId interface{}) *MockMarksRepository_UpdateMarkStatus_Call {
+	return &MockMarksRepository_UpdateMarkStatus_Call{Call: _e.mock.On("UpdateMarkStatus", ctx, markId, markStatusId)}
+}
+
+func (_c *MockMarksRepository_UpdateMarkStatus_Call) Run(run func(ctx context.Context, markId int, markStatusId models.MarkStatusType)) *MockMarksRepository_UpdateMarkStatus_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 models.MarkStatusType
+		if args[2] != nil {
+			arg2 = args[2].(models.MarkStatusType)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarksRepository_UpdateMarkStatus_Call) Return(err error) *MockMarksRepository_UpdateMarkStatus_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockMarksRepository_UpdateMarkStatus_Call) RunAndReturn(run func(ctx context.Context, markId int, markStatusId models.MarkStatusType) error) *MockMarksRepository_UpdateMarkStatus_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockPhotosRepository creates a new instance of MockPhotosRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockPhotosRepository(t interface {
