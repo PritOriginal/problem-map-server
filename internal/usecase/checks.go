@@ -16,19 +16,27 @@ type ChecksRepository interface {
 	GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error)
 }
 
-type Checks struct {
-	log        *slog.Logger
-	marksRepo  MarksRepository
-	checksRepo ChecksRepository
-	photosRepo PhotosRepository
+type MarkStatusUpdater interface {
+	Update(ctx context.Context, markId int) error
 }
 
-func NewChecks(log *slog.Logger, marksRepo MarksRepository, checksRepo ChecksRepository, photosRepo PhotosRepository) *Checks {
+type ChecksRepositories struct {
+	Marks  MarksRepository
+	Checks ChecksRepository
+	Photos PhotosRepository
+}
+
+type Checks struct {
+	log               *slog.Logger
+	repos             ChecksRepositories
+	markStatusUpdater MarkStatusUpdater
+}
+
+func NewChecks(log *slog.Logger, markStatusUpdater MarkStatusUpdater, repos ChecksRepositories) *Checks {
 	return &Checks{
-		log:        log,
-		marksRepo:  marksRepo,
-		checksRepo: checksRepo,
-		photosRepo: photosRepo,
+		log:               log,
+		repos:             repos,
+		markStatusUpdater: markStatusUpdater,
 	}
 }
 
