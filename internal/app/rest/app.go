@@ -104,7 +104,9 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	usersUseCase := usecase.NewUsers(log, usersRepo)
 	usersrest.Register(router, usersUseCase, baseHandler)
 
-	authUseCase := usecase.NewAuth(log, usersRepo, cfg.Auth)
+	authUseCase := usecase.NewAuth(log, cfg.Auth, usecase.AuthRepositories{
+		Users: usersRepo,
+	})
 	authrest.Register(router, authUseCase, baseHandler)
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB)
