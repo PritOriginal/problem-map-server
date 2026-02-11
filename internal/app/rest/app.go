@@ -80,7 +80,9 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		photoRepo = s3.NewPhotos(s3Client)
 	}
 
-	mapUseCase := usecase.NewMap(log, mapRepo)
+	mapUseCase := usecase.NewMap(log, usecase.MapRepositories{
+		Map: mapRepo,
+	})
 	maprest.Register(router, mapUseCase, redis, baseHandler)
 
 	marksRepo := postgres.NewMarks(postgresDB.DB)

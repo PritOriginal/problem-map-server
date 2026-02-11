@@ -23,7 +23,9 @@ type MapSuite struct {
 func (suite *MapSuite) SetupSuite() {
 	suite.log = slogdiscard.NewDiscardLogger()
 	suite.mapRepo = usecase.NewMockMapRepository(suite.T())
-	suite.uc = usecase.NewMap(suite.log, suite.mapRepo)
+	suite.uc = usecase.NewMap(suite.log, usecase.MapRepositories{
+		Map: suite.mapRepo,
+	})
 }
 
 func TestMap(t *testing.T) {

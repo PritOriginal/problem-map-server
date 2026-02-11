@@ -75,7 +75,9 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	}
 
 	mapRepo := postgres.NewMap(postgresDB.DB)
-	mapUseCase := usecase.NewMap(log, mapRepo)
+	mapUseCase := usecase.NewMap(log, usecase.MapRepositories{
+		Map: mapRepo,
+	})
 	mapgrpc.Register(gRPCServer, mapUseCase)
 
 	marksRepo := postgres.NewMarks(postgresDB.DB)
