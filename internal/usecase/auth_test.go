@@ -18,6 +18,11 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
+type method[T any] struct {
+	data T
+	err  error
+}
+
 type AuthSuite struct {
 	suite.Suite
 	uc        *usecase.Auth
@@ -42,128 +47,159 @@ func TestAuth(t *testing.T) {
 
 func (suite *AuthSuite) TestSignUp() {
 	tests := []struct {
-		name                     string
-		GetUserByUsernameWantErr bool
-		AddUserWantErr           bool
+		name           string
+		getUserByLogin method[models.User]
+		addUser        method[int64]
 	}{
 		{
-			name:                     "Ok",
-			GetUserByUsernameWantErr: false,
-			AddUserWantErr:           false,
+			name: "Ok",
+			getUserByLogin: method[models.User]{
+				err: storage.ErrNotFound,
+			},
+			addUser: method[int64]{
+				err: nil,
+			},
 		},
 		{
-			name:                     "ErrGetUserByUsername",
-			GetUserByUsernameWantErr: true,
-			AddUserWantErr:           false,
+			name: "ErrGetUserByLogin",
+			getUserByLogin: method[models.User]{
+				err: errors.New(""),
+			},
+			addUser: method[int64]{
+				err: nil,
+			},
 		},
 		{
-			name:                     "ErrAddUser",
-			GetUserByUsernameWantErr: false,
-			AddUserWantErr:           true,
+			name: "ErrAddUser",
+			getUserByLogin: method[models.User]{
+				err: storage.ErrNotFound,
+			},
+			addUser: method[int64]{
+				err: errors.New(""),
+			},
 		},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			usersRepoCall := suite.usersRepo.On("GetUserByLogin", mock.Anything, mock.AnythingOfType("string")).Once()
-			if !tt.GetUserByUsernameWantErr {
-				usersRepoCall.Return(models.User{}, storage.ErrNotFound)
-
-				usersRepoCall2 := suite.usersRepo.On("AddUser", mock.Anything, mock.Anything).Once()
-				if !tt.AddUserWantErr {
-					usersRepoCall2.Return(int64(1), nil)
-				} else {
-					usersRepoCall2.Return(int64(0), errors.New(""))
+			func() {
+				suite.usersRepo.On("GetUserByLogin", mock.Anything, mock.AnythingOfType("string")).Once().
+					Return(tt.getUserByLogin.data, tt.getUserByLogin.err)
+				if tt.getUserByLogin.err != storage.ErrNotFound {
+					return
 				}
-			} else {
-				usersRepoCall.Return(models.User{}, errors.New(""))
-			}
+
+				suite.usersRepo.On("AddUser", mock.Anything, mock.Anything).Once().
+					Return(tt.addUser.data, tt.addUser.err)
+				if tt.addUser.err != nil {
+					return
+				}
+			}()
 
 			_, gotErr := suite.uc.SignUp(context.Background(), "username", "login", "password")
 
-			if !tt.GetUserByUsernameWantErr && !tt.AddUserWantErr {
+			if tt.getUserByLogin.err == storage.ErrNotFound && tt.addUser.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
 			}
+
+			suite.usersRepo.AssertExpectations(suite.T())
 		})
 	}
 }
 
 func (suite *AuthSuite) TestSignIn() {
-	tests := []struct {
-		name    string
-		wantErr bool
-	}{
-		{
-			name:    "Ok",
-			wantErr: false,
-		},
-		{
-			name:    "Err",
-			wantErr: true,
-		},
-	}
 	password := "password"
 	passwordHash, err := passwordUtils.HashPassword(password)
 	suite.NoError(err)
 
+	tests := []struct {
+		name           string
+		getUserByLogin method[models.User]
+	}{
+		{
+			name: "Ok",
+			getUserByLogin: method[models.User]{
+				data: models.User{
+					PasswordHash: passwordHash,
+				},
+				err: nil,
+			},
+		},
+		{
+			name: "Err",
+			getUserByLogin: method[models.User]{
+				err: errors.New(""),
+			},
+		},
+	}
+
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			usersRepoCall := suite.usersRepo.On("GetUserByLogin", mock.Anything, mock.AnythingOfType("string")).Once()
-			if !tt.wantErr {
-				usersRepoCall.Return(models.User{
-					PasswordHash: passwordHash,
-				}, nil)
-			} else {
-				usersRepoCall.Return(models.User{}, errors.New(""))
-			}
+			func() {
+				suite.usersRepo.On("GetUserByLogin", mock.Anything, mock.AnythingOfType("string")).Once().
+					Return(tt.getUserByLogin.data, tt.getUserByLogin.err)
+				if tt.getUserByLogin.err != nil {
+					return
+				}
+			}()
 
 			_, _, gotErr := suite.uc.SignIn(context.Background(), "login", "password")
 
-			if !tt.wantErr {
+			if tt.getUserByLogin.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
 			}
+			suite.usersRepo.AssertExpectations(suite.T())
 		})
 	}
 }
 
 func (suite *AuthSuite) TestRefreshTokens() {
-	tests := []struct {
-		name    string
-		wantErr bool
-	}{
-		{
-			name:    "Ok",
-			wantErr: false,
-		},
-		{
-			name:    "Err",
-			wantErr: true,
-		},
-	}
-
 	userId := 1
 	refreshToken, err := token.CreateToken(suite.authCfg.JWT.Refresh.ExpiredIn, userId, suite.authCfg.JWT.Refresh.Key)
 	suite.NoError(err)
 
+	tests := []struct {
+		name        string
+		getUserById method[models.User]
+	}{
+		{
+			name: "Ok",
+			getUserById: method[models.User]{
+				data: models.User{
+					Id: userId,
+				},
+				err: nil,
+			},
+		},
+		{
+			name: "Err",
+			getUserById: method[models.User]{
+				err: errors.New(""),
+			},
+		},
+	}
+
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			usersRepoCall := suite.usersRepo.On("GetUserById", mock.Anything, mock.AnythingOfType("int")).Once()
-			if !tt.wantErr {
-				usersRepoCall.Return(models.User{Id: userId}, nil)
-			} else {
-				usersRepoCall.Return(models.User{}, errors.New(""))
-			}
+			func() {
+				suite.usersRepo.On("GetUserById", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(tt.getUserById.data, tt.getUserById.err)
+				if tt.getUserById.err != nil {
+					return
+				}
+			}()
 
 			_, _, gotErr := suite.uc.RefreshTokens(context.Background(), refreshToken)
 
-			if !tt.wantErr {
+			if tt.getUserById.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
 			}
+			suite.usersRepo.AssertExpectations(suite.T())
 		})
 	}
 }

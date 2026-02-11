@@ -34,68 +34,86 @@ func TestUsers(t *testing.T) {
 
 func (suite *UsersSuite) TestGetUserById() {
 	tests := []struct {
-		name    string
-		wantErr bool
+		name        string
+		getUserById method[models.User]
 	}{
 		{
-			name:    "Ok",
-			wantErr: false,
+			name: "Ok",
+			getUserById: method[models.User]{
+				data: models.User{},
+				err:  nil,
+			},
 		},
 		{
-			name:    "Err",
-			wantErr: true,
+			name: "Err",
+			getUserById: method[models.User]{
+				data: models.User{},
+				err:  errors.New(""),
+			},
 		},
 	}
+
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			usersRepoCall := suite.usersRepo.On("GetUserById", mock.Anything, mock.AnythingOfType("int")).Once()
-			if !tt.wantErr {
-				usersRepoCall.Return(models.User{}, nil)
-			} else {
-				usersRepoCall.Return(models.User{}, errors.New(""))
-			}
+			func() {
+				suite.usersRepo.On("GetUserById", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(tt.getUserById.data, tt.getUserById.err)
+				if tt.getUserById.err != nil {
+					return
+				}
+			}()
 
 			_, gotErr := suite.uc.GetUserById(context.Background(), 1)
 
-			if !tt.wantErr {
+			if tt.getUserById.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
 			}
+			suite.usersRepo.AssertExpectations(suite.T())
 		})
 	}
 }
 
 func (suite *UsersSuite) TestGetUsers() {
 	tests := []struct {
-		name    string
-		wantErr bool
+		name     string
+		getUsers method[[]models.User]
 	}{
 		{
-			name:    "Ok",
-			wantErr: false,
+			name: "Ok",
+			getUsers: method[[]models.User]{
+				data: []models.User{},
+				err:  nil,
+			},
 		},
 		{
-			name:    "Err",
-			wantErr: true,
+			name: "Err",
+			getUsers: method[[]models.User]{
+				data: nil,
+				err:  errors.New(""),
+			},
 		},
 	}
+
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			usersRepoCall := suite.usersRepo.On("GetUsers", mock.Anything).Once()
-			if !tt.wantErr {
-				usersRepoCall.Return([]models.User{}, nil)
-			} else {
-				usersRepoCall.Return([]models.User{}, errors.New(""))
-			}
+			func() {
+				suite.usersRepo.On("GetUsers", mock.Anything).Once().
+					Return(tt.getUsers.data, tt.getUsers.err)
+				if tt.getUsers.err != nil {
+					return
+				}
+			}()
 
 			_, gotErr := suite.uc.GetUsers(context.Background())
 
-			if !tt.wantErr {
+			if tt.getUsers.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
 			}
+			suite.usersRepo.AssertExpectations(suite.T())
 		})
 	}
 }
