@@ -116,7 +116,9 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	authrest.Register(router, authUseCase, baseHandler)
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB)
-	tasksUseCase := usecase.NewTasks(log, tasksRepo)
+	tasksUseCase := usecase.NewTasks(log, usecase.TasksRepositories{
+		Tasks: tasksRepo,
+	})
 	tasksrest.Register(router, tasksUseCase, baseHandler)
 
 	server := &http.Server{
