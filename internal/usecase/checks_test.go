@@ -42,11 +42,6 @@ func TestChecks(t *testing.T) {
 }
 
 func (suite *ChecksSuite) TestAddCheck() {
-	type method[T any] struct {
-		data T
-		err  error
-	}
-
 	tests := []struct {
 		name      string
 		addCheck  method[int64]
@@ -135,134 +130,204 @@ func (suite *ChecksSuite) TestAddCheck() {
 			} else {
 				suite.NotNil(gotErr)
 			}
+			suite.checksRepo.AssertExpectations(suite.T())
+			suite.photosRepo.AssertExpectations(suite.T())
+			suite.updater.AssertExpectations(suite.T())
 		})
 	}
 }
 
 func (suite *ChecksSuite) TestGetCheckById() {
 	tests := []struct {
-		name                  string
-		errGetCheckById       error
-		errGetPhotosByCheckId error
+		name               string
+		getCheckById       method[models.Check]
+		getPhotosByCheckId method[[]string]
 	}{
 		{
-			name:                  "Ok",
-			errGetCheckById:       nil,
-			errGetPhotosByCheckId: nil,
+			name:               "Ok",
+			getCheckById:       method[models.Check]{},
+			getPhotosByCheckId: method[[]string]{},
 		},
 		{
-			name:                  "ErrGetCheckById",
-			errGetCheckById:       errors.New(""),
-			errGetPhotosByCheckId: nil,
+			name: "ErrGetCheckById",
+			getCheckById: method[models.Check]{
+				err: errors.New(""),
+			},
+			getPhotosByCheckId: method[[]string]{},
 		},
 		{
-			name:                  "ErrGetPhotosByCheckId",
-			errGetCheckById:       nil,
-			errGetPhotosByCheckId: errors.New(""),
+			name:         "ErrGetPhotosByCheckId",
+			getCheckById: method[models.Check]{},
+			getPhotosByCheckId: method[[]string]{
+				err: errors.New(""),
+			},
 		},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			suite.checksRepo.On("GetCheckById", mock.Anything, mock.AnythingOfType("int")).Once().
-				Return(models.Check{}, tt.errGetCheckById)
+			func() {
+				suite.checksRepo.On("GetCheckById", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(tt.getCheckById.data, tt.getCheckById.err)
+				if tt.getCheckById.err != nil {
+					return
+				}
 
-			if tt.errGetCheckById == nil {
 				suite.photosRepo.On("GetPhotosByCheckId", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int")).Once().
-					Return([]string{}, tt.errGetPhotosByCheckId)
-			}
+					Return(tt.getPhotosByCheckId.data, tt.getPhotosByCheckId.err)
+				if tt.getPhotosByCheckId.err != nil {
+					return
+				}
+			}()
+
 			_, gotErr := suite.uc.GetCheckById(context.Background(), 1)
 
-			if tt.errGetCheckById == nil && tt.errGetPhotosByCheckId == nil {
+			if tt.getCheckById.err == nil && tt.getPhotosByCheckId.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
 			}
+			suite.checksRepo.AssertExpectations(suite.T())
+			suite.photosRepo.AssertExpectations(suite.T())
 		})
 	}
 }
 
 func (suite *ChecksSuite) TestGetChecksByMarkId() {
 	tests := []struct {
-		name                 string
-		errGetChecksByMarkId error
-		errGetPhotosByMarkId error
+		name              string
+		getChecksByMarkId method[[]models.Check]
+		getPhotosByMarkId method[map[int]map[int][]string]
 	}{
 		{
-			name:                 "Ok",
-			errGetChecksByMarkId: nil,
-			errGetPhotosByMarkId: nil,
+			name: "Ok",
+			getChecksByMarkId: method[[]models.Check]{
+				data: []models.Check{{}, {}},
+				err:  nil,
+			},
+			getPhotosByMarkId: method[map[int]map[int][]string]{
+				data: map[int]map[int][]string{},
+				err:  nil,
+			},
 		},
 		{
-			name:                 "ErrGetChecksByMarkId",
-			errGetChecksByMarkId: errors.New(""),
-			errGetPhotosByMarkId: nil,
+			name: "ErrGetChecksByMarkId",
+			getChecksByMarkId: method[[]models.Check]{
+				data: nil,
+				err:  errors.New(""),
+			},
+			getPhotosByMarkId: method[map[int]map[int][]string]{
+				data: nil,
+				err:  nil,
+			},
 		},
 		{
-			name:                 "ErrGetPhotosByMarkId",
-			errGetChecksByMarkId: nil,
-			errGetPhotosByMarkId: errors.New(""),
+			name: "ErrGetPhotosByMarkId",
+			getChecksByMarkId: method[[]models.Check]{
+				data: []models.Check{{}, {}},
+				err:  nil,
+			},
+			getPhotosByMarkId: method[map[int]map[int][]string]{
+				data: nil,
+				err:  errors.New(""),
+			},
 		},
 	}
+
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			suite.checksRepo.On("GetChecksByMarkId", mock.Anything, mock.AnythingOfType("int")).Once().
-				Return([]models.Check{{}, {}}, tt.errGetChecksByMarkId)
+			func() {
+				suite.checksRepo.On("GetChecksByMarkId", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(tt.getChecksByMarkId.data, tt.getChecksByMarkId.err)
+				if tt.getChecksByMarkId.err != nil {
+					return
+				}
 
-			if tt.errGetChecksByMarkId == nil {
 				suite.photosRepo.On("GetPhotosByMarkId", mock.Anything, mock.AnythingOfType("int")).Once().
-					Return(map[int]map[int][]string{}, tt.errGetPhotosByMarkId)
-			}
+					Return(tt.getPhotosByMarkId.data, tt.getPhotosByMarkId.err)
+				if tt.getPhotosByMarkId.err != nil {
+					return
+				}
+			}()
 
 			_, gotErr := suite.uc.GetChecksByMarkId(context.Background(), 1)
 
-			if tt.errGetChecksByMarkId == nil && tt.errGetPhotosByMarkId == nil {
+			if tt.getChecksByMarkId.err == nil && tt.getPhotosByMarkId.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
 			}
+			suite.checksRepo.AssertExpectations(suite.T())
+			suite.photosRepo.AssertExpectations(suite.T())
 		})
 	}
 }
 
 func (suite *ChecksSuite) TestGetChecksByUserId() {
 	tests := []struct {
-		name                  string
-		errGetChecksByUserId  error
-		errGetPhotosByCheckId error
+		name               string
+		getChecksByUserId  method[[]models.Check]
+		getPhotosByCheckId method[[]string]
 	}{
 		{
-			name:                  "Ok",
-			errGetChecksByUserId:  nil,
-			errGetPhotosByCheckId: nil,
+			name: "Ok",
+			getChecksByUserId: method[[]models.Check]{
+				data: []models.Check{{}},
+				err:  nil,
+			},
+			getPhotosByCheckId: method[[]string]{
+				data: []string{},
+				err:  nil,
+			},
 		},
 		{
-			name:                  "ErrGetChecksByUserId",
-			errGetChecksByUserId:  errors.New(""),
-			errGetPhotosByCheckId: nil,
+			name: "ErrGetChecksByUserId",
+			getChecksByUserId: method[[]models.Check]{
+				data: nil,
+				err:  errors.New(""),
+			},
+			getPhotosByCheckId: method[[]string]{
+				data: nil,
+				err:  nil,
+			},
 		},
 		{
-			name:                  "ErrGetPhotosByCheckId",
-			errGetChecksByUserId:  nil,
-			errGetPhotosByCheckId: errors.New(""),
+			name: "ErrGetPhotosByCheckId",
+			getChecksByUserId: method[[]models.Check]{
+				data: []models.Check{{}},
+				err:  nil,
+			},
+			getPhotosByCheckId: method[[]string]{
+				data: nil,
+				err:  errors.New(""),
+			},
 		},
 	}
+
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			suite.checksRepo.On("GetChecksByUserId", mock.Anything, mock.AnythingOfType("int")).Once().
-				Return([]models.Check{{}}, tt.errGetChecksByUserId)
-			if tt.errGetChecksByUserId == nil {
+			func() {
+				suite.checksRepo.On("GetChecksByUserId", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(tt.getChecksByUserId.data, tt.getChecksByUserId.err)
+				if tt.getChecksByUserId.err != nil {
+					return
+				}
 
 				suite.photosRepo.On("GetPhotosByCheckId", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int")).Once().
-					Return([]string{}, tt.errGetPhotosByCheckId)
-			}
+					Return(tt.getPhotosByCheckId.data, tt.getPhotosByCheckId.err)
+				if tt.getPhotosByCheckId.err != nil {
+					return
+				}
+			}()
 
 			_, gotErr := suite.uc.GetChecksByUserId(context.Background(), 1)
 
-			if tt.errGetChecksByUserId == nil && tt.errGetPhotosByCheckId == nil {
+			if tt.getChecksByUserId.err == nil && tt.getPhotosByCheckId.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
 			}
+			suite.checksRepo.AssertExpectations(suite.T())
+			suite.photosRepo.AssertExpectations(suite.T())
 		})
 	}
 }
@@ -290,11 +355,6 @@ func TestMarkStatusUpdater(t *testing.T) {
 }
 
 func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
-	type method[T any] struct {
-		data T
-		err  error
-	}
-
 	tests := []struct {
 		name              string
 		getMarkById       method[models.Mark]
@@ -491,6 +551,8 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 			} else {
 				suite.NotNil(gotErr)
 			}
+			suite.marksRepo.AssertExpectations(suite.T())
+			suite.checksRepo.AssertExpectations(suite.T())
 		})
 	}
 }
