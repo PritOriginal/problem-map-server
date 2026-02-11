@@ -43,7 +43,7 @@ func NewChecks(log *slog.Logger, markStatusUpdater MarkStatusUpdater, repos Chec
 func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.Reader) (int64, error) {
 	const op = "usecase.Tasks.AddCheck"
 
-	id, err := uc.checksRepo.AddCheck(ctx, check)
+	id, err := uc.repos.Checks.AddCheck(ctx, check)
 	if err != nil {
 		return id, fmt.Errorf("%s: %w", op, err)
 	}
@@ -89,12 +89,12 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 func (uc *Checks) GetCheckById(ctx context.Context, id int) (models.Check, error) {
 	const op = "usecase.Tasks.GetCheckById"
 
-	check, err := uc.checksRepo.GetCheckById(ctx, id)
+	check, err := uc.repos.Checks.GetCheckById(ctx, id)
 	if err != nil {
 		return check, fmt.Errorf("%s: %w", op, err)
 	}
 
-	check.Photos, err = uc.photosRepo.GetPhotosByCheckId(ctx, check.MarkID, check.ID)
+	check.Photos, err = uc.repos.Photos.GetPhotosByCheckId(ctx, check.MarkID, check.ID)
 	if err != nil {
 		return check, fmt.Errorf("%s: %w", op, err)
 	}
@@ -105,12 +105,12 @@ func (uc *Checks) GetCheckById(ctx context.Context, id int) (models.Check, error
 func (uc *Checks) GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error) {
 	const op = "usecase.Tasks.GetChecksByMarkId"
 
-	checks, err := uc.checksRepo.GetChecksByMarkId(ctx, markId)
+	checks, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId)
 	if err != nil {
 		return checks, fmt.Errorf("%s: %w", op, err)
 	}
 
-	photosMap, err := uc.photosRepo.GetPhotosByMarkId(ctx, markId)
+	photosMap, err := uc.repos.Photos.GetPhotosByMarkId(ctx, markId)
 	if err != nil {
 		return checks, fmt.Errorf("%s: %w", op, err)
 	}
@@ -125,13 +125,13 @@ func (uc *Checks) GetChecksByMarkId(ctx context.Context, markId int) ([]models.C
 func (uc *Checks) GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error) {
 	const op = "usecase.Tasks.GetChecksByUserId"
 
-	checks, err := uc.checksRepo.GetChecksByUserId(ctx, userId)
+	checks, err := uc.repos.Checks.GetChecksByUserId(ctx, userId)
 	if err != nil {
 		return checks, fmt.Errorf("%s: %w", op, err)
 	}
 
 	for i := range len(checks) {
-		checks[i].Photos, err = uc.photosRepo.GetPhotosByCheckId(ctx, checks[i].MarkID, checks[i].ID)
+		checks[i].Photos, err = uc.repos.Photos.GetPhotosByCheckId(ctx, checks[i].MarkID, checks[i].ID)
 		if err != nil {
 			return checks, fmt.Errorf("%s: %w", op, err)
 		}
