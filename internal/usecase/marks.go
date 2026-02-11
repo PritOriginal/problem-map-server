@@ -27,25 +27,27 @@ type PhotosRepository interface {
 }
 
 type Marks struct {
-	log        *slog.Logger
-	marksRepo  MarksRepository
-	checksRepo ChecksRepository
-	photosRepo PhotosRepository
+	log   *slog.Logger
+	repos MarksRepositories
 }
 
-func NewMarks(log *slog.Logger, marksRepo MarksRepository, checksRepo ChecksRepository, photosRepo PhotosRepository) *Marks {
+type MarksRepositories struct {
+	Marks  MarksRepository
+	Checks ChecksRepository
+	Photos PhotosRepository
+}
+
+func NewMarks(log *slog.Logger, repos MarksRepositories) *Marks {
 	return &Marks{
-		log:        log,
-		marksRepo:  marksRepo,
-		checksRepo: checksRepo,
-		photosRepo: photosRepo,
+		log:   log,
+		repos: repos,
 	}
 }
 
 func (uc *Marks) GetMarks(ctx context.Context) ([]models.Mark, error) {
 	const op = "usecase.Map.GetMarks"
 
-	marks, err := uc.marksRepo.GetMarks(ctx)
+	marks, err := uc.repos.Marks.GetMarks(ctx)
 	if err != nil {
 		return marks, fmt.Errorf("%s: %w", op, err)
 	}
@@ -55,7 +57,7 @@ func (uc *Marks) GetMarks(ctx context.Context) ([]models.Mark, error) {
 func (uc *Marks) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
 	const op = "usecase.Map.GetMarkById"
 
-	mark, err := uc.marksRepo.GetMarkById(ctx, id)
+	mark, err := uc.repos.Marks.GetMarkById(ctx, id)
 	if err != nil {
 		return mark, fmt.Errorf("%s: %w", op, err)
 	}
@@ -65,7 +67,7 @@ func (uc *Marks) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
 func (uc *Marks) GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error) {
 	const op = "usecase.Map.GetMarksByUserId"
 
-	marks, err := uc.marksRepo.GetMarksByUserId(ctx, userId)
+	marks, err := uc.repos.Marks.GetMarksByUserId(ctx, userId)
 	if err != nil {
 		return marks, fmt.Errorf("%s: %w", op, err)
 	}
@@ -75,7 +77,7 @@ func (uc *Marks) GetMarksByUserId(ctx context.Context, userId int) ([]models.Mar
 func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error) {
 	const op = "usecase.Map.AddMark"
 
-	markId, err := uc.marksRepo.AddMark(ctx, mark)
+	markId, err := uc.repos.Marks.AddMark(ctx, mark)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
@@ -87,12 +89,12 @@ func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos []io.Read
 		Comment: mark.Description,
 	}
 
-	checkId, err := uc.checksRepo.AddCheck(ctx, check)
+	checkId, err := uc.repos.Checks.AddCheck(ctx, check)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
-	if err := uc.photosRepo.AddPhotos(ctx, int(markId), int(checkId), photos); err != nil {
+	if err := uc.repos.Photos.AddPhotos(ctx, int(markId), int(checkId), photos); err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -102,7 +104,7 @@ func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos []io.Read
 func (uc *Marks) GetMarkTypes(ctx context.Context) ([]models.MarkType, error) {
 	const op = "usecase.Map.GetMarkTypes"
 
-	types, err := uc.marksRepo.GetMarkTypes(ctx)
+	types, err := uc.repos.Marks.GetMarkTypes(ctx)
 	if err != nil {
 		return types, fmt.Errorf("%s: %w", op, err)
 	}
@@ -113,7 +115,7 @@ func (uc *Marks) GetMarkTypes(ctx context.Context) ([]models.MarkType, error) {
 func (uc *Marks) GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error) {
 	const op = "usecase.Map.GetMarkTypes"
 
-	statuses, err := uc.marksRepo.GetMarkStatuses(ctx)
+	statuses, err := uc.repos.Marks.GetMarkStatuses(ctx)
 	if err != nil {
 		return statuses, fmt.Errorf("%s: %w", op, err)
 	}

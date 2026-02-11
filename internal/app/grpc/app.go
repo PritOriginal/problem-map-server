@@ -82,7 +82,11 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 	marksRepo := postgres.NewMarks(postgresDB.DB)
 	checksRepo := postgres.NewChecks(postgresDB.DB)
-	marksUseCase := usecase.NewMarks(log, marksRepo, checksRepo, photoRepo)
+	marksUseCase := usecase.NewMarks(log, usecase.MarksRepositories{
+		Marks:  marksRepo,
+		Checks: checksRepo,
+		Photos: photoRepo,
+	})
 	marksgrpc.Register(gRPCServer, marksUseCase)
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB)
