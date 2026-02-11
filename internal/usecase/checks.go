@@ -48,39 +48,12 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 		return id, fmt.Errorf("%s: %w", op, err)
 	}
 
-	mark, err := uc.marksRepo.GetMarkById(ctx, check.MarkID)
-	if mark.MarkStatusID == int(models.UnconfirmedStatus) {
-		checks, err := uc.checksRepo.GetChecksByMarkId(ctx, check.MarkID)
-		if err != nil {
-			return 0, fmt.Errorf("%s: %w", op, err)
-		}
-
-		score := 0
-		for _, check := range checks {
-			if check.Result {
-				score++
-			} else {
-				score--
-			}
-		}
-
-		uc.log.Debug("score", slog.Int("val", score))
-
-		if score >= 3 {
-			if err := uc.marksRepo.UpdateMarkStatus(ctx, check.MarkID, models.ConfirmedStatus); err != nil {
-				return 0, fmt.Errorf("%s: %w", op, err)
-			}
-			uc.log.Debug("change mark status", slog.Int("old", mark.MarkStatusID), slog.Int("new", int(models.ConfirmedStatus)))
-		} else if score <= -3 {
-			if err := uc.marksRepo.UpdateMarkStatus(ctx, check.MarkID, models.RefutedStatus); err != nil {
-				return 0, fmt.Errorf("%s: %w", op, err)
-			}
-			uc.log.Debug("change mark status", slog.Int("old", mark.MarkStatusID), slog.Int("new", int(models.RefutedStatus)))
-		}
+	if err := uc.repos.Photos.AddPhotos(ctx, check.MarkID, int(id), photos); err != nil {
+		return id, fmt.Errorf("%s: %w", op, err)
 	}
 
-	if err := uc.photosRepo.AddPhotos(ctx, check.MarkID, int(id), photos); err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
+	if err := uc.markStatusUpdater.Update(ctx, check.MarkID); err != nil {
+		return id, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return id, nil
