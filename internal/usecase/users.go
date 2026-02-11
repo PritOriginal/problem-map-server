@@ -16,18 +16,22 @@ type UsersRepository interface {
 }
 
 type Users struct {
-	log       *slog.Logger
-	usersRepo UsersRepository
+	log   *slog.Logger
+	repos UsersRepositories
 }
 
-func NewUsers(log *slog.Logger, usersRepo UsersRepository) *Users {
-	return &Users{log: log, usersRepo: usersRepo}
+type UsersRepositories struct {
+	Users UsersRepository
+}
+
+func NewUsers(log *slog.Logger, repos UsersRepositories) *Users {
+	return &Users{log: log, repos: repos}
 }
 
 func (uc *Users) GetUserById(ctx context.Context, id int) (models.User, error) {
 	const op = "usecase.Users.GetUserById"
 
-	user, err := uc.usersRepo.GetUserById(ctx, id)
+	user, err := uc.repos.Users.GetUserById(ctx, id)
 	if err != nil {
 		return user, fmt.Errorf("%s: %w", op, err)
 	}
@@ -38,7 +42,7 @@ func (uc *Users) GetUserById(ctx context.Context, id int) (models.User, error) {
 func (uc *Users) GetUsers(ctx context.Context) ([]models.User, error) {
 	const op = "usecase.Users.GetUsers"
 
-	users, err := uc.usersRepo.GetUsers(ctx)
+	users, err := uc.repos.Users.GetUsers(ctx)
 	if err != nil {
 		return users, fmt.Errorf("%s: %w", op, err)
 	}

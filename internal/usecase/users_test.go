@@ -23,7 +23,9 @@ type UsersSuite struct {
 func (suite *UsersSuite) SetupSuite() {
 	suite.log = slogdiscard.NewDiscardLogger()
 	suite.usersRepo = usecase.NewMockUsersRepository(suite.T())
-	suite.uc = usecase.NewUsers(suite.log, suite.usersRepo)
+	suite.uc = usecase.NewUsers(suite.log, usecase.UsersRepositories{
+		Users: suite.usersRepo,
+	})
 }
 
 func TestUsers(t *testing.T) {

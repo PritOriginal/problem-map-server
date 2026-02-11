@@ -107,7 +107,9 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	checksrest.Register(router, accessAuth, checksUseCase, baseHandler)
 
 	usersRepo := postgres.NewUsers(postgresDB.DB)
-	usersUseCase := usecase.NewUsers(log, usersRepo)
+	usersUseCase := usecase.NewUsers(log, usecase.UsersRepositories{
+		Users: usersRepo,
+	})
 	usersrest.Register(router, usersUseCase, baseHandler)
 
 	authUseCase := usecase.NewAuth(log, cfg.Auth, usecase.AuthRepositories{

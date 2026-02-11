@@ -96,7 +96,9 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	tasksgrpc.Register(gRPCServer, tasksUseCase)
 
 	usersRepo := postgres.NewUsers(postgresDB.DB)
-	usersUseCase := usecase.NewUsers(log, usersRepo)
+	usersUseCase := usecase.NewUsers(log, usecase.UsersRepositories{
+		Users: usersRepo,
+	})
 	usersgrpc.Register(gRPCServer, usersUseCase)
 
 	return &App{
