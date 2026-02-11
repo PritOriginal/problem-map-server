@@ -23,7 +23,9 @@ type MapSuite struct {
 func (suite *MapSuite) SetupSuite() {
 	suite.log = slogdiscard.NewDiscardLogger()
 	suite.mapRepo = usecase.NewMockMapRepository(suite.T())
-	suite.uc = usecase.NewMap(suite.log, suite.mapRepo)
+	suite.uc = usecase.NewMap(suite.log, usecase.MapRepositories{
+		Map: suite.mapRepo,
+	})
 }
 
 func TestMap(t *testing.T) {
@@ -32,102 +34,129 @@ func TestMap(t *testing.T) {
 
 func (suite *MapSuite) TestGetRegions() {
 	tests := []struct {
-		name    string
-		wantErr bool
+		name       string
+		getRegions method[[]models.Region]
 	}{
 		{
-			name:    "Ok",
-			wantErr: false,
+			name: "Ok",
+			getRegions: method[[]models.Region]{
+				data: []models.Region{},
+				err:  nil,
+			},
 		},
 		{
-			name:    "Err",
-			wantErr: true,
+			name: "Err",
+			getRegions: method[[]models.Region]{
+				data: nil,
+				err:  errors.New(""),
+			},
 		},
 	}
+
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			marksRepoCall := suite.mapRepo.On("GetRegions", mock.Anything).Once()
-			if !tt.wantErr {
-				marksRepoCall.Return([]models.Region{}, nil)
-			} else {
-				marksRepoCall.Return([]models.Region{}, errors.New(""))
-			}
+			func() {
+				suite.mapRepo.On("GetRegions", mock.Anything).Once().
+					Return(tt.getRegions.data, tt.getRegions.err)
+				if tt.getRegions.err != nil {
+					return
+				}
+			}()
 
 			_, gotErr := suite.uc.GetRegions(context.Background())
 
-			if !tt.wantErr {
+			if tt.getRegions.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
 			}
+			suite.mapRepo.AssertExpectations(suite.T())
 		})
 	}
 }
 
 func (suite *MapSuite) TestGetCities() {
 	tests := []struct {
-		name    string
-		wantErr bool
+		name      string
+		getCities method[[]models.City]
 	}{
 		{
-			name:    "Ok",
-			wantErr: false,
+			name: "Ok",
+			getCities: method[[]models.City]{
+				data: []models.City{},
+				err:  nil,
+			},
 		},
 		{
-			name:    "Err",
-			wantErr: true,
+			name: "Err",
+			getCities: method[[]models.City]{
+				data: nil,
+				err:  errors.New(""),
+			},
 		},
 	}
+
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			marksRepoCall := suite.mapRepo.On("GetCities", mock.Anything).Once()
-			if !tt.wantErr {
-				marksRepoCall.Return([]models.City{}, nil)
-			} else {
-				marksRepoCall.Return([]models.City{}, errors.New(""))
-			}
+			func() {
+				suite.mapRepo.On("GetCities", mock.Anything).Once().
+					Return(tt.getCities.data, tt.getCities.err)
+				if tt.getCities.err != nil {
+					return
+				}
+			}()
 
 			_, gotErr := suite.uc.GetCities(context.Background())
 
-			if !tt.wantErr {
+			if tt.getCities.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
 			}
+			suite.mapRepo.AssertExpectations(suite.T())
 		})
 	}
 }
 
 func (suite *MapSuite) TestGetDistricts() {
 	tests := []struct {
-		name    string
-		wantErr bool
+		name         string
+		getDistricts method[[]models.District]
 	}{
 		{
-			name:    "Ok",
-			wantErr: false,
+			name: "Ok",
+			getDistricts: method[[]models.District]{
+				data: []models.District{},
+				err:  nil,
+			},
 		},
 		{
-			name:    "Err",
-			wantErr: true,
+			name: "Err",
+			getDistricts: method[[]models.District]{
+				data: nil,
+				err:  errors.New(""),
+			},
 		},
 	}
+
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			marksRepoCall := suite.mapRepo.On("GetDistricts", mock.Anything).Once()
-			if !tt.wantErr {
-				marksRepoCall.Return([]models.District{}, nil)
-			} else {
-				marksRepoCall.Return([]models.District{}, errors.New(""))
-			}
+			func() {
+				suite.mapRepo.On("GetDistricts", mock.Anything).Once().
+					Return(tt.getDistricts.data, tt.getDistricts.err)
+				if tt.getDistricts.err != nil {
+					return
+				}
+			}()
 
 			_, gotErr := suite.uc.GetDistricts(context.Background())
 
-			if !tt.wantErr {
+			if tt.getDistricts.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
 			}
+			suite.mapRepo.AssertExpectations(suite.T())
 		})
 	}
 }

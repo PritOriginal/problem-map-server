@@ -16,18 +16,22 @@ type TasksRepository interface {
 }
 
 type Tasks struct {
-	log       *slog.Logger
-	tasksRepo TasksRepository
+	log   *slog.Logger
+	repos TasksRepositories
 }
 
-func NewTasks(log *slog.Logger, tasksRepo TasksRepository) *Tasks {
-	return &Tasks{log: log, tasksRepo: tasksRepo}
+type TasksRepositories struct {
+	Tasks TasksRepository
+}
+
+func NewTasks(log *slog.Logger, repos TasksRepositories) *Tasks {
+	return &Tasks{log: log, repos: repos}
 }
 
 func (uc *Tasks) GetTasks(ctx context.Context) ([]models.Task, error) {
 	const op = "usecase.Tasks.GetTasks"
 
-	tasks, err := uc.tasksRepo.GetTasks(ctx)
+	tasks, err := uc.repos.Tasks.GetTasks(ctx)
 	if err != nil {
 		return tasks, fmt.Errorf("%s: %w", op, err)
 	}
@@ -38,7 +42,7 @@ func (uc *Tasks) GetTasks(ctx context.Context) ([]models.Task, error) {
 func (uc *Tasks) GetTaskById(ctx context.Context, id int) (models.Task, error) {
 	const op = "usecase.Tasks.GetTaskById"
 
-	task, err := uc.tasksRepo.GetTaskById(ctx, id)
+	task, err := uc.repos.Tasks.GetTaskById(ctx, id)
 	if err != nil {
 		return task, fmt.Errorf("%s: %w", op, err)
 	}
@@ -49,7 +53,7 @@ func (uc *Tasks) GetTaskById(ctx context.Context, id int) (models.Task, error) {
 func (uc *Tasks) GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error) {
 	const op = "usecase.Tasks.GetTasksByUserId"
 
-	tasks, err := uc.tasksRepo.GetTasksByUserId(ctx, userId)
+	tasks, err := uc.repos.Tasks.GetTasksByUserId(ctx, userId)
 	if err != nil {
 		return tasks, fmt.Errorf("%s: %w", op, err)
 	}
@@ -60,7 +64,7 @@ func (uc *Tasks) GetTasksByUserId(ctx context.Context, userId int) ([]models.Tas
 func (uc *Tasks) AddTask(ctx context.Context, task models.Task) (int64, error) {
 	const op = "usecase.Tasks.AddTask"
 
-	id, err := uc.tasksRepo.AddTask(ctx, task)
+	id, err := uc.repos.Tasks.AddTask(ctx, task)
 	if err != nil {
 		return id, fmt.Errorf("%s: %w", op, err)
 	}

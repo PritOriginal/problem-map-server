@@ -15,18 +15,22 @@ type MapRepository interface {
 }
 
 type Map struct {
-	log     *slog.Logger
-	mapRepo MapRepository
+	log   *slog.Logger
+	repos MapRepositories
 }
 
-func NewMap(log *slog.Logger, mapRepo MapRepository) *Map {
-	return &Map{log, mapRepo}
+type MapRepositories struct {
+	Map MapRepository
+}
+
+func NewMap(log *slog.Logger, repos MapRepositories) *Map {
+	return &Map{log, repos}
 }
 
 func (uc *Map) GetRegions(ctx context.Context) ([]models.Region, error) {
 	const op = "usecase.Map.GetRegions"
 
-	regions, err := uc.mapRepo.GetRegions(ctx)
+	regions, err := uc.repos.Map.GetRegions(ctx)
 	if err != nil {
 		return regions, fmt.Errorf("%s: %w", op, err)
 	}
@@ -36,7 +40,7 @@ func (uc *Map) GetRegions(ctx context.Context) ([]models.Region, error) {
 func (uc *Map) GetCities(ctx context.Context) ([]models.City, error) {
 	const op = "usecase.Map.GetCities"
 
-	cities, err := uc.mapRepo.GetCities(ctx)
+	cities, err := uc.repos.Map.GetCities(ctx)
 	if err != nil {
 		return cities, fmt.Errorf("%s: %w", op, err)
 	}
@@ -46,7 +50,7 @@ func (uc *Map) GetCities(ctx context.Context) ([]models.City, error) {
 func (uc *Map) GetDistricts(ctx context.Context) ([]models.District, error) {
 	const op = "usecase.Map.GetDistricts"
 
-	districts, err := uc.mapRepo.GetDistricts(ctx)
+	districts, err := uc.repos.Map.GetDistricts(ctx)
 	if err != nil {
 		return districts, fmt.Errorf("%s: %w", op, err)
 	}

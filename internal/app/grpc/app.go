@@ -75,20 +75,30 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	}
 
 	mapRepo := postgres.NewMap(postgresDB.DB)
-	mapUseCase := usecase.NewMap(log, mapRepo)
+	mapUseCase := usecase.NewMap(log, usecase.MapRepositories{
+		Map: mapRepo,
+	})
 	mapgrpc.Register(gRPCServer, mapUseCase)
 
 	marksRepo := postgres.NewMarks(postgresDB.DB)
 	checksRepo := postgres.NewChecks(postgresDB.DB)
-	marksUseCase := usecase.NewMarks(log, marksRepo, checksRepo, photoRepo)
+	marksUseCase := usecase.NewMarks(log, usecase.MarksRepositories{
+		Marks:  marksRepo,
+		Checks: checksRepo,
+		Photos: photoRepo,
+	})
 	marksgrpc.Register(gRPCServer, marksUseCase)
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB)
-	tasksUseCase := usecase.NewTasks(log, tasksRepo)
+	tasksUseCase := usecase.NewTasks(log, usecase.TasksRepositories{
+		Tasks: tasksRepo,
+	})
 	tasksgrpc.Register(gRPCServer, tasksUseCase)
 
 	usersRepo := postgres.NewUsers(postgresDB.DB)
-	usersUseCase := usecase.NewUsers(log, usersRepo)
+	usersUseCase := usecase.NewUsers(log, usecase.UsersRepositories{
+		Users: usersRepo,
+	})
 	usersgrpc.Register(gRPCServer, usersUseCase)
 
 	return &App{

@@ -16,44 +16,58 @@ type ChecksRepository interface {
 	GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error)
 }
 
-type Checks struct {
-	log        *slog.Logger
-	checksRepo ChecksRepository
-	photosRepo PhotosRepository
+type MarkStatusUpdater interface {
+	Update(ctx context.Context, markId int) error
 }
 
-func NewChecks(log *slog.Logger, checksRepo ChecksRepository, photosRepo PhotosRepository) *Checks {
+type ChecksRepositories struct {
+	Marks  MarksRepository
+	Checks ChecksRepository
+	Photos PhotosRepository
+}
+
+type Checks struct {
+	log               *slog.Logger
+	repos             ChecksRepositories
+	markStatusUpdater MarkStatusUpdater
+}
+
+func NewChecks(log *slog.Logger, markStatusUpdater MarkStatusUpdater, repos ChecksRepositories) *Checks {
 	return &Checks{
-		log:        log,
-		checksRepo: checksRepo,
-		photosRepo: photosRepo,
+		log:               log,
+		repos:             repos,
+		markStatusUpdater: markStatusUpdater,
 	}
 }
 
 func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.Reader) (int64, error) {
-	const op = "usecase.Tasks.AddCheck"
+	const op = "usecase.Checks.AddCheck"
 
-	id, err := uc.checksRepo.AddCheck(ctx, check)
+	id, err := uc.repos.Checks.AddCheck(ctx, check)
 	if err != nil {
 		return id, fmt.Errorf("%s: %w", op, err)
 	}
 
-	if err := uc.photosRepo.AddPhotos(ctx, check.MarkID, int(id), photos); err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
+	if err := uc.repos.Photos.AddPhotos(ctx, check.MarkID, int(id), photos); err != nil {
+		return id, fmt.Errorf("%s: %w", op, err)
+	}
+
+	if err := uc.markStatusUpdater.Update(ctx, check.MarkID); err != nil {
+		return id, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return id, nil
 }
 
 func (uc *Checks) GetCheckById(ctx context.Context, id int) (models.Check, error) {
-	const op = "usecase.Tasks.GetCheckById"
+	const op = "usecase.Checks.GetCheckById"
 
-	check, err := uc.checksRepo.GetCheckById(ctx, id)
+	check, err := uc.repos.Checks.GetCheckById(ctx, id)
 	if err != nil {
 		return check, fmt.Errorf("%s: %w", op, err)
 	}
 
-	check.Photos, err = uc.photosRepo.GetPhotosByCheckId(ctx, check.MarkID, check.ID)
+	check.Photos, err = uc.repos.Photos.GetPhotosByCheckId(ctx, check.MarkID, check.ID)
 	if err != nil {
 		return check, fmt.Errorf("%s: %w", op, err)
 	}
@@ -62,14 +76,14 @@ func (uc *Checks) GetCheckById(ctx context.Context, id int) (models.Check, error
 }
 
 func (uc *Checks) GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error) {
-	const op = "usecase.Tasks.GetChecksByMarkId"
+	const op = "usecase.Checks.GetChecksByMarkId"
 
-	checks, err := uc.checksRepo.GetChecksByMarkId(ctx, markId)
+	checks, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId)
 	if err != nil {
 		return checks, fmt.Errorf("%s: %w", op, err)
 	}
 
-	photosMap, err := uc.photosRepo.GetPhotosByMarkId(ctx, markId)
+	photosMap, err := uc.repos.Photos.GetPhotosByMarkId(ctx, markId)
 	if err != nil {
 		return checks, fmt.Errorf("%s: %w", op, err)
 	}
@@ -82,19 +96,74 @@ func (uc *Checks) GetChecksByMarkId(ctx context.Context, markId int) ([]models.C
 }
 
 func (uc *Checks) GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error) {
-	const op = "usecase.Tasks.GetChecksByUserId"
+	const op = "usecase.Checks.GetChecksByUserId"
 
-	checks, err := uc.checksRepo.GetChecksByUserId(ctx, userId)
+	checks, err := uc.repos.Checks.GetChecksByUserId(ctx, userId)
 	if err != nil {
 		return checks, fmt.Errorf("%s: %w", op, err)
 	}
 
 	for i := range len(checks) {
-		checks[i].Photos, err = uc.photosRepo.GetPhotosByCheckId(ctx, checks[i].MarkID, checks[i].ID)
+		checks[i].Photos, err = uc.repos.Photos.GetPhotosByCheckId(ctx, checks[i].MarkID, checks[i].ID)
 		if err != nil {
 			return checks, fmt.Errorf("%s: %w", op, err)
 		}
 	}
 
 	return checks, nil
+}
+
+type UpdaterRepositories struct {
+	Marks  MarksRepository
+	Checks ChecksRepository
+}
+type Updater struct {
+	log   *slog.Logger
+	repos UpdaterRepositories
+}
+
+func NewUpdater(log *slog.Logger, repos UpdaterRepositories) *Updater {
+	return &Updater{
+		log:   log,
+		repos: repos,
+	}
+}
+
+func (u *Updater) Update(ctx context.Context, markId int) error {
+	const op = "usecase.Updater.Update"
+
+	mark, err := u.repos.Marks.GetMarkById(ctx, markId)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	if mark.MarkStatusID == int(models.UnconfirmedStatus) {
+		checks, err := u.repos.Checks.GetChecksByMarkId(ctx, markId)
+		if err != nil {
+			return fmt.Errorf("%s: %w", op, err)
+		}
+
+		score := 0
+		for _, check := range checks {
+			if check.Result {
+				score++
+			} else {
+				score--
+			}
+		}
+
+		u.log.Debug("score", slog.Int("val", score))
+
+		if score >= 3 {
+			if err := u.repos.Marks.UpdateMarkStatus(ctx, markId, models.ConfirmedStatus); err != nil {
+				return fmt.Errorf("%s: %w", op, err)
+			}
+			u.log.Debug("change mark status", slog.Int("old", mark.MarkStatusID), slog.Int("new", int(models.ConfirmedStatus)))
+		} else if score <= -3 {
+			if err := u.repos.Marks.UpdateMarkStatus(ctx, markId, models.RefutedStatus); err != nil {
+				return fmt.Errorf("%s: %w", op, err)
+			}
+			u.log.Debug("change mark status", slog.Int("old", mark.MarkStatusID), slog.Int("new", int(models.RefutedStatus)))
+		}
+	}
+	return nil
 }

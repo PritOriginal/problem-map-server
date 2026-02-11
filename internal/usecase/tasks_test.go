@@ -23,7 +23,9 @@ type TasksSuite struct {
 func (suite *TasksSuite) SetupSuite() {
 	suite.log = slogdiscard.NewDiscardLogger()
 	suite.tasksRepo = usecase.NewMockTasksRepository(suite.T())
-	suite.uc = usecase.NewTasks(suite.log, suite.tasksRepo)
+	suite.uc = usecase.NewTasks(suite.log, usecase.TasksRepositories{
+		Tasks: suite.tasksRepo,
+	})
 }
 
 func TestTasks(t *testing.T) {
@@ -32,102 +34,129 @@ func TestTasks(t *testing.T) {
 
 func (suite *TasksSuite) TestGetTasks() {
 	tests := []struct {
-		name    string
-		wantErr bool
+		name     string
+		getTasks method[[]models.Task]
 	}{
 		{
-			name:    "Ok",
-			wantErr: false,
+			name: "Ok",
+			getTasks: method[[]models.Task]{
+				data: []models.Task{},
+				err:  nil,
+			},
 		},
 		{
-			name:    "Err",
-			wantErr: true,
+			name: "Err",
+			getTasks: method[[]models.Task]{
+				data: nil,
+				err:  errors.New(""),
+			},
 		},
 	}
+
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			tasksRepoCall := suite.tasksRepo.On("GetTasks", mock.Anything).Once()
-			if !tt.wantErr {
-				tasksRepoCall.Return([]models.Task{}, nil)
-			} else {
-				tasksRepoCall.Return([]models.Task{}, errors.New(""))
-			}
+			func() {
+				suite.tasksRepo.On("GetTasks", mock.Anything).Once().
+					Return(tt.getTasks.data, tt.getTasks.err)
+				if tt.getTasks.err != nil {
+					return
+				}
+			}()
 
 			_, gotErr := suite.uc.GetTasks(context.Background())
 
-			if !tt.wantErr {
+			if tt.getTasks.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
 			}
+			suite.tasksRepo.AssertExpectations(suite.T())
 		})
 	}
 }
 
 func (suite *TasksSuite) TestGetTaskById() {
 	tests := []struct {
-		name    string
-		wantErr bool
+		name        string
+		getTaskById method[models.Task]
 	}{
 		{
-			name:    "Ok",
-			wantErr: false,
+			name: "Ok",
+			getTaskById: method[models.Task]{
+				data: models.Task{},
+				err:  nil,
+			},
 		},
 		{
-			name:    "Err",
-			wantErr: true,
+			name: "Err",
+			getTaskById: method[models.Task]{
+				data: models.Task{},
+				err:  errors.New(""),
+			},
 		},
 	}
+
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			tasksRepoCall := suite.tasksRepo.On("GetTaskById", mock.Anything, mock.AnythingOfType("int")).Once()
-			if !tt.wantErr {
-				tasksRepoCall.Return(models.Task{}, nil)
-			} else {
-				tasksRepoCall.Return(models.Task{}, errors.New(""))
-			}
+			func() {
+				suite.tasksRepo.On("GetTaskById", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(tt.getTaskById.data, tt.getTaskById.err)
+				if tt.getTaskById.err != nil {
+					return
+				}
+			}()
 
 			_, gotErr := suite.uc.GetTaskById(context.Background(), 1)
 
-			if !tt.wantErr {
+			if tt.getTaskById.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
 			}
+			suite.tasksRepo.AssertExpectations(suite.T())
 		})
 	}
 }
 
 func (suite *TasksSuite) TestGetTasksByUserId() {
 	tests := []struct {
-		name    string
-		wantErr bool
+		name             string
+		getTasksByUserId method[[]models.Task]
 	}{
 		{
-			name:    "Ok",
-			wantErr: false,
+			name: "Ok",
+			getTasksByUserId: method[[]models.Task]{
+				data: []models.Task{},
+				err:  nil,
+			},
 		},
 		{
-			name:    "Err",
-			wantErr: true,
+			name: "Err",
+			getTasksByUserId: method[[]models.Task]{
+				data: nil,
+				err:  errors.New(""),
+			},
 		},
 	}
+
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			tasksRepoCall := suite.tasksRepo.On("GetTasksByUserId", mock.Anything, mock.AnythingOfType("int")).Once()
-			if !tt.wantErr {
-				tasksRepoCall.Return([]models.Task{}, nil)
-			} else {
-				tasksRepoCall.Return([]models.Task{}, errors.New(""))
-			}
+			func() {
+				suite.tasksRepo.On("GetTasksByUserId", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(tt.getTasksByUserId.data, tt.getTasksByUserId.err)
+				if tt.getTasksByUserId.err != nil {
+					return
+				}
+			}()
 
 			_, gotErr := suite.uc.GetTasksByUserId(context.Background(), 1)
 
-			if !tt.wantErr {
+			if tt.getTasksByUserId.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
 			}
+			suite.tasksRepo.AssertExpectations(suite.T())
 		})
 	}
 }
@@ -135,33 +164,42 @@ func (suite *TasksSuite) TestGetTasksByUserId() {
 func (suite *TasksSuite) TestAddTask() {
 	tests := []struct {
 		name    string
-		wantErr bool
+		addTask method[int64]
 	}{
 		{
-			name:    "Ok",
-			wantErr: false,
+			name: "Ok",
+			addTask: method[int64]{
+				data: int64(1),
+				err:  nil,
+			},
 		},
 		{
-			name:    "Err",
-			wantErr: true,
+			name: "Err",
+			addTask: method[int64]{
+				data: int64(0),
+				err:  errors.New(""),
+			},
 		},
 	}
+
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			tasksRepoCall := suite.tasksRepo.On("AddTask", mock.Anything, mock.Anything).Once()
-			if !tt.wantErr {
-				tasksRepoCall.Return(int64(1), nil)
-			} else {
-				tasksRepoCall.Return(int64(0), errors.New(""))
-			}
+			func() {
+				suite.tasksRepo.On("AddTask", mock.Anything, mock.Anything).Once().
+					Return(tt.addTask.data, tt.addTask.err)
+				if tt.addTask.err != nil {
+					return
+				}
+			}()
 
 			_, gotErr := suite.uc.AddTask(context.Background(), models.Task{})
 
-			if !tt.wantErr {
+			if tt.addTask.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
 			}
+			suite.tasksRepo.AssertExpectations(suite.T())
 		})
 	}
 }
