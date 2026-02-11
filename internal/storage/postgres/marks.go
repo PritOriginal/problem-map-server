@@ -134,3 +134,13 @@ func (repo *MarksRepository) GetMarkStatuses(ctx context.Context) ([]models.Mark
 
 	return statuses, nil
 }
+
+func (repo *MarksRepository) UpdateMarkStatus(ctx context.Context, markId int, markStatusId models.MarkStatusType) error {
+	const op = "storage.postgres.UpdateMarkStatus"
+
+	if _, err := repo.Conn.ExecContext(ctx, "UPDATE marks SET mark_status_id = $1 WHERE mark_id = $2", markStatusId, markId); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
