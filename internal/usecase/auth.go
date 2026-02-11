@@ -15,13 +15,17 @@ import (
 )
 
 type Auth struct {
-	log       *slog.Logger
-	usersRepo UsersRepository
-	authCfg   config.AuthConfing
+	log     *slog.Logger
+	repos   AuthRepositories
+	authCfg config.AuthConfing
 }
 
-func NewAuth(log *slog.Logger, usersRepo UsersRepository, authCfg config.AuthConfing) *Auth {
-	return &Auth{log: log, usersRepo: usersRepo, authCfg: authCfg}
+type AuthRepositories struct {
+	Users UsersRepository
+}
+
+func NewAuth(log *slog.Logger, authCfg config.AuthConfing, repos AuthRepositories) *Auth {
+	return &Auth{log: log, repos: repos, authCfg: authCfg}
 }
 
 func (uc *Auth) SignUp(ctx context.Context, username, login, password string) (int64, error) {
@@ -38,7 +42,7 @@ func (uc *Auth) SignUp(ctx context.Context, username, login, password string) (i
 		PasswordHash: passwordHash,
 	}
 
-	_, err = uc.usersRepo.GetUserByLogin(ctx, user.Login)
+	_, err = uc.repos.Users.GetUserByLogin(ctx, user.Login)
 	if err != storage.ErrNotFound {
 		switch err {
 		case nil:
@@ -49,7 +53,7 @@ func (uc *Auth) SignUp(ctx context.Context, username, login, password string) (i
 		}
 	}
 
-	id, err := uc.usersRepo.AddUser(ctx, user)
+	id, err := uc.repos.Users.AddUser(ctx, user)
 	if err != nil {
 		return id, fmt.Errorf("%s: %w", op, err)
 	}
@@ -60,7 +64,7 @@ func (uc *Auth) SignUp(ctx context.Context, username, login, password string) (i
 func (uc *Auth) SignIn(ctx context.Context, login, password string) (string, string, error) {
 	const op = "usecase.Users.SignIn"
 
-	user, err := uc.usersRepo.GetUserByLogin(ctx, login)
+	user, err := uc.repos.Users.GetUserByLogin(ctx, login)
 	if err != nil {
 		return "", "", fmt.Errorf("%s: %w", op, err)
 	}
@@ -90,7 +94,7 @@ func (uc *Auth) RefreshTokens(ctx context.Context, refreshToken string) (string,
 		return "", "", fmt.Errorf("%s: %w", op, err)
 	}
 
-	user, err := uc.usersRepo.GetUserById(ctx, userId)
+	user, err := uc.repos.Users.GetUserById(ctx, userId)
 	if err != nil {
 		return "", "", fmt.Errorf("%s: %w", op, err)
 	}

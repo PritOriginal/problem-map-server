@@ -80,12 +80,18 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		photoRepo = s3.NewPhotos(s3Client)
 	}
 
-	mapUseCase := usecase.NewMap(log, mapRepo)
+	mapUseCase := usecase.NewMap(log, usecase.MapRepositories{
+		Map: mapRepo,
+	})
 	maprest.Register(router, mapUseCase, redis, baseHandler)
 
 	marksRepo := postgres.NewMarks(postgresDB.DB)
 	checksRepo := postgres.NewChecks(postgresDB.DB)
-	marksUseCase := usecase.NewMarks(log, marksRepo, checksRepo, photoRepo)
+	marksUseCase := usecase.NewMarks(log, usecase.MarksRepositories{
+		Marks:  marksRepo,
+		Checks: checksRepo,
+		Photos: photoRepo,
+	})
 	marksrest.Register(router, accessAuth, marksUseCase, redis, baseHandler)
 
 	markStatusUpdater := usecase.NewUpdater(log, usecase.UpdaterRepositories{
@@ -101,14 +107,20 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	checksrest.Register(router, accessAuth, checksUseCase, baseHandler)
 
 	usersRepo := postgres.NewUsers(postgresDB.DB)
-	usersUseCase := usecase.NewUsers(log, usersRepo)
+	usersUseCase := usecase.NewUsers(log, usecase.UsersRepositories{
+		Users: usersRepo,
+	})
 	usersrest.Register(router, usersUseCase, baseHandler)
 
-	authUseCase := usecase.NewAuth(log, usersRepo, cfg.Auth)
+	authUseCase := usecase.NewAuth(log, cfg.Auth, usecase.AuthRepositories{
+		Users: usersRepo,
+	})
 	authrest.Register(router, authUseCase, baseHandler)
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB)
-	tasksUseCase := usecase.NewTasks(log, tasksRepo)
+	tasksUseCase := usecase.NewTasks(log, usecase.TasksRepositories{
+		Tasks: tasksRepo,
+	})
 	tasksrest.Register(router, tasksUseCase, baseHandler)
 
 	server := &http.Server{

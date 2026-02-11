@@ -31,7 +31,9 @@ func (suite *AuthSuite) SetupSuite() {
 	suite.usersRepo = usecase.NewMockUsersRepository(suite.T())
 	cfg := config.MustLoadPath("../../configs/config-tests.yaml")
 	suite.authCfg = cfg.Auth
-	suite.uc = usecase.NewAuth(suite.log, suite.usersRepo, cfg.Auth)
+	suite.uc = usecase.NewAuth(suite.log, cfg.Auth, usecase.AuthRepositories{
+		Users: suite.usersRepo,
+	})
 }
 
 func TestAuth(t *testing.T) {

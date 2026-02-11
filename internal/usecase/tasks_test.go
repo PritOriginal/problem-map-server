@@ -23,7 +23,9 @@ type TasksSuite struct {
 func (suite *TasksSuite) SetupSuite() {
 	suite.log = slogdiscard.NewDiscardLogger()
 	suite.tasksRepo = usecase.NewMockTasksRepository(suite.T())
-	suite.uc = usecase.NewTasks(suite.log, suite.tasksRepo)
+	suite.uc = usecase.NewTasks(suite.log, usecase.TasksRepositories{
+		Tasks: suite.tasksRepo,
+	})
 }
 
 func TestTasks(t *testing.T) {

@@ -28,7 +28,11 @@ func (suite *MarksSuite) SetupSuite() {
 	suite.marksRepo = usecase.NewMockMarksRepository(suite.T())
 	suite.checksRepo = usecase.NewMockChecksRepository(suite.T())
 	suite.photosRepo = usecase.NewMockPhotosRepository(suite.T())
-	suite.uc = usecase.NewMarks(suite.log, suite.marksRepo, suite.checksRepo, suite.photosRepo)
+	suite.uc = usecase.NewMarks(suite.log, usecase.MarksRepositories{
+		Marks:  suite.marksRepo,
+		Checks: suite.checksRepo,
+		Photos: suite.photosRepo,
+	})
 }
 
 func TestMarks(t *testing.T) {
