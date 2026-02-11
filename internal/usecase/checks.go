@@ -41,7 +41,7 @@ func NewChecks(log *slog.Logger, markStatusUpdater MarkStatusUpdater, repos Chec
 }
 
 func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.Reader) (int64, error) {
-	const op = "usecase.Tasks.AddCheck"
+	const op = "usecase.Checks.AddCheck"
 
 	id, err := uc.repos.Checks.AddCheck(ctx, check)
 	if err != nil {
@@ -87,7 +87,7 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 }
 
 func (uc *Checks) GetCheckById(ctx context.Context, id int) (models.Check, error) {
-	const op = "usecase.Tasks.GetCheckById"
+	const op = "usecase.Checks.GetCheckById"
 
 	check, err := uc.repos.Checks.GetCheckById(ctx, id)
 	if err != nil {
@@ -103,7 +103,7 @@ func (uc *Checks) GetCheckById(ctx context.Context, id int) (models.Check, error
 }
 
 func (uc *Checks) GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error) {
-	const op = "usecase.Tasks.GetChecksByMarkId"
+	const op = "usecase.Checks.GetChecksByMarkId"
 
 	checks, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId)
 	if err != nil {
@@ -123,7 +123,7 @@ func (uc *Checks) GetChecksByMarkId(ctx context.Context, markId int) ([]models.C
 }
 
 func (uc *Checks) GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error) {
-	const op = "usecase.Tasks.GetChecksByUserId"
+	const op = "usecase.Checks.GetChecksByUserId"
 
 	checks, err := uc.repos.Checks.GetChecksByUserId(ctx, userId)
 	if err != nil {
