@@ -104,8 +104,9 @@ const (
 )
 
 type MarkStatus struct {
-	ID   int    `json:"mark_status_id" db:"mark_status_id"`
-	Name string `json:"name" db:"name"`
+	ID       int      `json:"mark_status_id" db:"mark_status_id"`
+	ParentId null.Int `json:"parent_id" db:"parent_id"`
+	Name     string   `json:"name" db:"name"`
 }
 
 func (s *MarkStatus) ToProtobufObject() *pb.MarkStatus {
