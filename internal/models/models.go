@@ -116,6 +116,17 @@ func (s *MarkStatus) ToProtobufObject() *pb.MarkStatus {
 	}
 }
 
+type MarkStatusHistoryItem struct {
+	ID              int                        `json:"id" db:"id"`
+	MarkID          int                        `json:"mark_id" db:"mark_id"`
+	OldMarkStatusID null.Value[MarkStatusType] `json:"old_mark_status_id" db:"old_mark_status_id"`
+	NewMarkStatusID MarkStatusType             `json:"new_mark_status_id" db:"new_mark_status_id"`
+	ChangedAt       time.Time                  `json:"changed_at" db:"changed_at"`
+	PrevId          null.Int                   `json:"prev_id" db:"prev_id"`
+
+	Checks []Check `json:"checks"`
+}
+
 type Check struct {
 	ID        int       `json:"check_id" db:"check_id"`
 	UserID    int       `json:"user_id" db:"user_id"`
