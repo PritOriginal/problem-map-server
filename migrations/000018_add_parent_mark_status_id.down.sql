@@ -1,0 +1,1 @@
+ALTER TABLE mark_statuses DROP COLUMN parent_id;
