@@ -4,6 +4,7 @@ import (
 	"time"
 
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
+	"github.com/guregu/null/v6"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -128,15 +129,17 @@ type MarkStatusHistoryItem struct {
 }
 
 type Check struct {
-	ID        int       `json:"check_id" db:"check_id"`
-	UserID    int       `json:"user_id" db:"user_id"`
-	Username  string    `json:"username" db:"username"`
-	MarkID    int       `json:"mark_id" db:"mark_id"`
-	Result    bool      `json:"result" db:"result"`
-	Comment   string    `json:"comment" db:"comment"`
-	Photos    []string  `json:"photos"`
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+	ID                      int            `json:"check_id" db:"check_id"`
+	UserID                  int            `json:"user_id" db:"user_id"`
+	Username                string         `json:"username" db:"username"`
+	MarkID                  int            `json:"mark_id" db:"mark_id"`
+	MarkStatusId            MarkStatusType `json:"mark_status_id" db:"mark_status_id"`
+	MarkStatusHistoryItemId int            `json:"mark_status_history_id" db:"mark_status_history_id"`
+	Result                  bool           `json:"result" db:"result"`
+	Comment                 string         `json:"comment" db:"comment"`
+	Photos                  []string       `json:"photos"`
+	CreatedAt               time.Time      `json:"created_at" db:"created_at"`
+	UpdatedAt               time.Time      `json:"updated_at" db:"updated_at"`
 }
 
 func (c *Check) ToProtobufObject() *pb.Check {
