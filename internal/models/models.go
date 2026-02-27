@@ -97,7 +97,6 @@ type MarkStatusType int
 const (
 	UnconfirmedStatus MarkStatusType = iota + 1
 	ConfirmedStatus
-	ResolvedStatus
 	UnderReviewStatus
 	RediscoveredStatus
 	ClosedStatus
