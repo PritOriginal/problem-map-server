@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/internal/storage"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/stretchr/testify/mock"
@@ -43,13 +44,24 @@ func TestChecks(t *testing.T) {
 
 func (suite *ChecksSuite) TestAddCheck() {
 	tests := []struct {
-		name      string
-		addCheck  method[int64]
-		addPhotos method[any]
-		update    method[any]
+		name                         string
+		getLastMarkStatusHistoryItem method[models.MarkStatusHistoryItem]
+		getUserMarkCheck             method[models.Check]
+		addCheck                     method[int64]
+		addPhotos                    method[any]
+		update                       method[any]
 	}{
 		{
 			name: "Ok",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					NewMarkStatusID: models.UnconfirmedStatus,
+				},
+				err: nil,
+			},
+			getUserMarkCheck: method[models.Check]{
+				err: storage.ErrNotFound,
+			},
 			addCheck: method[int64]{
 				data: int64(1),
 				err:  nil,
@@ -62,20 +74,99 @@ func (suite *ChecksSuite) TestAddCheck() {
 			},
 		},
 		{
-			name: "ErrAddCheck",
-			addCheck: method[int64]{
-				data: int64(0),
-				err:  errors.New(""),
+			name: "ErrNotFoundMarkStatus",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				err: storage.ErrNotFound,
 			},
-			addPhotos: method[any]{
+		},
+		{
+			name: "ErrGetLastMarkStatusHistoryItem",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					NewMarkStatusID: models.UnconfirmedStatus,
+				},
+				err: errors.New(""),
+			},
+		},
+		{
+			name: "ErrGetUserMarkCheck",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					NewMarkStatusID: models.UnconfirmedStatus,
+				},
 				err: nil,
 			},
-			update: method[any]{
+			getUserMarkCheck: method[models.Check]{
+				err: errors.New(""),
+			},
+		},
+		{
+			name: "OkFalseHasPossibilityAdd",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{},
+				err:  nil,
+			},
+		},
+		{
+			name: "ErrGetLastMarkStatusHistoryItem",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					NewMarkStatusID: models.UnconfirmedStatus,
+				},
+				err: errors.New(""),
+			},
+		},
+		{
+			name: "ErrGetUserMarkCheck",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					NewMarkStatusID: models.UnconfirmedStatus,
+				},
+				err: nil,
+			},
+			getUserMarkCheck: method[models.Check]{
+				err: errors.New(""),
+			},
+		},
+		{
+			name: "OkFalseHasPossibilityAdd",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					NewMarkStatusID: models.UnconfirmedStatus,
+				},
+				err: nil,
+			},
+			getUserMarkCheck: method[models.Check]{
 				err: nil,
 			},
 		},
 		{
+			name: "ErrAddCheck",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					NewMarkStatusID: models.UnconfirmedStatus,
+				},
+				err: nil,
+			},
+			getUserMarkCheck: method[models.Check]{
+				err: storage.ErrNotFound,
+			},
+			addCheck: method[int64]{
+				data: int64(0),
+				err:  errors.New(""),
+			},
+		},
+		{
 			name: "ErrAddPhotos",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					NewMarkStatusID: models.UnconfirmedStatus,
+				},
+				err: nil,
+			},
+			getUserMarkCheck: method[models.Check]{
+				err: storage.ErrNotFound,
+			},
 			addCheck: method[int64]{
 				data: int64(1),
 				err:  nil,
@@ -83,12 +174,18 @@ func (suite *ChecksSuite) TestAddCheck() {
 			addPhotos: method[any]{
 				err: errors.New(""),
 			},
-			update: method[any]{
-				err: nil,
-			},
 		},
 		{
 			name: "ErrUpdate",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					NewMarkStatusID: models.UnconfirmedStatus,
+				},
+				err: nil,
+			},
+			getUserMarkCheck: method[models.Check]{
+				err: storage.ErrNotFound,
+			},
 			addCheck: method[int64]{
 				data: int64(1),
 				err:  nil,
@@ -104,6 +201,18 @@ func (suite *ChecksSuite) TestAddCheck() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			func() {
+				suite.marksRepo.On("GetLastMarkStatusHistoryItem", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(tt.getLastMarkStatusHistoryItem.data, tt.getLastMarkStatusHistoryItem.err)
+				if tt.getLastMarkStatusHistoryItem.err != nil {
+					return
+				}
+
+				suite.checksRepo.On("GetUserMarkCheck", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int"), mock.Anything).Once().
+					Return(tt.getUserMarkCheck.data, tt.getUserMarkCheck.err)
+				if tt.getUserMarkCheck.err != storage.ErrNotFound {
+					return
+				}
+
 				suite.checksRepo.On("AddCheck", mock.Anything, mock.Anything).Once().
 					Return(tt.addCheck.data, tt.addCheck.err)
 				if tt.addCheck.err != nil {
@@ -125,7 +234,11 @@ func (suite *ChecksSuite) TestAddCheck() {
 
 			_, gotErr := suite.uc.AddCheck(context.Background(), models.Check{}, []io.Reader{})
 
-			if tt.addCheck.err == nil && tt.addPhotos.err == nil && tt.update.err == nil {
+			if tt.getLastMarkStatusHistoryItem.err == nil &&
+				tt.getUserMarkCheck.err == storage.ErrNotFound &&
+				tt.addCheck.err == nil &&
+				tt.addPhotos.err == nil &&
+				tt.update.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
