@@ -354,3 +354,112 @@ func (suite *MarksSuite) TestGetMarkStatuses() {
 		})
 	}
 }
+
+func (suite *MarksSuite) TestGetMarkStatusHistoryByMarkId() {
+	tests := []struct {
+		name                         string
+		getMarkStatusHistoryByMarkId method[[]models.MarkStatusHistoryItem]
+		withChecks                   bool
+		getChecksByMarkId            method[[]models.Check]
+		getPhotosByMarkId            method[map[int]map[int][]string]
+	}{
+		{
+			name: "Ok",
+			getMarkStatusHistoryByMarkId: method[[]models.MarkStatusHistoryItem]{
+				err: nil,
+			},
+			withChecks: false,
+		},
+		{
+			name: "OkWithChecks",
+			getMarkStatusHistoryByMarkId: method[[]models.MarkStatusHistoryItem]{
+				data: []models.MarkStatusHistoryItem{
+					{ID: 1},
+					{ID: 2},
+				},
+				err: nil,
+			},
+			withChecks: true,
+			getChecksByMarkId: method[[]models.Check]{
+				data: []models.Check{
+					{ID: 1, MarkStatusHistoryItemId: 1},
+					{ID: 2, MarkStatusHistoryItemId: 1},
+				},
+				err: nil,
+			},
+			getPhotosByMarkId: method[map[int]map[int][]string]{
+				data: map[int]map[int][]string{
+					1: {
+						1: []string{"1", "2"},
+					},
+				},
+				err: nil,
+			},
+		},
+		{
+			name: "ErrGetMarkStatusHistoryByMarkId",
+			getMarkStatusHistoryByMarkId: method[[]models.MarkStatusHistoryItem]{
+				err: errors.New(""),
+			},
+		},
+		{
+			name: "ErrGetChecksByMarkId",
+			getMarkStatusHistoryByMarkId: method[[]models.MarkStatusHistoryItem]{
+				err: nil,
+			},
+			withChecks: true,
+			getChecksByMarkId: method[[]models.Check]{
+				err: errors.New(""),
+			},
+		},
+		{
+			name: "ErrGetPhotosByMarkId",
+			getMarkStatusHistoryByMarkId: method[[]models.MarkStatusHistoryItem]{
+				err: nil,
+			},
+			withChecks: true,
+			getChecksByMarkId: method[[]models.Check]{
+				err: nil,
+			},
+			getPhotosByMarkId: method[map[int]map[int][]string]{
+				err: errors.New(""),
+			},
+		},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			func() {
+				suite.marksRepo.On("GetMarkStatusHistoryByMarkId", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(tt.getMarkStatusHistoryByMarkId.data, tt.getMarkStatusHistoryByMarkId.err)
+				if tt.getMarkStatusHistoryByMarkId.err != nil {
+					return
+				}
+
+				if tt.withChecks {
+					suite.checksRepo.On("GetChecksByMarkId", mock.Anything, mock.AnythingOfType("int")).Once().
+						Return(tt.getChecksByMarkId.data, tt.getChecksByMarkId.err)
+					if tt.getChecksByMarkId.err != nil {
+						return
+					}
+
+					suite.photosRepo.On("GetPhotosByMarkId", mock.Anything, mock.AnythingOfType("int")).Once().
+						Return(tt.getPhotosByMarkId.data, tt.getPhotosByMarkId.err)
+					if tt.getPhotosByMarkId.err != nil {
+						return
+					}
+				}
+			}()
+
+			_, gotErr := suite.uc.GetMarkStatusHistoryByMarkId(context.Background(), 1, tt.withChecks)
+
+			if tt.getMarkStatusHistoryByMarkId.err == nil &&
+				tt.getChecksByMarkId.err == nil &&
+				tt.getPhotosByMarkId.err == nil {
+				suite.NoError(gotErr)
+			} else {
+				suite.NotNil(gotErr)
+			}
+			suite.marksRepo.AssertExpectations(suite.T())
+		})
+	}
+}
