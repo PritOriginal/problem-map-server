@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/internal/storage"
 )
 
 type ChecksRepository interface {
@@ -44,20 +45,57 @@ func NewChecks(log *slog.Logger, markStatusUpdater MarkStatusUpdater, repos Chec
 func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.Reader) (int64, error) {
 	const op = "usecase.Checks.AddCheck"
 
+	historyItem, err := uc.repos.Marks.GetLastMarkStatusHistoryItem(ctx, check.MarkID)
+	if err != nil {
+		switch err {
+		case storage.ErrNotFound:
+			return 0, ErrNotFound
+		default:
+			return 0, fmt.Errorf("%s: %w", op, err)
+		}
+	}
+	check.MarkStatusHistoryItemId = historyItem.ID
+	check.MarkStatusId = historyItem.NewMarkStatusID
+
+	hasPossibilityAdd, err := uc.checkPossibilityAddCheck(ctx, check.UserID, check.MarkStatusHistoryItemId)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	if !hasPossibilityAdd {
+		return 0, ErrConflict
+	}
+
 	id, err := uc.repos.Checks.AddCheck(ctx, check)
 	if err != nil {
-		return id, fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
 	if err := uc.repos.Photos.AddPhotos(ctx, check.MarkID, int(id), photos); err != nil {
-		return id, fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
 	if err := uc.markStatusUpdater.Update(ctx, check.MarkID); err != nil {
-		return id, fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return id, nil
+}
+
+func (uc *Checks) checkPossibilityAddCheck(ctx context.Context, userId int, historyId int) (bool, error) {
+	const op = "usecase.Checks.checkPossibilityAddCheck"
+
+	_, err := uc.repos.Checks.GetUserMarkCheck(ctx, userId, historyId)
+	if err != nil {
+		switch err {
+		case storage.ErrNotFound:
+			return true, nil
+		default:
+			return false, fmt.Errorf("%s: %w", op, err)
+		}
+	}
+
+	return false, nil
 }
 
 func (uc *Checks) GetCheckById(ctx context.Context, id int) (models.Check, error) {
