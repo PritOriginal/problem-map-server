@@ -144,3 +144,55 @@ func (repo *MarksRepository) UpdateMarkStatus(ctx context.Context, markId int, m
 
 	return nil
 }
+
+func (repo *MarksRepository) GetMarkStatusHistoryByMarkId(ctx context.Context, markId int) ([]models.MarkStatusHistoryItem, error) {
+	const op = "storage.postgres.GetMarkStatusHistoryByMarkId"
+
+	historyItems := []models.MarkStatusHistoryItem{}
+
+	query := `
+		SELECT 
+			* 
+		FROM 
+			mark_status_history 
+		WHERE
+			mark_id = $1 
+		ORDER BY
+			changed_at
+		`
+
+	if err := repo.Conn.SelectContext(ctx, &historyItems, query, markId); err != nil {
+		return historyItems, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return historyItems, nil
+}
+
+func (r *MarksRepository) GetLastMarkStatusHistoryItem(ctx context.Context, markId int) (models.MarkStatusHistoryItem, error) {
+	const op = "storage.postgres.GetLastMarkStatusHistoryItemWithStatus"
+
+	var historyItem models.MarkStatusHistoryItem
+
+	query := `
+		SELECT 
+			* 
+		FROM 
+			mark_status_history 
+		WHERE 
+			mark_id = $1 
+		ORDER BY 
+			changed_at DESC 
+		LIMIT 1
+		`
+
+	if err := r.Conn.GetContext(ctx, &historyItem, query, markId); err != nil {
+		switch err {
+		case sql.ErrNoRows:
+			return historyItem, storage.ErrNotFound
+		default:
+			return historyItem, fmt.Errorf("%s: %w", op, err)
+		}
+	}
+
+	return historyItem, nil
+}

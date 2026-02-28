@@ -9,6 +9,10 @@ definitions:
         type: string
       mark_id:
         type: integer
+      mark_status_history_id:
+        type: integer
+      mark_status_id:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
       photos:
         items:
           type: string
@@ -55,7 +59,7 @@ definitions:
       mark_id:
         type: integer
       mark_status_id:
-        type: integer
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
       mark_type_id:
         type: integer
       number_checks:
@@ -73,7 +77,44 @@ definitions:
         type: integer
       name:
         type: string
+      parent_id:
+        $ref: '#/definitions/null.Int'
     type: object
+  github_com_PritOriginal_problem-map-server_internal_models.MarkStatusHistoryItem:
+    properties:
+      changed_at:
+        type: string
+      checks:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Check'
+        type: array
+      id:
+        type: integer
+      mark_id:
+        type: integer
+      new_mark_status_id:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
+      old_mark_status_id:
+        $ref: '#/definitions/null.Value-github_com_PritOriginal_problem-map-server_internal_models_MarkStatusType'
+      prev_id:
+        $ref: '#/definitions/null.Int'
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType:
+    enum:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    type: integer
+    x-enum-varnames:
+    - UnconfirmedStatus
+    - ConfirmedStatus
+    - UnderReviewStatus
+    - RediscoveredStatus
+    - ClosedStatus
+    - RefutedStatus
   github_com_PritOriginal_problem-map-server_internal_models.MarkType:
     properties:
       mark_type_id:
@@ -255,6 +296,15 @@ definitions:
       status:
         type: string
     type: object
+  ? github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkStatusHistoryByMarkIdResponse
+  : properties:
+      message:
+        type: string
+      payload:
+        $ref: '#/definitions/internal_handler_marks.GetMarkStatusHistoryByMarkIdResponse'
+      status:
+        type: string
+    type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkStatusesResponse:
     properties:
       message:
@@ -402,7 +452,7 @@ definitions:
   internal_handler_auth.SignUpResponse:
     properties:
       user_id:
-        type: string
+        type: integer
     type: object
   internal_handler_checks.AddCheckResponse:
     properties:
@@ -458,6 +508,13 @@ definitions:
     properties:
       mark:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark'
+    type: object
+  internal_handler_marks.GetMarkStatusHistoryByMarkIdResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusHistoryItem'
+        type: array
     type: object
   internal_handler_marks.GetMarkStatusesResponse:
     properties:
@@ -535,6 +592,22 @@ definitions:
         items:
           $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.User'
         type: array
+    type: object
+  null.Int:
+    properties:
+      int64:
+        format: int64
+        type: integer
+      valid:
+        description: Valid is true if Int64 is not NULL
+        type: boolean
+    type: object
+  null.Value-github_com_PritOriginal_problem-map-server_internal_models_MarkStatusType:
+    properties:
+      v:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
+      valid:
+        type: boolean
     type: object
 info:
   contact: {}
@@ -895,6 +968,36 @@ paths:
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
       summary: Get mark by id
+      tags:
+      - marks
+  /marks/{id}/status-history:
+    get:
+      consumes:
+      - application/json
+      description: displays the entire list of status changes history for a specific
+        marker by markId
+      parameters:
+      - description: mark id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: with checks
+        in: query
+        name: withChecks
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkStatusHistoryByMarkIdResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse'
+      summary: List mark statuses
       tags:
       - marks
   /marks/statuses:

@@ -28,6 +28,7 @@ type Marks interface {
 	AddMark(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error)
 	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
 	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
+	GetMarkStatusHistoryByMarkId(ctx context.Context, markId int, withChecks bool) ([]models.MarkStatusHistoryItem, error)
 }
 
 type handler struct {
@@ -40,7 +41,10 @@ func Register(r *chi.Mux, auth *jwtauth.JWTAuth, uc Marks, cacher mwcache.Cacher
 
 	r.Route("/marks", func(r chi.Router) {
 		r.Get("/", handler.GetMarks())
-		r.Get("/{id}", handler.GetMarkById())
+		r.Route("/{id}", func(r chi.Router) {
+			r.Get("/", handler.GetMarkById())
+			r.Get("/status-history", handler.GetMarkStatusHistoryByMarkId())
+		})
 		r.Get("/user/{userId}", handler.GetMarksByUserId())
 		r.Group(func(r chi.Router) {
 			r.Use(jwtauth.Verifier(auth))
@@ -288,6 +292,56 @@ func (h *handler) GetMarkStatuses() http.HandlerFunc {
 
 		h.Render(w, r, responses.SucceededRenderer(GetMarkStatusesResponse{
 			MarkStatuses: statuses,
+		}))
+	}
+}
+
+// GetMarkStatusHistoryByMarkId displays the entire list of status changes history
+//
+//	@Summary		List mark statuses
+//	@Description	displays the entire list of status changes history for a specific marker by markId
+//	@Tags			marks
+//	@Accept			json
+//	@Produce		json
+//	@Param			id			path		int		true	"mark id"
+//	@Param			withChecks	query		boolean	false	"with checks"
+//	@Success		200			{object}	responses.SucceededResponse[marksrest.GetMarkStatusHistoryByMarkIdResponse]
+//	@Failure		500			{object}	responses.ErrorResponse
+//	@Router			/marks/{id}/status-history [get]
+func (h *handler) GetMarkStatusHistoryByMarkId() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		id, err := strconv.Atoi(chi.URLParam(r, "id"))
+		if err != nil {
+			h.RenderError(w, r,
+				handlers.HandlerError{Msg: "failed parse id", Err: err},
+				responses.ErrBadRequest,
+			)
+			return
+		}
+
+		var withChecks bool
+		withChecksParam := r.URL.Query().Get("withChecks")
+		if withChecksParam != "" {
+			withChecks, err = strconv.ParseBool(r.URL.Query().Get("withChecks"))
+			if err != nil {
+				h.RenderError(w, r,
+					handlers.HandlerError{Msg: "invalid withChecks param", Err: err},
+					responses.ErrBadRequest,
+				)
+				return
+			}
+		} else {
+			withChecks = false
+		}
+
+		historyItems, err := h.uc.GetMarkStatusHistoryByMarkId(context.Background(), id, withChecks)
+		if err != nil {
+			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get mark status history", Err: err})
+			return
+		}
+
+		h.Render(w, r, responses.SucceededRenderer(GetMarkStatusHistoryByMarkIdResponse{
+			HistoryItems: historyItems,
 		}))
 	}
 }

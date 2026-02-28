@@ -17,6 +17,8 @@ type MarksRepository interface {
 	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
 	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
 	UpdateMarkStatus(ctx context.Context, markId int, markStatusId models.MarkStatusType) error
+	GetMarkStatusHistoryByMarkId(ctx context.Context, markId int) ([]models.MarkStatusHistoryItem, error)
+	GetLastMarkStatusHistoryItem(ctx context.Context, markId int) (models.MarkStatusHistoryItem, error)
 }
 
 type PhotosRepository interface {
@@ -82,11 +84,18 @@ func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos []io.Read
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
+	historyItem, err := uc.repos.Marks.GetLastMarkStatusHistoryItem(ctx, int(markId))
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
 	check := models.Check{
-		UserID:  mark.UserID,
-		MarkID:  int(markId),
-		Result:  true,
-		Comment: mark.Description,
+		UserID:                  mark.UserID,
+		MarkID:                  int(markId),
+		MarkStatusId:            models.UnconfirmedStatus,
+		MarkStatusHistoryItemId: historyItem.ID,
+		Result:                  true,
+		Comment:                 mark.Description,
 	}
 
 	checkId, err := uc.repos.Checks.AddCheck(ctx, check)
@@ -121,4 +130,55 @@ func (uc *Marks) GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, erro
 	}
 
 	return statuses, nil
+}
+
+func (uc *Marks) GetMarkStatusHistoryByMarkId(ctx context.Context, markId int, withChecks bool) ([]models.MarkStatusHistoryItem, error) {
+	const op = "usecase.Map.GetMarkStatusHistoryByMarkId"
+
+	historyItems, err := uc.repos.Marks.GetMarkStatusHistoryByMarkId(ctx, markId)
+	if err != nil {
+		return historyItems, fmt.Errorf("%s: %w", op, err)
+	}
+
+	if withChecks {
+		checks, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+
+		photosMap, err := uc.repos.Photos.GetPhotosByMarkId(ctx, markId)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+
+		for i := range len(checks) {
+			if photos, ok := photosMap[markId][checks[i].ID]; ok {
+				checks[i].Photos = photos
+			} else {
+				checks[i].Photos = []string{}
+			}
+		}
+
+		historyItems = uc.addChecksToHistoryItems(historyItems, checks)
+	}
+
+	return historyItems, nil
+}
+
+func (uc *Marks) addChecksToHistoryItems(historyItems []models.MarkStatusHistoryItem, checks []models.Check) []models.MarkStatusHistoryItem {
+	groupedChecksMap := make(map[int][]models.Check, len(historyItems))
+	for _, check := range checks {
+		historyItemId := check.MarkStatusHistoryItemId
+		groupedChecksMap[historyItemId] = append(groupedChecksMap[historyItemId], check)
+	}
+
+	for i := range historyItems {
+		if _, ok := groupedChecksMap[historyItems[i].ID]; ok {
+			historyItems[i].Checks = groupedChecksMap[historyItems[i].ID]
+		} else {
+			historyItems[i].Checks = []models.Check{}
+		}
+	}
+
+	return historyItems
 }
