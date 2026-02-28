@@ -177,6 +177,80 @@ func (_c *MockMarks_GetMarkById_Call) RunAndReturn(run func(ctx context.Context,
 	return _c
 }
 
+// GetMarkStatusHistoryByMarkId provides a mock function for the type MockMarks
+func (_mock *MockMarks) GetMarkStatusHistoryByMarkId(ctx context.Context, markId int, withChecks bool) ([]models.MarkStatusHistoryItem, error) {
+	ret := _mock.Called(ctx, markId, withChecks)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMarkStatusHistoryByMarkId")
+	}
+
+	var r0 []models.MarkStatusHistoryItem
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, bool) ([]models.MarkStatusHistoryItem, error)); ok {
+		return returnFunc(ctx, markId, withChecks)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, bool) []models.MarkStatusHistoryItem); ok {
+		r0 = returnFunc(ctx, markId, withChecks)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]models.MarkStatusHistoryItem)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, bool) error); ok {
+		r1 = returnFunc(ctx, markId, withChecks)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMarks_GetMarkStatusHistoryByMarkId_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetMarkStatusHistoryByMarkId'
+type MockMarks_GetMarkStatusHistoryByMarkId_Call struct {
+	*mock.Call
+}
+
+// GetMarkStatusHistoryByMarkId is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markId int
+//   - withChecks bool
+func (_e *MockMarks_Expecter) GetMarkStatusHistoryByMarkId(ctx interface{}, markId interface{}, withChecks interface{}) *MockMarks_GetMarkStatusHistoryByMarkId_Call {
+	return &MockMarks_GetMarkStatusHistoryByMarkId_Call{Call: _e.mock.On("GetMarkStatusHistoryByMarkId", ctx, markId, withChecks)}
+}
+
+func (_c *MockMarks_GetMarkStatusHistoryByMarkId_Call) Run(run func(ctx context.Context, markId int, withChecks bool)) *MockMarks_GetMarkStatusHistoryByMarkId_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 bool
+		if args[2] != nil {
+			arg2 = args[2].(bool)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarks_GetMarkStatusHistoryByMarkId_Call) Return(markStatusHistoryItems []models.MarkStatusHistoryItem, err error) *MockMarks_GetMarkStatusHistoryByMarkId_Call {
+	_c.Call.Return(markStatusHistoryItems, err)
+	return _c
+}
+
+func (_c *MockMarks_GetMarkStatusHistoryByMarkId_Call) RunAndReturn(run func(ctx context.Context, markId int, withChecks bool) ([]models.MarkStatusHistoryItem, error)) *MockMarks_GetMarkStatusHistoryByMarkId_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetMarkStatuses provides a mock function for the type MockMarks
 func (_mock *MockMarks) GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error) {
 	ret := _mock.Called(ctx)

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
+	"github.com/guregu/null/v6"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -54,16 +55,16 @@ func (d *District) ToProtobufObject() *pb.District {
 }
 
 type Mark struct {
-	ID           int       `json:"mark_id" db:"mark_id"`
-	Description  string    `json:"description" db:"description"`
-	Geom         *Point    `json:"geom" db:"geom"`
-	MarkTypeID   int       `json:"mark_type_id" db:"type_mark_id"`
-	MarkStatusID int       `json:"mark_status_id" db:"mark_status_id"`
-	UserID       int       `json:"user_id" db:"user_id"`
-	NumberVotes  int       `json:"number_votes" db:"number_votes"`
-	NumberChecks int       `json:"number_checks" db:"number_checks"`
-	CreatedAt    time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+	ID           int            `json:"mark_id" db:"mark_id"`
+	Description  string         `json:"description" db:"description"`
+	Geom         *Point         `json:"geom" db:"geom"`
+	MarkTypeID   int            `json:"mark_type_id" db:"type_mark_id"`
+	MarkStatusID MarkStatusType `json:"mark_status_id" db:"mark_status_id"`
+	UserID       int            `json:"user_id" db:"user_id"`
+	NumberVotes  int            `json:"number_votes" db:"number_votes"`
+	NumberChecks int            `json:"number_checks" db:"number_checks"`
+	CreatedAt    time.Time      `json:"created_at" db:"created_at"`
+	UpdatedAt    time.Time      `json:"updated_at" db:"updated_at"`
 }
 
 func (m *Mark) ToProtobufObject() *pb.Mark {
@@ -97,7 +98,6 @@ type MarkStatusType int
 const (
 	UnconfirmedStatus MarkStatusType = iota + 1
 	ConfirmedStatus
-	ResolvedStatus
 	UnderReviewStatus
 	RediscoveredStatus
 	ClosedStatus
@@ -105,8 +105,9 @@ const (
 )
 
 type MarkStatus struct {
-	ID   int    `json:"mark_status_id" db:"mark_status_id"`
-	Name string `json:"name" db:"name"`
+	ID       int      `json:"mark_status_id" db:"mark_status_id"`
+	ParentId null.Int `json:"parent_id" db:"parent_id"`
+	Name     string   `json:"name" db:"name"`
 }
 
 func (s *MarkStatus) ToProtobufObject() *pb.MarkStatus {
@@ -116,16 +117,29 @@ func (s *MarkStatus) ToProtobufObject() *pb.MarkStatus {
 	}
 }
 
+type MarkStatusHistoryItem struct {
+	ID              int                        `json:"id" db:"id"`
+	MarkID          int                        `json:"mark_id" db:"mark_id"`
+	OldMarkStatusID null.Value[MarkStatusType] `json:"old_mark_status_id" db:"old_mark_status_id"`
+	NewMarkStatusID MarkStatusType             `json:"new_mark_status_id" db:"new_mark_status_id"`
+	ChangedAt       time.Time                  `json:"changed_at" db:"changed_at"`
+	PrevId          null.Int                   `json:"prev_id" db:"prev_id"`
+
+	Checks []Check `json:"checks"`
+}
+
 type Check struct {
-	ID        int       `json:"check_id" db:"check_id"`
-	UserID    int       `json:"user_id" db:"user_id"`
-	Username  string    `json:"username" db:"username"`
-	MarkID    int       `json:"mark_id" db:"mark_id"`
-	Result    bool      `json:"result" db:"result"`
-	Comment   string    `json:"comment" db:"comment"`
-	Photos    []string  `json:"photos"`
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+	ID                      int            `json:"check_id" db:"check_id"`
+	UserID                  int            `json:"user_id" db:"user_id"`
+	Username                string         `json:"username" db:"username"`
+	MarkID                  int            `json:"mark_id" db:"mark_id"`
+	MarkStatusId            MarkStatusType `json:"mark_status_id" db:"mark_status_id"`
+	MarkStatusHistoryItemId int            `json:"mark_status_history_id" db:"mark_status_history_id"`
+	Result                  bool           `json:"result" db:"result"`
+	Comment                 string         `json:"comment" db:"comment"`
+	Photos                  []string       `json:"photos"`
+	CreatedAt               time.Time      `json:"created_at" db:"created_at"`
+	UpdatedAt               time.Time      `json:"updated_at" db:"updated_at"`
 }
 
 func (c *Check) ToProtobufObject() *pb.Check {

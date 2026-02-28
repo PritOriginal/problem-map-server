@@ -36,3 +36,7 @@ type Point struct {
 	Longitude float64 `json:"longitude" validate:"required,longitude"`
 	Latitude  float64 `json:"latitude" validate:"required,latitude"`
 }
+
+type GetMarkStatusHistoryByMarkIdResponse struct {
+	HistoryItems []models.MarkStatusHistoryItem `json:"items"`
+}

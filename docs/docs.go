@@ -653,6 +653,50 @@ const docTemplate = `{
                 }
             }
         },
+        "/marks/{id}/status-history": {
+            "get": {
+                "description": "displays the entire list of status changes history for a specific marker by markId",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "marks"
+                ],
+                "summary": "List mark statuses",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "mark id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "with checks",
+                        "name": "withChecks",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkStatusHistoryByMarkIdResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/tasks": {
             "get": {
                 "description": "get tasks",
@@ -898,6 +942,12 @@ const docTemplate = `{
                 "mark_id": {
                     "type": "integer"
                 },
+                "mark_status_history_id": {
+                    "type": "integer"
+                },
+                "mark_status_id": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType"
+                },
                 "photos": {
                     "type": "array",
                     "items": {
@@ -968,7 +1018,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "mark_status_id": {
-                    "type": "integer"
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType"
                 },
                 "mark_type_id": {
                     "type": "integer"
@@ -995,8 +1045,59 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "parent_id": {
+                    "$ref": "#/definitions/null.Int"
                 }
             }
+        },
+        "github_com_PritOriginal_problem-map-server_internal_models.MarkStatusHistoryItem": {
+            "type": "object",
+            "properties": {
+                "changed_at": {
+                    "type": "string"
+                },
+                "checks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Check"
+                    }
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "mark_id": {
+                    "type": "integer"
+                },
+                "new_mark_status_id": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType"
+                },
+                "old_mark_status_id": {
+                    "$ref": "#/definitions/null.Value-github_com_PritOriginal_problem-map-server_internal_models_MarkStatusType"
+                },
+                "prev_id": {
+                    "$ref": "#/definitions/null.Int"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType": {
+            "type": "integer",
+            "enum": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+            ],
+            "x-enum-varnames": [
+                "UnconfirmedStatus",
+                "ConfirmedStatus",
+                "UnderReviewStatus",
+                "RediscoveredStatus",
+                "ClosedStatus",
+                "RefutedStatus"
+            ]
         },
         "github_com_PritOriginal_problem-map-server_internal_models.MarkType": {
             "type": "object",
@@ -1278,6 +1379,20 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkStatusHistoryByMarkIdResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_marks.GetMarkStatusHistoryByMarkIdResponse"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
         "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkStatusesResponse": {
             "type": "object",
             "properties": {
@@ -1499,7 +1614,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "user_id": {
-                    "type": "string"
+                    "type": "integer"
                 }
             }
         },
@@ -1587,6 +1702,17 @@ const docTemplate = `{
             "properties": {
                 "mark": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark"
+                }
+            }
+        },
+        "internal_handler_marks.GetMarkStatusHistoryByMarkIdResponse": {
+            "type": "object",
+            "properties": {
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusHistoryItem"
+                    }
                 }
             }
         },
@@ -1707,6 +1833,30 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.User"
                     }
+                }
+            }
+        },
+        "null.Int": {
+            "type": "object",
+            "properties": {
+                "int64": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "valid": {
+                    "description": "Valid is true if Int64 is not NULL",
+                    "type": "boolean"
+                }
+            }
+        },
+        "null.Value-github_com_PritOriginal_problem-map-server_internal_models_MarkStatusType": {
+            "type": "object",
+            "properties": {
+                "v": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType"
+                },
+                "valid": {
+                    "type": "boolean"
                 }
             }
         }
