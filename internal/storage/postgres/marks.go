@@ -144,3 +144,27 @@ func (repo *MarksRepository) UpdateMarkStatus(ctx context.Context, markId int, m
 
 	return nil
 }
+
+func (repo *MarksRepository) GetMarkStatusHistoryByMarkId(ctx context.Context, markId int) ([]models.MarkStatusHistoryItem, error) {
+	const op = "storage.postgres.GetMarkStatusHistoryByMarkId"
+
+	historyItems := []models.MarkStatusHistoryItem{}
+
+	query := `
+		SELECT 
+			* 
+		FROM 
+			mark_status_history 
+		WHERE
+			mark_id = $1 
+		ORDER BY
+			changed_at
+		`
+
+	if err := repo.Conn.SelectContext(ctx, &historyItems, query, markId); err != nil {
+		return historyItems, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return historyItems, nil
+}
+
