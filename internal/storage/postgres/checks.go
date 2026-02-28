@@ -59,7 +59,12 @@ func (r *ChecksRepository) GetCheckById(ctx context.Context, id int) (models.Che
 			check_id = $1`
 
 	if err := r.Conn.GetContext(ctx, &check, query, id); err != nil {
-		return check, fmt.Errorf("%s: %w", op, err)
+		switch err {
+		case sql.ErrNoRows:
+			return check, storage.ErrNotFound
+		default:
+			return check, fmt.Errorf("%s: %w", op, err)
+		}
 	}
 
 	return check, nil
