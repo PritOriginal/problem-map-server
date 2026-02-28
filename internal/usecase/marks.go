@@ -123,3 +123,54 @@ func (uc *Marks) GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, erro
 
 	return statuses, nil
 }
+
+func (uc *Marks) GetMarkStatusHistoryByMarkId(ctx context.Context, markId int, withChecks bool) ([]models.MarkStatusHistoryItem, error) {
+	const op = "usecase.Map.GetMarkStatusHistoryByMarkId"
+
+	historyItems, err := uc.repos.Marks.GetMarkStatusHistoryByMarkId(ctx, markId)
+	if err != nil {
+		return historyItems, fmt.Errorf("%s: %w", op, err)
+	}
+
+	if withChecks {
+		checks, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+
+		photosMap, err := uc.repos.Photos.GetPhotosByMarkId(ctx, markId)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+
+		for i := range len(checks) {
+			if photos, ok := photosMap[markId][checks[i].ID]; ok {
+				checks[i].Photos = photos
+			} else {
+				checks[i].Photos = []string{}
+			}
+		}
+
+		historyItems = uc.addChecksToHistoryItems(historyItems, checks)
+	}
+
+	return historyItems, nil
+}
+
+func (uc *Marks) addChecksToHistoryItems(historyItems []models.MarkStatusHistoryItem, checks []models.Check) []models.MarkStatusHistoryItem {
+	groupedChecksMap := make(map[int][]models.Check, len(historyItems))
+	for _, check := range checks {
+		historyItemId := check.MarkStatusHistoryItemId
+		groupedChecksMap[historyItemId] = append(groupedChecksMap[historyItemId], check)
+	}
+
+	for i := range historyItems {
+		if _, ok := groupedChecksMap[historyItems[i].ID]; ok {
+			historyItems[i].Checks = groupedChecksMap[historyItems[i].ID]
+		} else {
+			historyItems[i].Checks = []models.Check{}
+		}
+	}
+
+	return historyItems
+}
