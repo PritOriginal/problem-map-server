@@ -366,7 +366,7 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 			name: "Ok",
 			getMarkById: method[models.Mark]{
 				data: models.Mark{
-					MarkStatusID: int(models.UnconfirmedStatus),
+					MarkStatusID: models.UnconfirmedStatus,
 				},
 				err: nil,
 			},
@@ -386,7 +386,7 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 			name: "Ok-ConfirmedStatus",
 			getMarkById: method[models.Mark]{
 				data: models.Mark{
-					MarkStatusID: int(models.UnconfirmedStatus),
+					MarkStatusID: models.UnconfirmedStatus,
 				},
 				err: nil,
 			},
@@ -413,7 +413,7 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 			name: "Err-ConfirmedStatus",
 			getMarkById: method[models.Mark]{
 				data: models.Mark{
-					MarkStatusID: int(models.UnconfirmedStatus),
+					MarkStatusID: models.UnconfirmedStatus,
 				},
 				err: nil,
 			},
@@ -440,7 +440,7 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 			name: "Ok-RefutedStatus",
 			getMarkById: method[models.Mark]{
 				data: models.Mark{
-					MarkStatusID: int(models.UnconfirmedStatus),
+					MarkStatusID: models.UnconfirmedStatus,
 				},
 				err: nil,
 			},
@@ -467,7 +467,7 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 			name: "Ok-RefutedStatus",
 			getMarkById: method[models.Mark]{
 				data: models.Mark{
-					MarkStatusID: int(models.UnconfirmedStatus),
+					MarkStatusID: models.UnconfirmedStatus,
 				},
 				err: nil,
 			},
@@ -501,7 +501,7 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 			name: "Err-GetChecksByMarkId",
 			getMarkById: method[models.Mark]{
 				data: models.Mark{
-					MarkStatusID: int(models.UnconfirmedStatus),
+					MarkStatusID: models.UnconfirmedStatus,
 				},
 				err: nil,
 			},
@@ -527,7 +527,7 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 					return
 				}
 
-				if tt.getMarkById.data.MarkStatusID == int(models.UnconfirmedStatus) {
+				if tt.getMarkById.data.MarkStatusID == models.UnconfirmedStatus {
 					suite.checksRepo.On("GetChecksByMarkId", mock.Anything, mock.AnythingOfType("int")).Once().
 						Return(tt.getChecksByMarkId.data, tt.getChecksByMarkId.err)
 					if tt.getChecksByMarkId.err != nil {
