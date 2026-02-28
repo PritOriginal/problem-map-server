@@ -87,17 +87,21 @@ func (uc *Auth) RefreshTokens(ctx context.Context, refreshToken string) (string,
 
 	sub, err := token.ValidateToken(refreshToken, uc.authCfg.JWT.Refresh.Key)
 	if err != nil {
-		return "", "", fmt.Errorf("%s: %w", op, err)
+		return "", "", fmt.Errorf("%s: %w", op, ErrUnauthorized)
 	}
 
 	userId, err := strconv.Atoi(fmt.Sprint(sub))
 	if err != nil {
-		return "", "", fmt.Errorf("%s: %w", op, err)
+		return "", "", fmt.Errorf("%s: %w", op, ErrUnauthorized)
 	}
 
 	user, err := uc.repos.Users.GetUserById(ctx, userId)
 	if err != nil {
-		return "", "", fmt.Errorf("%s: %w", op, err)
+		if errors.Is(err, storage.ErrNotFound) {
+			return "", "", fmt.Errorf("%s: %w", op, ErrUnauthorized)
+		} else {
+			return "", "", fmt.Errorf("%s: %w", op, err)
+		}
 	}
 
 	accessToken, refreshToken, err := uc.generateTokens(user.Id)
