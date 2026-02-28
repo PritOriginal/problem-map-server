@@ -25,9 +25,9 @@ func (r *ChecksRepository) AddCheck(ctx context.Context, check models.Check) (in
 
 	query := `
 			INSERT INTO 
-				checks (user_id, mark_id, comment, result) 
+				checks (user_id, mark_id, mark_status_id, mark_status_history_id, comment, result) 
 			VALUES 
-				(:user_id, :mark_id, :comment, :result)
+				(:user_id, :mark_id, :mark_status_id, :mark_status_history_id, :comment, :result)
 			RETURNING check_id
 			`
 
