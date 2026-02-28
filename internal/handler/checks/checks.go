@@ -232,7 +232,21 @@ func (h *handler) AddCheck() http.HandlerFunc {
 		}
 		checkId, err := h.uc.AddCheck(context.Background(), check, photos)
 		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error add check", Err: err})
+			switch err {
+			case usecase.ErrNotFound:
+				h.RenderError(w, r,
+					handlers.HandlerError{Msg: "mark not found", Err: err},
+					responses.ErrBadRequest,
+				)
+				return
+			case usecase.ErrConflict:
+				h.RenderError(w, r,
+					handlers.HandlerError{Msg: "user has already completed the check", Err: err},
+					responses.ErrConflict,
+				)
+			default:
+				h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error add check", Err: err})
+			}
 			return
 		}
 
