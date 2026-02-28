@@ -2,9 +2,11 @@ package postgres
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/internal/storage"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -105,4 +107,46 @@ func (r *ChecksRepository) GetChecksByUserId(ctx context.Context, userId int) ([
 	}
 
 	return checks, nil
+}
+
+func (r *ChecksRepository) GetUserMarkCheck(ctx context.Context, userId int, markStatusHistoryId int) (models.Check, error) {
+	const op = "storage.postgres.GetUserMarkCheck"
+
+	check := models.Check{}
+
+	query := `
+		WITH RECURSIVE r AS (
+			SELECT h.id, h.prev_id, ms.parent_id, ms.name 
+			FROM mark_status_history AS h
+			JOIN mark_statuses AS ms
+			ON ms.mark_status_id = h.new_mark_status_id
+			WHERE h.id = $1
+		UNION 
+			SELECT h2.id, h2.prev_id, ms2.parent_id, ms2.name  
+			FROM mark_status_history AS h2
+			JOIN mark_statuses AS ms2
+			ON ms2.mark_status_id = h2.new_mark_status_id
+			JOIN r 
+			ON r.prev_id = h2.id
+		)
+
+		SELECT 
+			c.*, u.name as username 
+		FROM 
+			checks as c 
+		JOIN 
+			users AS u ON c.user_id = u.user_id 
+		WHERE 
+			c.user_id = $2 AND mark_status_history_id IN (SELECT id FROM r)`
+
+	if err := r.Conn.GetContext(ctx, &check, query, markStatusHistoryId, userId); err != nil {
+		switch err {
+		case sql.ErrNoRows:
+			return check, storage.ErrNotFound
+		default:
+			return check, fmt.Errorf("%s: %w", op, err)
+		}
+	}
+
+	return check, nil
 }
