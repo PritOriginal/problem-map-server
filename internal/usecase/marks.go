@@ -17,6 +17,7 @@ type MarksRepository interface {
 	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
 	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
 	UpdateMarkStatus(ctx context.Context, markId int, markStatusId models.MarkStatusType) error
+	GetMarkStatusHistoryByMarkId(ctx context.Context, markId int) ([]models.MarkStatusHistoryItem, error)
 }
 
 type PhotosRepository interface {
