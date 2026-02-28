@@ -44,7 +44,7 @@ func (r *ChecksRepository) AddCheck(ctx context.Context, check models.Check) (in
 }
 
 func (r *ChecksRepository) GetCheckById(ctx context.Context, id int) (models.Check, error) {
-	const op = "storage.postgres.GetReviewById"
+	const op = "storage.postgres.GetCheckById"
 
 	var check models.Check
 
@@ -66,7 +66,7 @@ func (r *ChecksRepository) GetCheckById(ctx context.Context, id int) (models.Che
 }
 
 func (r *ChecksRepository) GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error) {
-	const op = "storage.postgres.GetReviewsByMarkId"
+	const op = "storage.postgres.GetChecksByMarkId"
 
 	checks := []models.Check{}
 
@@ -88,7 +88,7 @@ func (r *ChecksRepository) GetChecksByMarkId(ctx context.Context, markId int) ([
 }
 
 func (r *ChecksRepository) GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error) {
-	const op = "storage.postgres.GetReviewsByUserId"
+	const op = "storage.postgres.GetChecksByUserId"
 
 	checks := []models.Check{}
 
