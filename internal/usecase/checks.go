@@ -136,7 +136,7 @@ func (u *Updater) Update(ctx context.Context, markId int) error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
-	if mark.MarkStatusID == int(models.UnconfirmedStatus) {
+	if mark.MarkStatusID == models.UnconfirmedStatus {
 		checks, err := u.repos.Checks.GetChecksByMarkId(ctx, markId)
 		if err != nil {
 			return fmt.Errorf("%s: %w", op, err)
@@ -157,12 +157,12 @@ func (u *Updater) Update(ctx context.Context, markId int) error {
 			if err := u.repos.Marks.UpdateMarkStatus(ctx, markId, models.ConfirmedStatus); err != nil {
 				return fmt.Errorf("%s: %w", op, err)
 			}
-			u.log.Debug("change mark status", slog.Int("old", mark.MarkStatusID), slog.Int("new", int(models.ConfirmedStatus)))
+			u.log.Debug("change mark status", slog.Int("old", int(mark.MarkStatusID)), slog.Int("new", int(models.ConfirmedStatus)))
 		} else if score <= -3 {
 			if err := u.repos.Marks.UpdateMarkStatus(ctx, markId, models.RefutedStatus); err != nil {
 				return fmt.Errorf("%s: %w", op, err)
 			}
-			u.log.Debug("change mark status", slog.Int("old", mark.MarkStatusID), slog.Int("new", int(models.RefutedStatus)))
+			u.log.Debug("change mark status", slog.Int("old", int(mark.MarkStatusID)), slog.Int("new", int(models.RefutedStatus)))
 		}
 	}
 	return nil
