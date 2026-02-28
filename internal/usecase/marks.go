@@ -83,11 +83,18 @@ func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos []io.Read
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
+	historyItem, err := uc.repos.Marks.GetLastMarkStatusHistoryItem(ctx, int(markId))
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
 	check := models.Check{
-		UserID:  mark.UserID,
-		MarkID:  int(markId),
-		Result:  true,
-		Comment: mark.Description,
+		UserID:                  mark.UserID,
+		MarkID:                  int(markId),
+		MarkStatusId:            models.UnconfirmedStatus,
+		MarkStatusHistoryItemId: historyItem.ID,
+		Result:                  true,
+		Comment:                 mark.Description,
 	}
 
 	checkId, err := uc.repos.Checks.AddCheck(ctx, check)
