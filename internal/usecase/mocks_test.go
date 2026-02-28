@@ -307,6 +307,78 @@ func (_c *MockChecksRepository_GetChecksByUserId_Call) RunAndReturn(run func(ctx
 	return _c
 }
 
+// GetUserMarkCheck provides a mock function for the type MockChecksRepository
+func (_mock *MockChecksRepository) GetUserMarkCheck(ctx context.Context, userId int, markStatusHistoryId int) (models.Check, error) {
+	ret := _mock.Called(ctx, userId, markStatusHistoryId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetUserMarkCheck")
+	}
+
+	var r0 models.Check
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) (models.Check, error)); ok {
+		return returnFunc(ctx, userId, markStatusHistoryId)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) models.Check); ok {
+		r0 = returnFunc(ctx, userId, markStatusHistoryId)
+	} else {
+		r0 = ret.Get(0).(models.Check)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, int) error); ok {
+		r1 = returnFunc(ctx, userId, markStatusHistoryId)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockChecksRepository_GetUserMarkCheck_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetUserMarkCheck'
+type MockChecksRepository_GetUserMarkCheck_Call struct {
+	*mock.Call
+}
+
+// GetUserMarkCheck is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userId int
+//   - markStatusHistoryId int
+func (_e *MockChecksRepository_Expecter) GetUserMarkCheck(ctx interface{}, userId interface{}, markStatusHistoryId interface{}) *MockChecksRepository_GetUserMarkCheck_Call {
+	return &MockChecksRepository_GetUserMarkCheck_Call{Call: _e.mock.On("GetUserMarkCheck", ctx, userId, markStatusHistoryId)}
+}
+
+func (_c *MockChecksRepository_GetUserMarkCheck_Call) Run(run func(ctx context.Context, userId int, markStatusHistoryId int)) *MockChecksRepository_GetUserMarkCheck_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockChecksRepository_GetUserMarkCheck_Call) Return(check models.Check, err error) *MockChecksRepository_GetUserMarkCheck_Call {
+	_c.Call.Return(check, err)
+	return _c
+}
+
+func (_c *MockChecksRepository_GetUserMarkCheck_Call) RunAndReturn(run func(ctx context.Context, userId int, markStatusHistoryId int) (models.Check, error)) *MockChecksRepository_GetUserMarkCheck_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockMarkStatusUpdater creates a new instance of MockMarkStatusUpdater. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockMarkStatusUpdater(t interface {
