@@ -769,6 +769,144 @@ func (_c *MockMarksRepository_AddMark_Call) RunAndReturn(run func(ctx context.Co
 	return _c
 }
 
+// GetLastMarkStatusHistoryItem provides a mock function for the type MockMarksRepository
+func (_mock *MockMarksRepository) GetLastMarkStatusHistoryItem(ctx context.Context, markId int) (models.MarkStatusHistoryItem, error) {
+	ret := _mock.Called(ctx, markId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetLastMarkStatusHistoryItem")
+	}
+
+	var r0 models.MarkStatusHistoryItem
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) (models.MarkStatusHistoryItem, error)); ok {
+		return returnFunc(ctx, markId)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) models.MarkStatusHistoryItem); ok {
+		r0 = returnFunc(ctx, markId)
+	} else {
+		r0 = ret.Get(0).(models.MarkStatusHistoryItem)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = returnFunc(ctx, markId)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMarksRepository_GetLastMarkStatusHistoryItem_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetLastMarkStatusHistoryItem'
+type MockMarksRepository_GetLastMarkStatusHistoryItem_Call struct {
+	*mock.Call
+}
+
+// GetLastMarkStatusHistoryItem is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markId int
+func (_e *MockMarksRepository_Expecter) GetLastMarkStatusHistoryItem(ctx interface{}, markId interface{}) *MockMarksRepository_GetLastMarkStatusHistoryItem_Call {
+	return &MockMarksRepository_GetLastMarkStatusHistoryItem_Call{Call: _e.mock.On("GetLastMarkStatusHistoryItem", ctx, markId)}
+}
+
+func (_c *MockMarksRepository_GetLastMarkStatusHistoryItem_Call) Run(run func(ctx context.Context, markId int)) *MockMarksRepository_GetLastMarkStatusHistoryItem_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarksRepository_GetLastMarkStatusHistoryItem_Call) Return(markStatusHistoryItem models.MarkStatusHistoryItem, err error) *MockMarksRepository_GetLastMarkStatusHistoryItem_Call {
+	_c.Call.Return(markStatusHistoryItem, err)
+	return _c
+}
+
+func (_c *MockMarksRepository_GetLastMarkStatusHistoryItem_Call) RunAndReturn(run func(ctx context.Context, markId int) (models.MarkStatusHistoryItem, error)) *MockMarksRepository_GetLastMarkStatusHistoryItem_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetLastMarkStatusHistoryItemWithStatus provides a mock function for the type MockMarksRepository
+func (_mock *MockMarksRepository) GetLastMarkStatusHistoryItemWithStatus(ctx context.Context, markId int, newMarkStatusId models.MarkStatusType) (models.MarkStatusHistoryItem, error) {
+	ret := _mock.Called(ctx, markId, newMarkStatusId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetLastMarkStatusHistoryItemWithStatus")
+	}
+
+	var r0 models.MarkStatusHistoryItem
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, models.MarkStatusType) (models.MarkStatusHistoryItem, error)); ok {
+		return returnFunc(ctx, markId, newMarkStatusId)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, models.MarkStatusType) models.MarkStatusHistoryItem); ok {
+		r0 = returnFunc(ctx, markId, newMarkStatusId)
+	} else {
+		r0 = ret.Get(0).(models.MarkStatusHistoryItem)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, models.MarkStatusType) error); ok {
+		r1 = returnFunc(ctx, markId, newMarkStatusId)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMarksRepository_GetLastMarkStatusHistoryItemWithStatus_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetLastMarkStatusHistoryItemWithStatus'
+type MockMarksRepository_GetLastMarkStatusHistoryItemWithStatus_Call struct {
+	*mock.Call
+}
+
+// GetLastMarkStatusHistoryItemWithStatus is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markId int
+//   - newMarkStatusId models.MarkStatusType
+func (_e *MockMarksRepository_Expecter) GetLastMarkStatusHistoryItemWithStatus(ctx interface{}, markId interface{}, newMarkStatusId interface{}) *MockMarksRepository_GetLastMarkStatusHistoryItemWithStatus_Call {
+	return &MockMarksRepository_GetLastMarkStatusHistoryItemWithStatus_Call{Call: _e.mock.On("GetLastMarkStatusHistoryItemWithStatus", ctx, markId, newMarkStatusId)}
+}
+
+func (_c *MockMarksRepository_GetLastMarkStatusHistoryItemWithStatus_Call) Run(run func(ctx context.Context, markId int, newMarkStatusId models.MarkStatusType)) *MockMarksRepository_GetLastMarkStatusHistoryItemWithStatus_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 models.MarkStatusType
+		if args[2] != nil {
+			arg2 = args[2].(models.MarkStatusType)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarksRepository_GetLastMarkStatusHistoryItemWithStatus_Call) Return(markStatusHistoryItem models.MarkStatusHistoryItem, err error) *MockMarksRepository_GetLastMarkStatusHistoryItemWithStatus_Call {
+	_c.Call.Return(markStatusHistoryItem, err)
+	return _c
+}
+
+func (_c *MockMarksRepository_GetLastMarkStatusHistoryItemWithStatus_Call) RunAndReturn(run func(ctx context.Context, markId int, newMarkStatusId models.MarkStatusType) (models.MarkStatusHistoryItem, error)) *MockMarksRepository_GetLastMarkStatusHistoryItemWithStatus_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetMarkById provides a mock function for the type MockMarksRepository
 func (_mock *MockMarksRepository) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
 	ret := _mock.Called(ctx, id)
