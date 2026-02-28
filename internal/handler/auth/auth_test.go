@@ -36,7 +36,7 @@ func (suite *AuthSuite) SetupSuite() {
 	authrest.Register(suite.r, suite.uc, baseHandler)
 }
 
-func TestMark(t *testing.T) {
+func TestAuth(t *testing.T) {
 	suite.Run(t, new(AuthSuite))
 }
 
@@ -252,12 +252,12 @@ func (suite *AuthSuite) TestRefreshTokens() {
 			statusCode:      400,
 		},
 		{
-			name: "Err409",
+			name: "Err401",
 			req: authrest.RefreshTokensRequest{
 				RefreshToken: "a.b.c",
 			},
 			wantErrParseReq: false,
-			errSignIn:       storage.ErrNotFound,
+			errSignIn:       usecase.ErrUnauthorized,
 			statusCode:      401,
 		},
 		{

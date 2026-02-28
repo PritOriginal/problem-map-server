@@ -176,13 +176,12 @@ func (h *handler) RefreshTokens() http.HandlerFunc {
 
 		accessToken, refreshToken, err := h.uc.RefreshTokens(context.Background(), req.RefreshToken)
 		if err != nil {
-			switch err {
-			case storage.ErrNotFound:
+			if errors.Is(err, usecase.ErrUnauthorized) {
 				h.RenderError(w, r,
 					handlers.HandlerError{Msg: "failed refresh tokens", Err: err},
 					responses.ErrUnauthorized,
 				)
-			default:
+			} else {
 				h.RenderInternalError(w, r, handlers.HandlerError{Msg: "failed login", Err: err})
 			}
 			return
