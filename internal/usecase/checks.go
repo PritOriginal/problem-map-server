@@ -14,6 +14,7 @@ type ChecksRepository interface {
 	GetCheckById(ctx context.Context, id int) (models.Check, error)
 	GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error)
 	GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error)
+	GetUserMarkCheck(ctx context.Context, userId int, markStatusHistoryId int) (models.Check, error)
 }
 
 type MarkStatusUpdater interface {
