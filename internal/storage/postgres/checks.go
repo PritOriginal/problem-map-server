@@ -83,7 +83,8 @@ func (r *ChecksRepository) GetChecksByMarkId(ctx context.Context, markId int) ([
 		JOIN 
 			users AS u ON c.user_id = u.user_id 
 		WHERE 
-			mark_id = $1`
+			mark_id = $1
+		ORDER BY created_at ASC`
 
 	if err := r.Conn.SelectContext(ctx, &checks, query, markId); err != nil {
 		return checks, fmt.Errorf("%s: %w", op, err)
