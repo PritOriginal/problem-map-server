@@ -2,17 +2,15 @@ package tasksrest
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"net/http"
+	"log/slog"
 	"strconv"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
-	"github.com/PritOriginal/problem-map-server/pkg/handlers"
+	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-playground/validator/v10"
+	"github.com/gin-gonic/gin"
 )
 
 type Tasks interface {
@@ -23,19 +21,20 @@ type Tasks interface {
 }
 
 type handler struct {
-	*handlers.BaseHandler
-	uc Tasks
+	log *slog.Logger
+	uc  Tasks
 }
 
-func Register(r *chi.Mux, uc Tasks, bh *handlers.BaseHandler) {
-	handler := &handler{BaseHandler: bh, uc: uc}
+func Register(r *gin.Engine, log *slog.Logger, uc Tasks) {
+	handler := &handler{log: log, uc: uc}
 
-	r.Route("/tasks", func(r chi.Router) {
-		r.Get("/", handler.GetTasks())
-		r.Get("/{id}", handler.GetTaskById())
-		r.Get("/user/{id}", handler.GetTasksByUserId())
-		r.Post("/", handler.AddTask())
-	})
+	tasks := r.Group("/tasks")
+	{
+		tasks.GET("", handler.GetTasks())
+		tasks.GET(":id", handler.GetTaskById())
+		tasks.GET("user/:id", handler.GetTasksByUserId())
+		tasks.POST("", handler.AddTask())
+	}
 }
 
 // GetTasks lists all existing tasks
@@ -44,19 +43,21 @@ func Register(r *chi.Mux, uc Tasks, bh *handlers.BaseHandler) {
 //	@Description	get tasks
 //	@Tags			tasks
 //	@Produce		json
-//	@Success		200	{object}	responses.SucceededResponse[tasksrest.GetTasksResponse]
-//	@Failure		500	{object}	responses.ErrorResponse
+//	@Success		200	{object}	responses.Response[tasksrest.GetTasksResponse]
+//	@Failure		500	{object}	responses.Response[any]
 //	@Router			/tasks [get]
-func (h *handler) GetTasks() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		tasks, err := h.uc.GetTasks(context.Background())
+func (h *handler) GetTasks() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		tasks, err := h.uc.GetTasks(ctx.Request.Context())
 		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get tasks", Err: err})
+			h.log.Error("error get tasks", logger.Err(err))
+			responses.Internal(ctx, "error get tasks")
 			return
 		}
-		h.Render(w, r, responses.SucceededRenderer(GetTasksResponse{
+
+		responses.OK(ctx, GetTasksResponse{
 			Tasks: tasks,
-		}))
+		})
 	}
 }
 
@@ -67,35 +68,35 @@ func (h *handler) GetTasks() http.HandlerFunc {
 //	@Tags			tasks
 //	@Produce		json
 //	@Param			id	path		int	true	"task id"
-//	@Success		200	{object}	responses.SucceededResponse[tasksrest.GetTaskByIdResponse]
-//	@Failure		400	{object}	responses.ErrorResponse
-//	@Failure		404	{object}	responses.ErrorResponse
-//	@Failure		500	{object}	responses.ErrorResponse
+//	@Success		200	{object}	responses.Response[tasksrest.GetTaskByIdResponse]
+//	@Failure		400	{object}	responses.Response[any]
+//	@Failure		404	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
 //	@Router			/tasks/{id} [get]
-func (h *handler) GetTaskById() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id, err := strconv.Atoi(chi.URLParam(r, "id"))
+func (h *handler) GetTaskById() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		id, err := strconv.Atoi(ctx.Param("id"))
 		if err != nil {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "failed parse id", Err: err},
-				responses.ErrBadRequest,
-			)
+			h.log.Debug("failed parse id", logger.Err(err))
+			responses.BadRequest(ctx, "failed parse id")
 			return
 		}
 
-		task, err := h.uc.GetTaskById(context.Background(), id)
+		task, err := h.uc.GetTaskById(ctx.Request.Context(), id)
 		if err != nil {
 			if errors.Is(err, storage.ErrNotFound) {
-				h.Render(w, r, responses.ErrNotFound)
+				h.log.Debug("task not found", slog.Int("id", id))
+				responses.NotFound(ctx, "task not found")
 			} else {
-				h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get task by id", Err: err})
+				h.log.Error("error get task by id", slog.Int("id", id), logger.Err(err))
+				responses.Internal(ctx, "error get task by id")
 			}
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(GetTaskByIdResponse{
+		responses.OK(ctx, GetTaskByIdResponse{
 			Task: task,
-		}))
+		})
 	}
 }
 
@@ -106,30 +107,29 @@ func (h *handler) GetTaskById() http.HandlerFunc {
 //	@Tags			tasks
 //	@Produce		json
 //	@Param			id	path		int	true	"user id"
-//	@Success		200	{object}	responses.SucceededResponse[tasksrest.GetTasksByUserIdResponse]
-//	@Failure		400	{object}	responses.ErrorResponse
-//	@Failure		500	{object}	responses.ErrorResponse
+//	@Success		200	{object}	responses.Response[tasksrest.GetTasksByUserIdResponse]
+//	@Failure		400	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
 //	@Router			/tasks/user/{id} [get]
-func (h *handler) GetTasksByUserId() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		userId, err := strconv.Atoi(chi.URLParam(r, "id"))
+func (h *handler) GetTasksByUserId() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		userId, err := strconv.Atoi(ctx.Param("id"))
 		if err != nil {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "failed parse id", Err: err},
-				responses.ErrBadRequest,
-			)
+			h.log.Debug("failed parse id", logger.Err(err))
+			responses.BadRequest(ctx, "failed parse id")
 			return
 		}
 
-		tasks, err := h.uc.GetTasksByUserId(context.Background(), userId)
+		tasks, err := h.uc.GetTasksByUserId(ctx.Request.Context(), userId)
 		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get tasks by user id", Err: err})
+			h.log.Error("error get tasks by user id", slog.Int("user_id", userId), logger.Err(err))
+			responses.Internal(ctx, "error get tasks by user id")
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(GetTasksByUserIdResponse{
+		responses.OK(ctx, GetTasksByUserIdResponse{
 			Tasks: tasks,
-		}))
+		})
 	}
 }
 
@@ -140,27 +140,16 @@ func (h *handler) GetTasksByUserId() http.HandlerFunc {
 //	@Tags			tasks
 //	@Produce		json
 //	@Param			request	body		tasksrest.AddTaskRequest	true	"query params"
-//	@Success		201		{object}	responses.SucceededResponse[tasksrest.AddTaskResponse]
-//	@Failure		400		{object}	responses.ErrorResponse
-//	@Failure		500		{object}	responses.ErrorResponse
+//	@Success		201		{object}	responses.Response[tasksrest.AddTaskResponse]
+//	@Failure		400		{object}	responses.Response[any]
+//	@Failure		500		{object}	responses.Response[any]
 //	@Router			/tasks [post]
-func (h *handler) AddTask() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (h *handler) AddTask() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
 		var req AddTaskRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "failed decode request body", Err: err},
-				responses.ErrBadRequest,
-			)
-			return
-		}
-
-		if err := h.ValidateStruct(req); err != nil {
-			validateErr := err.(validator.ValidationErrors)
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "invalid request", Err: validateErr},
-				responses.ErrBadRequest,
-			)
+		if err := ctx.ShouldBindJSON(&req); err != nil {
+			h.log.Debug("failed binding request", logger.Err(err))
+			responses.BadRequest(ctx, "invalid request")
 			return
 		}
 
@@ -170,14 +159,19 @@ func (h *handler) AddTask() http.HandlerFunc {
 			MarkID: req.MarkID,
 		}
 
-		taskId, err := h.uc.AddTask(context.Background(), task)
+		taskId, err := h.uc.AddTask(ctx.Request.Context(), task)
 		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "failed add task", Err: err})
+			h.log.Error("failed add task", logger.Err(err))
+			responses.Internal(ctx, "failed add task")
 			return
 		}
 
-		h.Render(w, r, responses.SucceededCreatedRenderer(AddTaskResponse{
+		h.log.Info("add new task",
+			slog.Int("user_id", req.UserID),
+			slog.Int("mark_id", req.MarkID),
+		)
+		responses.Created(ctx, AddTaskResponse{
 			TaskId: int(taskId),
-		}))
+		})
 	}
 }

@@ -9,17 +9,15 @@ import (
 	maprest "github.com/PritOriginal/problem-map-server/internal/handler/map"
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-playground/validator/v10"
+	"github.com/gin-gonic/gin"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
 type MapSuite struct {
 	suite.Suite
-	r      *chi.Mux
+	r      *gin.Engine
 	uc     *maprest.MockMap
 	cacher *mwcache.MockCacher
 }
@@ -29,15 +27,14 @@ func (suite *MapSuite) SetupSuite() {
 	suite.cacher = mwcache.NewMockCacher(suite.T())
 
 	log := slogdiscard.NewDiscardLogger()
-	validate := validator.New()
-	baseHandler := &handlers.BaseHandler{Log: log, Validate: validate}
 
-	suite.r = chi.NewRouter()
+	gin.SetMode(gin.TestMode)
+	suite.r = gin.New()
 
-	maprest.Register(suite.r, suite.uc, suite.cacher, baseHandler)
+	maprest.Register(suite.r, log, suite.uc, suite.cacher)
 }
 
-func TestMark(t *testing.T) {
+func TestMap(t *testing.T) {
 	suite.Run(t, new(MapSuite))
 }
 

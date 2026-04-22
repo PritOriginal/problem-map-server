@@ -43,25 +43,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_auth_SignInResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_auth_SignInResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -95,25 +95,25 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_auth_SignUpResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_auth_SignUpResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -147,25 +147,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_auth_RefreshTokensResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_auth_RefreshTokensResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -198,19 +198,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_AddCheckResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_checks_AddCheckResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -239,19 +239,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_GetChecksByMarkIdResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_checks_GetChecksByMarkIdResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -280,19 +280,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_GetChecksByUserIdResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_checks_GetChecksByUserIdResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -321,25 +321,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_GetCheckByIdResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_checks_GetCheckByIdResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -362,13 +362,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_map_GetCitiesResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_GetCitiesResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -391,13 +391,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_map_GetDistrictsResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_GetDistrictsResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -420,13 +420,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_map_GetRegionsResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_GetRegionsResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -449,13 +449,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarksResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarksResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -486,19 +486,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_AddMarkResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_AddMarkResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -521,13 +521,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkStatusesResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkStatusesResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -550,13 +550,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkTypesResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkTypesResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -585,19 +585,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarksByUserIdResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarksByUserIdResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -629,25 +629,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkByIdResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkByIdResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -685,13 +685,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkStatusHistoryByMarkIdResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkStatusHistoryByMarkIdResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -711,13 +717,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_GetTasksResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_GetTasksResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -746,19 +752,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_AddTaskResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_AddTaskResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -787,19 +793,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_GetTasksByUserIdResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_GetTasksByUserIdResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -828,25 +834,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_GetTaskByIdResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_GetTaskByIdResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -866,13 +872,13 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_users_GetUsersResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetUsersResponse"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -901,25 +907,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_users_GetUserByIdResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetUserByIdResponse"
                         }
                     },
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse"
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -1200,336 +1206,345 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.ErrorResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo": {
             "type": "object",
             "properties": {
                 "message": {
-                    "type": "string"
-                },
-                "status": {
                     "type": "string"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_auth_RefreshTokensResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-any": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "payload": {},
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_auth_RefreshTokensResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_auth.RefreshTokensResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_auth_SignInResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_auth_SignInResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_auth.SignInResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_auth_SignUpResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_auth_SignUpResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_auth.SignUpResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_AddCheckResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_checks_AddCheckResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_checks.AddCheckResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_GetCheckByIdResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_checks_GetCheckByIdResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_checks.GetCheckByIdResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_GetChecksByMarkIdResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_checks_GetChecksByMarkIdResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_checks.GetChecksByMarkIdResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_checks_GetChecksByUserIdResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_checks_GetChecksByUserIdResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_checks.GetChecksByUserIdResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_map_GetCitiesResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_GetCitiesResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_map.GetCitiesResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_map_GetDistrictsResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_GetDistrictsResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_map.GetDistrictsResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_map_GetRegionsResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_GetRegionsResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_map.GetRegionsResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_AddMarkResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_AddMarkResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.AddMarkResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkByIdResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkByIdResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.GetMarkByIdResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkStatusHistoryByMarkIdResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkStatusHistoryByMarkIdResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.GetMarkStatusHistoryByMarkIdResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkStatusesResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkStatusesResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.GetMarkStatusesResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarkTypesResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkTypesResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.GetMarkTypesResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarksByUserIdResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarksByUserIdResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.GetMarksByUserIdResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_marks_GetMarksResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarksResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.GetMarksResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_AddTaskResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_AddTaskResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_tasks.AddTaskResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_GetTaskByIdResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_GetTaskByIdResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_tasks.GetTaskByIdResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_GetTasksByUserIdResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_GetTasksByUserIdResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_tasks.GetTasksByUserIdResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_tasks_GetTasksResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_GetTasksResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_tasks.GetTasksResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_users_GetUserByIdResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetUserByIdResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_users.GetUserByIdResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.SucceededResponse-internal_handler_users_GetUsersResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetUsersResponse": {
             "type": "object",
             "properties": {
-                "message": {
-                    "type": "string"
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_users.GetUsersResponse"
                 },
-                "status": {
-                    "type": "string"
+                "success": {
+                    "type": "boolean"
                 }
             }
         },

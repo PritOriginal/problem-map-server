@@ -2,48 +2,56 @@ package checksrest_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"io"
 	"mime/multipart"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
 	checksrest "github.com/PritOriginal/problem-map-server/internal/handler/checks"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
-	"github.com/PritOriginal/problem-map-server/pkg/handlers"
+	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
+	jwt "github.com/appleboy/gin-jwt/v3"
 	"github.com/brianvoe/gofakeit/v7"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/jwtauth/v5"
-	"github.com/go-playground/validator/v10"
+	"github.com/gin-gonic/gin"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
 type ChecksSuite struct {
 	suite.Suite
-	r  *chi.Mux
+	r  *gin.Engine
 	uc *checksrest.MockChecks
 }
 
 func (suite *ChecksSuite) SetupSuite() {
-	accessAuth := jwtauth.New("HS256", []byte("1234"), nil)
+	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
+		Key: []byte("1234"),
+	})
+	if err != nil {
+		panic(err)
+	}
+	errInit := authMiddleware.MiddlewareInit()
+	if errInit != nil {
+		panic(errInit)
+	}
+
 	suite.uc = checksrest.NewMockChecks(suite.T())
 
 	log := slogdiscard.NewDiscardLogger()
-	validate := validator.New()
-	baseHandler := &handlers.BaseHandler{Log: log, Validate: validate}
 
-	suite.r = chi.NewRouter()
+	gin.SetMode(gin.TestMode)
+	suite.r = gin.New()
 
-	checksrest.Register(suite.r, accessAuth, suite.uc, baseHandler)
+	checksrest.Register(suite.r, log, authMiddleware, suite.uc)
 }
 
-func TestUsers(t *testing.T) {
+func TestChecks(t *testing.T) {
 	suite.Run(t, new(ChecksSuite))
 }
 
@@ -198,7 +206,6 @@ func (suite *ChecksSuite) TestGetChecksByUserId() {
 func (suite *ChecksSuite) TestAddCheck() {
 	tests := []struct {
 		name            string
-		rawReq          string
 		req             checksrest.AddCheckRequest
 		wantErrParseReq bool
 		errAddCheck     error
@@ -216,13 +223,6 @@ func (suite *ChecksSuite) TestAddCheck() {
 			statusCode:      201,
 		},
 		{
-			name:            "Err400InvalidJSON",
-			rawReq:          "{",
-			wantErrParseReq: true,
-			errAddCheck:     nil,
-			statusCode:      400,
-		},
-		{
 			name: "Err400InvalidReq",
 			req: checksrest.AddCheckRequest{
 				Result:  true,
@@ -231,6 +231,26 @@ func (suite *ChecksSuite) TestAddCheck() {
 			wantErrParseReq: true,
 			errAddCheck:     nil,
 			statusCode:      400,
+		},
+		{
+			name: "Err400NotFoundMark",
+			req: checksrest.AddCheckRequest{
+				MarkID:  1,
+				Result:  true,
+				Comment: "",
+			},
+			errAddCheck: usecase.ErrNotFound,
+			statusCode:  400,
+		},
+		{
+			name: "Err409Conflict",
+			req: checksrest.AddCheckRequest{
+				MarkID:  1,
+				Result:  true,
+				Comment: "",
+			},
+			errAddCheck: usecase.ErrConflict,
+			statusCode:  409,
 		},
 		{
 			name: "Err500",
@@ -253,22 +273,14 @@ func (suite *ChecksSuite) TestAddCheck() {
 
 			w := httptest.NewRecorder()
 
-			var buf *bytes.Buffer
-			if tt.rawReq == "" {
-				body, err := json.Marshal(tt.req)
-				suite.NoError(err)
-				buf = bytes.NewBuffer(body)
-			} else {
-				buf = bytes.NewBuffer([]byte(tt.rawReq))
-			}
-
 			b := &bytes.Buffer{}
 			mpw := multipart.NewWriter(b)
-
-			mpw.WriteField("data", buf.String())
+			mpw.WriteField("mark_id", strconv.Itoa(tt.req.MarkID))
+			mpw.WriteField("result", strconv.FormatBool(tt.req.Result))
+			mpw.WriteField("comment", tt.req.Comment)
 
 			image := gofakeit.ImageJpeg(10, 10)
-			fw, err := mpw.CreateFormFile("photo", "test.jpg")
+			fw, err := mpw.CreateFormFile("photos", "test.jpg")
 			suite.NoError(err)
 			io.Copy(fw, bytes.NewBuffer(image))
 

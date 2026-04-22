@@ -3,14 +3,14 @@ package usersrest
 import (
 	"context"
 	"errors"
-	"net/http"
+	"log/slog"
 	"strconv"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
-	"github.com/PritOriginal/problem-map-server/pkg/handlers"
+	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
-	"github.com/go-chi/chi/v5"
+	"github.com/gin-gonic/gin"
 )
 
 type Users interface {
@@ -19,17 +19,18 @@ type Users interface {
 }
 
 type handler struct {
-	*handlers.BaseHandler
-	uc Users
+	log *slog.Logger
+	uc  Users
 }
 
-func Register(r *chi.Mux, uc Users, bh *handlers.BaseHandler) {
-	handler := &handler{BaseHandler: bh, uc: uc}
+func Register(r *gin.Engine, log *slog.Logger, uc Users) {
+	handler := &handler{log: log, uc: uc}
 
-	r.Route("/users", func(r chi.Router) {
-		r.Get("/", handler.GetUsers())
-		r.Get("/{id}", handler.GetUserById())
-	})
+	users := r.Group("/users")
+	{
+		users.GET("", handler.GetUsers())
+		users.GET(":id", handler.GetUserById())
+	}
 }
 
 // GetUserById lists all existing users
@@ -39,35 +40,35 @@ func Register(r *chi.Mux, uc Users, bh *handlers.BaseHandler) {
 //	@Tags			users
 //	@Produce		json
 //	@Param			id	path		int	true	"user id"
-//	@Success		200	{object}	responses.SucceededResponse[usersrest.GetUserByIdResponse]
-//	@Failure		400	{object}	responses.ErrorResponse
-//	@Failure		404	{object}	responses.ErrorResponse
-//	@Failure		500	{object}	responses.ErrorResponse
+//	@Success		200	{object}	responses.Response[usersrest.GetUserByIdResponse]
+//	@Failure		400	{object}	responses.Response[any]
+//	@Failure		404	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
 //	@Router			/users/{id} [get]
-func (h *handler) GetUserById() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id, err := strconv.Atoi(chi.URLParam(r, "id"))
+func (h *handler) GetUserById() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		id, err := strconv.Atoi(ctx.Param("id"))
 		if err != nil {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "failed parse id", Err: err},
-				responses.ErrBadRequest,
-			)
+			h.log.Debug("failed parse id", logger.Err(err))
+			responses.BadRequest(ctx, "failed parse id")
 			return
 		}
 
-		user, err := h.uc.GetUserById(context.Background(), id)
+		user, err := h.uc.GetUserById(ctx.Request.Context(), id)
 		if err != nil {
 			if errors.Is(err, storage.ErrNotFound) {
-				h.Render(w, r, responses.ErrNotFound)
+				h.log.Debug("user not found", slog.Int("id", id))
+				responses.NotFound(ctx, "user not found")
 			} else {
-				h.RenderInternalError(w, r, handlers.HandlerError{Msg: "failed get user by id", Err: err})
+				h.log.Error("failed get user by id", slog.Int("id", id), logger.Err(err))
+				responses.Internal(ctx, "failed get user by id")
 			}
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(GetUserByIdResponse{
+		responses.OK(ctx, GetUserByIdResponse{
 			User: user,
-		}))
+		})
 	}
 }
 
@@ -77,19 +78,20 @@ func (h *handler) GetUserById() http.HandlerFunc {
 //	@Description	get users
 //	@Tags			users
 //	@Produce		json
-//	@Success		200	{object}	responses.SucceededResponse[usersrest.GetUsersResponse]
-//	@Failure		500	{object}	responses.ErrorResponse
+//	@Success		200	{object}	responses.Response[usersrest.GetUsersResponse]
+//	@Failure		500	{object}	responses.Response[any]
 //	@Router			/users [get]
-func (h *handler) GetUsers() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		users, err := h.uc.GetUsers(context.Background())
+func (h *handler) GetUsers() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		users, err := h.uc.GetUsers(ctx.Request.Context())
 		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get users", Err: err})
+			h.log.Error("error get users", logger.Err(err))
+			responses.Internal(ctx, "error get users")
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(GetUsersResponse{
+		responses.OK(ctx, GetUsersResponse{
 			Users: users,
-		}))
+		})
 	}
 }

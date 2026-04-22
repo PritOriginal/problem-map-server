@@ -16,7 +16,13 @@ build-grpc:
 	go build ./cmd/grpc/
 
 test:
-	go test ./...
+	go test -tags=nomsgpack ./...
+
+test-functional-rest:
+	go test -tags=functional,rest ./tests/rest -count 1
+
+test-functional-grpc:
+	go test -tags=functional,grpc ./tests/grpc -count 1
 
 test-cover:
 	go test ./... -coverprofile cover.test.tmp -coverpkg ./...
