@@ -13,8 +13,6 @@
 
 [Swagger документация](./docs/swagger.json) - доступна по адресу `http://[host]:[port]/swagger/index.html`
 
-[Сгенерированная документация к эндпоинтам](routes.md) (go-chi/docgen)
-
 > [!NOTE]  
 > Этот проект находится в стадии активной разработки, и на данный момент в нём ещё много чего не реализовано, поэтому не исключены ошибки.
 
@@ -26,7 +24,7 @@
 
 ### Стек
 
-- [`Gin`](https://github.com/gin-gonic/gin) - Веб-фреймворк 
+- [`Gin`](https://github.com/gin-gonic/gin) - Веб-фреймворк
 - `PostgreSQL` - БД
 - `PostGIS` - Для поддержки хранения геоданных
 - [`migrate`](https://github.com/golang-migrate/migrate) - Миграции
@@ -38,9 +36,9 @@
 - [`swaggo/swag`](https://github.com/swaggo/swag) - OpenAPI (Swagger)
 
 API:
+
 - `REST` (Основа)
 - `gRPC`
-
 
 ## Подготовка
 
@@ -88,15 +86,38 @@ make docker-grpc
 
 ## Тесты
 
+### Unit-тесты
+
+Простой прогон тестов:
+
 ```bash
 make test
 ```
 
-или
+Прогон тестов с выводом покрытия:
 
 ```bash
 make test-cover
 ```
+
+### Функциональные тесты
+
+Запуск функциональных тестов
+
+Для REST:
+
+```bash
+make test-functional-rest
+```
+
+Для gRPC (`В РАЗРАБОТКЕ`):
+
+```bash
+make test-functional-rest
+```
+
+> [!NOTE]  
+> Перед запуском функциональных тестов убедитесь, что тестируемый сервис запущен.
 
 ## Миграции
 
