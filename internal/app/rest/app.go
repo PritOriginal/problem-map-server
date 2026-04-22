@@ -24,17 +24,14 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/docgen"
-	"github.com/go-chi/jwtauth/v5"
-	"github.com/go-playground/validator/v10"
+	"github.com/gin-gonic/gin"
 )
 
 type App struct {
 	server *http.Server
 	log    *slog.Logger
 	db     *postgres.Postgres
-	router *chi.Mux
+	router *gin.Engine
 	port   int
 }
 
@@ -57,11 +54,9 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 	validate := validator.New()
 
-	router := handler.GetRouter(log)
+	router := handler.GetRouter(log, cfg.Env)
 
-	handler.SetSwagger(router, &cfg.REST)
-
-	baseHandler := &handlers.BaseHandler{Log: log, Validate: validate}
+	handler.SetSwagger(router, cfg)
 
 	mapRepo := postgres.NewMap(postgresDB.DB)
 
