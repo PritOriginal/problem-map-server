@@ -26,14 +26,16 @@
 
 ### Стек
 
-- `Chi` - Роутер
+- [`Gin`](https://github.com/gin-gonic/gin) - Веб-фреймворк 
 - `PostgreSQL` - БД
 - `PostGIS` - Для поддержки хранения геоданных
+- [`migrate`](https://github.com/golang-migrate/migrate) - Миграции
 - `Redis` - Кеширование
 - `S3` - Для хранения фото меток
 - `Docker` - Контейнеризация
-- `CI/CD`
-- `swaggo/swag` - OpenAPI (Swagger)
+- `log/slog` - Логгер
+- `GitHub Actions` - CI/CD  
+- [`swaggo/swag`](https://github.com/swaggo/swag) - OpenAPI (Swagger)
 
 API:
 - `REST` (Основа)
