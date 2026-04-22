@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
@@ -22,8 +21,8 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/storage/redis"
 	"github.com/PritOriginal/problem-map-server/internal/storage/s3"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
-	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
+	jwt "github.com/appleboy/gin-jwt/v3"
 	"github.com/gin-gonic/gin"
 )
 
@@ -50,9 +49,18 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	}
 	log.Info("Redis connected!")
 
-	accessAuth := jwtauth.New("HS256", []byte(cfg.Auth.JWT.Access.Key), nil)
-
-	validate := validator.New()
+	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
+		Key: []byte(cfg.Auth.JWT.Access.Key),
+	})
+	if err != nil {
+		log.Error("failed create auth middleware", slogger.Err(err))
+		panic(err)
+	}
+	errInit := authMiddleware.MiddlewareInit()
+	if errInit != nil {
+		log.Error("failed init auth middleware", slogger.Err(errInit))
+		panic(errInit)
+	}
 
 	router := handler.GetRouter(log, cfg.Env)
 
@@ -60,25 +68,12 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 	mapRepo := postgres.NewMap(postgresDB.DB)
 
-	var photoRepo usecase.PhotosRepository
-	switch cfg.PhotoStorage {
-	case config.Local:
-		photoRepo = local.NewPhotos()
-	case config.S3:
-		s3Client, err := s3.New(log, cfg.Aws)
-		if err != nil {
-			log.Error("failed connection to s3", slogger.Err(err))
-			panic(err)
-		}
-		log.Info("s3 connected!")
-
-		photoRepo = s3.NewPhotos(s3Client)
-	}
+	photoRepo := initPhotosRepository(log, cfg)
 
 	mapUseCase := usecase.NewMap(log, usecase.MapRepositories{
 		Map: mapRepo,
 	})
-	maprest.Register(router, mapUseCase, redis, baseHandler)
+	maprest.Register(router, log, mapUseCase, redis)
 
 	marksRepo := postgres.NewMarks(postgresDB.DB)
 	checksRepo := postgres.NewChecks(postgresDB.DB)
@@ -87,7 +82,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Checks: checksRepo,
 		Photos: photoRepo,
 	})
-	marksrest.Register(router, accessAuth, marksUseCase, redis, baseHandler)
+	marksrest.Register(router, log, authMiddleware, marksUseCase, redis)
 
 	markStatusUpdater := usecase.NewUpdater(log, usecase.UpdaterRepositories{
 		Marks:  marksRepo,
@@ -99,24 +94,24 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Checks: checksRepo,
 		Photos: photoRepo,
 	})
-	checksrest.Register(router, accessAuth, checksUseCase, baseHandler)
+	checksrest.Register(router, log, authMiddleware, checksUseCase)
 
 	usersRepo := postgres.NewUsers(postgresDB.DB)
 	usersUseCase := usecase.NewUsers(log, usecase.UsersRepositories{
 		Users: usersRepo,
 	})
-	usersrest.Register(router, usersUseCase, baseHandler)
+	usersrest.Register(router, log, usersUseCase)
 
 	authUseCase := usecase.NewAuth(log, cfg.Auth, usecase.AuthRepositories{
 		Users: usersRepo,
 	})
-	authrest.Register(router, authUseCase, baseHandler)
+	authrest.Register(router, log, authUseCase)
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB)
 	tasksUseCase := usecase.NewTasks(log, usecase.TasksRepositories{
 		Tasks: tasksRepo,
 	})
-	tasksrest.Register(router, tasksUseCase, baseHandler)
+	tasksrest.Register(router, log, tasksUseCase)
 
 	server := &http.Server{
 		Addr:         cfg.REST.Host + ":" + strconv.Itoa(cfg.REST.Port),
@@ -132,6 +127,22 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		db:     postgresDB,
 		router: router,
 		port:   cfg.REST.Port,
+	}
+}
+
+func initPhotosRepository(log *slog.Logger, cfg *config.Config) usecase.PhotosRepository {
+	switch cfg.PhotoStorage {
+	case config.S3:
+		s3Client, err := s3.New(log, cfg.Aws)
+		if err != nil {
+			log.Error("failed connection to s3", slogger.Err(err))
+			panic(err)
+		}
+		log.Info("s3 connected!")
+
+		return s3.NewPhotos(s3Client)
+	default:
+		return local.NewPhotos()
 	}
 }
 
@@ -169,21 +180,4 @@ func (a *App) Stop() {
 	if err := a.db.DB.Close(); err != nil {
 		a.log.Error("an error occurred while closing the connection to the database", slogger.Err(err))
 	}
-}
-
-func (a *App) MustGenerateRoutesDoc() {
-	if err := a.GenerateRoutesDoc(); err != nil {
-		panic(err)
-	}
-}
-
-func (a *App) GenerateRoutesDoc() error {
-	data := docgen.MarkdownRoutesDoc(a.router, docgen.MarkdownOpts{
-		ProjectPath: "github.com/PritOriginal/problem-map-server",
-		Intro:       "REST generated docs.",
-	})
-
-	err := os.WriteFile("routes.md", []byte(data), 0644)
-
-	return err
 }
