@@ -2,7 +2,6 @@ package checksrest_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"io"
 	"mime/multipart"
@@ -207,7 +206,6 @@ func (suite *ChecksSuite) TestGetChecksByUserId() {
 func (suite *ChecksSuite) TestAddCheck() {
 	tests := []struct {
 		name            string
-		rawReq          string
 		req             checksrest.AddCheckRequest
 		wantErrParseReq bool
 		errAddCheck     error
@@ -225,13 +223,6 @@ func (suite *ChecksSuite) TestAddCheck() {
 			statusCode:      201,
 		},
 		{
-			name:            "Err400InvalidJSON",
-			rawReq:          "{",
-			wantErrParseReq: true,
-			errAddCheck:     nil,
-			statusCode:      400,
-		},
-		{
 			name: "Err400InvalidReq",
 			req: checksrest.AddCheckRequest{
 				Result:  true,
@@ -240,6 +231,26 @@ func (suite *ChecksSuite) TestAddCheck() {
 			wantErrParseReq: true,
 			errAddCheck:     nil,
 			statusCode:      400,
+		},
+		{
+			name: "Err400NotFoundMark",
+			req: checksrest.AddCheckRequest{
+				MarkID:  1,
+				Result:  true,
+				Comment: "",
+			},
+			errAddCheck: usecase.ErrNotFound,
+			statusCode:  400,
+		},
+		{
+			name: "Err409Conflict",
+			req: checksrest.AddCheckRequest{
+				MarkID:  1,
+				Result:  true,
+				Comment: "",
+			},
+			errAddCheck: usecase.ErrConflict,
+			statusCode:  409,
 		},
 		{
 			name: "Err500",
@@ -262,22 +273,14 @@ func (suite *ChecksSuite) TestAddCheck() {
 
 			w := httptest.NewRecorder()
 
-			var buf *bytes.Buffer
-			if tt.rawReq == "" {
-				body, err := json.Marshal(tt.req)
-				suite.NoError(err)
-				buf = bytes.NewBuffer(body)
-			} else {
-				buf = bytes.NewBuffer([]byte(tt.rawReq))
-			}
-
 			b := &bytes.Buffer{}
 			mpw := multipart.NewWriter(b)
-
-			mpw.WriteField("data", buf.String())
+			mpw.WriteField("mark_id", strconv.Itoa(tt.req.MarkID))
+			mpw.WriteField("result", strconv.FormatBool(tt.req.Result))
+			mpw.WriteField("comment", tt.req.Comment)
 
 			image := gofakeit.ImageJpeg(10, 10)
-			fw, err := mpw.CreateFormFile("photo", "test.jpg")
+			fw, err := mpw.CreateFormFile("photos", "test.jpg")
 			suite.NoError(err)
 			io.Copy(fw, bytes.NewBuffer(image))
 
