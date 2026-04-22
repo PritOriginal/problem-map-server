@@ -160,7 +160,7 @@ func (suite *AuthSuite) TestSignIn() {
 			statusCode:      400,
 		},
 		{
-			name: "Err409",
+			name: "Err401",
 			req: authrest.SignInRequest{
 				Login:    "username",
 				Password: "password",
