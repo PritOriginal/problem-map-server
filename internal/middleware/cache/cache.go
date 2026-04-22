@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 type Cacher interface {
@@ -14,49 +16,43 @@ type Cacher interface {
 	Set(ctx context.Context, key string, value any, expiration time.Duration) error
 }
 
-func New(cacher Cacher, ttl time.Duration) func(next http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			cacheKey := fmt.Sprintf("http:%s:%s", r.Method, r.URL.String())
+func New(cacher Cacher, ttl time.Duration) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		cacheKey := fmt.Sprintf("http:%s:%s", c.Request.Method, c.Request.URL.String())
 
-			cachedResponse, err := cacher.GetBytes(r.Context(), cacheKey)
-			if err == nil {
-				w.Header().Set("Content-Type", "application/json")
-				w.Write(cachedResponse)
-				return
-			}
+		cachedResponse, err := cacher.GetBytes(c.Request.Context(), cacheKey)
+		if err == nil {
+			c.Data(http.StatusOK, "application/json", cachedResponse)
+			c.Abort()
+			return
+		}
 
-			rw := &responseWriter{
-				ResponseWriter: w,
-				body:           &bytes.Buffer{},
-			}
+		blw := &bodyLogWriter{
+			ResponseWriter: c.Writer,
+			body:           bytes.NewBufferString(""),
+		}
+		c.Writer = blw
 
-			next.ServeHTTP(rw, r)
+		c.Next()
 
-			if rw.Status() >= 200 && rw.Status() < 300 {
-				cacher.Set(context.Background(), cacheKey, rw.body.Bytes(), ttl)
-			}
-
-			w.Write(rw.body.Bytes())
-		})
+		if blw.status >= 200 && blw.status < 300 {
+			cacher.Set(c.Request.Context(), cacheKey, blw.body.Bytes(), ttl)
+		}
 	}
 }
 
-type responseWriter struct {
-	http.ResponseWriter
+type bodyLogWriter struct {
+	gin.ResponseWriter
 	body   *bytes.Buffer
 	status int
 }
 
-func (rw *responseWriter) Write(b []byte) (int, error) {
-	return rw.body.Write(b)
+func (w *bodyLogWriter) Write(b []byte) (int, error) {
+	w.body.Write(b)
+	return w.ResponseWriter.Write(b)
 }
 
-func (rw *responseWriter) WriteHeader(statusCode int) {
-	rw.status = statusCode
-	rw.ResponseWriter.WriteHeader(statusCode)
-}
-
-func (rw *responseWriter) Status() int {
-	return rw.status
+func (w *bodyLogWriter) WriteHeader(code int) {
+	w.status = code
+	w.ResponseWriter.WriteHeader(code)
 }
