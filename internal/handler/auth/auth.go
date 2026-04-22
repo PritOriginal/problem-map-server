@@ -2,16 +2,14 @@ package authrest
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"net/http"
+	"log/slog"
 
 	"github.com/PritOriginal/problem-map-server/internal/storage"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
-	"github.com/PritOriginal/problem-map-server/pkg/handlers"
+	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-playground/validator/v10"
+	"github.com/gin-gonic/gin"
 )
 
 type Auth interface {
@@ -21,18 +19,19 @@ type Auth interface {
 }
 
 type handler struct {
-	*handlers.BaseHandler
-	uc Auth
+	log *slog.Logger
+	uc  Auth
 }
 
-func Register(r *chi.Mux, uc Auth, bh *handlers.BaseHandler) {
-	handler := &handler{BaseHandler: bh, uc: uc}
+func Register(r *gin.Engine, log *slog.Logger, uc Auth) {
+	handler := &handler{log: log, uc: uc}
 
-	r.Route("/auth", func(r chi.Router) {
-		r.Post("/signup", handler.SignUp())
-		r.Post("/signin", handler.SignIn())
-		r.Post("/tokens/refresh", handler.RefreshTokens())
-	})
+	auth := r.Group("/auth")
+	{
+		auth.POST("signup", handler.SignUp())
+		auth.POST("signin", handler.SignIn())
+		auth.POST("tokens/refresh", handler.RefreshTokens())
+	}
 }
 
 // SignUp sign up a new user
@@ -43,48 +42,37 @@ func Register(r *chi.Mux, uc Auth, bh *handlers.BaseHandler) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			request	body		authrest.SignUpRequest	true	"query params"
-//	@Success		201		{object}	responses.SucceededResponse[authrest.SignUpResponse]
-//	@Failure		400		{object}	responses.ErrorResponse
-//	@Failure		409		{object}	responses.ErrorResponse
-//	@Failure		500		{object}	responses.ErrorResponse
+//	@Success		201		{object}	responses.Response[authrest.SignUpResponse]
+//	@Failure		400		{object}	responses.Response[any]
+//	@Failure		409		{object}	responses.Response[any]
+//	@Failure		500		{object}	responses.Response[any]
 //	@Router			/auth/signup [post]
-func (h *handler) SignUp() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (h *handler) SignUp() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
 		var req SignUpRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "failed decode request body", Err: err},
-				responses.ErrBadRequest,
-			)
+		if err := ctx.ShouldBindJSON(&req); err != nil {
+			h.log.Debug("failed binding request", logger.Err(err))
+			responses.BadRequest(ctx, "invalid request")
 			return
 		}
 
-		if err := h.ValidateStruct(req); err != nil {
-			validateErr := err.(validator.ValidationErrors)
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "invalid request", Err: validateErr},
-				responses.ErrBadRequest,
-			)
-			return
-		}
-
-		userId, err := h.uc.SignUp(context.Background(), req.Username, req.Login, req.Password)
+		userId, err := h.uc.SignUp(ctx.Request.Context(), req.Username, req.Login, req.Password)
 		if err != nil {
 			switch err {
 			case usecase.ErrConflict:
-				h.RenderError(w, r,
-					handlers.HandlerError{Msg: "user already exists", Err: err},
-					responses.ErrConflict,
-				)
+				h.log.Debug("user already exists", slog.String("login", req.Login))
+				responses.Conflict(ctx, "user already exists")
 			default:
-				h.RenderInternalError(w, r, handlers.HandlerError{Msg: "failed sign up", Err: err})
+				h.log.Error("failed sign up", logger.Err(err))
+				responses.Internal(ctx, "failed sign up")
 			}
 			return
 		}
 
-		h.Render(w, r, responses.SucceededCreatedRenderer(SignUpResponse{
+		h.log.Info("new user has registered", slog.String("login", req.Login), slog.Int64("id", userId))
+		responses.Created(ctx, SignUpResponse{
 			UserId: int(userId),
-		}))
+		})
 	}
 }
 
@@ -96,48 +84,36 @@ func (h *handler) SignUp() http.HandlerFunc {
 //	@Accept			json
 //	@Produce		json
 //	@Param			request	body		authrest.SignInRequest	true	"query params"
-//	@Success		200		{object}	responses.SucceededResponse[authrest.SignInResponse]
-//	@Failure		400		{object}	responses.ErrorResponse
-//	@Failure		401		{object}	responses.ErrorResponse
-//	@Failure		500		{object}	responses.ErrorResponse
+//	@Success		200		{object}	responses.Response[authrest.SignInResponse]
+//	@Failure		400		{object}	responses.Response[any]
+//	@Failure		401		{object}	responses.Response[any]
+//	@Failure		500		{object}	responses.Response[any]
 //	@Router			/auth/signin [post]
-func (h *handler) SignIn() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (h *handler) SignIn() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
 		var req SignInRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "failed decode request body", Err: err},
-				responses.ErrBadRequest,
-			)
+		if err := ctx.ShouldBindJSON(&req); err != nil {
+			h.log.Debug("failed binding request", logger.Err(err))
+			responses.BadRequest(ctx, "invalid request")
 			return
 		}
 
-		if err := h.ValidateStruct(req); err != nil {
-			validateErr := err.(validator.ValidationErrors)
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "invalid request", Err: validateErr},
-				responses.ErrBadRequest,
-			)
-			return
-		}
-
-		accessToken, refreshToken, err := h.uc.SignIn(context.Background(), req.Login, req.Password)
+		accessToken, refreshToken, err := h.uc.SignIn(ctx.Request.Context(), req.Login, req.Password)
 		if err != nil {
 			if errors.Is(err, storage.ErrNotFound) {
-				h.RenderError(w, r,
-					handlers.HandlerError{Msg: "failed sign in", Err: err},
-					responses.ErrUnauthorized,
-				)
+				h.log.Debug("failed sign in")
+				responses.Unauthorized(ctx, "failed sign in")
 			} else {
-				h.RenderInternalError(w, r, handlers.HandlerError{Msg: "failed sign in", Err: err})
+				h.log.Error("failed sign in", logger.Err(err))
+				responses.Internal(ctx, "failed sign in")
 			}
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(SignInResponse{
+		responses.OK(ctx, SignInResponse{
 			AccessToken:  accessToken,
 			RefreshToken: refreshToken,
-		}))
+		})
 	}
 }
 
@@ -149,47 +125,35 @@ func (h *handler) SignIn() http.HandlerFunc {
 //	@Accept			json
 //	@Produce		json
 //	@Param			request	body		authrest.RefreshTokensRequest	true	"query params"
-//	@Success		200		{object}	responses.SucceededResponse[authrest.RefreshTokensResponse]
-//	@Failure		400		{object}	responses.ErrorResponse
-//	@Failure		401		{object}	responses.ErrorResponse
-//	@Failure		500		{object}	responses.ErrorResponse
+//	@Success		200		{object}	responses.Response[authrest.RefreshTokensResponse]
+//	@Failure		400		{object}	responses.Response[any]
+//	@Failure		401		{object}	responses.Response[any]
+//	@Failure		500		{object}	responses.Response[any]
 //	@Router			/auth/tokens/refresh [post]
-func (h *handler) RefreshTokens() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func (h *handler) RefreshTokens() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
 		var req RefreshTokensRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "failed decode request body", Err: err},
-				responses.ErrBadRequest,
-			)
+		if err := ctx.ShouldBindJSON(&req); err != nil {
+			h.log.Debug("failed binding request", logger.Err(err))
+			responses.BadRequest(ctx, "invalid request")
 			return
 		}
 
-		if err := h.ValidateStruct(req); err != nil {
-			validateErr := err.(validator.ValidationErrors)
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "invalid request", Err: validateErr},
-				responses.ErrBadRequest,
-			)
-			return
-		}
-
-		accessToken, refreshToken, err := h.uc.RefreshTokens(context.Background(), req.RefreshToken)
+		accessToken, refreshToken, err := h.uc.RefreshTokens(ctx.Request.Context(), req.RefreshToken)
 		if err != nil {
 			if errors.Is(err, usecase.ErrUnauthorized) {
-				h.RenderError(w, r,
-					handlers.HandlerError{Msg: "failed refresh tokens", Err: err},
-					responses.ErrUnauthorized,
-				)
+				h.log.Debug("failed refresh tokens", slog.String("refresh_token", req.RefreshToken))
+				responses.Unauthorized(ctx, "failed refresh tokens")
 			} else {
-				h.RenderInternalError(w, r, handlers.HandlerError{Msg: "failed login", Err: err})
+				h.log.Error("failed refresh tokens", logger.Err(err))
+				responses.Internal(ctx, "failed refresh tokens")
 			}
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(RefreshTokensResponse{
+		responses.OK(ctx, RefreshTokensResponse{
 			AccessToken:  accessToken,
 			RefreshToken: refreshToken,
-		}))
+		})
 	}
 }

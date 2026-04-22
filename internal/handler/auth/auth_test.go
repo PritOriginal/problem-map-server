@@ -10,17 +10,15 @@ import (
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
-	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-playground/validator/v10"
+	"github.com/gin-gonic/gin"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
 type AuthSuite struct {
 	suite.Suite
-	r  *chi.Mux
+	r  *gin.Engine
 	uc *authrest.MockAuth
 }
 
@@ -28,12 +26,11 @@ func (suite *AuthSuite) SetupSuite() {
 	suite.uc = authrest.NewMockAuth(suite.T())
 
 	log := slogdiscard.NewDiscardLogger()
-	validate := validator.New()
-	baseHandler := &handlers.BaseHandler{Log: log, Validate: validate}
 
-	suite.r = chi.NewRouter()
+	gin.SetMode(gin.TestMode)
+	suite.r = gin.New()
 
-	authrest.Register(suite.r, suite.uc, baseHandler)
+	authrest.Register(suite.r, log, suite.uc)
 }
 
 func TestAuth(t *testing.T) {
@@ -163,7 +160,7 @@ func (suite *AuthSuite) TestSignIn() {
 			statusCode:      400,
 		},
 		{
-			name: "Err409",
+			name: "Err401",
 			req: authrest.SignInRequest{
 				Login:    "username",
 				Password: "password",

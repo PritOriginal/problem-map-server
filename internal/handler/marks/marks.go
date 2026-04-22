@@ -2,11 +2,9 @@ package marksrest
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
-	"net/http"
 	"strconv"
 	"time"
 
@@ -14,10 +12,10 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
+	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/jwtauth/v5"
-	"github.com/go-playground/validator/v10"
+	jwt "github.com/appleboy/gin-jwt/v3"
+	"github.com/gin-gonic/gin"
 	"github.com/twpayne/go-geom"
 )
 
@@ -32,31 +30,33 @@ type Marks interface {
 }
 
 type handler struct {
-	*handlers.BaseHandler
-	uc Marks
+	log *slog.Logger
+	uc  Marks
 }
 
-func Register(r *chi.Mux, auth *jwtauth.JWTAuth, uc Marks, cacher mwcache.Cacher, bh *handlers.BaseHandler) {
-	handler := &handler{BaseHandler: bh, uc: uc}
+func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddleware, uc Marks, cacher mwcache.Cacher) {
+	handler := &handler{log: log, uc: uc}
 
-	r.Route("/marks", func(r chi.Router) {
-		r.Get("/", handler.GetMarks())
-		r.Route("/{id}", func(r chi.Router) {
-			r.Get("/", handler.GetMarkById())
-			r.Get("/status-history", handler.GetMarkStatusHistoryByMarkId())
-		})
-		r.Get("/user/{userId}", handler.GetMarksByUserId())
-		r.Group(func(r chi.Router) {
-			r.Use(jwtauth.Verifier(auth))
-			r.Use(jwtauth.Authenticator(auth))
-			r.Post("/", handler.AddMark())
-		})
-		r.Group(func(r chi.Router) {
-			r.Use(mwcache.New(cacher, 24*time.Hour))
-			r.Get("/types", handler.GetMarkTypes())
-			r.Get("/statuses", handler.GetMarkStatuses())
-		})
-	})
+	marks := r.Group("/marks")
+	{
+		marks.GET("", handler.GetMarks())
+		id := marks.Group(":id")
+		{
+			id.GET("", handler.GetMarkById())
+			id.GET("status-history", handler.GetMarkStatusHistoryByMarkId())
+		}
+		marks.GET("user/:userId", handler.GetMarksByUserId())
+		auth := marks.Group("", authMiddleware.MiddlewareFunc())
+		{
+			auth.POST("", handler.AddMark())
+		}
+		cache := marks.Group("")
+		cache.Use(mwcache.New(cacher, 24*time.Hour))
+		{
+			cache.GET("/types", handler.GetMarkTypes())
+			cache.GET("/statuses", handler.GetMarkStatuses())
+		}
+	}
 }
 
 // GetMarks lists all existing markers
@@ -66,19 +66,21 @@ func Register(r *chi.Mux, auth *jwtauth.JWTAuth, uc Marks, cacher mwcache.Cacher
 //	@Tags			marks
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	responses.SucceededResponse[marksrest.GetMarksResponse]
-//	@Failure		500	{object}	responses.ErrorResponse
+//	@Success		200	{object}	responses.Response[marksrest.GetMarksResponse]
+//	@Failure		500	{object}	responses.Response[any]
 //	@Router			/marks [get]
-func (h *handler) GetMarks() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		marks, err := h.uc.GetMarks(context.Background())
+func (h *handler) GetMarks() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		marks, err := h.uc.GetMarks(ctx.Request.Context())
 		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get marks", Err: err})
+			h.log.Error("error get marks", logger.Err(err))
+			responses.Internal(ctx, "error get marks")
 			return
 		}
-		h.Render(w, r, responses.SucceededRenderer(GetMarksResponse{
+
+		responses.OK(ctx, GetMarksResponse{
 			Marks: marks,
-		}))
+		})
 	}
 }
 
@@ -90,35 +92,35 @@ func (h *handler) GetMarks() http.HandlerFunc {
 //	@Accept			json
 //	@Produce		json
 //	@Param			id	path		int	true	"mark id"
-//	@Success		200	{object}	responses.SucceededResponse[marksrest.GetMarkByIdResponse]
-//	@Failure		400	{object}	responses.ErrorResponse
-//	@Failure		404	{object}	responses.ErrorResponse
-//	@Failure		500	{object}	responses.ErrorResponse
+//	@Success		200	{object}	responses.Response[marksrest.GetMarkByIdResponse]
+//	@Failure		400	{object}	responses.Response[any]
+//	@Failure		404	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
 //	@Router			/marks/{id} [get]
-func (h *handler) GetMarkById() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id, err := strconv.Atoi(chi.URLParam(r, "id"))
+func (h *handler) GetMarkById() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		id, err := strconv.Atoi(ctx.Param("id"))
 		if err != nil {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "failed parse id", Err: err},
-				responses.ErrBadRequest,
-			)
+			h.log.Debug("failed parse id", logger.Err(err))
+			responses.BadRequest(ctx, "failed parse id")
 			return
 		}
 
-		mark, err := h.uc.GetMarkById(context.Background(), id)
+		mark, err := h.uc.GetMarkById(ctx.Request.Context(), id)
 		if err != nil {
 			if errors.Is(err, storage.ErrNotFound) {
-				h.Render(w, r, responses.ErrNotFound)
+				h.log.Debug("mark not found", slog.Int("id", id))
+				responses.NotFound(ctx, "mark not found")
 			} else {
-				h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get mark by id", Err: err})
+				h.log.Error("error get mark by id", slog.Int("id", id), logger.Err(err))
+				responses.Internal(ctx, "error get mark by id")
 			}
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(GetMarkByIdResponse{
+		responses.OK(ctx, GetMarkByIdResponse{
 			Mark: mark,
-		}))
+		})
 	}
 }
 
@@ -129,30 +131,29 @@ func (h *handler) GetMarkById() http.HandlerFunc {
 //	@Tags			marks
 //	@Produce		json
 //	@Param			id	path		int	true	"user id"
-//	@Success		200	{object}	responses.SucceededResponse[marksrest.GetMarksByUserIdResponse]
-//	@Failure		400	{object}	responses.ErrorResponse
-//	@Failure		500	{object}	responses.ErrorResponse
+//	@Success		200	{object}	responses.Response[marksrest.GetMarksByUserIdResponse]
+//	@Failure		400	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
 //	@Router			/marks/user/{id} [get]
-func (h *handler) GetMarksByUserId() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		userId, err := strconv.Atoi(chi.URLParam(r, "userId"))
+func (h *handler) GetMarksByUserId() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		userId, err := strconv.Atoi(ctx.Param("userId"))
 		if err != nil {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "failed parse id", Err: err},
-				responses.ErrBadRequest,
-			)
+			h.log.Debug("failed parse id", logger.Err(err))
+			responses.BadRequest(ctx, "failed parse id")
 			return
 		}
 
-		marks, err := h.uc.GetMarksByUserId(context.Background(), userId)
+		marks, err := h.uc.GetMarksByUserId(ctx.Request.Context(), userId)
 		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get marks", Err: err})
+			h.log.Error("error get marks by user id", slog.Int("user_id", userId), logger.Err(err))
+			responses.Internal(ctx, "error get marks by user id")
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(GetMarksByUserIdResponse{
+		responses.OK(ctx, GetMarksByUserIdResponse{
 			Marks: marks,
-		}))
+		})
 	}
 }
 
@@ -164,85 +165,64 @@ func (h *handler) GetMarksByUserId() http.HandlerFunc {
 //	@Accept			mpfd
 //	@Produce		json
 //	@Param			Authorization	header		string	true	"Insert your access token"	default(Bearer <Add access token here>)
-//	@Success		201				{object}	responses.SucceededResponse[marksrest.AddMarkResponse]
-//	@Failure		400				{object}	responses.ErrorResponse
-//	@Failure		500				{object}	responses.ErrorResponse
+//	@Success		201				{object}	responses.Response[marksrest.AddMarkResponse]
+//	@Failure		400				{object}	responses.Response[any]
+//	@Failure		500				{object}	responses.Response[any]
 //	@Router			/marks [post]
-func (h *handler) AddMark() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		err := r.ParseMultipartForm(32 << 10) // 32 MB
-		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error parse multipart form", Err: err})
-			return
-		}
-
-		photos, err := h.ParsePhotos(w, r)
-		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error parse photos", Err: err})
-			return
-		}
-
+func (h *handler) AddMark() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
 		var req AddMarkRequest
-		if err := json.Unmarshal([]byte(r.FormValue("data")), &req); err != nil {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "error unmarshal data", Err: err},
-				responses.ErrBadRequest,
-			)
+		if err := ctx.ShouldBind(&req); err != nil {
+			h.log.Debug("failed binding request", logger.Err(err))
+			responses.BadRequest(ctx, "invalid request")
 			return
 		}
 
-		if err := h.ValidateStruct(req); err != nil {
-			validateErr := err.(validator.ValidationErrors)
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "invalid request", Err: validateErr},
-				responses.ErrBadRequest,
-			)
-			return
-		}
-
-		_, claims, err := jwtauth.FromContext(r.Context())
+		photos, err := handlers.ParsePhotos(req.Photos)
 		if err != nil {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "invalid token", Err: err},
-				responses.ErrUnauthorized,
-			)
+			h.log.Error("error parse photos", logger.Err(err))
+			responses.Internal(ctx, "error parse photos")
 			return
 		}
 
-		userIdStr, ok := claims["sub"].(string)
-		if !ok {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "invalid token", Err: err},
-				responses.ErrUnauthorized,
-			)
+		claims := jwt.ExtractClaims(ctx)
+
+		userIdStr, err := claims.GetSubject()
+		if err != nil {
+			h.log.Debug("invalid token", logger.Err(err))
+			responses.Unauthorized(ctx, "invalid token")
 			return
 		}
 		userId, err := strconv.Atoi(userIdStr)
-		if !ok {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "invalid token", Err: err},
-				responses.ErrUnauthorized,
-			)
+		if err != nil {
+			h.log.Debug("invalid token", logger.Err(err))
+			responses.Unauthorized(ctx, "invalid token")
 			return
 		}
 
-		h.Log.Debug("Add mark", slog.Int("userId", userId), slog.Int("photos", len(photos)))
-
 		newMark := models.Mark{
-			Geom:        models.NewPoint(geom.Coord{req.Point.Latitude, req.Point.Longitude}),
+			Geom:        models.NewPoint(geom.Coord{req.Latitude, req.Longitude}),
 			MarkTypeID:  req.MarkTypeID,
 			UserID:      userId,
 			Description: req.Description,
 		}
-		markId, err := h.uc.AddMark(context.Background(), newMark, photos)
+		markId, err := h.uc.AddMark(ctx.Request.Context(), newMark, photos)
 		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error add mark", Err: err})
+			h.log.Error("error add mark", logger.Err(err))
+			responses.Internal(ctx, "error add mark")
 			return
 		}
 
-		h.Render(w, r, responses.SucceededCreatedRenderer(AddMarkResponse{
+		h.log.Info("add new mark",
+			slog.Int64("mark_id", markId),
+			slog.Int("user_id", userId),
+			slog.Float64("longitude", req.Longitude),
+			slog.Float64("latitude", req.Latitude),
+			slog.Int("photos", len(photos)),
+		)
+		responses.Created(ctx, AddMarkResponse{
 			MarkId: int(markId),
-		}))
+		})
 	}
 }
 
@@ -253,21 +233,22 @@ func (h *handler) AddMark() http.HandlerFunc {
 //	@Tags			marks
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	responses.SucceededResponse[marksrest.GetMarkTypesResponse]
-//	@Failure		500	{object}	responses.ErrorResponse
+//	@Success		200	{object}	responses.Response[marksrest.GetMarkTypesResponse]
+//	@Failure		500	{object}	responses.Response[any]
 //	@Router			/marks/types [get]
-func (h *handler) GetMarkTypes() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		types, err := h.uc.GetMarkTypes(context.Background())
+func (h *handler) GetMarkTypes() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		types, err := h.uc.GetMarkTypes(ctx.Request.Context())
 
 		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get mark types", Err: err})
+			h.log.Error("error get mark types", logger.Err(err))
+			responses.Internal(ctx, "error get mark types")
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(GetMarkTypesResponse{
+		responses.OK(ctx, GetMarkTypesResponse{
 			MarkTypes: types,
-		}))
+		})
 	}
 }
 
@@ -278,21 +259,22 @@ func (h *handler) GetMarkTypes() http.HandlerFunc {
 //	@Tags			marks
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	responses.SucceededResponse[marksrest.GetMarkStatusesResponse]
-//	@Failure		500	{object}	responses.ErrorResponse
+//	@Success		200	{object}	responses.Response[marksrest.GetMarkStatusesResponse]
+//	@Failure		500	{object}	responses.Response[any]
 //	@Router			/marks/statuses [get]
-func (h *handler) GetMarkStatuses() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		statuses, err := h.uc.GetMarkStatuses(context.Background())
+func (h *handler) GetMarkStatuses() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		statuses, err := h.uc.GetMarkStatuses(ctx.Request.Context())
 
 		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get mark statuses", Err: err})
+			h.log.Error("error get mark statuses", logger.Err(err))
+			responses.Internal(ctx, "error get mark statuses")
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(GetMarkStatusesResponse{
+		responses.OK(ctx, GetMarkStatusesResponse{
 			MarkStatuses: statuses,
-		}))
+		})
 	}
 }
 
@@ -305,43 +287,34 @@ func (h *handler) GetMarkStatuses() http.HandlerFunc {
 //	@Produce		json
 //	@Param			id			path		int		true	"mark id"
 //	@Param			withChecks	query		boolean	false	"with checks"
-//	@Success		200			{object}	responses.SucceededResponse[marksrest.GetMarkStatusHistoryByMarkIdResponse]
-//	@Failure		500			{object}	responses.ErrorResponse
+//	@Success		200			{object}	responses.Response[marksrest.GetMarkStatusHistoryByMarkIdResponse]
+//	@Failure		400			{object}	responses.Response[any]
+//	@Failure		500			{object}	responses.Response[any]
 //	@Router			/marks/{id}/status-history [get]
-func (h *handler) GetMarkStatusHistoryByMarkId() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id, err := strconv.Atoi(chi.URLParam(r, "id"))
-		if err != nil {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "failed parse id", Err: err},
-				responses.ErrBadRequest,
-			)
+func (h *handler) GetMarkStatusHistoryByMarkId() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		var req GetMarkStatusHistoryByMarkIdRequest
+		if err := ctx.ShouldBindUri(&req); err != nil {
+			h.log.Debug("failed parse id", logger.Err(err))
+			responses.BadRequest(ctx, "failed parse id")
 			return
 		}
 
-		var withChecks bool
-		withChecksParam := r.URL.Query().Get("withChecks")
-		if withChecksParam != "" {
-			withChecks, err = strconv.ParseBool(r.URL.Query().Get("withChecks"))
-			if err != nil {
-				h.RenderError(w, r,
-					handlers.HandlerError{Msg: "invalid withChecks param", Err: err},
-					responses.ErrBadRequest,
-				)
-				return
-			}
-		} else {
-			withChecks = false
-		}
-
-		historyItems, err := h.uc.GetMarkStatusHistoryByMarkId(context.Background(), id, withChecks)
-		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get mark status history", Err: err})
+		if err := ctx.ShouldBindQuery(&req); err != nil {
+			h.log.Debug("failed parse query params", logger.Err(err))
+			responses.BadRequest(ctx, "failed parse query params")
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(GetMarkStatusHistoryByMarkIdResponse{
+		historyItems, err := h.uc.GetMarkStatusHistoryByMarkId(ctx.Request.Context(), req.MarkId, req.WithChecks)
+		if err != nil {
+			h.log.Error("error get mark status history", slog.Int("mark_id", req.MarkId), logger.Err(err))
+			responses.Internal(ctx, "error get mark status history")
+			return
+		}
+
+		responses.OK(ctx, GetMarkStatusHistoryByMarkIdResponse{
 			HistoryItems: historyItems,
-		}))
+		})
 	}
 }

@@ -15,9 +15,9 @@ type GetTasksByUserIdResponse struct {
 }
 
 type AddTaskRequest struct {
-	Name   string `json:"name" validate:"required"`
-	UserID int    `json:"user_id" validate:"required"`
-	MarkID int    `json:"mark_id" validate:"required"`
+	Name   string `json:"name" binding:"required"`
+	UserID int    `json:"user_id" binding:"required"`
+	MarkID int    `json:"mark_id" binding:"required"`
 }
 
 type AddTaskResponse struct {

@@ -3,78 +3,63 @@ package responses
 import (
 	"net/http"
 
-	"github.com/go-chi/render"
+	"github.com/gin-gonic/gin"
 )
 
-type SucceededResponse[T any] struct {
-	HTTPStatusCode int `json:"-"` // http response status code
-
-	Status  string `json:"status"`
-	Message string `json:"message"`
-	Payload T      `json:"payload"`
+type Response[T any] struct {
+	Success bool       `json:"success"`
+	Payload T          `json:"payload,omitempty"`
+	Error   *ErrorInfo `json:"error,omitempty"`
 }
 
-// Render implements render.Renderer.
-func (s *SucceededResponse[T]) Render(w http.ResponseWriter, r *http.Request) error {
-	render.Status(r, s.HTTPStatusCode)
-	return nil
-}
-
-type ErrorResponse struct {
-	Err            error `json:"-"` // low-level runtime error
-	HTTPStatusCode int   `json:"-"` // http response status code
-
-	Status  string `json:"status"`
+type ErrorInfo struct {
 	Message string `json:"message"`
 }
 
-func (s *ErrorResponse) Render(w http.ResponseWriter, r *http.Request) error {
-	render.Status(r, s.HTTPStatusCode)
-	return nil
+func Success[T any](ctx *gin.Context, status int, data T) {
+	ctx.JSON(status, Response[T]{
+		Success: true,
+		Payload: data,
+	})
 }
 
-var (
-	SucceededResponseOK = &SucceededResponse[any]{HTTPStatusCode: http.StatusOK, Status: "succeeded", Message: ""}
-	ErrConflict         = &ErrorResponse{HTTPStatusCode: http.StatusConflict, Status: "failed", Message: "Already exists"}
-	ErrMethodNotAllowed = &ErrorResponse{HTTPStatusCode: http.StatusMethodNotAllowed, Status: "failed", Message: "Method not allowed"}
-	ErrNotFound         = &ErrorResponse{HTTPStatusCode: http.StatusNotFound, Status: "failed", Message: "Resource not found"}
-	ErrBadRequest       = &ErrorResponse{HTTPStatusCode: http.StatusBadRequest, Status: "failed", Message: "Bad request"}
-	ErrUnauthorized     = &ErrorResponse{HTTPStatusCode: http.StatusUnauthorized, Status: "failed", Message: "Unauthorized"}
-	ErrInternalServer   = &ErrorResponse{HTTPStatusCode: http.StatusInternalServerError, Status: "failed", Message: ""}
-)
-
-func SucceededRenderer[T any](data T) render.Renderer {
-	return &SucceededResponse[T]{
-		HTTPStatusCode: http.StatusOK,
-		Status:         "succeeded",
-		Message:        "",
-		Payload:        data,
-	}
+func OK[T any](ctx *gin.Context, data T) {
+	ctx.JSON(http.StatusOK, Response[T]{
+		Success: true,
+		Payload: data,
+	})
 }
 
-func SucceededCreatedRenderer[T any](data T) render.Renderer {
-	return &SucceededResponse[T]{
-		HTTPStatusCode: http.StatusCreated,
-		Status:         "succeeded",
-		Message:        "",
-		Payload:        data,
-	}
+func Created[T any](ctx *gin.Context, data T) {
+	ctx.JSON(http.StatusCreated, Response[T]{
+		Success: true,
+		Payload: data,
+	})
 }
 
-func ErrorRenderer(err error) render.Renderer {
-	return &ErrorResponse{
-		Err:            err,
-		HTTPStatusCode: http.StatusBadRequest,
-		Status:         "failed",
-		Message:        err.Error(),
-	}
+func Fail(ctx *gin.Context, status int, message string) {
+	ctx.JSON(status, Response[any]{
+		Success: false,
+		Error:   &ErrorInfo{Message: message},
+	})
 }
 
-func ServerErrorRenderer(err error) *ErrorResponse {
-	return &ErrorResponse{
-		Err:            err,
-		HTTPStatusCode: http.StatusInternalServerError,
-		Status:         "failed",
-		Message:        err.Error(),
-	}
+func BadRequest(ctx *gin.Context, message string) {
+	Fail(ctx, http.StatusBadRequest, message)
+}
+
+func NotFound(ctx *gin.Context, message string) {
+	Fail(ctx, http.StatusNotFound, message)
+}
+
+func Unauthorized(ctx *gin.Context, message string) {
+	Fail(ctx, http.StatusUnauthorized, message)
+}
+
+func Conflict(ctx *gin.Context, message string) {
+	Fail(ctx, http.StatusConflict, message)
+}
+
+func Internal(ctx *gin.Context, message string) {
+	Fail(ctx, http.StatusInternalServerError, message)
 }

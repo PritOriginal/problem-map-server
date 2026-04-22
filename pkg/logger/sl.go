@@ -5,8 +5,9 @@ import (
 	"io"
 	"log/slog"
 	"os"
+	"time"
 
-	"github.com/PritOriginal/problem-map-server/pkg/logger/prettylog"
+	"github.com/SladkyCitron/slogcolor"
 )
 
 type Environment string
@@ -32,7 +33,7 @@ func SetupLoggerWithWriter(env Environment, out io.Writer) (*slog.Logger, error)
 	var logger *slog.Logger
 	switch env {
 	case Local:
-		logger = slog.New(prettylog.NewPrettyHandler(out, prettylog.PrettyHandlerOptions{SlogOpts: slog.HandlerOptions{Level: slog.LevelDebug}}))
+		logger = slog.New(slogcolor.NewHandler(os.Stderr, &slogcolor.Options{Level: slog.LevelDebug, TimeFormat: time.RFC3339}))
 	case Dev:
 		logger = slog.New(slog.NewJSONHandler(out, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	case Prod:

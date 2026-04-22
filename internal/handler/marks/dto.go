@@ -1,6 +1,10 @@
 package marksrest
 
-import "github.com/PritOriginal/problem-map-server/internal/models"
+import (
+	"mime/multipart"
+
+	"github.com/PritOriginal/problem-map-server/internal/models"
+)
 
 type GetMarkByIdResponse struct {
 	Mark models.Mark `json:"mark"`
@@ -23,18 +27,20 @@ type GetMarkStatusesResponse struct {
 }
 
 type AddMarkRequest struct {
-	Point       Point  `json:"point" validate:"required"`
-	MarkTypeID  int    `json:"mark_type_id" validate:"required"`
-	Description string `json:"description" validate:"max=256"`
+	Photos      []*multipart.FileHeader `form:"photos" binding:"required"`
+	Longitude   float64                 `form:"longitude" binding:"required,longitude"`
+	Latitude    float64                 `form:"latitude" binding:"required,latitude"`
+	MarkTypeID  int                     `form:"mark_type_id" binding:"required"`
+	Description string                  `form:"description" binding:"max=256"`
 }
 
 type AddMarkResponse struct {
 	MarkId int `json:"mark_id"`
 }
 
-type Point struct {
-	Longitude float64 `json:"longitude" validate:"required,longitude"`
-	Latitude  float64 `json:"latitude" validate:"required,latitude"`
+type GetMarkStatusHistoryByMarkIdRequest struct {
+	MarkId     int  `uri:"id" binding:"required"`
+	WithChecks bool `form:"withChecks" default:"false"`
 }
 
 type GetMarkStatusHistoryByMarkIdResponse struct {

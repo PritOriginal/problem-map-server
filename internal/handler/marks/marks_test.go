@@ -2,11 +2,11 @@ package marksrest_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"io"
 	"mime/multipart"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -15,36 +15,43 @@ import (
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
-	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
+	jwt "github.com/appleboy/gin-jwt/v3"
 	"github.com/brianvoe/gofakeit/v7"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/jwtauth/v5"
-	"github.com/go-playground/validator/v10"
+	"github.com/gin-gonic/gin"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
 type MarksSuite struct {
 	suite.Suite
-	r      *chi.Mux
+	r      *gin.Engine
 	uc     *marksrest.MockMarks
 	cacher *mwcache.MockCacher
 }
 
 func (suite *MarksSuite) SetupSuite() {
-	accessAuth := jwtauth.New("HS256", []byte("1234"), nil)
+	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
+		Key: []byte("1234"),
+	})
+	if err != nil {
+		panic(err)
+	}
+	errInit := authMiddleware.MiddlewareInit()
+	if errInit != nil {
+		panic(errInit)
+	}
+
 	suite.uc = marksrest.NewMockMarks(suite.T())
 	suite.cacher = mwcache.NewMockCacher(suite.T())
 
 	log := slogdiscard.NewDiscardLogger()
-	validate := validator.New()
-	baseHandler := &handlers.BaseHandler{Log: log, Validate: validate}
 
-	suite.r = chi.NewRouter()
+	gin.SetMode(gin.TestMode)
+	suite.r = gin.New()
 
-	marksrest.Register(suite.r, accessAuth, suite.uc, suite.cacher, baseHandler)
+	marksrest.Register(suite.r, log, authMiddleware, suite.uc, suite.cacher)
 }
 
 func TestMark(t *testing.T) {
@@ -187,7 +194,6 @@ func (suite *MarksSuite) TestGetMarksByUserId() {
 func (suite *MarksSuite) TestAddMark() {
 	tests := []struct {
 		name            string
-		rawReq          string
 		req             marksrest.AddMarkRequest
 		wantErrParseReq bool
 		errAddCheck     error
@@ -196,10 +202,8 @@ func (suite *MarksSuite) TestAddMark() {
 		{
 			name: "Ok201",
 			req: marksrest.AddMarkRequest{
-				Point: marksrest.Point{
-					Longitude: 42,
-					Latitude:  52,
-				},
+				Longitude:   42,
+				Latitude:    52,
 				MarkTypeID:  1,
 				Description: "",
 			},
@@ -208,19 +212,10 @@ func (suite *MarksSuite) TestAddMark() {
 			statusCode:      201,
 		},
 		{
-			name:            "Err400InvalidJSON",
-			rawReq:          "{",
-			wantErrParseReq: true,
-			errAddCheck:     nil,
-			statusCode:      400,
-		},
-		{
 			name: "Err400InvalidReq-1",
 			req: marksrest.AddMarkRequest{
-				Point: marksrest.Point{
-					Longitude: 42,
-					Latitude:  52,
-				},
+				Longitude: 42,
+				Latitude:  52,
 			},
 			wantErrParseReq: true,
 			errAddCheck:     nil,
@@ -229,9 +224,7 @@ func (suite *MarksSuite) TestAddMark() {
 		{
 			name: "Err400InvalidReq-2",
 			req: marksrest.AddMarkRequest{
-				Point: marksrest.Point{
-					Longitude: 42,
-				},
+				Longitude:   42,
 				MarkTypeID:  1,
 				Description: "",
 			},
@@ -242,10 +235,8 @@ func (suite *MarksSuite) TestAddMark() {
 		{
 			name: "Err400InvalidReq-3",
 			req: marksrest.AddMarkRequest{
-				Point: marksrest.Point{
-					Longitude: 42,
-					Latitude:  52,
-				},
+				Longitude:   42,
+				Latitude:    52,
 				MarkTypeID:  1,
 				Description: strings.Repeat("A", 257),
 			},
@@ -256,10 +247,8 @@ func (suite *MarksSuite) TestAddMark() {
 		{
 			name: "Err500",
 			req: marksrest.AddMarkRequest{
-				Point: marksrest.Point{
-					Longitude: 42,
-					Latitude:  52,
-				},
+				Longitude:   42,
+				Latitude:    52,
 				MarkTypeID:  1,
 				Description: "",
 			},
@@ -277,22 +266,16 @@ func (suite *MarksSuite) TestAddMark() {
 
 			w := httptest.NewRecorder()
 
-			var buf *bytes.Buffer
-			if tt.rawReq == "" {
-				body, err := json.Marshal(tt.req)
-				suite.NoError(err)
-				buf = bytes.NewBuffer(body)
-			} else {
-				buf = bytes.NewBuffer([]byte(tt.rawReq))
-			}
-
 			b := &bytes.Buffer{}
 			mpw := multipart.NewWriter(b)
 
-			mpw.WriteField("data", buf.String())
+			mpw.WriteField("longitude", strconv.FormatFloat(tt.req.Longitude, 'f', -1, 64))
+			mpw.WriteField("latitude", strconv.FormatFloat(tt.req.Latitude, 'f', -1, 64))
+			mpw.WriteField("mark_type_id", strconv.Itoa(tt.req.MarkTypeID))
+			mpw.WriteField("description", tt.req.Description)
 
 			image := gofakeit.ImageJpeg(10, 10)
-			fw, err := mpw.CreateFormFile("photo", "test.jpg")
+			fw, err := mpw.CreateFormFile("photos", "test.jpg")
 			suite.NoError(err)
 			io.Copy(fw, bytes.NewBuffer(image))
 
@@ -386,6 +369,70 @@ func (suite *MarksSuite) TestGetMarkStatuses() {
 
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/marks/statuses", nil)
+
+			suite.r.ServeHTTP(w, req)
+
+			suite.Equal(tt.statusCode, w.Code)
+		})
+	}
+}
+
+func (suite *MarksSuite) TestGetMarkStatusHistoryByMarkId() {
+	tests := []struct {
+		name                            string
+		id                              string
+		wantErrParseId                  bool
+		query                           string
+		wantErrParseWithChecks          bool
+		errGetMarkStatusHistoryByMarkId error
+		statusCode                      int
+	}{
+		{
+			name:       "Ok200",
+			id:         "1",
+			statusCode: 200,
+		},
+		{
+			name:       "Ok200",
+			id:         "1",
+			query:      "?withChecks=false",
+			statusCode: 200,
+		},
+		{
+			name:       "Ok200",
+			id:         "1",
+			query:      "?withChecks=true",
+			statusCode: 200,
+		},
+		{
+			name:           "Err400-id",
+			id:             "a",
+			wantErrParseId: true,
+			statusCode:     400,
+		},
+		{
+			name:                   "Err400-withChecks",
+			id:                     "1",
+			query:                  "?withChecks=a",
+			wantErrParseWithChecks: true,
+			statusCode:             400,
+		},
+		{
+			name:                            "Err500",
+			id:                              "1",
+			errGetMarkStatusHistoryByMarkId: errors.New(""),
+			statusCode:                      500,
+		},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if !tt.wantErrParseId && !tt.wantErrParseWithChecks {
+				suite.uc.On("GetMarkStatusHistoryByMarkId", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("bool")).Once().
+					Return([]models.MarkStatusHistoryItem{}, tt.errGetMarkStatusHistoryByMarkId)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/marks/"+tt.id+"/status-history"+tt.query, nil)
 
 			suite.r.ServeHTTP(w, req)
 

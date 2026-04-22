@@ -2,21 +2,19 @@ package checksrest
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"log/slog"
-	"net/http"
 	"strconv"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
+	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/jwtauth/v5"
-	"github.com/go-playground/validator/v10"
+	jwt "github.com/appleboy/gin-jwt/v3"
+	"github.com/gin-gonic/gin"
 )
 
 type Checks interface {
@@ -27,23 +25,23 @@ type Checks interface {
 }
 
 type handler struct {
-	*handlers.BaseHandler
-	uc Checks
+	log *slog.Logger
+	uc  Checks
 }
 
-func Register(r *chi.Mux, auth *jwtauth.JWTAuth, uc Checks, bh *handlers.BaseHandler) {
-	handler := &handler{BaseHandler: bh, uc: uc}
+func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddleware, uc Checks) {
+	handler := &handler{log: log, uc: uc}
 
-	r.Route("/checks", func(r chi.Router) {
-		r.Get("/{id}", handler.GetCheckById())
-		r.Get("/mark/{markId}", handler.GetChecksByMarkId())
-		r.Get("/user/{userId}", handler.GetChecksByUserId())
-		r.Group(func(r chi.Router) {
-			r.Use(jwtauth.Verifier(auth))
-			r.Use(jwtauth.Authenticator(auth))
-			r.Post("/", handler.AddCheck())
-		})
-	})
+	checks := r.Group("/checks")
+	{
+		checks.GET(":id", handler.GetCheckById())
+		checks.GET("mark/:markId", handler.GetChecksByMarkId())
+		checks.GET("user/:userId", handler.GetChecksByUserId())
+		auth := checks.Group("", authMiddleware.MiddlewareFunc())
+		{
+			auth.POST("", handler.AddCheck())
+		}
+	}
 }
 
 // GetCheckById get check by id
@@ -53,35 +51,35 @@ func Register(r *chi.Mux, auth *jwtauth.JWTAuth, uc Checks, bh *handlers.BaseHan
 //	@Tags			checks
 //	@Produce		json
 //	@Param			id	path		int	true	"check id"
-//	@Success		200	{object}	responses.SucceededResponse[checksrest.GetCheckByIdResponse]
-//	@Failure		400	{object}	responses.ErrorResponse
-//	@Failure		404	{object}	responses.ErrorResponse
-//	@Failure		500	{object}	responses.ErrorResponse
+//	@Success		200	{object}	responses.Response[checksrest.GetCheckByIdResponse]
+//	@Failure		400	{object}	responses.Response[any]
+//	@Failure		404	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
 //	@Router			/checks/{id} [get]
-func (h *handler) GetCheckById() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		id, err := strconv.Atoi(chi.URLParam(r, "id"))
+func (h *handler) GetCheckById() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		id, err := strconv.Atoi(ctx.Param("id"))
 		if err != nil {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "failed parse id", Err: err},
-				responses.ErrBadRequest,
-			)
+			h.log.Debug("failed parse id", logger.Err(err))
+			responses.BadRequest(ctx, "failed parse id")
 			return
 		}
 
-		check, err := h.uc.GetCheckById(context.Background(), id)
+		check, err := h.uc.GetCheckById(ctx.Request.Context(), id)
 		if err != nil {
 			if errors.Is(err, storage.ErrNotFound) {
-				h.Render(w, r, responses.ErrNotFound)
+				h.log.Debug("check not found", slog.Int("id", id))
+				responses.NotFound(ctx, "check not found")
 			} else {
-				h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get check by id", Err: err})
+				h.log.Error("error get check by id", logger.Err(err))
+				responses.Internal(ctx, "error get check by id")
 			}
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(GetCheckByIdResponse{
+		responses.OK(ctx, GetCheckByIdResponse{
 			Check: check,
-		}))
+		})
 	}
 }
 
@@ -92,30 +90,29 @@ func (h *handler) GetCheckById() http.HandlerFunc {
 //	@Tags			checks
 //	@Produce		json
 //	@Param			id	path		int	true	"mark id"
-//	@Success		200	{object}	responses.SucceededResponse[checksrest.GetChecksByMarkIdResponse]
-//	@Failure		400	{object}	responses.ErrorResponse
-//	@Failure		500	{object}	responses.ErrorResponse
+//	@Success		200	{object}	responses.Response[checksrest.GetChecksByMarkIdResponse]
+//	@Failure		400	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
 //	@Router			/checks/mark/{id} [get]
-func (h *handler) GetChecksByMarkId() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		markId, err := strconv.Atoi(chi.URLParam(r, "markId"))
+func (h *handler) GetChecksByMarkId() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		markId, err := strconv.Atoi(ctx.Param("markId"))
 		if err != nil {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "failed parse id", Err: err},
-				responses.ErrBadRequest,
-			)
+			h.log.Debug("failed parse id", logger.Err(err))
+			responses.BadRequest(ctx, "failed parse id")
 			return
 		}
 
-		checks, err := h.uc.GetChecksByMarkId(context.Background(), markId)
+		checks, err := h.uc.GetChecksByMarkId(ctx.Request.Context(), markId)
 		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get checks", Err: err})
+			h.log.Error("error get checks by mark id", logger.Err(err))
+			responses.Internal(ctx, "error get checks by mark id")
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(GetChecksByMarkIdResponse{
+		responses.OK(ctx, GetChecksByMarkIdResponse{
 			Checks: checks,
-		}))
+		})
 	}
 }
 
@@ -126,30 +123,29 @@ func (h *handler) GetChecksByMarkId() http.HandlerFunc {
 //	@Tags			checks
 //	@Produce		json
 //	@Param			id	path		int	true	"user id"
-//	@Success		200	{object}	responses.SucceededResponse[checksrest.GetChecksByUserIdResponse]
-//	@Failure		400	{object}	responses.ErrorResponse
-//	@Failure		500	{object}	responses.ErrorResponse
+//	@Success		200	{object}	responses.Response[checksrest.GetChecksByUserIdResponse]
+//	@Failure		400	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
 //	@Router			/checks/user/{id} [get]
-func (h *handler) GetChecksByUserId() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		userId, err := strconv.Atoi(chi.URLParam(r, "userId"))
+func (h *handler) GetChecksByUserId() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		userId, err := strconv.Atoi(ctx.Param("userId"))
 		if err != nil {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "failed parse id", Err: err},
-				responses.ErrBadRequest,
-			)
+			h.log.Debug("failed parse id", logger.Err(err))
+			responses.BadRequest(ctx, "failed parse id")
 			return
 		}
 
-		checks, err := h.uc.GetChecksByUserId(context.Background(), userId)
+		checks, err := h.uc.GetChecksByUserId(ctx.Request.Context(), userId)
 		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get checks", Err: err})
+			h.log.Error("error get checks by user id", logger.Err(err))
+			responses.Internal(ctx, "error get checks by user id")
 			return
 		}
 
-		h.Render(w, r, responses.SucceededRenderer(GetChecksByUserIdResponse{
+		responses.OK(ctx, GetChecksByUserIdResponse{
 			Checks: checks,
-		}))
+		})
 	}
 }
 
@@ -161,69 +157,40 @@ func (h *handler) GetChecksByUserId() http.HandlerFunc {
 //	@Accept			mpfd
 //	@Produce		json
 //	@Param			Authorization	header		string	true	"Insert your access token"	default(Bearer <Add access token here>)
-//	@Success		201				{object}	responses.SucceededResponse[checksrest.AddCheckResponse]
-//	@Failure		400				{object}	responses.ErrorResponse
-//	@Failure		500				{object}	responses.ErrorResponse
+//	@Success		201				{object}	responses.Response[checksrest.AddCheckResponse]
+//	@Failure		400				{object}	responses.Response[any]
+//	@Failure		500				{object}	responses.Response[any]
 //	@Router			/checks [post]
-func (h *handler) AddCheck() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		err := r.ParseMultipartForm(32 << 10) // 32 MB
-		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error parse multipart form", Err: err})
-			return
-		}
-
-		photos, err := h.ParsePhotos(w, r)
-		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error parse photos", Err: err})
-			return
-		}
-
+func (h *handler) AddCheck() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
 		var req AddCheckRequest
-		if err := json.Unmarshal([]byte(r.FormValue("data")), &req); err != nil {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "error unmarshal data", Err: err},
-				responses.ErrBadRequest,
-			)
+		if err := ctx.ShouldBind(&req); err != nil {
+			h.log.Debug("failed binding request", logger.Err(err))
+			responses.BadRequest(ctx, "invalid request")
 			return
 		}
 
-		if err := h.ValidateStruct(req); err != nil {
-			validateErr := err.(validator.ValidationErrors)
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "invalid request", Err: validateErr},
-				responses.ErrBadRequest,
-			)
-			return
-		}
-
-		_, claims, err := jwtauth.FromContext(r.Context())
+		photos, err := handlers.ParsePhotos(req.Photos)
 		if err != nil {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "invalid token", Err: err},
-				responses.ErrUnauthorized,
-			)
+			h.log.Error("error parse photos", logger.Err(err))
+			responses.Internal(ctx, "error parse photos")
 			return
 		}
 
-		userIdStr, ok := claims["sub"].(string)
-		if !ok {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "invalid token", Err: err},
-				responses.ErrUnauthorized,
-			)
+		claims := jwt.ExtractClaims(ctx)
+
+		userIdStr, err := claims.GetSubject()
+		if err != nil {
+			h.log.Debug("invalid token", logger.Err(err))
+			responses.Unauthorized(ctx, "invalid token")
 			return
 		}
 		userId, err := strconv.Atoi(userIdStr)
-		if !ok {
-			h.RenderError(w, r,
-				handlers.HandlerError{Msg: "invalid token", Err: err},
-				responses.ErrUnauthorized,
-			)
+		if err != nil {
+			h.log.Debug("invalid token", logger.Err(err))
+			responses.Unauthorized(ctx, "invalid token")
 			return
 		}
-
-		h.Log.Debug("Add mark", slog.Int("userId", userId))
 
 		check := models.Check{
 			UserID:  userId,
@@ -231,28 +198,33 @@ func (h *handler) AddCheck() http.HandlerFunc {
 			Result:  req.Result,
 			Comment: req.Comment,
 		}
-		checkId, err := h.uc.AddCheck(context.Background(), check, photos)
+		checkId, err := h.uc.AddCheck(ctx.Request.Context(), check, photos)
 		if err != nil {
 			switch err {
 			case usecase.ErrNotFound:
-				h.RenderError(w, r,
-					handlers.HandlerError{Msg: "mark not found", Err: err},
-					responses.ErrBadRequest,
-				)
+				h.log.Debug("mark not found", slog.Int("mark_id", req.MarkID))
+				responses.BadRequest(ctx, "mark not found")
 				return
 			case usecase.ErrConflict:
-				h.RenderError(w, r,
-					handlers.HandlerError{Msg: "user has already completed the check", Err: err},
-					responses.ErrConflict,
-				)
+				h.log.Debug("user has already completed the check", slog.Int("mark_id", req.MarkID), slog.Int("user_id", userId))
+				responses.Conflict(ctx, "user has already completed the check")
 			default:
-				h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error add check", Err: err})
+				h.log.Error("error add check", logger.Err(err))
+				responses.Internal(ctx, "error add check")
 			}
 			return
 		}
 
-		h.Render(w, r, responses.SucceededCreatedRenderer(AddCheckResponse{
+		h.log.Debug("Add mark", slog.Int("userId", userId))
+		h.log.Info("add new check",
+			slog.Int64("check_id", checkId),
+			slog.Int("user_id", userId),
+			slog.Int("mark_id", req.MarkID),
+			slog.Bool("result", req.Result),
+			slog.Int("photos", len(photos)),
+		)
+		responses.Created(ctx, AddCheckResponse{
 			CheckId: int(checkId),
-		}))
+		})
 	}
 }

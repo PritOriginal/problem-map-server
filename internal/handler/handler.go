@@ -1,33 +1,35 @@
 package handler
 
 import (
-	"fmt"
 	"log/slog"
 
-	"github.com/PritOriginal/problem-map-server/docs"
+	_ "github.com/PritOriginal/problem-map-server/docs"
 	"github.com/PritOriginal/problem-map-server/internal/config"
-	mwLogger "github.com/PritOriginal/problem-map-server/internal/middleware/logger"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
-	httpSwagger "github.com/swaggo/http-swagger"
+	"github.com/PritOriginal/problem-map-server/pkg/logger"
+	"github.com/gin-gonic/gin"
+	sloggin "github.com/samber/slog-gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-func GetRouter(log *slog.Logger) *chi.Mux {
-	r := chi.NewRouter()
+func GetRouter(log *slog.Logger, env logger.Environment) *gin.Engine {
+	r := gin.New()
 
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
-	r.Use(mwLogger.New(log))
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.URLFormat)
+	if env == logger.Prod {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	if env == logger.Local {
+		r.Use(gin.Logger())
+	} else {
+		r.Use(sloggin.New(log))
+	}
+
+	r.Use(gin.Recovery())
 
 	return r
 }
 
-func SetSwagger(r *chi.Mux, cfg *config.RESTConfig) {
-	docs.SwaggerInfo.Host = fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
-	docs.SwaggerInfo.BasePath = "/"
-	r.Get("/swagger/*", httpSwagger.Handler(
-		httpSwagger.URL(fmt.Sprintf("http://%s:%d/swagger/doc.json", cfg.Host, cfg.Port)),
-	))
+func SetSwagger(r *gin.Engine, cfg *config.Config) {
+	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 }
