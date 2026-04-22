@@ -1,6 +1,10 @@
 package checksrest
 
-import "github.com/PritOriginal/problem-map-server/internal/models"
+import (
+	"mime/multipart"
+
+	"github.com/PritOriginal/problem-map-server/internal/models"
+)
 
 type GetCheckByIdResponse struct {
 	Check models.Check `json:"check"`
@@ -15,9 +19,10 @@ type GetChecksByUserIdResponse struct {
 }
 
 type AddCheckRequest struct {
-	MarkID  int    `json:"mark_id" validate:"required"`
-	Result  bool   `json:"result"`
-	Comment string `json:"comment"`
+	Photos  []*multipart.FileHeader `form:"photos" binding:"required"`
+	MarkID  int                     `form:"mark_id" binding:"required"`
+	Result  bool                    `form:"result"`
+	Comment string                  `form:"comment"`
 }
 
 type AddCheckResponse struct {

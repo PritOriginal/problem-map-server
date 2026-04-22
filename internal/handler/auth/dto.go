@@ -1,9 +1,9 @@
 package authrest
 
 type SignUpRequest struct {
-	Username string `json:"username" validate:"required,min=2,max=40"`
-	Login    string `json:"login" validate:"required,min=3,max=40,alphanum"`
-	Password string `json:"password" validate:"required,min=8,max=64"`
+	Username string `json:"username" binding:"required,min=2,max=40"`
+	Login    string `json:"login" binding:"required,min=3,max=40"`
+	Password string `json:"password" binding:"required,min=8,max=64"`
 }
 
 type SignUpResponse struct {
@@ -11,8 +11,8 @@ type SignUpResponse struct {
 }
 
 type SignInRequest struct {
-	Login    string `json:"login" validate:"required,min=3,max=40,alphanum"`
-	Password string `json:"password" validate:"required,min=8,max=64"`
+	Login    string `json:"login" binding:"required,min=3,max=40"`
+	Password string `json:"password" binding:"required,min=8,max=64"`
 }
 
 type SignInResponse struct {
@@ -21,7 +21,7 @@ type SignInResponse struct {
 }
 
 type RefreshTokensRequest struct {
-	RefreshToken string `json:"refresh_token" validate:"required,jwt"`
+	RefreshToken string `json:"refresh_token" binding:"required,jwt"`
 }
 
 type RefreshTokensResponse struct {
