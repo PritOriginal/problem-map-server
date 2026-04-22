@@ -8,17 +8,15 @@ import (
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
-	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-playground/validator/v10"
+	"github.com/gin-gonic/gin"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
 type UsersSuite struct {
 	suite.Suite
-	r  *chi.Mux
+	r  *gin.Engine
 	uc *usersrest.MockUsers
 }
 
@@ -26,12 +24,11 @@ func (suite *UsersSuite) SetupSuite() {
 	suite.uc = usersrest.NewMockUsers(suite.T())
 
 	log := slogdiscard.NewDiscardLogger()
-	validate := validator.New()
-	baseHandler := &handlers.BaseHandler{Log: log, Validate: validate}
 
-	suite.r = chi.NewRouter()
+	gin.SetMode(gin.TestMode)
+	suite.r = gin.New()
 
-	usersrest.Register(suite.r, suite.uc, baseHandler)
+	usersrest.Register(suite.r, log, suite.uc)
 }
 
 func TestUsers(t *testing.T) {

@@ -7,43 +7,52 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
 	checksrest "github.com/PritOriginal/problem-map-server/internal/handler/checks"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
-	"github.com/PritOriginal/problem-map-server/pkg/handlers"
+	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
+	jwt "github.com/appleboy/gin-jwt/v3"
 	"github.com/brianvoe/gofakeit/v7"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/jwtauth/v5"
-	"github.com/go-playground/validator/v10"
+	"github.com/gin-gonic/gin"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
 type ChecksSuite struct {
 	suite.Suite
-	r  *chi.Mux
+	r  *gin.Engine
 	uc *checksrest.MockChecks
 }
 
 func (suite *ChecksSuite) SetupSuite() {
-	accessAuth := jwtauth.New("HS256", []byte("1234"), nil)
+	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
+		Key: []byte("1234"),
+	})
+	if err != nil {
+		panic(err)
+	}
+	errInit := authMiddleware.MiddlewareInit()
+	if errInit != nil {
+		panic(errInit)
+	}
+
 	suite.uc = checksrest.NewMockChecks(suite.T())
 
 	log := slogdiscard.NewDiscardLogger()
-	validate := validator.New()
-	baseHandler := &handlers.BaseHandler{Log: log, Validate: validate}
 
-	suite.r = chi.NewRouter()
+	gin.SetMode(gin.TestMode)
+	suite.r = gin.New()
 
-	checksrest.Register(suite.r, accessAuth, suite.uc, baseHandler)
+	checksrest.Register(suite.r, log, authMiddleware, suite.uc)
 }
 
-func TestUsers(t *testing.T) {
+func TestChecks(t *testing.T) {
 	suite.Run(t, new(ChecksSuite))
 }
 

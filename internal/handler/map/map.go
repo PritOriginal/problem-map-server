@@ -2,14 +2,14 @@ package maprest
 
 import (
 	"context"
-	"net/http"
+	"log/slog"
 	"time"
 
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/pkg/handlers"
+	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
-	"github.com/go-chi/chi/v5"
+	"github.com/gin-gonic/gin"
 )
 
 type Map interface {
@@ -19,19 +19,20 @@ type Map interface {
 }
 
 type handler struct {
-	*handlers.BaseHandler
-	uc Map
+	log *slog.Logger
+	uc  Map
 }
 
-func Register(r *chi.Mux, uc Map, cacher mwcache.Cacher, bh *handlers.BaseHandler) {
-	handler := &handler{BaseHandler: bh, uc: uc}
+func Register(r *gin.Engine, log *slog.Logger, uc Map, cacher mwcache.Cacher) {
+	handler := &handler{log: log, uc: uc}
 
-	r.Route("/map", func(r chi.Router) {
-		r.Use(mwcache.New(cacher, 24*time.Hour))
-		r.Get("/regions", handler.GetRegions())
-		r.Get("/cities", handler.GetCities())
-		r.Get("/districts", handler.GetDistricts())
-	})
+	mapRoute := r.Group("/map")
+	{
+		mapRoute.Use(mwcache.New(cacher, 24*time.Hour))
+		mapRoute.GET("regions", handler.GetRegions())
+		mapRoute.GET("cities", handler.GetCities())
+		mapRoute.GET("districts", handler.GetDistricts())
+	}
 }
 
 // GetCities lists all existing regions
@@ -41,19 +42,21 @@ func Register(r *chi.Mux, uc Map, cacher mwcache.Cacher, bh *handlers.BaseHandle
 //	@Tags			map
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	responses.SucceededResponse[maprest.GetRegionsResponse]
-//	@Failure		500	{object}	responses.ErrorResponse
+//	@Success		200	{object}	responses.Response[maprest.GetRegionsResponse]
+//	@Failure		500	{object}	responses.Response[any]
 //	@Router			/map/regions [get]
-func (h *handler) GetRegions() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		regions, err := h.uc.GetRegions(context.Background())
+func (h *handler) GetRegions() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		regions, err := h.uc.GetRegions(ctx.Request.Context())
 		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get regions", Err: err})
+			h.log.Error("error get regions", logger.Err(err))
+			responses.Internal(ctx, "error get regions")
 			return
 		}
-		h.Render(w, r, responses.SucceededRenderer(GetRegionsResponse{
+
+		responses.OK(ctx, GetRegionsResponse{
 			Regions: regions,
-		}))
+		})
 	}
 }
 
@@ -64,19 +67,21 @@ func (h *handler) GetRegions() http.HandlerFunc {
 //	@Tags			map
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	responses.SucceededResponse[maprest.GetCitiesResponse]
-//	@Failure		500	{object}	responses.ErrorResponse
+//	@Success		200	{object}	responses.Response[maprest.GetCitiesResponse]
+//	@Failure		500	{object}	responses.Response[any]
 //	@Router			/map/cities [get]
-func (h *handler) GetCities() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		cities, err := h.uc.GetCities(context.Background())
+func (h *handler) GetCities() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		cities, err := h.uc.GetCities(ctx.Request.Context())
 		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get cities", Err: err})
+			h.log.Error("error get cities", logger.Err(err))
+			responses.Internal(ctx, "error get cities")
 			return
 		}
-		h.Render(w, r, responses.SucceededRenderer(GetCitiesResponse{
+
+		responses.OK(ctx, GetCitiesResponse{
 			Cities: cities,
-		}))
+		})
 	}
 }
 
@@ -87,18 +92,20 @@ func (h *handler) GetCities() http.HandlerFunc {
 //	@Tags			map
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	responses.SucceededResponse[maprest.GetDistrictsResponse]
-//	@Failure		500	{object}	responses.ErrorResponse
+//	@Success		200	{object}	responses.Response[maprest.GetDistrictsResponse]
+//	@Failure		500	{object}	responses.Response[any]
 //	@Router			/map/districts [get]
-func (h *handler) GetDistricts() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		districts, err := h.uc.GetDistricts(context.Background())
+func (h *handler) GetDistricts() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		districts, err := h.uc.GetDistricts(ctx.Request.Context())
 		if err != nil {
-			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get districts", Err: err})
+			h.log.Error("error get districts", logger.Err(err))
+			responses.Internal(ctx, "error get districts")
 			return
 		}
-		h.Render(w, r, responses.SucceededRenderer(GetDistrictsResponse{
+
+		responses.OK(ctx, GetDistrictsResponse{
 			Districts: districts,
-		}))
+		})
 	}
 }

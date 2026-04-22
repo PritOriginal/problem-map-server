@@ -2,11 +2,11 @@ package marksrest_test
 
 import (
 	"bytes"
-	"encoding/json"
 	"errors"
 	"io"
 	"mime/multipart"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -15,36 +15,43 @@ import (
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
-	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
+	jwt "github.com/appleboy/gin-jwt/v3"
 	"github.com/brianvoe/gofakeit/v7"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/jwtauth/v5"
-	"github.com/go-playground/validator/v10"
+	"github.com/gin-gonic/gin"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
 type MarksSuite struct {
 	suite.Suite
-	r      *chi.Mux
+	r      *gin.Engine
 	uc     *marksrest.MockMarks
 	cacher *mwcache.MockCacher
 }
 
 func (suite *MarksSuite) SetupSuite() {
-	accessAuth := jwtauth.New("HS256", []byte("1234"), nil)
+	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
+		Key: []byte("1234"),
+	})
+	if err != nil {
+		panic(err)
+	}
+	errInit := authMiddleware.MiddlewareInit()
+	if errInit != nil {
+		panic(errInit)
+	}
+
 	suite.uc = marksrest.NewMockMarks(suite.T())
 	suite.cacher = mwcache.NewMockCacher(suite.T())
 
 	log := slogdiscard.NewDiscardLogger()
-	validate := validator.New()
-	baseHandler := &handlers.BaseHandler{Log: log, Validate: validate}
 
-	suite.r = chi.NewRouter()
+	gin.SetMode(gin.TestMode)
+	suite.r = gin.New()
 
-	marksrest.Register(suite.r, accessAuth, suite.uc, suite.cacher, baseHandler)
+	marksrest.Register(suite.r, log, authMiddleware, suite.uc, suite.cacher)
 }
 
 func TestMark(t *testing.T) {

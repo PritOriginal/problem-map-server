@@ -10,17 +10,15 @@ import (
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
-	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
-	"github.com/go-chi/chi/v5"
-	"github.com/go-playground/validator/v10"
+	"github.com/gin-gonic/gin"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
 
 type TasksSuite struct {
 	suite.Suite
-	r  *chi.Mux
+	r  *gin.Engine
 	uc *tasksrest.MockTasks
 }
 
@@ -28,12 +26,11 @@ func (suite *TasksSuite) SetupSuite() {
 	suite.uc = tasksrest.NewMockTasks(suite.T())
 
 	log := slogdiscard.NewDiscardLogger()
-	validate := validator.New()
-	baseHandler := &handlers.BaseHandler{Log: log, Validate: validate}
 
-	suite.r = chi.NewRouter()
+	gin.SetMode(gin.TestMode)
+	suite.r = gin.New()
 
-	tasksrest.Register(suite.r, suite.uc, baseHandler)
+	tasksrest.Register(suite.r, log, suite.uc)
 }
 
 func TestUsers(t *testing.T) {
