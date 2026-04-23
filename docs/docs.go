@@ -345,6 +345,100 @@ const docTemplate = `{
                 }
             }
         },
+        "/map/admin-boundaries": {
+            "get": {
+                "description": "admin boundaries",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "map"
+                ],
+                "summary": "List administrative boundaries",
+                "parameters": [
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "number"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "filter by admin level",
+                        "name": "admin_levels",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_GetAdminBoundariesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
+        "/map/admin-boundaries/marks/count": {
+            "get": {
+                "description": "the count of markers of all administrative boundaries",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "map"
+                ],
+                "summary": "The count of markers of all administrative boundaries",
+                "parameters": [
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "number"
+                        },
+                        "collectionFormat": "multi",
+                        "description": "filter by admin level",
+                        "name": "admin_levels",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_GetAdminBoundariesMarksCountResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
         "/map/cities": {
             "get": {
                 "description": "get cities",
@@ -933,6 +1027,52 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "ewkb.MultiPolygon": {
+            "type": "object"
+        },
+        "github_com_PritOriginal_problem-map-server_internal_models.AdminBoundary": {
+            "type": "object",
+            "properties": {
+                "admin_level": {
+                    "type": "integer"
+                },
+                "geom": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MultiPolygon"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_internal_models.AdminBoundaryMarksCount": {
+            "type": "object",
+            "properties": {
+                "closed_count": {
+                    "type": "integer"
+                },
+                "confirmed_count": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "total_count": {
+                    "type": "integer"
+                },
+                "unconfirmed_count": {
+                    "type": "integer"
+                },
+                "under_review_count": {
+                    "type": "integer"
+                }
+            }
+        },
         "github_com_PritOriginal_problem-map-server_internal_models.Check": {
             "type": "object",
             "properties": {
@@ -1113,6 +1253,14 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_internal_models.MultiPolygon": {
+            "type": "object",
+            "properties": {
+                "ewkb": {
+                    "$ref": "#/definitions/ewkb.MultiPolygon"
                 }
             }
         },
@@ -1318,6 +1466,34 @@ const docTemplate = `{
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_checks.GetChecksByUserIdResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_GetAdminBoundariesMarksCountResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_map.GetAdminBoundariesMarksCountResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_GetAdminBoundariesResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_map.GetAdminBoundariesResponse"
                 },
                 "success": {
                     "type": "boolean"
@@ -1667,6 +1843,28 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Check"
+                    }
+                }
+            }
+        },
+        "internal_handler_map.GetAdminBoundariesMarksCountResponse": {
+            "type": "object",
+            "properties": {
+                "admin_boundaries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.AdminBoundaryMarksCount"
+                    }
+                }
+            }
+        },
+        "internal_handler_map.GetAdminBoundariesResponse": {
+            "type": "object",
+            "properties": {
+                "admin_boundaries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.AdminBoundary"
                     }
                 }
             }

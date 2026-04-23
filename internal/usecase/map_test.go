@@ -32,6 +32,92 @@ func TestMap(t *testing.T) {
 	suite.Run(t, new(MapSuite))
 }
 
+func (suite *MapSuite) TestGetAdminBoundaries() {
+	tests := []struct {
+		name               string
+		getAdminBoundaries method[[]models.AdminBoundary]
+	}{
+		{
+			name: "Ok",
+			getAdminBoundaries: method[[]models.AdminBoundary]{
+				data: []models.AdminBoundary{},
+				err:  nil,
+			},
+		},
+		{
+			name: "Err",
+			getAdminBoundaries: method[[]models.AdminBoundary]{
+				data: nil,
+				err:  errors.New(""),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			func() {
+				suite.mapRepo.On("GetAdminBoundaries", mock.Anything, mock.Anything).Once().
+					Return(tt.getAdminBoundaries.data, tt.getAdminBoundaries.err)
+				if tt.getAdminBoundaries.err != nil {
+					return
+				}
+			}()
+
+			_, gotErr := suite.uc.GetAdminBoundaries(context.Background(), models.GetAdminBoundaryParams{})
+
+			if tt.getAdminBoundaries.err == nil {
+				suite.NoError(gotErr)
+			} else {
+				suite.NotNil(gotErr)
+			}
+			suite.mapRepo.AssertExpectations(suite.T())
+		})
+	}
+}
+
+func (suite *MapSuite) TestGetAdminBoundariesMarksCount() {
+	tests := []struct {
+		name                         string
+		getAdminBoundariesMarksCount method[[]models.AdminBoundaryMarksCount]
+	}{
+		{
+			name: "Ok",
+			getAdminBoundariesMarksCount: method[[]models.AdminBoundaryMarksCount]{
+				data: []models.AdminBoundaryMarksCount{},
+				err:  nil,
+			},
+		},
+		{
+			name: "Err",
+			getAdminBoundariesMarksCount: method[[]models.AdminBoundaryMarksCount]{
+				data: nil,
+				err:  errors.New(""),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			func() {
+				suite.mapRepo.On("GetAdminBoundariesMarksCount", mock.Anything, mock.Anything).Once().
+					Return(tt.getAdminBoundariesMarksCount.data, tt.getAdminBoundariesMarksCount.err)
+				if tt.getAdminBoundariesMarksCount.err != nil {
+					return
+				}
+			}()
+
+			_, gotErr := suite.uc.GetAdminBoundariesMarksCount(context.Background(), models.GetAdminBoundaryMarksCountParams{})
+
+			if tt.getAdminBoundariesMarksCount.err == nil {
+				suite.NoError(gotErr)
+			} else {
+				suite.NotNil(gotErr)
+			}
+			suite.mapRepo.AssertExpectations(suite.T())
+		})
+	}
+}
+
 func (suite *MapSuite) TestGetRegions() {
 	tests := []struct {
 		name       string

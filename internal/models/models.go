@@ -8,6 +8,31 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+type AdminBoundary struct {
+	Id         int           `json:"id" db:"id"`
+	Name       string        `json:"name" db:"name"`
+	AdminLevel int           `json:"admin_level" db:"admin_level"`
+	Geom       *MultiPolygon `json:"geom" db:"geom"`
+}
+
+type GetAdminBoundaryParams struct {
+	AdminLevels []int
+}
+
+type AdminBoundaryMarksCount struct {
+	Id               int    `json:"id" db:"boundary_id"`
+	Name             string `json:"name" db:"boundary_name"`
+	TotalCount       int    `json:"total_count" db:"total_count"`
+	UnconfirmedCount int    `json:"unconfirmed_count" db:"unconfirmed_count"`
+	ConfirmedCount   int    `json:"confirmed_count" db:"confirmed_count"`
+	UnderReviewCount int    `json:"under_review_count" db:"under_review_count"`
+	ClosedCount      int    `json:"closed_count" db:"closed_count"`
+}
+
+type GetAdminBoundaryMarksCountParams struct {
+	AdminLevels []int
+}
+
 type Region struct {
 	ID   int      `json:"region_id" db:"region_id"`
 	Name string   `json:"name"`

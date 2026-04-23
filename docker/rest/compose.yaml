@@ -9,8 +9,6 @@ services:
       - server-network
     ports:
       - ${REST_PORT}:${REST_PORT}
-    volumes:
-      - ./log.txt:/bin/log.txt
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -43,6 +41,19 @@ services:
     volumes:
       - ./migrations:/migrations
     command: ["-path", "/migrations/", "-database", "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=disable", "up"]
+  osm2pgsql:
+    image: iboates/osm2pgsql:latest
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    networks:
+      - server-network
+    volumes:
+      - ./osm:/osm
+    command: ["osm2pgsql", "-H", "${POSTGRES_HOST}", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}", "-c", "-O", "flex", "-S", "/osm/import.lua", "/osm/data/data.osm.pbf"]
+
 
 networks:
   server-network:
