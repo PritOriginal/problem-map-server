@@ -1,4 +1,34 @@
 definitions:
+  ewkb.MultiPolygon:
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.AdminBoundary:
+    properties:
+      admin_level:
+        type: integer
+      geom:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MultiPolygon'
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.AdminBoundaryMarksCount:
+    properties:
+      closed_count:
+        type: integer
+      confirmed_count:
+        type: integer
+      id:
+        type: integer
+      name:
+        type: string
+      total_count:
+        type: integer
+      unconfirmed_count:
+        type: integer
+      under_review_count:
+        type: integer
+    type: object
   github_com_PritOriginal_problem-map-server_internal_models.Check:
     properties:
       check_id:
@@ -121,6 +151,11 @@ definitions:
         type: integer
       name:
         type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.MultiPolygon:
+    properties:
+      ewkb:
+        $ref: '#/definitions/ewkb.MultiPolygon'
     type: object
   github_com_PritOriginal_problem-map-server_internal_models.PointJSON:
     properties:
@@ -254,6 +289,24 @@ definitions:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
       payload:
         $ref: '#/definitions/internal_handler_checks.GetChecksByUserIdResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_GetAdminBoundariesMarksCountResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      payload:
+        $ref: '#/definitions/internal_handler_map.GetAdminBoundariesMarksCountResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_GetAdminBoundariesResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      payload:
+        $ref: '#/definitions/internal_handler_map.GetAdminBoundariesResponse'
       success:
         type: boolean
     type: object
@@ -482,6 +535,20 @@ definitions:
       checks:
         items:
           $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Check'
+        type: array
+    type: object
+  internal_handler_map.GetAdminBoundariesMarksCountResponse:
+    properties:
+      admin_boundaries:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.AdminBoundaryMarksCount'
+        type: array
+    type: object
+  internal_handler_map.GetAdminBoundariesResponse:
+    properties:
+      admin_boundaries:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.AdminBoundary'
         type: array
     type: object
   internal_handler_map.GetCitiesResponse:
@@ -838,6 +905,68 @@ paths:
       summary: List checks by user id
       tags:
       - checks
+  /map/admin-boundaries:
+    get:
+      consumes:
+      - application/json
+      description: admin boundaries
+      parameters:
+      - collectionFormat: multi
+        description: filter by admin level
+        in: query
+        items:
+          type: number
+        name: admin_levels
+        type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_GetAdminBoundariesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: List administrative boundaries
+      tags:
+      - map
+  /map/admin-boundaries/marks/count:
+    get:
+      consumes:
+      - application/json
+      description: the count of markers of all administrative boundaries
+      parameters:
+      - collectionFormat: multi
+        description: filter by admin level
+        in: query
+        items:
+          type: number
+        name: admin_levels
+        type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_GetAdminBoundariesMarksCountResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: The count of markers of all administrative boundaries
+      tags:
+      - map
   /map/cities:
     get:
       consumes:
