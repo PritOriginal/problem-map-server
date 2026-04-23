@@ -114,7 +114,7 @@ func (p *Polygon) UnmarshalJSON(data []byte) error {
 	geojson.Unmarshal(data, &geometry)
 	polygon, ok := geometry.(*geom.Polygon)
 	if !ok {
-		return fmt.Errorf("geometry is not a point")
+		return fmt.Errorf("geometry is not a polygon")
 	}
 	ewkbPolygon := ewkb.Polygon{Polygon: polygon}
 	p.Ewkb = ewkbPolygon
@@ -123,9 +123,59 @@ func (p *Polygon) UnmarshalJSON(data []byte) error {
 }
 
 func (p *Polygon) ToProtobufObject() *pb.Polygon {
-	p.Ewkb.Polygon.Coords()
 	return &pb.Polygon{
 		Type: "Polygon",
 		// TODO: Coordinates
 	}
+}
+
+type MultiPolygon struct {
+	Ewkb ewkb.MultiPolygon
+}
+
+type MultiPolygonJSON struct {
+	Type        string         `json:"type"`
+	Coordinates [][][2]float64 `json:"coordinates"`
+}
+
+func NewMultiPolygon(coords [][][]geom.Coord) *MultiPolygon {
+	return &MultiPolygon{
+		Ewkb: ewkb.MultiPolygon{
+			MultiPolygon: geom.NewMultiPolygon(geom.XY).MustSetCoords(coords).SetSRID(4326),
+		},
+	}
+}
+
+func (p *MultiPolygon) Scan(src interface{}) error {
+	return p.Ewkb.Scan(src)
+}
+
+func (p *MultiPolygon) Valid() bool {
+	return p.Ewkb.Valid()
+}
+
+func (p *MultiPolygon) Value() (driver.Value, error) {
+	return p.Ewkb.Value()
+}
+
+func (p *MultiPolygon) MarshalJSON() ([]byte, error) {
+	geometry, err := geojson.Marshal(p.Ewkb.MultiPolygon)
+	if err != nil {
+		return []byte{}, err
+	}
+
+	return geometry, nil
+}
+
+func (p *MultiPolygon) UnmarshalJSON(data []byte) error {
+	var geometry geom.T
+	geojson.Unmarshal(data, &geometry)
+	multiPolygon, ok := geometry.(*geom.MultiPolygon)
+	if !ok {
+		return fmt.Errorf("geometry is not a multi polygon")
+	}
+	ewkbMultiPolygon := ewkb.MultiPolygon{MultiPolygon: multiPolygon}
+	p.Ewkb = ewkbMultiPolygon
+
+	return nil
 }
