@@ -13,6 +13,8 @@ import (
 )
 
 type Map interface {
+	GetAdminBoundaries(ctx context.Context, params models.GetAdminBoundaryParams) ([]models.AdminBoundary, error)
+	GetAdminBoundariesMarksCount(ctx context.Context, params models.GetAdminBoundaryMarksCountParams) ([]models.AdminBoundaryMarksCount, error)
 	GetRegions(ctx context.Context) ([]models.Region, error)
 	GetCities(ctx context.Context) ([]models.City, error)
 	GetDistricts(ctx context.Context) ([]models.District, error)
@@ -28,10 +30,85 @@ func Register(r *gin.Engine, log *slog.Logger, uc Map, cacher mwcache.Cacher) {
 
 	mapRoute := r.Group("/map")
 	{
-		mapRoute.Use(mwcache.New(cacher, 24*time.Hour))
-		mapRoute.GET("regions", handler.GetRegions())
-		mapRoute.GET("cities", handler.GetCities())
-		mapRoute.GET("districts", handler.GetDistricts())
+		mapRoute.GET("admin-boundaries/marks/count", handler.GetAdminBoundariesMarksCount())
+		cache := mapRoute.Group("")
+		{
+			cache.Use(mwcache.New(cacher, 24*time.Hour))
+			cache.GET("admin-boundaries", handler.GetAdminBoundaries())
+			cache.GET("regions", handler.GetRegions())
+			cache.GET("cities", handler.GetCities())
+			cache.GET("districts", handler.GetDistricts())
+		}
+	}
+}
+
+// GetAdminBoundaries lists all existing administrative boundaries
+//
+//	@Summary		List administrative boundaries
+//	@Description	admin boundaries
+//	@Tags			map
+//	@Accept			json
+//	@Produce		json
+//	@Param			admin_levels	query		[]number	false	"filter by admin level"	collectionFormat(multi)
+//	@Success		200				{object}	responses.Response[maprest.GetAdminBoundariesResponse]
+//	@Failure		500				{object}	responses.Response[any]
+//	@Router			/map/admin-boundaries [get]
+func (h *handler) GetAdminBoundaries() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		var req GetAdminBoundariesRequest
+		if err := ctx.ShouldBindQuery(&req); err != nil {
+			h.log.Debug("failed binding request", logger.Err(err))
+			responses.BadRequest(ctx, "invalid request")
+			return
+		}
+
+		boundaries, err := h.uc.GetAdminBoundaries(ctx.Request.Context(), models.GetAdminBoundaryParams{
+			AdminLevels: req.AdminLevels,
+		})
+		if err != nil {
+			h.log.Error("error get admin boundaries", logger.Err(err))
+			responses.Internal(ctx, "error get admin boundaries")
+			return
+		}
+
+		responses.OK(ctx, GetAdminBoundariesResponse{
+			AdminBoundaries: boundaries,
+		})
+	}
+}
+
+// GetAdminBoundariesMarksCount display the count of markers of all administrative boundaries
+//
+//	@Summary		The count of markers of all administrative boundaries
+//	@Description	the count of markers of all administrative boundaries
+//	@Tags			map
+//	@Accept			json
+//	@Produce		json
+//	@Param			admin_levels	query		[]number	false	"filter by admin level"	collectionFormat(multi)
+//	@Success		200				{object}	responses.Response[maprest.GetAdminBoundariesMarksCountResponse]
+//	@Failure		500				{object}	responses.Response[any]
+//	@Router			/map/admin-boundaries/marks/count [get]
+func (h *handler) GetAdminBoundariesMarksCount() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		var req GetAdminBoundariesMarksCountRequest
+		if err := ctx.ShouldBindQuery(&req); err != nil {
+			h.log.Debug("failed binding request", logger.Err(err))
+			responses.BadRequest(ctx, "invalid request")
+			return
+		}
+
+		boundariesCount, err := h.uc.GetAdminBoundariesMarksCount(ctx.Request.Context(), models.GetAdminBoundaryMarksCountParams{
+			AdminLevels: req.AdminLevels,
+		})
+		if err != nil {
+			h.log.Error("error get admin boundaries markers count", logger.Err(err))
+			responses.Internal(ctx, "error get admin boundaries markers count")
+			return
+		}
+
+		responses.OK(ctx, GetAdminBoundariesMarksCountResponse{
+			AdminBoundaries: boundariesCount,
+		})
 	}
 }
 
