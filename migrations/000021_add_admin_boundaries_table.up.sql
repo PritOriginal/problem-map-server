@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS admin_boundaries (
+    id SERIAL PRIMARY KEY,
+    osm_id BIGINT UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    admin_level SMALLINT NOT NULL,
+    tags JSONB,
+    geom GEOMETRY(MULTIPOLYGON, 4326) NOT NULL
+);
