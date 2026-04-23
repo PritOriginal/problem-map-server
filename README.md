@@ -34,6 +34,9 @@
 - `log/slog` - Логгер
 - `GitHub Actions` - CI/CD  
 - [`swaggo/swag`](https://github.com/swaggo/swag) - OpenAPI (Swagger)
+- [`OpenStreetMap`](https://www.openstreetmap.org/) - Источник пространственных данных (административных границ)
+- [`Overpass QL`](https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL) - Язык запросов для работы с данными OpenStreetMap
+- [`osm2pgsql`](https://osm2pgsql.org/) - Инструмент для импорта данных OpenStreetMap
 
 API:
 
