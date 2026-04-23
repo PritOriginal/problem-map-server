@@ -38,6 +38,142 @@ func (_m *MockMap) EXPECT() *MockMap_Expecter {
 	return &MockMap_Expecter{mock: &_m.Mock}
 }
 
+// GetAdminBoundaries provides a mock function for the type MockMap
+func (_mock *MockMap) GetAdminBoundaries(ctx context.Context, params models.GetAdminBoundaryParams) ([]models.AdminBoundary, error) {
+	ret := _mock.Called(ctx, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAdminBoundaries")
+	}
+
+	var r0 []models.AdminBoundary
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetAdminBoundaryParams) ([]models.AdminBoundary, error)); ok {
+		return returnFunc(ctx, params)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetAdminBoundaryParams) []models.AdminBoundary); ok {
+		r0 = returnFunc(ctx, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]models.AdminBoundary)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.GetAdminBoundaryParams) error); ok {
+		r1 = returnFunc(ctx, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMap_GetAdminBoundaries_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAdminBoundaries'
+type MockMap_GetAdminBoundaries_Call struct {
+	*mock.Call
+}
+
+// GetAdminBoundaries is a helper method to define mock.On call
+//   - ctx context.Context
+//   - params models.GetAdminBoundaryParams
+func (_e *MockMap_Expecter) GetAdminBoundaries(ctx interface{}, params interface{}) *MockMap_GetAdminBoundaries_Call {
+	return &MockMap_GetAdminBoundaries_Call{Call: _e.mock.On("GetAdminBoundaries", ctx, params)}
+}
+
+func (_c *MockMap_GetAdminBoundaries_Call) Run(run func(ctx context.Context, params models.GetAdminBoundaryParams)) *MockMap_GetAdminBoundaries_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 models.GetAdminBoundaryParams
+		if args[1] != nil {
+			arg1 = args[1].(models.GetAdminBoundaryParams)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMap_GetAdminBoundaries_Call) Return(adminBoundarys []models.AdminBoundary, err error) *MockMap_GetAdminBoundaries_Call {
+	_c.Call.Return(adminBoundarys, err)
+	return _c
+}
+
+func (_c *MockMap_GetAdminBoundaries_Call) RunAndReturn(run func(ctx context.Context, params models.GetAdminBoundaryParams) ([]models.AdminBoundary, error)) *MockMap_GetAdminBoundaries_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetAdminBoundariesMarksCount provides a mock function for the type MockMap
+func (_mock *MockMap) GetAdminBoundariesMarksCount(ctx context.Context, params models.GetAdminBoundaryMarksCountParams) ([]models.AdminBoundaryMarksCount, error) {
+	ret := _mock.Called(ctx, params)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAdminBoundariesMarksCount")
+	}
+
+	var r0 []models.AdminBoundaryMarksCount
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetAdminBoundaryMarksCountParams) ([]models.AdminBoundaryMarksCount, error)); ok {
+		return returnFunc(ctx, params)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetAdminBoundaryMarksCountParams) []models.AdminBoundaryMarksCount); ok {
+		r0 = returnFunc(ctx, params)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]models.AdminBoundaryMarksCount)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.GetAdminBoundaryMarksCountParams) error); ok {
+		r1 = returnFunc(ctx, params)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMap_GetAdminBoundariesMarksCount_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAdminBoundariesMarksCount'
+type MockMap_GetAdminBoundariesMarksCount_Call struct {
+	*mock.Call
+}
+
+// GetAdminBoundariesMarksCount is a helper method to define mock.On call
+//   - ctx context.Context
+//   - params models.GetAdminBoundaryMarksCountParams
+func (_e *MockMap_Expecter) GetAdminBoundariesMarksCount(ctx interface{}, params interface{}) *MockMap_GetAdminBoundariesMarksCount_Call {
+	return &MockMap_GetAdminBoundariesMarksCount_Call{Call: _e.mock.On("GetAdminBoundariesMarksCount", ctx, params)}
+}
+
+func (_c *MockMap_GetAdminBoundariesMarksCount_Call) Run(run func(ctx context.Context, params models.GetAdminBoundaryMarksCountParams)) *MockMap_GetAdminBoundariesMarksCount_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 models.GetAdminBoundaryMarksCountParams
+		if args[1] != nil {
+			arg1 = args[1].(models.GetAdminBoundaryMarksCountParams)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMap_GetAdminBoundariesMarksCount_Call) Return(adminBoundaryMarksCounts []models.AdminBoundaryMarksCount, err error) *MockMap_GetAdminBoundariesMarksCount_Call {
+	_c.Call.Return(adminBoundaryMarksCounts, err)
+	return _c
+}
+
+func (_c *MockMap_GetAdminBoundariesMarksCount_Call) RunAndReturn(run func(ctx context.Context, params models.GetAdminBoundaryMarksCountParams) ([]models.AdminBoundaryMarksCount, error)) *MockMap_GetAdminBoundariesMarksCount_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetCities provides a mock function for the type MockMap
 func (_mock *MockMap) GetCities(ctx context.Context) ([]models.City, error) {
 	ret := _mock.Called(ctx)

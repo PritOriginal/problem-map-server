@@ -3,9 +3,11 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 type MapRepository struct {
@@ -14,6 +16,82 @@ type MapRepository struct {
 
 func NewMap(conn *sqlx.DB) *MapRepository {
 	return &MapRepository{Conn: conn}
+}
+
+func (repo *MapRepository) GetAdminBoundaries(ctx context.Context, params models.GetAdminBoundaryParams) ([]models.AdminBoundary, error) {
+	const op = "storage.postgres.GetAdminBoundaries"
+
+	boundaries := []models.AdminBoundary{}
+	var conditions []string
+	var args []any
+
+	query := "SELECT id, name, admin_level, ST_AsEWKB(geom) AS geom FROM admin_boundaries WHERE 1=1"
+
+	if len(params.AdminLevels) > 0 {
+		conditions = append(conditions, "admin_level = ANY($?)")
+		args = append(args, pq.Array(params.AdminLevels))
+	}
+
+	for i, condition := range conditions {
+		query += " AND " + condition
+		query = strings.Replace(query, "$?", fmt.Sprintf("$%d", len(args)-len(conditions)+i+1), 1)
+	}
+
+	if err := repo.Conn.SelectContext(ctx, &boundaries, query, args...); err != nil {
+		return boundaries, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return boundaries, nil
+}
+
+func (repo *MapRepository) GetAdminBoundariesMarksCount(ctx context.Context, params models.GetAdminBoundaryMarksCountParams) ([]models.AdminBoundaryMarksCount, error) {
+	const op = "storage.postgres.GetAdminBoundariesMarksCount"
+
+	boundariesCount := []models.AdminBoundaryMarksCount{}
+	var conditions []string
+	var args []any
+
+	query :=
+		`
+		SELECT
+			b.id AS boundary_id,
+			b.name AS boundary_name,
+			COUNT(m.*) AS total_count,
+			COUNT(*) FILTER (WHERE m.mark_status_id = 1) AS unconfirmed_count,
+			COUNT(*) FILTER (WHERE m.mark_status_id IN (2,4)) AS confirmed_count,
+			COUNT(*) FILTER (WHERE m.mark_status_id = 3) AS under_review_count,
+			COUNT(*) FILTER (WHERE m.mark_status_id = 5) AS closed_count
+		FROM
+			admin_boundaries b
+		LEFT JOIN
+			marks m ON ST_Contains(b.geom, m.geom)
+		WHERE 
+			1=1	
+		GROUP BY
+			b.id, b.name
+		ORDER BY
+			b.id;
+	`
+
+	if len(params.AdminLevels) > 0 {
+		conditions = append(conditions, "admin_level = ANY($?)")
+		args = append(args, pq.Array(params.AdminLevels))
+	}
+
+	whereQuery := ""
+	for i, condition := range conditions {
+		whereQuery += " AND " + condition
+		whereQuery = strings.Replace(whereQuery, "$?", fmt.Sprintf("$%d", len(args)-len(conditions)+i+1), 1)
+	}
+	if whereQuery != "" {
+		query = strings.Replace(query, "1=1", "1=1"+whereQuery, 1)
+	}
+
+	if err := repo.Conn.SelectContext(ctx, &boundariesCount, query, args...); err != nil {
+		return boundariesCount, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return boundariesCount, nil
 }
 
 func (repo *MapRepository) GetRegions(ctx context.Context) ([]models.Region, error) {

@@ -2,7 +2,7 @@
 
 [![wakatime](https://wakatime.com/badge/user/b2a0c08d-61f2-4144-ba78-aab13a59cb9f/project/62d78167-daec-4c9e-a232-ffef6036e9c7.svg)](https://wakatime.com/badge/user/b2a0c08d-61f2-4144-ba78-aab13a59cb9f/project/62d78167-daec-4c9e-a232-ffef6036e9c7)
 
-В даннои репозитории представлены наработки Golang REST API и gRPC серверов дипломной работы по теме "Разработка информационного обеспечения системы анализа и визуализации проблемных мест города".
+В даннои репозитории представлены наработки Golang REST API и gRPC серверов дипломной работы по теме "Разработка краудсорсинговой системы мониторинга городских проблем с оптимизацией процессов модерации".
 
 ## О проекте
 
@@ -34,6 +34,9 @@
 - `log/slog` - Логгер
 - `GitHub Actions` - CI/CD  
 - [`swaggo/swag`](https://github.com/swaggo/swag) - OpenAPI (Swagger)
+- [`OpenStreetMap`](https://www.openstreetmap.org/) - Источник пространственных данных (административных границ)
+- [`Overpass QL`](https://wiki.openstreetmap.org/wiki/Overpass_API/Overpass_QL) - Язык запросов для работы с данными OpenStreetMap
+- [`osm2pgsql`](https://osm2pgsql.org/) - Инструмент для импорта данных OpenStreetMap
 
 API:
 

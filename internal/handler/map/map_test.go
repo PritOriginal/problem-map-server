@@ -38,6 +38,139 @@ func TestMap(t *testing.T) {
 	suite.Run(t, new(MapSuite))
 }
 
+func (suite *MapSuite) TestGetAdminBoundaries() {
+	tests := []struct {
+		name                    string
+		query                   string
+		wantErrParseAdminLevels bool
+		errGetAdminBoundaries   error
+		statusCode              int
+	}{
+		{
+			name:                  "Ok200",
+			query:                 "",
+			errGetAdminBoundaries: nil,
+			statusCode:            http.StatusOK,
+		},
+		{
+			name:                  "Ok200",
+			query:                 "?admin_levels=9",
+			errGetAdminBoundaries: nil,
+			statusCode:            http.StatusOK,
+		},
+		{
+			name:                  "Ok200",
+			query:                 "?admin_levels=9&admin_levels=10",
+			errGetAdminBoundaries: nil,
+			statusCode:            http.StatusOK,
+		},
+		{
+			name:                    "Err400",
+			query:                   "?admin_levels=a",
+			wantErrParseAdminLevels: true,
+			statusCode:              http.StatusBadRequest,
+		},
+		{
+			name:                    "Err400",
+			query:                   "?admin_levels=9,10",
+			wantErrParseAdminLevels: true,
+			statusCode:              http.StatusBadRequest,
+		},
+		{
+			name:                  "Err500",
+			query:                 "?admin_levels=9",
+			errGetAdminBoundaries: errors.New(""),
+			statusCode:            http.StatusInternalServerError,
+		},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			suite.cacher.
+				On("GetBytes", mock.Anything, mock.AnythingOfType("string")).Once().
+				Return([]byte{}, errors.New(""))
+			if tt.statusCode >= 200 && tt.statusCode < 300 {
+				suite.cacher.
+					On("Set", mock.Anything, mock.AnythingOfType("string"), mock.Anything, mock.Anything).Once().
+					Return(nil)
+			}
+
+			if !tt.wantErrParseAdminLevels {
+				suite.uc.On("GetAdminBoundaries", mock.Anything, mock.Anything).Once().
+					Return([]models.AdminBoundary{}, tt.errGetAdminBoundaries)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/map/admin-boundaries"+tt.query, nil)
+
+			suite.r.ServeHTTP(w, req)
+
+			suite.Equal(tt.statusCode, w.Code)
+		})
+	}
+}
+
+func (suite *MapSuite) TestGetAdminBoundariesMarksCount() {
+	tests := []struct {
+		name                            string
+		query                           string
+		wantErrParseAdminLevels         bool
+		errGetAdminBoundariesMarksCount error
+		statusCode                      int
+	}{
+		{
+			name:                            "Ok200",
+			query:                           "",
+			errGetAdminBoundariesMarksCount: nil,
+			statusCode:                      http.StatusOK,
+		},
+		{
+			name:                            "Ok200",
+			query:                           "?admin_levels=9",
+			errGetAdminBoundariesMarksCount: nil,
+			statusCode:                      http.StatusOK,
+		},
+		{
+			name:                            "Ok200",
+			query:                           "?admin_levels=9&admin_levels=10",
+			errGetAdminBoundariesMarksCount: nil,
+			statusCode:                      http.StatusOK,
+		},
+		{
+			name:                    "Err400",
+			query:                   "?admin_levels=a",
+			wantErrParseAdminLevels: true,
+			statusCode:              http.StatusBadRequest,
+		},
+		{
+			name:                    "Err400",
+			query:                   "?admin_levels=9,10",
+			wantErrParseAdminLevels: true,
+			statusCode:              http.StatusBadRequest,
+		},
+		{
+			name:                            "Err500",
+			query:                           "?admin_levels=9",
+			errGetAdminBoundariesMarksCount: errors.New(""),
+			statusCode:                      http.StatusInternalServerError,
+		},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if !tt.wantErrParseAdminLevels {
+				suite.uc.On("GetAdminBoundariesMarksCount", mock.Anything, mock.Anything).Once().
+					Return([]models.AdminBoundaryMarksCount{}, tt.errGetAdminBoundariesMarksCount)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/map/admin-boundaries/marks/count"+tt.query, nil)
+
+			suite.r.ServeHTTP(w, req)
+
+			suite.Equal(tt.statusCode, w.Code)
+		})
+	}
+}
+
 func (suite *MapSuite) TestGetRegions() {
 	tests := []struct {
 		name          string
