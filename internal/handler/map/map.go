@@ -51,6 +51,7 @@ func Register(r *gin.Engine, log *slog.Logger, uc Map, cacher mwcache.Cacher) {
 //	@Produce		json
 //	@Param			admin_levels	query		[]number	false	"filter by admin level"	collectionFormat(multi)
 //	@Success		200				{object}	responses.Response[maprest.GetAdminBoundariesResponse]
+//	@Failure		400				{object}	responses.Response[any]
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/map/admin-boundaries [get]
 func (h *handler) GetAdminBoundaries() gin.HandlerFunc {
@@ -86,6 +87,7 @@ func (h *handler) GetAdminBoundaries() gin.HandlerFunc {
 //	@Produce		json
 //	@Param			admin_levels	query		[]number	false	"filter by admin level"	collectionFormat(multi)
 //	@Success		200				{object}	responses.Response[maprest.GetAdminBoundariesMarksCountResponse]
+//	@Failure		400				{object}	responses.Response[any]
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/map/admin-boundaries/marks/count [get]
 func (h *handler) GetAdminBoundariesMarksCount() gin.HandlerFunc {
