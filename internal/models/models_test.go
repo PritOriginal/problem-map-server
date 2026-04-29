@@ -22,7 +22,7 @@ func TestMark_UnmarshalJSON(t *testing.T) {
 	}
 
 	var mark Mark
-	data := []byte(`{"geom":{"type":"Point","coordinates":[41.402893,52.700111]},"mark_id":1,"description":"Свалка","mark_status_id":1,"mark_type_id":1,"user_id":1,"number_votes":0,"number_checks":0,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}`)
+	data := []byte(`{"geom":{"type":"Point","coordinates":[41.402893,52.700111]},"mark_id":1,"description":"Свалка","mark_status_id":1,"mark_type_id":1,"user_id":1,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}`)
 	err := json.Unmarshal(data, &mark)
 	require.NoError(t, err)
 
@@ -32,7 +32,7 @@ func TestMark_UnmarshalJSON(t *testing.T) {
 }
 
 func TestMark_MarshalJSON(t *testing.T) {
-	expectedMarkJSON := []byte(`{"mark_id":1,"description":"Свалка","geom":{"type":"Point","coordinates":[41.402893,52.700111]},"mark_type_id":1,"mark_status_id":1,"user_id":1,"number_votes":0,"number_checks":0,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}`)
+	expectedMarkJSON := []byte(`{"mark_id":1,"description":"Свалка","geom":{"type":"Point","coordinates":[41.402893,52.700111]},"mark_type_id":1,"mark_status_id":1,"user_id":1,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z"}`)
 
 	mark := Mark{
 		ID:           1,

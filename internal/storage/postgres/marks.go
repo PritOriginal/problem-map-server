@@ -4,10 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 )
 
 type MarksRepository struct {
@@ -18,19 +20,36 @@ func NewMarks(conn *sqlx.DB) *MarksRepository {
 	return &MarksRepository{Conn: conn}
 }
 
-func (repo *MarksRepository) GetMarks(ctx context.Context) ([]models.Mark, error) {
+func (repo *MarksRepository) GetMarks(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error) {
 	const op = "storage.postgres.GetMarks"
 
 	marks := []models.Mark{}
 
+	var conditions []string
+	var args []any
 	query := `
 			SELECT 
-				mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, number_votes, number_checks, created_at, updated_at 
+				mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, created_at, updated_at 
 			FROM 
 				marks
+			WHERE
+				1=1
 			`
 
-	if err := repo.Conn.SelectContext(ctx, &marks, query); err != nil {
+	if len(filters.MarkStatusIds) > 0 {
+		conditions = append(conditions, "mark_status_id = ANY($?)")
+		args = append(args, pq.Array(filters.MarkStatusIds))
+	}
+	if len(filters.MarkTypeIds) > 0 {
+		conditions = append(conditions, "type_mark_id = ANY($?)")
+		args = append(args, pq.Array(filters.MarkTypeIds))
+	}
+
+	for i, condition := range conditions {
+		query += " AND " + condition
+		query = strings.Replace(query, "$?", fmt.Sprintf("$%d", len(args)-len(conditions)+i+1), 1)
+	}
+	if err := repo.Conn.SelectContext(ctx, &marks, query, args...); err != nil {
 		return marks, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -43,7 +62,7 @@ func (repo *MarksRepository) GetMarkById(ctx context.Context, id int) (models.Ma
 	mark := models.Mark{}
 
 	query := `SELECT
-				mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, number_votes, number_checks, created_at, updated_at 
+				mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, created_at, updated_at 
 			FROM 
 				marks 
 			WHERE 
@@ -68,7 +87,7 @@ func (repo *MarksRepository) GetMarksByUserId(ctx context.Context, userId int) (
 	marks := []models.Mark{}
 
 	query := `SELECT
-				mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, number_votes, number_checks, created_at, updated_at
+				mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, created_at, updated_at
 			FROM 
 				marks 
 			WHERE 

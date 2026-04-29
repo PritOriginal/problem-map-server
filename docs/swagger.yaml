@@ -1,12 +1,10 @@
 definitions:
-  ewkb.MultiPolygon:
-    type: object
   github_com_PritOriginal_problem-map-server_internal_models.AdminBoundary:
     properties:
       admin_level:
         type: integer
       geom:
-        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MultiPolygon'
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MultiPolygonJSON'
       id:
         type: integer
       name:
@@ -92,10 +90,6 @@ definitions:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
       mark_type_id:
         type: integer
-      number_checks:
-        type: integer
-      number_votes:
-        type: integer
       updated_at:
         type: string
       user_id:
@@ -152,10 +146,21 @@ definitions:
       name:
         type: string
     type: object
-  github_com_PritOriginal_problem-map-server_internal_models.MultiPolygon:
+  github_com_PritOriginal_problem-map-server_internal_models.MultiPolygonJSON:
     properties:
-      ewkb:
-        $ref: '#/definitions/ewkb.MultiPolygon'
+      coordinates:
+        items:
+          items:
+            items:
+              items:
+                format: float64
+                type: number
+              type: array
+            type: array
+          type: array
+        type: array
+      type:
+        type: string
     type: object
   github_com_PritOriginal_problem-map-server_internal_models.PointJSON:
     properties:
@@ -346,6 +351,15 @@ definitions:
       success:
         type: boolean
     type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_ConfirmResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      payload:
+        $ref: '#/definitions/internal_handler_marks.ConfirmResponse'
+      success:
+        type: boolean
+    type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkByIdResponse:
     properties:
       error:
@@ -397,6 +411,15 @@ definitions:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
       payload:
         $ref: '#/definitions/internal_handler_marks.GetMarksResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_RejectResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      payload:
+        $ref: '#/definitions/internal_handler_marks.RejectResponse'
       success:
         type: boolean
     type: object
@@ -577,6 +600,11 @@ definitions:
       mark_id:
         type: integer
     type: object
+  internal_handler_marks.ConfirmResponse:
+    properties:
+      new_mark_staus_id:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
+    type: object
   internal_handler_marks.GetMarkByIdResponse:
     properties:
       mark:
@@ -616,6 +644,11 @@ definitions:
         items:
           $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark'
         type: array
+    type: object
+  internal_handler_marks.RejectResponse:
+    properties:
+      new_mark_staus_id:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
     type: object
   internal_handler_tasks.AddTaskRequest:
     properties:
@@ -911,7 +944,7 @@ paths:
       - application/json
       description: admin boundaries
       parameters:
-      - collectionFormat: multi
+      - collectionFormat: csv
         description: filter by admin level
         in: query
         items:
@@ -942,12 +975,19 @@ paths:
       - application/json
       description: the count of markers of all administrative boundaries
       parameters:
-      - collectionFormat: multi
+      - collectionFormat: csv
         description: filter by admin level
         in: query
         items:
           type: number
         name: admin_levels
+        type: array
+      - collectionFormat: csv
+        description: filter by mark type
+        in: query
+        items:
+          type: number
+        name: mark_type_ids
         type: array
       produces:
       - application/json
@@ -1029,6 +1069,21 @@ paths:
       consumes:
       - application/json
       description: get markers
+      parameters:
+      - collectionFormat: csv
+        description: filter by mark types
+        in: query
+        items:
+          type: number
+        name: mark_type_ids
+        type: array
+      - collectionFormat: csv
+        description: filter by mark statuses
+        in: query
+        items:
+          type: number
+        name: mark_status_ids
+        type: array
       produces:
       - application/json
       responses:
@@ -1036,6 +1091,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarksResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "500":
           description: Internal Server Error
           schema:
@@ -1103,6 +1162,60 @@ paths:
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       summary: Get mark by id
+      tags:
+      - marks
+  /marks/{id}/confirm:
+    post:
+      consumes:
+      - application/json
+      description: сonfirm the mark and moves it to a new status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_ConfirmResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: Confirm the mark
+      tags:
+      - marks
+  /marks/{id}/reject:
+    post:
+      consumes:
+      - application/json
+      description: reject the mark and moves it to a new status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_RejectResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: Reject the mark
       tags:
       - marks
   /marks/{id}/status-history:

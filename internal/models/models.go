@@ -15,7 +15,7 @@ type AdminBoundary struct {
 	Geom       *MultiPolygon `json:"geom" db:"geom"`
 }
 
-type GetAdminBoundaryParams struct {
+type GetAdminBoundaryFilters struct {
 	AdminLevels []int
 }
 
@@ -29,8 +29,9 @@ type AdminBoundaryMarksCount struct {
 	ClosedCount      int    `json:"closed_count" db:"closed_count"`
 }
 
-type GetAdminBoundaryMarksCountParams struct {
+type GetAdminBoundaryMarksCountFilters struct {
 	AdminLevels []int
+	MarkTypeIds []int
 }
 
 type Region struct {
@@ -86,24 +87,25 @@ type Mark struct {
 	MarkTypeID   int            `json:"mark_type_id" db:"type_mark_id"`
 	MarkStatusID MarkStatusType `json:"mark_status_id" db:"mark_status_id"`
 	UserID       int            `json:"user_id" db:"user_id"`
-	NumberVotes  int            `json:"number_votes" db:"number_votes"`
-	NumberChecks int            `json:"number_checks" db:"number_checks"`
 	CreatedAt    time.Time      `json:"created_at" db:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at" db:"updated_at"`
 }
 
 func (m *Mark) ToProtobufObject() *pb.Mark {
 	return &pb.Mark{
-		Id:           int64(m.ID),
-		Description:  m.Description,
-		Geom:         m.Geom.ToProtobufObject(),
-		MarkTypeId:   int64(m.MarkTypeID),
-		UserId:       int64(m.UserID),
-		NumberVotes:  int64(m.NumberVotes),
-		NumberChecks: int64(m.NumberChecks),
-		CreatedAt:    timestamppb.New(m.CreatedAt),
-		UpdatedAt:    timestamppb.New(m.UpdatedAt),
+		Id:          int64(m.ID),
+		Description: m.Description,
+		Geom:        m.Geom.ToProtobufObject(),
+		MarkTypeId:  int64(m.MarkTypeID),
+		UserId:      int64(m.UserID),
+		CreatedAt:   timestamppb.New(m.CreatedAt),
+		UpdatedAt:   timestamppb.New(m.UpdatedAt),
 	}
+}
+
+type GetMarksFilters struct {
+	MarkTypeIds   []int
+	MarkStatusIds []int
 }
 
 type MarkType struct {

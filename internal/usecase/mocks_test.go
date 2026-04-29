@@ -171,6 +171,74 @@ func (_c *MockChecksRepository_GetCheckById_Call) RunAndReturn(run func(ctx cont
 	return _c
 }
 
+// GetChecksByMarkHistoryId provides a mock function for the type MockChecksRepository
+func (_mock *MockChecksRepository) GetChecksByMarkHistoryId(ctx context.Context, markHistoryId int) ([]models.Check, error) {
+	ret := _mock.Called(ctx, markHistoryId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetChecksByMarkHistoryId")
+	}
+
+	var r0 []models.Check
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) ([]models.Check, error)); ok {
+		return returnFunc(ctx, markHistoryId)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) []models.Check); ok {
+		r0 = returnFunc(ctx, markHistoryId)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]models.Check)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = returnFunc(ctx, markHistoryId)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockChecksRepository_GetChecksByMarkHistoryId_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetChecksByMarkHistoryId'
+type MockChecksRepository_GetChecksByMarkHistoryId_Call struct {
+	*mock.Call
+}
+
+// GetChecksByMarkHistoryId is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markHistoryId int
+func (_e *MockChecksRepository_Expecter) GetChecksByMarkHistoryId(ctx interface{}, markHistoryId interface{}) *MockChecksRepository_GetChecksByMarkHistoryId_Call {
+	return &MockChecksRepository_GetChecksByMarkHistoryId_Call{Call: _e.mock.On("GetChecksByMarkHistoryId", ctx, markHistoryId)}
+}
+
+func (_c *MockChecksRepository_GetChecksByMarkHistoryId_Call) Run(run func(ctx context.Context, markHistoryId int)) *MockChecksRepository_GetChecksByMarkHistoryId_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockChecksRepository_GetChecksByMarkHistoryId_Call) Return(checks []models.Check, err error) *MockChecksRepository_GetChecksByMarkHistoryId_Call {
+	_c.Call.Return(checks, err)
+	return _c
+}
+
+func (_c *MockChecksRepository_GetChecksByMarkHistoryId_Call) RunAndReturn(run func(ctx context.Context, markHistoryId int) ([]models.Check, error)) *MockChecksRepository_GetChecksByMarkHistoryId_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetChecksByMarkId provides a mock function for the type MockChecksRepository
 func (_mock *MockChecksRepository) GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error) {
 	ret := _mock.Called(ctx, markId)
@@ -491,8 +559,8 @@ func (_m *MockMapRepository) EXPECT() *MockMapRepository_Expecter {
 }
 
 // GetAdminBoundaries provides a mock function for the type MockMapRepository
-func (_mock *MockMapRepository) GetAdminBoundaries(ctx context.Context, params models.GetAdminBoundaryParams) ([]models.AdminBoundary, error) {
-	ret := _mock.Called(ctx, params)
+func (_mock *MockMapRepository) GetAdminBoundaries(ctx context.Context, filters models.GetAdminBoundaryFilters) ([]models.AdminBoundary, error) {
+	ret := _mock.Called(ctx, filters)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAdminBoundaries")
@@ -500,18 +568,18 @@ func (_mock *MockMapRepository) GetAdminBoundaries(ctx context.Context, params m
 
 	var r0 []models.AdminBoundary
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetAdminBoundaryParams) ([]models.AdminBoundary, error)); ok {
-		return returnFunc(ctx, params)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetAdminBoundaryFilters) ([]models.AdminBoundary, error)); ok {
+		return returnFunc(ctx, filters)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetAdminBoundaryParams) []models.AdminBoundary); ok {
-		r0 = returnFunc(ctx, params)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetAdminBoundaryFilters) []models.AdminBoundary); ok {
+		r0 = returnFunc(ctx, filters)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]models.AdminBoundary)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, models.GetAdminBoundaryParams) error); ok {
-		r1 = returnFunc(ctx, params)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.GetAdminBoundaryFilters) error); ok {
+		r1 = returnFunc(ctx, filters)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -525,20 +593,20 @@ type MockMapRepository_GetAdminBoundaries_Call struct {
 
 // GetAdminBoundaries is a helper method to define mock.On call
 //   - ctx context.Context
-//   - params models.GetAdminBoundaryParams
-func (_e *MockMapRepository_Expecter) GetAdminBoundaries(ctx interface{}, params interface{}) *MockMapRepository_GetAdminBoundaries_Call {
-	return &MockMapRepository_GetAdminBoundaries_Call{Call: _e.mock.On("GetAdminBoundaries", ctx, params)}
+//   - filters models.GetAdminBoundaryFilters
+func (_e *MockMapRepository_Expecter) GetAdminBoundaries(ctx interface{}, filters interface{}) *MockMapRepository_GetAdminBoundaries_Call {
+	return &MockMapRepository_GetAdminBoundaries_Call{Call: _e.mock.On("GetAdminBoundaries", ctx, filters)}
 }
 
-func (_c *MockMapRepository_GetAdminBoundaries_Call) Run(run func(ctx context.Context, params models.GetAdminBoundaryParams)) *MockMapRepository_GetAdminBoundaries_Call {
+func (_c *MockMapRepository_GetAdminBoundaries_Call) Run(run func(ctx context.Context, filters models.GetAdminBoundaryFilters)) *MockMapRepository_GetAdminBoundaries_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 models.GetAdminBoundaryParams
+		var arg1 models.GetAdminBoundaryFilters
 		if args[1] != nil {
-			arg1 = args[1].(models.GetAdminBoundaryParams)
+			arg1 = args[1].(models.GetAdminBoundaryFilters)
 		}
 		run(
 			arg0,
@@ -553,14 +621,14 @@ func (_c *MockMapRepository_GetAdminBoundaries_Call) Return(adminBoundarys []mod
 	return _c
 }
 
-func (_c *MockMapRepository_GetAdminBoundaries_Call) RunAndReturn(run func(ctx context.Context, params models.GetAdminBoundaryParams) ([]models.AdminBoundary, error)) *MockMapRepository_GetAdminBoundaries_Call {
+func (_c *MockMapRepository_GetAdminBoundaries_Call) RunAndReturn(run func(ctx context.Context, filters models.GetAdminBoundaryFilters) ([]models.AdminBoundary, error)) *MockMapRepository_GetAdminBoundaries_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetAdminBoundariesMarksCount provides a mock function for the type MockMapRepository
-func (_mock *MockMapRepository) GetAdminBoundariesMarksCount(ctx context.Context, params models.GetAdminBoundaryMarksCountParams) ([]models.AdminBoundaryMarksCount, error) {
-	ret := _mock.Called(ctx, params)
+func (_mock *MockMapRepository) GetAdminBoundariesMarksCount(ctx context.Context, filters models.GetAdminBoundaryMarksCountFilters) ([]models.AdminBoundaryMarksCount, error) {
+	ret := _mock.Called(ctx, filters)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetAdminBoundariesMarksCount")
@@ -568,18 +636,18 @@ func (_mock *MockMapRepository) GetAdminBoundariesMarksCount(ctx context.Context
 
 	var r0 []models.AdminBoundaryMarksCount
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetAdminBoundaryMarksCountParams) ([]models.AdminBoundaryMarksCount, error)); ok {
-		return returnFunc(ctx, params)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetAdminBoundaryMarksCountFilters) ([]models.AdminBoundaryMarksCount, error)); ok {
+		return returnFunc(ctx, filters)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetAdminBoundaryMarksCountParams) []models.AdminBoundaryMarksCount); ok {
-		r0 = returnFunc(ctx, params)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetAdminBoundaryMarksCountFilters) []models.AdminBoundaryMarksCount); ok {
+		r0 = returnFunc(ctx, filters)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]models.AdminBoundaryMarksCount)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, models.GetAdminBoundaryMarksCountParams) error); ok {
-		r1 = returnFunc(ctx, params)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.GetAdminBoundaryMarksCountFilters) error); ok {
+		r1 = returnFunc(ctx, filters)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -593,20 +661,20 @@ type MockMapRepository_GetAdminBoundariesMarksCount_Call struct {
 
 // GetAdminBoundariesMarksCount is a helper method to define mock.On call
 //   - ctx context.Context
-//   - params models.GetAdminBoundaryMarksCountParams
-func (_e *MockMapRepository_Expecter) GetAdminBoundariesMarksCount(ctx interface{}, params interface{}) *MockMapRepository_GetAdminBoundariesMarksCount_Call {
-	return &MockMapRepository_GetAdminBoundariesMarksCount_Call{Call: _e.mock.On("GetAdminBoundariesMarksCount", ctx, params)}
+//   - filters models.GetAdminBoundaryMarksCountFilters
+func (_e *MockMapRepository_Expecter) GetAdminBoundariesMarksCount(ctx interface{}, filters interface{}) *MockMapRepository_GetAdminBoundariesMarksCount_Call {
+	return &MockMapRepository_GetAdminBoundariesMarksCount_Call{Call: _e.mock.On("GetAdminBoundariesMarksCount", ctx, filters)}
 }
 
-func (_c *MockMapRepository_GetAdminBoundariesMarksCount_Call) Run(run func(ctx context.Context, params models.GetAdminBoundaryMarksCountParams)) *MockMapRepository_GetAdminBoundariesMarksCount_Call {
+func (_c *MockMapRepository_GetAdminBoundariesMarksCount_Call) Run(run func(ctx context.Context, filters models.GetAdminBoundaryMarksCountFilters)) *MockMapRepository_GetAdminBoundariesMarksCount_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 models.GetAdminBoundaryMarksCountParams
+		var arg1 models.GetAdminBoundaryMarksCountFilters
 		if args[1] != nil {
-			arg1 = args[1].(models.GetAdminBoundaryMarksCountParams)
+			arg1 = args[1].(models.GetAdminBoundaryMarksCountFilters)
 		}
 		run(
 			arg0,
@@ -621,7 +689,7 @@ func (_c *MockMapRepository_GetAdminBoundariesMarksCount_Call) Return(adminBound
 	return _c
 }
 
-func (_c *MockMapRepository_GetAdminBoundariesMarksCount_Call) RunAndReturn(run func(ctx context.Context, params models.GetAdminBoundaryMarksCountParams) ([]models.AdminBoundaryMarksCount, error)) *MockMapRepository_GetAdminBoundariesMarksCount_Call {
+func (_c *MockMapRepository_GetAdminBoundariesMarksCount_Call) RunAndReturn(run func(ctx context.Context, filters models.GetAdminBoundaryMarksCountFilters) ([]models.AdminBoundaryMarksCount, error)) *MockMapRepository_GetAdminBoundariesMarksCount_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1302,8 +1370,8 @@ func (_c *MockMarksRepository_GetMarkTypes_Call) RunAndReturn(run func(ctx conte
 }
 
 // GetMarks provides a mock function for the type MockMarksRepository
-func (_mock *MockMarksRepository) GetMarks(ctx context.Context) ([]models.Mark, error) {
-	ret := _mock.Called(ctx)
+func (_mock *MockMarksRepository) GetMarks(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error) {
+	ret := _mock.Called(ctx, filters)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetMarks")
@@ -1311,18 +1379,18 @@ func (_mock *MockMarksRepository) GetMarks(ctx context.Context) ([]models.Mark, 
 
 	var r0 []models.Mark
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]models.Mark, error)); ok {
-		return returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetMarksFilters) ([]models.Mark, error)); ok {
+		return returnFunc(ctx, filters)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) []models.Mark); ok {
-		r0 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetMarksFilters) []models.Mark); ok {
+		r0 = returnFunc(ctx, filters)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]models.Mark)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.GetMarksFilters) error); ok {
+		r1 = returnFunc(ctx, filters)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -1336,18 +1404,24 @@ type MockMarksRepository_GetMarks_Call struct {
 
 // GetMarks is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockMarksRepository_Expecter) GetMarks(ctx interface{}) *MockMarksRepository_GetMarks_Call {
-	return &MockMarksRepository_GetMarks_Call{Call: _e.mock.On("GetMarks", ctx)}
+//   - filters models.GetMarksFilters
+func (_e *MockMarksRepository_Expecter) GetMarks(ctx interface{}, filters interface{}) *MockMarksRepository_GetMarks_Call {
+	return &MockMarksRepository_GetMarks_Call{Call: _e.mock.On("GetMarks", ctx, filters)}
 }
 
-func (_c *MockMarksRepository_GetMarks_Call) Run(run func(ctx context.Context)) *MockMarksRepository_GetMarks_Call {
+func (_c *MockMarksRepository_GetMarks_Call) Run(run func(ctx context.Context, filters models.GetMarksFilters)) *MockMarksRepository_GetMarks_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
+		var arg1 models.GetMarksFilters
+		if args[1] != nil {
+			arg1 = args[1].(models.GetMarksFilters)
+		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -1358,7 +1432,7 @@ func (_c *MockMarksRepository_GetMarks_Call) Return(marks []models.Mark, err err
 	return _c
 }
 
-func (_c *MockMarksRepository_GetMarks_Call) RunAndReturn(run func(ctx context.Context) ([]models.Mark, error)) *MockMarksRepository_GetMarks_Call {
+func (_c *MockMarksRepository_GetMarks_Call) RunAndReturn(run func(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error)) *MockMarksRepository_GetMarks_Call {
 	_c.Call.Return(run)
 	return _c
 }

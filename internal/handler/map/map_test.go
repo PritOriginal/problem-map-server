@@ -60,19 +60,13 @@ func (suite *MapSuite) TestGetAdminBoundaries() {
 		},
 		{
 			name:                  "Ok200",
-			query:                 "?admin_levels=9&admin_levels=10",
+			query:                 "?admin_levels=9,10",
 			errGetAdminBoundaries: nil,
 			statusCode:            http.StatusOK,
 		},
 		{
 			name:                    "Err400",
 			query:                   "?admin_levels=a",
-			wantErrParseAdminLevels: true,
-			statusCode:              http.StatusBadRequest,
-		},
-		{
-			name:                    "Err400",
-			query:                   "?admin_levels=9,10",
 			wantErrParseAdminLevels: true,
 			statusCode:              http.StatusBadRequest,
 		},
@@ -114,6 +108,7 @@ func (suite *MapSuite) TestGetAdminBoundariesMarksCount() {
 		name                            string
 		query                           string
 		wantErrParseAdminLevels         bool
+		wantErrParseMarkTypeIds         bool
 		errGetAdminBoundariesMarksCount error
 		statusCode                      int
 	}{
@@ -131,7 +126,25 @@ func (suite *MapSuite) TestGetAdminBoundariesMarksCount() {
 		},
 		{
 			name:                            "Ok200",
-			query:                           "?admin_levels=9&admin_levels=10",
+			query:                           "?admin_levels=9,10",
+			errGetAdminBoundariesMarksCount: nil,
+			statusCode:                      http.StatusOK,
+		},
+		{
+			name:                            "Ok200",
+			query:                           "?admin_levels=9,10&mark_type_ids=",
+			errGetAdminBoundariesMarksCount: nil,
+			statusCode:                      http.StatusOK,
+		},
+		{
+			name:                            "Ok200",
+			query:                           "?admin_levels=9,10&mark_type_ids=1",
+			errGetAdminBoundariesMarksCount: nil,
+			statusCode:                      http.StatusOK,
+		},
+		{
+			name:                            "Ok200",
+			query:                           "?admin_levels=9,10&mark_type_ids=1,2",
 			errGetAdminBoundariesMarksCount: nil,
 			statusCode:                      http.StatusOK,
 		},
@@ -143,7 +156,7 @@ func (suite *MapSuite) TestGetAdminBoundariesMarksCount() {
 		},
 		{
 			name:                    "Err400",
-			query:                   "?admin_levels=9,10",
+			query:                   "?mark_type_ids=a",
 			wantErrParseAdminLevels: true,
 			statusCode:              http.StatusBadRequest,
 		},
@@ -156,7 +169,7 @@ func (suite *MapSuite) TestGetAdminBoundariesMarksCount() {
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			if !tt.wantErrParseAdminLevels {
+			if !tt.wantErrParseAdminLevels && !tt.wantErrParseMarkTypeIds {
 				suite.uc.On("GetAdminBoundariesMarksCount", mock.Anything, mock.Anything).Once().
 					Return([]models.AdminBoundaryMarksCount{}, tt.errGetAdminBoundariesMarksCount)
 			}

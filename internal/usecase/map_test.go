@@ -63,7 +63,7 @@ func (suite *MapSuite) TestGetAdminBoundaries() {
 				}
 			}()
 
-			_, gotErr := suite.uc.GetAdminBoundaries(context.Background(), models.GetAdminBoundaryParams{})
+			_, gotErr := suite.uc.GetAdminBoundaries(context.Background(), models.GetAdminBoundaryFilters{})
 
 			if tt.getAdminBoundaries.err == nil {
 				suite.NoError(gotErr)
@@ -106,7 +106,7 @@ func (suite *MapSuite) TestGetAdminBoundariesMarksCount() {
 				}
 			}()
 
-			_, gotErr := suite.uc.GetAdminBoundariesMarksCount(context.Background(), models.GetAdminBoundaryMarksCountParams{})
+			_, gotErr := suite.uc.GetAdminBoundariesMarksCount(context.Background(), models.GetAdminBoundaryMarksCountFilters{})
 
 			if tt.getAdminBoundariesMarksCount.err == nil {
 				suite.NoError(gotErr)

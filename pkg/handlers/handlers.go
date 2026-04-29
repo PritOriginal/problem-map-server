@@ -6,7 +6,33 @@ import (
 	"image/jpeg"
 	"io"
 	"mime/multipart"
+	"strconv"
+	"strings"
 )
+
+func ParseIntArray(param string) ([]int, error) {
+	if param == "" {
+		return []int{}, nil
+	}
+
+	parts := strings.Split(param, ",")
+	result := make([]int, 0, len(parts))
+
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+
+		num, err := strconv.Atoi(part)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, num)
+	}
+
+	return result, nil
+}
 
 func ParsePhotos(fheaders []*multipart.FileHeader) ([]io.Reader, error) {
 	var photos []io.Reader

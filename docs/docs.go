@@ -364,7 +364,7 @@ const docTemplate = `{
                         "items": {
                             "type": "number"
                         },
-                        "collectionFormat": "multi",
+                        "collectionFormat": "csv",
                         "description": "filter by admin level",
                         "name": "admin_levels",
                         "in": "query"
@@ -411,9 +411,19 @@ const docTemplate = `{
                         "items": {
                             "type": "number"
                         },
-                        "collectionFormat": "multi",
+                        "collectionFormat": "csv",
                         "description": "filter by admin level",
                         "name": "admin_levels",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "number"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "filter by mark type",
+                        "name": "mark_type_ids",
                         "in": "query"
                     }
                 ],
@@ -539,11 +549,39 @@ const docTemplate = `{
                     "marks"
                 ],
                 "summary": "List markers",
+                "parameters": [
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "number"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "filter by mark types",
+                        "name": "mark_type_ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "number"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "filter by mark statuses",
+                        "name": "mark_status_ids",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarksResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
@@ -734,6 +772,88 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
+        "/marks/{id}/confirm": {
+            "post": {
+                "description": "сonfirm the mark and moves it to a new status",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "marks"
+                ],
+                "summary": "Confirm the mark",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_ConfirmResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
+        "/marks/{id}/reject": {
+            "post": {
+                "description": "reject the mark and moves it to a new status",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "marks"
+                ],
+                "summary": "Reject the mark",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_RejectResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
@@ -1027,9 +1147,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "ewkb.MultiPolygon": {
-            "type": "object"
-        },
         "github_com_PritOriginal_problem-map-server_internal_models.AdminBoundary": {
             "type": "object",
             "properties": {
@@ -1037,7 +1154,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "geom": {
-                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MultiPolygon"
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MultiPolygonJSON"
                 },
                 "id": {
                     "type": "integer"
@@ -1169,12 +1286,6 @@ const docTemplate = `{
                 "mark_type_id": {
                     "type": "integer"
                 },
-                "number_checks": {
-                    "type": "integer"
-                },
-                "number_votes": {
-                    "type": "integer"
-                },
                 "updated_at": {
                     "type": "string"
                 },
@@ -1256,11 +1367,27 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_internal_models.MultiPolygon": {
+        "github_com_PritOriginal_problem-map-server_internal_models.MultiPolygonJSON": {
             "type": "object",
             "properties": {
-                "ewkb": {
-                    "$ref": "#/definitions/ewkb.MultiPolygon"
+                "coordinates": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "type": "number",
+                                    "format": "float64"
+                                }
+                            }
+                        }
+                    }
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },
@@ -1556,6 +1683,20 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_ConfirmResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_marks.ConfirmResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
         "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkByIdResponse": {
             "type": "object",
             "properties": {
@@ -1634,6 +1775,20 @@ const docTemplate = `{
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.GetMarksResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_RejectResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_marks.RejectResponse"
                 },
                 "success": {
                     "type": "boolean"
@@ -1910,6 +2065,14 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler_marks.ConfirmResponse": {
+            "type": "object",
+            "properties": {
+                "new_mark_staus_id": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType"
+                }
+            }
+        },
         "internal_handler_marks.GetMarkByIdResponse": {
             "type": "object",
             "properties": {
@@ -1970,6 +2133,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark"
                     }
+                }
+            }
+        },
+        "internal_handler_marks.RejectResponse": {
+            "type": "object",
+            "properties": {
+                "new_mark_staus_id": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType"
                 }
             }
         },

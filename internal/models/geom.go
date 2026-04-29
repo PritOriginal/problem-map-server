@@ -134,8 +134,8 @@ type MultiPolygon struct {
 }
 
 type MultiPolygonJSON struct {
-	Type        string         `json:"type"`
-	Coordinates [][][2]float64 `json:"coordinates"`
+	Type        string           `json:"type"`
+	Coordinates [][][][2]float64 `json:"coordinates"`
 }
 
 func NewMultiPolygon(coords [][][]geom.Coord) *MultiPolygon {

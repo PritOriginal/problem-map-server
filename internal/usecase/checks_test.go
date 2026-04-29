@@ -469,21 +469,27 @@ func TestMarkStatusUpdater(t *testing.T) {
 
 func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 	tests := []struct {
-		name              string
-		getMarkById       method[models.Mark]
-		getChecksByMarkId method[[]models.Check]
-		wantUpdated       bool
-		updateMarkStatus  method[any]
+		name                         string
+		getMarkById                  method[models.Mark]
+		getLastMarkStatusHistoryItem method[models.MarkStatusHistoryItem]
+		getChecksByMarkHistoryId     method[[]models.Check]
+		wantUpdated                  bool
+		updateMarkStatus             method[any]
 	}{
 		{
 			name: "Ok",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					ID: 1,
+				},
+			},
 			getMarkById: method[models.Mark]{
 				data: models.Mark{
 					MarkStatusID: models.UnconfirmedStatus,
 				},
 				err: nil,
 			},
-			getChecksByMarkId: method[[]models.Check]{
+			getChecksByMarkHistoryId: method[[]models.Check]{
 				data: []models.Check{
 					{
 						Result: true,
@@ -497,13 +503,18 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 		},
 		{
 			name: "Ok-ConfirmedStatus",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					ID: 1,
+				},
+			},
 			getMarkById: method[models.Mark]{
 				data: models.Mark{
 					MarkStatusID: models.UnconfirmedStatus,
 				},
 				err: nil,
 			},
-			getChecksByMarkId: method[[]models.Check]{
+			getChecksByMarkHistoryId: method[[]models.Check]{
 				data: []models.Check{
 					{
 						Result: true,
@@ -524,13 +535,18 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 		},
 		{
 			name: "Err-ConfirmedStatus",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					ID: 1,
+				},
+			},
 			getMarkById: method[models.Mark]{
 				data: models.Mark{
 					MarkStatusID: models.UnconfirmedStatus,
 				},
 				err: nil,
 			},
-			getChecksByMarkId: method[[]models.Check]{
+			getChecksByMarkHistoryId: method[[]models.Check]{
 				data: []models.Check{
 					{
 						Result: true,
@@ -551,13 +567,18 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 		},
 		{
 			name: "Ok-RefutedStatus",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					ID: 1,
+				},
+			},
 			getMarkById: method[models.Mark]{
 				data: models.Mark{
 					MarkStatusID: models.UnconfirmedStatus,
 				},
 				err: nil,
 			},
-			getChecksByMarkId: method[[]models.Check]{
+			getChecksByMarkHistoryId: method[[]models.Check]{
 				data: []models.Check{
 					{
 						Result: false,
@@ -578,13 +599,18 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 		},
 		{
 			name: "Ok-RefutedStatus",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					ID: 1,
+				},
+			},
 			getMarkById: method[models.Mark]{
 				data: models.Mark{
 					MarkStatusID: models.UnconfirmedStatus,
 				},
 				err: nil,
 			},
-			getChecksByMarkId: method[[]models.Check]{
+			getChecksByMarkHistoryId: method[[]models.Check]{
 				data: []models.Check{
 					{
 						Result: false,
@@ -600,11 +626,22 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 			},
 			wantUpdated: true,
 			updateMarkStatus: method[any]{
+				err: errors.New(""),
+			},
+		},
+		{
+			name: "Err-GetMarkStatusHistoryByMarkId",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
 				err: errors.New(""),
 			},
 		},
 		{
 			name: "Err-GetMarkById",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					ID: 1,
+				},
+			},
 			getMarkById: method[models.Mark]{
 				data: models.Mark{},
 				err:  errors.New(""),
@@ -612,13 +649,18 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 		},
 		{
 			name: "Err-GetChecksByMarkId",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					ID: 1,
+				},
+			},
 			getMarkById: method[models.Mark]{
 				data: models.Mark{
 					MarkStatusID: models.UnconfirmedStatus,
 				},
 				err: nil,
 			},
-			getChecksByMarkId: method[[]models.Check]{
+			getChecksByMarkHistoryId: method[[]models.Check]{
 				data: []models.Check{
 					{
 						Result: true,
@@ -640,10 +682,16 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 					return
 				}
 
+				suite.marksRepo.On("GetLastMarkStatusHistoryItem", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(tt.getLastMarkStatusHistoryItem.data, tt.getLastMarkStatusHistoryItem.err)
+				if tt.getLastMarkStatusHistoryItem.err != nil {
+					return
+				}
+
 				if tt.getMarkById.data.MarkStatusID == models.UnconfirmedStatus {
-					suite.checksRepo.On("GetChecksByMarkId", mock.Anything, mock.AnythingOfType("int")).Once().
-						Return(tt.getChecksByMarkId.data, tt.getChecksByMarkId.err)
-					if tt.getChecksByMarkId.err != nil {
+					suite.checksRepo.On("GetChecksByMarkHistoryId", mock.Anything, mock.AnythingOfType("int")).Once().
+						Return(tt.getChecksByMarkHistoryId.data, tt.getChecksByMarkHistoryId.err)
+					if tt.getChecksByMarkHistoryId.err != nil {
 						return
 					}
 
@@ -659,13 +707,214 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 
 			gotErr := suite.u.Update(context.Background(), 1)
 
-			if tt.getMarkById.err == nil && tt.getChecksByMarkId.err == nil && tt.updateMarkStatus.err == nil {
+			if tt.getLastMarkStatusHistoryItem.err == nil &&
+				tt.getMarkById.err == nil &&
+				tt.getChecksByMarkHistoryId.err == nil &&
+				tt.updateMarkStatus.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
 			}
 			suite.marksRepo.AssertExpectations(suite.T())
 			suite.checksRepo.AssertExpectations(suite.T())
+		})
+	}
+}
+
+func (suite *MarkStatusUpdaterSuite) TestConfirm() {
+	tests := []struct {
+		name             string
+		getMarkById      method[models.Mark]
+		updateMarkStatus method[any]
+		want             models.MarkStatusType
+		err              error
+	}{
+		{
+			name: "Ok-UnconfirmedStatus",
+			getMarkById: method[models.Mark]{
+				data: models.Mark{MarkStatusID: models.UnconfirmedStatus},
+				err:  nil,
+			},
+			updateMarkStatus: method[any]{},
+			want:             models.ConfirmedStatus,
+		},
+		{
+			name: "Ok-ConfirmedStatus",
+			getMarkById: method[models.Mark]{
+				data: models.Mark{MarkStatusID: models.ConfirmedStatus},
+				err:  nil,
+			},
+			updateMarkStatus: method[any]{},
+			want:             models.UnderReviewStatus,
+		},
+		{
+			name: "Ok-RediscoveredStatus",
+			getMarkById: method[models.Mark]{
+				data: models.Mark{MarkStatusID: models.RediscoveredStatus},
+				err:  nil,
+			},
+			updateMarkStatus: method[any]{},
+			want:             models.UnderReviewStatus,
+		},
+		{
+			name: "Ok-UnderReviewStatus",
+			getMarkById: method[models.Mark]{
+				data: models.Mark{MarkStatusID: models.UnderReviewStatus},
+				err:  nil,
+			},
+			updateMarkStatus: method[any]{},
+			want:             models.ClosedStatus,
+		},
+		{
+			name: "Err-Conflict",
+			getMarkById: method[models.Mark]{
+				data: models.Mark{MarkStatusID: models.ClosedStatus},
+				err:  nil,
+			},
+			err: usecase.ErrConflict,
+		},
+		{
+			name: "Err-GetMarkById",
+			getMarkById: method[models.Mark]{
+				data: models.Mark{},
+				err:  errors.New(""),
+			},
+		},
+		{
+			name: "Err-UpdateMarkStatus",
+			getMarkById: method[models.Mark]{
+				data: models.Mark{MarkStatusID: models.UnconfirmedStatus},
+			},
+			updateMarkStatus: method[any]{
+				err: errors.New(""),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			func() {
+				suite.marksRepo.On("GetMarkById", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(tt.getMarkById.data, tt.getMarkById.err)
+				if tt.getMarkById.err != nil || tt.err == usecase.ErrConflict {
+					return
+				}
+
+				suite.marksRepo.On("UpdateMarkStatus", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("models.MarkStatusType")).Once().
+					Return(tt.updateMarkStatus.err)
+				if tt.updateMarkStatus.err != nil {
+					return
+				}
+			}()
+
+			got, gotErr := suite.u.Confirm(context.Background(), 1)
+
+			if tt.getMarkById.err == nil && tt.updateMarkStatus.err == nil && tt.err == nil {
+				suite.Equal(tt.want, got)
+				suite.NoError(gotErr)
+			} else {
+				suite.NotNil(gotErr)
+			}
+			suite.marksRepo.AssertExpectations(suite.T())
+		})
+	}
+}
+
+func (suite *MarkStatusUpdaterSuite) TestReject() {
+	tests := []struct {
+		name             string
+		getMarkById      method[models.Mark]
+		updateMarkStatus method[any]
+		want             models.MarkStatusType
+		err              error
+	}{
+		{
+			name: "Ok-UnconfirmedStatus",
+			getMarkById: method[models.Mark]{
+				data: models.Mark{MarkStatusID: models.UnconfirmedStatus},
+				err:  nil,
+			},
+			updateMarkStatus: method[any]{},
+			want:             models.RefutedStatus,
+		},
+		{
+			name: "Ok-ConfirmedStatus",
+			getMarkById: method[models.Mark]{
+				data: models.Mark{MarkStatusID: models.ConfirmedStatus},
+				err:  nil,
+			},
+			updateMarkStatus: method[any]{},
+			want:             models.RefutedStatus,
+		},
+		{
+			name: "Ok-RediscoveredStatus",
+			getMarkById: method[models.Mark]{
+				data: models.Mark{MarkStatusID: models.RediscoveredStatus},
+				err:  nil,
+			},
+			updateMarkStatus: method[any]{},
+			want:             models.ClosedStatus,
+		},
+		{
+			name: "Ok-UnderReviewStatus",
+			getMarkById: method[models.Mark]{
+				data: models.Mark{MarkStatusID: models.UnderReviewStatus},
+				err:  nil,
+			},
+			updateMarkStatus: method[any]{},
+			want:             models.RediscoveredStatus,
+		},
+		{
+			name: "Err-Conflict",
+			getMarkById: method[models.Mark]{
+				data: models.Mark{MarkStatusID: models.ClosedStatus},
+				err:  nil,
+			},
+			err: usecase.ErrConflict,
+		},
+		{
+			name: "Err-GetMarkById",
+			getMarkById: method[models.Mark]{
+				data: models.Mark{},
+				err:  errors.New(""),
+			},
+		},
+		{
+			name: "Err-UpdateMarkStatus",
+			getMarkById: method[models.Mark]{
+				data: models.Mark{MarkStatusID: models.UnconfirmedStatus},
+			},
+			updateMarkStatus: method[any]{
+				err: errors.New(""),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			func() {
+				suite.marksRepo.On("GetMarkById", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(tt.getMarkById.data, tt.getMarkById.err)
+				if tt.getMarkById.err != nil || tt.err == usecase.ErrConflict {
+					return
+				}
+
+				suite.marksRepo.On("UpdateMarkStatus", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("models.MarkStatusType")).Once().
+					Return(tt.updateMarkStatus.err)
+				if tt.updateMarkStatus.err != nil {
+					return
+				}
+			}()
+
+			got, gotErr := suite.u.Reject(context.Background(), 1)
+
+			if tt.getMarkById.err == nil && tt.updateMarkStatus.err == nil && tt.err == nil {
+				suite.Equal(tt.want, got)
+				suite.NoError(gotErr)
+			} else {
+				suite.NotNil(gotErr)
+			}
+			suite.marksRepo.AssertExpectations(suite.T())
 		})
 	}
 }
