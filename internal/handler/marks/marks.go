@@ -20,7 +20,7 @@ import (
 )
 
 type Marks interface {
-	GetMarks(ctx context.Context) ([]models.Mark, error)
+	GetMarks(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error)
 	GetMarkById(ctx context.Context, id int) (models.Mark, error)
 	GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error)
 	AddMark(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error)
@@ -66,12 +66,33 @@ func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddlew
 //	@Tags			marks
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	responses.Response[marksrest.GetMarksResponse]
-//	@Failure		500	{object}	responses.Response[any]
+//	@Param			mark_type_ids	query		[]number	false	"filter by mark types"
+//	@Param			mark_status_ids	query		[]number	false	"filter by mark statuses"
+//	@Success		200				{object}	responses.Response[marksrest.GetMarksResponse]
+//	@Failure		400				{object}	responses.Response[any]
+//	@Failure		500				{object}	responses.Response[any]
 //	@Router			/marks [get]
 func (h *handler) GetMarks() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		marks, err := h.uc.GetMarks(ctx.Request.Context())
+		markTypeIdsStr := ctx.Query("mark_type_ids")
+		markTypeIds, err := handlers.ParseIntArray(markTypeIdsStr)
+		if err != nil {
+			h.log.Debug("failed parse mark type ids", logger.Err(err))
+			responses.BadRequest(ctx, "failed parse mark type ids")
+			return
+		}
+		markStatusIdsStr := ctx.Query("mark_status_ids")
+		markStatusIds, err := handlers.ParseIntArray(markStatusIdsStr)
+		if err != nil {
+			h.log.Debug("failed parse mark status ids", logger.Err(err))
+			responses.BadRequest(ctx, "failed parse mark status ids")
+			return
+		}
+
+		marks, err := h.uc.GetMarks(ctx.Request.Context(), models.GetMarksFilters{
+			MarkTypeIds:   markTypeIds,
+			MarkStatusIds: markStatusIds,
+		})
 		if err != nil {
 			h.log.Error("error get marks", logger.Err(err))
 			responses.Internal(ctx, "error get marks")
