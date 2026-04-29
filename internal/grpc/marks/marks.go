@@ -13,7 +13,7 @@ import (
 )
 
 type Marks interface {
-	GetMarks(ctx context.Context) ([]models.Mark, error)
+	GetMarks(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error)
 	GetMarkById(ctx context.Context, id int) (models.Mark, error)
 	GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error)
 	AddMark(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error)
