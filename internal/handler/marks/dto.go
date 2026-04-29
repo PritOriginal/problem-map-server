@@ -46,3 +46,11 @@ type GetMarkStatusHistoryByMarkIdRequest struct {
 type GetMarkStatusHistoryByMarkIdResponse struct {
 	HistoryItems []models.MarkStatusHistoryItem `json:"items"`
 }
+
+type ConfirmResponse struct {
+	NewMarkStausId models.MarkStatusType `json:"new_mark_staus_id"`
+}
+
+type RejectResponse struct {
+	NewMarkStausId models.MarkStatusType `json:"new_mark_staus_id"`
+}
