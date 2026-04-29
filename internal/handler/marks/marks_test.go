@@ -16,6 +16,7 @@ import (
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
 	jwt "github.com/appleboy/gin-jwt/v3"
@@ -27,9 +28,10 @@ import (
 
 type MarksSuite struct {
 	suite.Suite
-	r      *gin.Engine
-	uc     *marksrest.MockMarks
-	cacher *mwcache.MockCacher
+	r             *gin.Engine
+	uc            *marksrest.MockMarks
+	statusUpdater *marksrest.MockStatusUpdater
+	cacher        *mwcache.MockCacher
 }
 
 func (suite *MarksSuite) SetupSuite() {
@@ -45,6 +47,7 @@ func (suite *MarksSuite) SetupSuite() {
 	}
 
 	suite.uc = marksrest.NewMockMarks(suite.T())
+	suite.statusUpdater = marksrest.NewMockStatusUpdater(suite.T())
 	suite.cacher = mwcache.NewMockCacher(suite.T())
 
 	log := slogdiscard.NewDiscardLogger()
@@ -52,7 +55,12 @@ func (suite *MarksSuite) SetupSuite() {
 	gin.SetMode(gin.TestMode)
 	suite.r = gin.New()
 
-	marksrest.Register(suite.r, log, authMiddleware, suite.uc, suite.cacher)
+	marksrest.Register(suite.r, log, marksrest.Params{
+		AuthMiddleware: authMiddleware,
+		Cacher:         suite.cacher,
+		Usecase:        suite.uc,
+		StatusUpdater:  suite.statusUpdater,
+	})
 }
 
 func TestMark(t *testing.T) {
@@ -470,6 +478,112 @@ func (suite *MarksSuite) TestGetMarkStatusHistoryByMarkId() {
 
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/marks/"+tt.id+"/status-history"+tt.query, nil)
+
+			suite.r.ServeHTTP(w, req)
+
+			suite.Equal(tt.statusCode, w.Code)
+		})
+	}
+}
+
+func (suite *MarksSuite) TestConfirm() {
+	tests := []struct {
+		name           string
+		id             string
+		wantErrParseId bool
+		errConfirm     error
+		statusCode     int
+	}{
+		{
+			name:       "Ok200",
+			id:         "1",
+			statusCode: http.StatusOK,
+		},
+		{
+			name:           "Ok400",
+			id:             "a",
+			wantErrParseId: true,
+			statusCode:     http.StatusBadRequest,
+		},
+		{
+			name:       "Ok409",
+			id:         "1",
+			errConfirm: usecase.ErrConflict,
+			statusCode: http.StatusConflict,
+		},
+		{
+			name:       "Err500",
+			id:         "1",
+			errConfirm: errors.New(""),
+			statusCode: http.StatusInternalServerError,
+		},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if !tt.wantErrParseId {
+				suite.statusUpdater.On("Confirm", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(models.ConfirmedStatus, tt.errConfirm)
+			}
+			w := httptest.NewRecorder()
+
+			accessToken, err := token.CreateToken(1*time.Minute, 1, "1234")
+			suite.NoError(err)
+
+			req := httptest.NewRequest("POST", "/marks/"+tt.id+"/confirm", nil)
+			req.Header.Set("Authorization", "Bearer "+accessToken)
+
+			suite.r.ServeHTTP(w, req)
+
+			suite.Equal(tt.statusCode, w.Code)
+		})
+	}
+}
+
+func (suite *MarksSuite) TestReject() {
+	tests := []struct {
+		name           string
+		id             string
+		wantErrParseId bool
+		errReject      error
+		statusCode     int
+	}{
+		{
+			name:       "Ok200",
+			id:         "1",
+			statusCode: http.StatusOK,
+		},
+		{
+			name:           "Ok400",
+			id:             "a",
+			wantErrParseId: true,
+			statusCode:     http.StatusBadRequest,
+		},
+		{
+			name:       "Ok409",
+			id:         "1",
+			errReject:  usecase.ErrConflict,
+			statusCode: http.StatusConflict,
+		},
+		{
+			name:       "Err500",
+			id:         "1",
+			errReject:  errors.New(""),
+			statusCode: http.StatusInternalServerError,
+		},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if !tt.wantErrParseId {
+				suite.statusUpdater.On("Reject", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(models.ConfirmedStatus, tt.errReject)
+			}
+			w := httptest.NewRecorder()
+
+			accessToken, err := token.CreateToken(1*time.Minute, 1, "1234")
+			suite.NoError(err)
+
+			req := httptest.NewRequest("POST", "/marks/"+tt.id+"/reject", nil)
+			req.Header.Set("Authorization", "Bearer "+accessToken)
 
 			suite.r.ServeHTTP(w, req)
 
