@@ -106,6 +106,11 @@ func (m *Mark) ToProtobufObject() *pb.Mark {
 	}
 }
 
+type GetMarksFilters struct {
+	MarkTypeIds   []int
+	MarkStatusIds []int
+}
+
 type MarkType struct {
 	ID   int    `json:"mark_type_id" db:"type_mark_id"`
 	Name string `json:"name"`

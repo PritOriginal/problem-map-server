@@ -10,7 +10,7 @@ import (
 )
 
 type MarksRepository interface {
-	GetMarks(ctx context.Context) ([]models.Mark, error)
+	GetMarks(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error)
 	GetMarkById(ctx context.Context, id int) (models.Mark, error)
 	GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error)
 	AddMark(ctx context.Context, mark models.Mark) (int64, error)
@@ -46,10 +46,10 @@ func NewMarks(log *slog.Logger, repos MarksRepositories) *Marks {
 	}
 }
 
-func (uc *Marks) GetMarks(ctx context.Context) ([]models.Mark, error) {
+func (uc *Marks) GetMarks(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error) {
 	const op = "usecase.Map.GetMarks"
 
-	marks, err := uc.repos.Marks.GetMarks(ctx)
+	marks, err := uc.repos.Marks.GetMarks(ctx, filters)
 	if err != nil {
 		return marks, fmt.Errorf("%s: %w", op, err)
 	}

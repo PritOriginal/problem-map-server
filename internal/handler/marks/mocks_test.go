@@ -376,8 +376,8 @@ func (_c *MockMarks_GetMarkTypes_Call) RunAndReturn(run func(ctx context.Context
 }
 
 // GetMarks provides a mock function for the type MockMarks
-func (_mock *MockMarks) GetMarks(ctx context.Context) ([]models.Mark, error) {
-	ret := _mock.Called(ctx)
+func (_mock *MockMarks) GetMarks(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error) {
+	ret := _mock.Called(ctx, filters)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetMarks")
@@ -385,18 +385,18 @@ func (_mock *MockMarks) GetMarks(ctx context.Context) ([]models.Mark, error) {
 
 	var r0 []models.Mark
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]models.Mark, error)); ok {
-		return returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetMarksFilters) ([]models.Mark, error)); ok {
+		return returnFunc(ctx, filters)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) []models.Mark); ok {
-		r0 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetMarksFilters) []models.Mark); ok {
+		r0 = returnFunc(ctx, filters)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]models.Mark)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.GetMarksFilters) error); ok {
+		r1 = returnFunc(ctx, filters)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -410,18 +410,24 @@ type MockMarks_GetMarks_Call struct {
 
 // GetMarks is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockMarks_Expecter) GetMarks(ctx interface{}) *MockMarks_GetMarks_Call {
-	return &MockMarks_GetMarks_Call{Call: _e.mock.On("GetMarks", ctx)}
+//   - filters models.GetMarksFilters
+func (_e *MockMarks_Expecter) GetMarks(ctx interface{}, filters interface{}) *MockMarks_GetMarks_Call {
+	return &MockMarks_GetMarks_Call{Call: _e.mock.On("GetMarks", ctx, filters)}
 }
 
-func (_c *MockMarks_GetMarks_Call) Run(run func(ctx context.Context)) *MockMarks_GetMarks_Call {
+func (_c *MockMarks_GetMarks_Call) Run(run func(ctx context.Context, filters models.GetMarksFilters)) *MockMarks_GetMarks_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
+		var arg1 models.GetMarksFilters
+		if args[1] != nil {
+			arg1 = args[1].(models.GetMarksFilters)
+		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -432,7 +438,7 @@ func (_c *MockMarks_GetMarks_Call) Return(marks []models.Mark, err error) *MockM
 	return _c
 }
 
-func (_c *MockMarks_GetMarks_Call) RunAndReturn(run func(ctx context.Context) ([]models.Mark, error)) *MockMarks_GetMarks_Call {
+func (_c *MockMarks_GetMarks_Call) RunAndReturn(run func(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error)) *MockMarks_GetMarks_Call {
 	_c.Call.Return(run)
 	return _c
 }

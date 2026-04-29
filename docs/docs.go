@@ -539,11 +539,39 @@ const docTemplate = `{
                     "marks"
                 ],
                 "summary": "List markers",
+                "parameters": [
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "number"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "filter by mark types",
+                        "name": "mark_type_ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "number"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "filter by mark statuses",
+                        "name": "mark_status_ids",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarksResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
