@@ -206,7 +206,7 @@ func (st *MarksSuite) TestGetMarkByUserId() {
 func (st *MarksSuite) TestAddMark() {
 	signInResponse := addNewUser(st.T(), &st.Cfg.REST)
 
-	markTypesResponse := getMarkTypes(st, http.StatusOK)
+	markTypesResponse := getMarkTypes(st.T(), &st.Cfg.REST, http.StatusOK)
 	randomMarkTypeIndex := rand.Intn(len(markTypesResponse.Payload.MarkTypes))
 	randomMarkType := markTypesResponse.Payload.MarkTypes[randomMarkTypeIndex]
 
@@ -275,21 +275,14 @@ func (st *MarksSuite) TestAddMark() {
 
 			mpw.Close()
 
-			req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s:%d/marks", st.Cfg.REST.Host, st.Cfg.REST.Port), b)
-			st.NoError(err)
-
-			req.Header.Set("Authorization", "Bearer "+signInResponse.Payload.AccessToken)
-			req.Header.Set("Content-Type", mpw.FormDataContentType())
-
-			resp, err := http.DefaultClient.Do(req)
-			st.NoError(err)
-			defer resp.Body.Close()
-
-			st.Equal(tt.statusCode, resp.StatusCode)
-
-			var response responses.Response[marksrest.AddMarkResponse]
-			err = json.NewDecoder(resp.Body).Decode(&response)
-			st.NoError(err)
+			response := addMark(
+				st.T(),
+				&st.Cfg.REST,
+				b,
+				mpw.FormDataContentType(),
+				signInResponse.Payload.AccessToken,
+				tt.statusCode,
+			)
 
 			if tt.statusCode < 300 {
 				st.Equal(response.Success, true)
@@ -299,6 +292,53 @@ func (st *MarksSuite) TestAddMark() {
 			}
 		})
 	}
+}
+
+func addNewMark(t *testing.T, cfg *config.RESTConfig, accessToken string) responses.Response[marksrest.AddMarkResponse] {
+	markTypesResponse := getMarkTypes(t, cfg, http.StatusOK)
+	randomMarkTypeIndex := rand.Intn(len(markTypesResponse.Payload.MarkTypes))
+	randomMarkType := markTypesResponse.Payload.MarkTypes[randomMarkTypeIndex]
+
+	long, err := gofakeit.LatitudeInRange(52.6, 52.8)
+	require.NoError(t, err)
+	lat, err := gofakeit.LongitudeInRange(41.25, 41.55)
+	require.NoError(t, err)
+
+	b := &bytes.Buffer{}
+	mpw := multipart.NewWriter(b)
+	mpw.WriteField("longitude", strconv.FormatFloat(long, 'f', -1, 64))
+	mpw.WriteField("latitude", strconv.FormatFloat(lat, 'f', -1, 64))
+	mpw.WriteField("mark_type_id", strconv.Itoa(randomMarkType.ID))
+	mpw.WriteField("description", "")
+
+	image := gofakeit.ImageJpeg(10, 10)
+	fw, err := mpw.CreateFormFile("photos", "test.jpg")
+	require.NoError(t, err)
+	io.Copy(fw, bytes.NewBuffer(image))
+
+	mpw.Close()
+
+	return addMark(t, cfg, b, mpw.FormDataContentType(), accessToken, http.StatusCreated)
+}
+
+func addMark(t *testing.T, cfg *config.RESTConfig, request io.Reader, contentType string, accessToken string, expectedStatusCode int) responses.Response[marksrest.AddMarkResponse] {
+	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s:%d/marks", cfg.Host, cfg.Port), request)
+	require.NoError(t, err)
+
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+	req.Header.Set("Content-Type", contentType)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, expectedStatusCode, resp.StatusCode)
+
+	var response responses.Response[marksrest.AddMarkResponse]
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	require.NoError(t, err)
+
+	return response
 }
 
 func (st *MarksSuite) TestGetMarkTypes() {
@@ -313,7 +353,7 @@ func (st *MarksSuite) TestGetMarkTypes() {
 	}
 	for _, tt := range tests {
 		st.Run(tt.name, func() {
-			response := getMarkTypes(st, tt.statusCode)
+			response := getMarkTypes(st.T(), &st.Cfg.REST, tt.statusCode)
 			if tt.statusCode < 300 {
 				st.Equal(response.Success, true)
 				st.NotNil(response.Payload.MarkTypes)
@@ -324,16 +364,16 @@ func (st *MarksSuite) TestGetMarkTypes() {
 	}
 }
 
-func getMarkTypes(st *MarksSuite, expectedStatusCode int) responses.Response[marksrest.GetMarkTypesResponse] {
-	resp, err := http.Get(fmt.Sprintf("http://%s:%d/marks/types", st.Cfg.REST.Host, st.Cfg.REST.Port))
-	st.NoError(err)
+func getMarkTypes(t *testing.T, cfg *config.RESTConfig, expectedStatusCode int) responses.Response[marksrest.GetMarkTypesResponse] {
+	resp, err := http.Get(fmt.Sprintf("http://%s:%d/marks/types", cfg.Host, cfg.Port))
+	require.NoError(t, err)
 	defer resp.Body.Close()
 
-	st.Equal(expectedStatusCode, resp.StatusCode)
+	require.Equal(t, expectedStatusCode, resp.StatusCode)
 
 	var response responses.Response[marksrest.GetMarkTypesResponse]
 	err = json.NewDecoder(resp.Body).Decode(&response)
-	st.NoError(err)
+	require.NoError(t, err)
 
 	return response
 }
@@ -435,4 +475,170 @@ func (st *MarksSuite) TestGetMarkStatusHistoryByMarkId() {
 			}
 		})
 	}
+}
+
+func (st *MarksSuite) TestConfirm() {
+	signInResponse := addNewUser(st.T(), &st.Cfg.REST)
+	addMarkResponse := addNewMark(st.T(), &st.Cfg.REST, signInResponse.Payload.AccessToken)
+	markId := addMarkResponse.Payload.MarkId
+
+	addMarkForRejectResponse := addNewMark(st.T(), &st.Cfg.REST, signInResponse.Payload.AccessToken)
+	markForRejectId := addMarkForRejectResponse.Payload.MarkId
+	reject(
+		st.T(),
+		&st.Cfg.REST,
+		strconv.Itoa(markForRejectId),
+		signInResponse.Payload.AccessToken,
+		http.StatusOK,
+	)
+
+	tests := []struct {
+		name       string
+		id         string
+		statusCode int
+	}{
+		{
+			name:       "Ok200",
+			id:         strconv.Itoa(markId),
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "Ok400",
+			id:         "a",
+			statusCode: http.StatusBadRequest,
+		},
+		{
+			name:       "Ok409",
+			id:         strconv.Itoa(markForRejectId),
+			statusCode: http.StatusConflict,
+		},
+	}
+	for _, tt := range tests {
+		st.Run(tt.name, func() {
+			response := confirm(
+				st.T(),
+				&st.Cfg.REST,
+				tt.id,
+				signInResponse.Payload.AccessToken,
+				tt.statusCode,
+			)
+
+			if tt.statusCode < 300 {
+				st.Equal(response.Success, true)
+				st.NotNil(response.Payload.NewMarkStausId)
+			} else {
+				st.Equal(response.Success, false)
+			}
+		})
+	}
+}
+
+func (st *MarksSuite) TestReject() {
+	signInResponse := addNewUser(st.T(), &st.Cfg.REST)
+	addMarkResponse := addNewMark(st.T(), &st.Cfg.REST, signInResponse.Payload.AccessToken)
+	markId := addMarkResponse.Payload.MarkId
+
+	addMarkForRejectResponse := addNewMark(st.T(), &st.Cfg.REST, signInResponse.Payload.AccessToken)
+	markForRejectId := addMarkForRejectResponse.Payload.MarkId
+	reject(
+		st.T(),
+		&st.Cfg.REST,
+		strconv.Itoa(markForRejectId),
+		signInResponse.Payload.AccessToken,
+		http.StatusOK,
+	)
+
+	tests := []struct {
+		name       string
+		id         string
+		statusCode int
+	}{
+		{
+			name:       "Ok200",
+			id:         strconv.Itoa(markId),
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "Ok400",
+			id:         "a",
+			statusCode: http.StatusBadRequest,
+		},
+		{
+			name:       "Ok409",
+			id:         strconv.Itoa(markForRejectId),
+			statusCode: http.StatusConflict,
+		},
+	}
+	for _, tt := range tests {
+		st.Run(tt.name, func() {
+			response := reject(
+				st.T(),
+				&st.Cfg.REST,
+				tt.id,
+				signInResponse.Payload.AccessToken,
+				tt.statusCode,
+			)
+
+			if tt.statusCode < 300 {
+				st.Equal(response.Success, true)
+				st.NotNil(response.Payload.NewMarkStausId)
+			} else {
+				st.Equal(response.Success, false)
+			}
+		})
+	}
+}
+
+func confirm(t *testing.T, cfg *config.RESTConfig, id string, accessToken string, expectedStatusCode int) responses.Response[marksrest.ConfirmResponse] {
+	req, err := http.NewRequest(
+		http.MethodPost,
+		fmt.Sprintf(
+			"http://%s:%d/marks/%s/confirm",
+			cfg.Host,
+			cfg.Port,
+			id,
+		),
+		nil,
+	)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, expectedStatusCode, resp.StatusCode)
+
+	var response responses.Response[marksrest.ConfirmResponse]
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	require.NoError(t, err)
+
+	return response
+}
+
+func reject(t *testing.T, cfg *config.RESTConfig, id string, accessToken string, expectedStatusCode int) responses.Response[marksrest.RejectResponse] {
+	req, err := http.NewRequest(
+		http.MethodPost,
+		fmt.Sprintf(
+			"http://%s:%d/marks/%s/reject",
+			cfg.Host,
+			cfg.Port,
+			id,
+		),
+		nil,
+	)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, expectedStatusCode, resp.StatusCode)
+
+	var response responses.Response[marksrest.RejectResponse]
+	err = json.NewDecoder(resp.Body).Decode(&response)
+	require.NoError(t, err)
+
+	return response
 }
