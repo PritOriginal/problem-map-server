@@ -364,7 +364,7 @@ const docTemplate = `{
                         "items": {
                             "type": "number"
                         },
-                        "collectionFormat": "multi",
+                        "collectionFormat": "csv",
                         "description": "filter by admin level",
                         "name": "admin_levels",
                         "in": "query"
@@ -411,9 +411,19 @@ const docTemplate = `{
                         "items": {
                             "type": "number"
                         },
-                        "collectionFormat": "multi",
+                        "collectionFormat": "csv",
                         "description": "filter by admin level",
                         "name": "admin_levels",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "number"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "filter by mark type",
+                        "name": "mark_type_ids",
                         "in": "query"
                     }
                 ],

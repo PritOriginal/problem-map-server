@@ -2,16 +2,8 @@ package maprest
 
 import "github.com/PritOriginal/problem-map-server/internal/models"
 
-type GetAdminBoundariesRequest struct {
-	AdminLevels []int `form:"admin_levels"`
-}
-
 type GetAdminBoundariesResponse struct {
 	AdminBoundaries []models.AdminBoundary `json:"admin_boundaries"`
-}
-
-type GetAdminBoundariesMarksCountRequest struct {
-	AdminLevels []int `form:"admin_levels"`
 }
 
 type GetAdminBoundariesMarksCountResponse struct {
