@@ -77,16 +77,20 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 	marksRepo := postgres.NewMarks(postgresDB.DB)
 	checksRepo := postgres.NewChecks(postgresDB.DB)
+	markStatusUpdater := usecase.NewUpdater(log, usecase.UpdaterRepositories{
+		Marks:  marksRepo,
+		Checks: checksRepo,
+	})
 	marksUseCase := usecase.NewMarks(log, usecase.MarksRepositories{
 		Marks:  marksRepo,
 		Checks: checksRepo,
 		Photos: photoRepo,
 	})
-	marksrest.Register(router, log, authMiddleware, marksUseCase, redis)
-
-	markStatusUpdater := usecase.NewUpdater(log, usecase.UpdaterRepositories{
-		Marks:  marksRepo,
-		Checks: checksRepo,
+	marksrest.Register(router, log, marksrest.Params{
+		AuthMiddleware: authMiddleware,
+		Cacher:         redis,
+		Usecase:        marksUseCase,
+		StatusUpdater:  markStatusUpdater,
 	})
 
 	checksUseCase := usecase.NewChecks(log, markStatusUpdater, usecase.ChecksRepositories{

@@ -29,13 +29,30 @@ type Marks interface {
 	GetMarkStatusHistoryByMarkId(ctx context.Context, markId int, withChecks bool) ([]models.MarkStatusHistoryItem, error)
 }
 
-type handler struct {
-	log *slog.Logger
-	uc  Marks
+type StatusUpdater interface {
+	Confirm(ctx context.Context, markId int) (models.MarkStatusType, error)
+	Reject(ctx context.Context, markId int) (models.MarkStatusType, error)
 }
 
-func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddleware, uc Marks, cacher mwcache.Cacher) {
-	handler := &handler{log: log, uc: uc}
+type handler struct {
+	log           *slog.Logger
+	uc            Marks
+	statusUpdater StatusUpdater
+}
+
+type Params struct {
+	AuthMiddleware *jwt.GinJWTMiddleware
+	Cacher         mwcache.Cacher
+	Usecase        Marks
+	StatusUpdater  StatusUpdater
+}
+
+func Register(r *gin.Engine, log *slog.Logger, params Params) {
+	handler := &handler{
+		log:           log,
+		uc:            params.Usecase,
+		statusUpdater: params.StatusUpdater,
+	}
 
 	marks := r.Group("/marks")
 	{
