@@ -206,3 +206,72 @@ func (u *Updater) Update(ctx context.Context, markId int) error {
 	}
 	return nil
 }
+
+func (u *Updater) Confirm(ctx context.Context, markId int) (models.MarkStatusType, error) {
+	const op = "usecase.Map.Confirm"
+
+	mark, err := u.repos.Marks.GetMarkById(ctx, markId)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return u.confirm(ctx, mark)
+}
+
+func (u *Updater) confirm(ctx context.Context, mark models.Mark) (models.MarkStatusType, error) {
+	const op = "usecase.Map.confirm"
+
+	var newStatus models.MarkStatusType
+
+	switch mark.MarkStatusID {
+	case models.UnconfirmedStatus:
+		newStatus = models.ConfirmedStatus
+	case models.ConfirmedStatus, models.RediscoveredStatus:
+		newStatus = models.UnderReviewStatus
+	case models.UnderReviewStatus:
+		newStatus = models.ClosedStatus
+	default:
+		return 0, ErrConflict
+	}
+
+	if err := u.repos.Marks.UpdateMarkStatus(ctx, mark.ID, newStatus); err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return newStatus, nil
+
+}
+
+func (u *Updater) Reject(ctx context.Context, markId int) (models.MarkStatusType, error) {
+	const op = "usecase.Map.Reject"
+
+	mark, err := u.repos.Marks.GetMarkById(ctx, markId)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return u.reject(ctx, mark)
+}
+
+func (u *Updater) reject(ctx context.Context, mark models.Mark) (models.MarkStatusType, error) {
+	const op = "usecase.Map.reject"
+
+	var newStatus models.MarkStatusType
+
+	switch mark.MarkStatusID {
+	case models.UnconfirmedStatus, models.ConfirmedStatus:
+		newStatus = models.RefutedStatus
+	case models.RediscoveredStatus:
+		newStatus = models.ClosedStatus
+	case models.UnderReviewStatus:
+		newStatus = models.RediscoveredStatus
+	default:
+		return 0, ErrConflict
+	}
+
+	if err := u.repos.Marks.UpdateMarkStatus(ctx, mark.ID, newStatus); err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return newStatus, nil
+}
