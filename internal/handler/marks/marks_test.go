@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"mime/multipart"
+	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
@@ -60,14 +61,48 @@ func TestMark(t *testing.T) {
 
 func (suite *MarksSuite) TestGetMarks() {
 	tests := []struct {
-		name        string
-		errGetMarks error
-		statusCode  int
+		name                      string
+		query                     string
+		wantErrParseMarkTypeIds   bool
+		wantErrParseMarkStatusIds bool
+		errGetMarks               error
+		statusCode                int
 	}{
 		{
-			name:        "Ok200",
-			errGetMarks: nil,
-			statusCode:  200,
+			name:       "Ok200",
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "Ok200",
+			query:      "?mark_type_ids=1",
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "Ok200",
+			query:      "?mark_type_ids=1,2",
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "Ok200",
+			query:      "?mark_type_ids=1,2&mark_status_ids=1",
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "Ok200",
+			query:      "?mark_type_ids=1,2&mark_status_ids=1,2",
+			statusCode: http.StatusOK,
+		},
+		{
+			name:                    "Ok400",
+			query:                   "?mark_type_ids=a",
+			wantErrParseMarkTypeIds: true,
+			statusCode:              http.StatusBadRequest,
+		},
+		{
+			name:                    "Ok400",
+			query:                   "?mark_status_ids=a",
+			wantErrParseMarkTypeIds: true,
+			statusCode:              http.StatusBadRequest,
 		},
 		{
 			name:        "Err500",
@@ -77,11 +112,13 @@ func (suite *MarksSuite) TestGetMarks() {
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			suite.uc.On("GetMarks", mock.Anything).Once().
-				Return([]models.Mark{}, tt.errGetMarks)
+			if !tt.wantErrParseMarkStatusIds && !tt.wantErrParseMarkTypeIds {
+				suite.uc.On("GetMarks", mock.Anything, mock.Anything).Once().
+					Return([]models.Mark{}, tt.errGetMarks)
+			}
 
 			w := httptest.NewRecorder()
-			req := httptest.NewRequest("GET", "/marks", nil)
+			req := httptest.NewRequest("GET", "/marks"+tt.query, nil)
 
 			suite.r.ServeHTTP(w, req)
 
