@@ -63,14 +63,14 @@ func (suite *MarksSuite) TestGetMarks() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			func() {
-				suite.marksRepo.On("GetMarks", mock.Anything).Once().
+				suite.marksRepo.On("GetMarks", mock.Anything, mock.AnythingOfType("models.GetMarksFilters")).Once().
 					Return(tt.getMarks.data, tt.getMarks.err)
 				if tt.getMarks.err != nil {
 					return
 				}
 			}()
 
-			_, gotErr := suite.uc.GetMarks(context.Background())
+			_, gotErr := suite.uc.GetMarks(context.Background(), models.GetMarksFilters{})
 
 			if tt.getMarks.err == nil {
 				suite.NoError(gotErr)
