@@ -7,6 +7,7 @@ import (
 
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/gin-gonic/gin"
@@ -49,22 +50,23 @@ func Register(r *gin.Engine, log *slog.Logger, uc Map, cacher mwcache.Cacher) {
 //	@Tags			map
 //	@Accept			json
 //	@Produce		json
-//	@Param			admin_levels	query		[]number	false	"filter by admin level"	collectionFormat(multi)
+//	@Param			admin_levels	query		[]number	false	"filter by admin level"
 //	@Success		200				{object}	responses.Response[maprest.GetAdminBoundariesResponse]
 //	@Failure		400				{object}	responses.Response[any]
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/map/admin-boundaries [get]
 func (h *handler) GetAdminBoundaries() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		var req GetAdminBoundariesRequest
-		if err := ctx.ShouldBindQuery(&req); err != nil {
-			h.log.Debug("failed binding request", logger.Err(err))
-			responses.BadRequest(ctx, "invalid request")
+		adminLevelsStr := ctx.Query("admin_levels")
+		adminLevels, err := handlers.ParseIntArray(adminLevelsStr)
+		if err != nil {
+			h.log.Debug("failed parse admin levels", logger.Err(err))
+			responses.BadRequest(ctx, "failed parse admin levels")
 			return
 		}
 
 		boundaries, err := h.uc.GetAdminBoundaries(ctx.Request.Context(), models.GetAdminBoundaryFilters{
-			AdminLevels: req.AdminLevels,
+			AdminLevels: adminLevels,
 		})
 		if err != nil {
 			h.log.Error("error get admin boundaries", logger.Err(err))
@@ -85,21 +87,33 @@ func (h *handler) GetAdminBoundaries() gin.HandlerFunc {
 //	@Tags			map
 //	@Accept			json
 //	@Produce		json
-//	@Param			admin_levels	query		[]number	false	"filter by admin level"	collectionFormat(multi)
+//	@Param			admin_levels	query		[]number	false	"filter by admin level"
+//	@Param			mark_type_ids	query		[]number	false	"filter by mark type"
 //	@Success		200				{object}	responses.Response[maprest.GetAdminBoundariesMarksCountResponse]
 //	@Failure		400				{object}	responses.Response[any]
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/map/admin-boundaries/marks/count [get]
 func (h *handler) GetAdminBoundariesMarksCount() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		var req GetAdminBoundariesMarksCountRequest
-		if err := ctx.ShouldBindQuery(&req); err != nil {
-			h.log.Debug("failed binding request", logger.Err(err))
-			responses.BadRequest(ctx, "invalid request")
+		adminLevelsStr := ctx.Query("admin_levels")
+		adminLevels, err := handlers.ParseIntArray(adminLevelsStr)
+		if err != nil {
+			h.log.Debug("failed parse admin levels", logger.Err(err))
+			responses.BadRequest(ctx, "failed parse admin levels")
+			return
+		}
+
+		markTypeIdsStr := ctx.Query("mark_type_ids")
+		markTypeIds, err := handlers.ParseIntArray(markTypeIdsStr)
+		if err != nil {
+			h.log.Debug("failed parse mark type ids", logger.Err(err))
+			responses.BadRequest(ctx, "failed parse mark type ids")
 			return
 		}
 
 		boundariesCount, err := h.uc.GetAdminBoundariesMarksCount(ctx.Request.Context(), models.GetAdminBoundaryMarksCountFilters{
+			AdminLevels: adminLevels,
+			MarkTypeIds: markTypeIds,
 		})
 		if err != nil {
 			h.log.Error("error get admin boundaries markers count", logger.Err(err))
