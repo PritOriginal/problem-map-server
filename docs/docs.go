@@ -1286,12 +1286,6 @@ const docTemplate = `{
                 "mark_type_id": {
                     "type": "integer"
                 },
-                "number_checks": {
-                    "type": "integer"
-                },
-                "number_votes": {
-                    "type": "integer"
-                },
                 "updated_at": {
                     "type": "string"
                 },

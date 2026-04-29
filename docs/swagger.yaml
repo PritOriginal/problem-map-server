@@ -90,10 +90,6 @@ definitions:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
       mark_type_id:
         type: integer
-      number_checks:
-        type: integer
-      number_votes:
-        type: integer
       updated_at:
         type: string
       user_id:
