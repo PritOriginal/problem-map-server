@@ -1065,9 +1065,6 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "ewkb.MultiPolygon": {
-            "type": "object"
-        },
         "github_com_PritOriginal_problem-map-server_internal_models.AdminBoundary": {
             "type": "object",
             "properties": {
@@ -1075,7 +1072,7 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "geom": {
-                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MultiPolygon"
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MultiPolygonJSON"
                 },
                 "id": {
                     "type": "integer"
@@ -1294,11 +1291,27 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_internal_models.MultiPolygon": {
+        "github_com_PritOriginal_problem-map-server_internal_models.MultiPolygonJSON": {
             "type": "object",
             "properties": {
-                "ewkb": {
-                    "$ref": "#/definitions/ewkb.MultiPolygon"
+                "coordinates": {
+                    "type": "array",
+                    "items": {
+                        "type": "array",
+                        "items": {
+                            "type": "array",
+                            "items": {
+                                "type": "array",
+                                "items": {
+                                    "type": "number",
+                                    "format": "float64"
+                                }
+                            }
+                        }
+                    }
+                },
+                "type": {
+                    "type": "string"
                 }
             }
         },

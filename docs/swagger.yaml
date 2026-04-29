@@ -1,12 +1,10 @@
 definitions:
-  ewkb.MultiPolygon:
-    type: object
   github_com_PritOriginal_problem-map-server_internal_models.AdminBoundary:
     properties:
       admin_level:
         type: integer
       geom:
-        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MultiPolygon'
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MultiPolygonJSON'
       id:
         type: integer
       name:
@@ -152,10 +150,21 @@ definitions:
       name:
         type: string
     type: object
-  github_com_PritOriginal_problem-map-server_internal_models.MultiPolygon:
+  github_com_PritOriginal_problem-map-server_internal_models.MultiPolygonJSON:
     properties:
-      ewkb:
-        $ref: '#/definitions/ewkb.MultiPolygon'
+      coordinates:
+        items:
+          items:
+            items:
+              items:
+                format: float64
+                type: number
+              type: array
+            type: array
+          type: array
+        type: array
+      type:
+        type: string
     type: object
   github_com_PritOriginal_problem-map-server_internal_models.PointJSON:
     properties:
