@@ -77,6 +77,10 @@ func (repo *MapRepository) GetAdminBoundariesMarksCount(ctx context.Context, fil
 		conditions = append(conditions, "admin_level = ANY($?)")
 		args = append(args, pq.Array(filters.AdminLevels))
 	}
+	if len(filters.MarkTypeIds) > 0 {
+		conditions = append(conditions, "type_mark_id = ANY($?)")
+		args = append(args, pq.Array(filters.MarkTypeIds))
+	}
 
 	whereQuery := ""
 	for i, condition := range conditions {
