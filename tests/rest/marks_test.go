@@ -37,13 +37,70 @@ func TestMarksSuite(t *testing.T) {
 }
 
 func (st *MarksSuite) TestGetMarks() {
-	response := getMarks(st.T(), &st.Cfg.REST, http.StatusOK)
-	st.Equal(response.Success, true)
-	st.NotNil(response.Payload.Marks)
+	tests := []struct {
+		name       string
+		query      string
+		statusCode int
+	}{
+		{
+			name:       "Ok200",
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "Ok200",
+			query:      "?mark_type_ids=1",
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "Ok200",
+			query:      "?mark_type_ids=1,2",
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "Ok200",
+			query:      "?mark_type_ids=1,2&mark_status_ids=1",
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "Ok200",
+			query:      "?mark_type_ids=1,2&mark_status_ids=1,2",
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "Ok400",
+			query:      "?mark_type_ids=a",
+			statusCode: http.StatusBadRequest,
+		},
+		{
+			name:       "Ok400",
+			query:      "?mark_status_ids=a",
+			statusCode: http.StatusBadRequest,
+		},
+	}
+
+	for _, tt := range tests {
+		st.Run(tt.name, func() {
+			response := getMarks(st.T(), &st.Cfg.REST, tt.query, tt.statusCode)
+
+			if tt.statusCode < 300 {
+				st.Equal(response.Success, true)
+				st.NotNil(response.Payload.Marks)
+			} else {
+				st.Equal(response.Success, false)
+			}
+		})
+	}
 }
 
-func getMarks(t *testing.T, cfg *config.RESTConfig, expectedStatusCode int) responses.Response[marksrest.GetMarksResponse] {
-	resp, err := http.Get(fmt.Sprintf("http://%s:%d/marks", cfg.Host, cfg.Port))
+func getMarks(t *testing.T, cfg *config.RESTConfig, query string, expectedStatusCode int) responses.Response[marksrest.GetMarksResponse] {
+	resp, err := http.Get(
+		fmt.Sprintf(
+			"http://%s:%d/marks%s",
+			cfg.Host,
+			cfg.Port,
+			query,
+		),
+	)
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -58,7 +115,7 @@ func getMarks(t *testing.T, cfg *config.RESTConfig, expectedStatusCode int) resp
 }
 
 func (st *MarksSuite) TestGetMarkById() {
-	getMarksResponse := getMarks(st.T(), &st.Cfg.REST, http.StatusOK)
+	getMarksResponse := getMarks(st.T(), &st.Cfg.REST, "", http.StatusOK)
 
 	tests := []struct {
 		name       string
@@ -314,7 +371,7 @@ func (st *MarksSuite) TestGetMarkStatuses() {
 }
 
 func (st *MarksSuite) TestGetMarkStatusHistoryByMarkId() {
-	getMarksResponse := getMarks(st.T(), &st.Cfg.REST, http.StatusOK)
+	getMarksResponse := getMarks(st.T(), &st.Cfg.REST, "", http.StatusOK)
 	markId := strconv.Itoa(getMarksResponse.Payload.Marks[0].ID)
 
 	tests := []struct {

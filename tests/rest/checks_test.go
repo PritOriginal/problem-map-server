@@ -83,7 +83,7 @@ func (st *ChecksSuite) TestGetCheckById() {
 }
 
 func (st *ChecksSuite) TestGetChecksByMarkId() {
-	getMarksResponse := getMarks(st.T(), &st.Cfg.REST, http.StatusOK)
+	getMarksResponse := getMarks(st.T(), &st.Cfg.REST, "", http.StatusOK)
 
 	tests := []struct {
 		name       string
@@ -166,7 +166,7 @@ func (st *ChecksSuite) TestGetChecksByUserId() {
 
 func (st *ChecksSuite) TestAddCheck() {
 	signInResponse := addNewUser(st.T(), &st.Cfg.REST)
-	getMarksResponse := getMarks(st.T(), &st.Cfg.REST, http.StatusOK)
+	getMarksResponse := getMarks(st.T(), &st.Cfg.REST, "", http.StatusOK)
 	randomMarkIndex := rand.Intn(len(getMarksResponse.Payload.Marks))
 	randomMark := getMarksResponse.Payload.Marks[randomMarkIndex]
 
@@ -233,7 +233,7 @@ func (st *ChecksSuite) TestAddCheck() {
 }
 
 func addNewCheck(t *testing.T, cfg *config.RESTConfig, accessToken string) responses.Response[checksrest.AddCheckResponse] {
-	getMarksResponse := getMarks(t, cfg, http.StatusOK)
+	getMarksResponse := getMarks(t, cfg, "", http.StatusOK)
 	randomMarkIndex := rand.Intn(len(getMarksResponse.Payload.Marks))
 	randomMark := getMarksResponse.Payload.Marks[randomMarkIndex]
 

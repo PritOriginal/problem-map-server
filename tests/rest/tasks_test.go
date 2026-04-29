@@ -155,7 +155,7 @@ func (st *TasksSuite) TestAddTask() {
 	userIndex := rand.Intn(len(getUsersResponse.Payload.Users))
 	user := getUsersResponse.Payload.Users[userIndex]
 
-	getMarksResponse := getMarks(st.T(), &st.Cfg.REST, http.StatusOK)
+	getMarksResponse := getMarks(st.T(), &st.Cfg.REST, "", http.StatusOK)
 	markIndex := rand.Intn(len(getMarksResponse.Payload.Marks))
 	mark := getMarksResponse.Payload.Marks[markIndex]
 
