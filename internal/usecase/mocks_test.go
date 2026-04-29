@@ -171,6 +171,74 @@ func (_c *MockChecksRepository_GetCheckById_Call) RunAndReturn(run func(ctx cont
 	return _c
 }
 
+// GetChecksByMarkHistoryId provides a mock function for the type MockChecksRepository
+func (_mock *MockChecksRepository) GetChecksByMarkHistoryId(ctx context.Context, markHistoryId int) ([]models.Check, error) {
+	ret := _mock.Called(ctx, markHistoryId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetChecksByMarkHistoryId")
+	}
+
+	var r0 []models.Check
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) ([]models.Check, error)); ok {
+		return returnFunc(ctx, markHistoryId)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) []models.Check); ok {
+		r0 = returnFunc(ctx, markHistoryId)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]models.Check)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = returnFunc(ctx, markHistoryId)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockChecksRepository_GetChecksByMarkHistoryId_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetChecksByMarkHistoryId'
+type MockChecksRepository_GetChecksByMarkHistoryId_Call struct {
+	*mock.Call
+}
+
+// GetChecksByMarkHistoryId is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markHistoryId int
+func (_e *MockChecksRepository_Expecter) GetChecksByMarkHistoryId(ctx interface{}, markHistoryId interface{}) *MockChecksRepository_GetChecksByMarkHistoryId_Call {
+	return &MockChecksRepository_GetChecksByMarkHistoryId_Call{Call: _e.mock.On("GetChecksByMarkHistoryId", ctx, markHistoryId)}
+}
+
+func (_c *MockChecksRepository_GetChecksByMarkHistoryId_Call) Run(run func(ctx context.Context, markHistoryId int)) *MockChecksRepository_GetChecksByMarkHistoryId_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockChecksRepository_GetChecksByMarkHistoryId_Call) Return(checks []models.Check, err error) *MockChecksRepository_GetChecksByMarkHistoryId_Call {
+	_c.Call.Return(checks, err)
+	return _c
+}
+
+func (_c *MockChecksRepository_GetChecksByMarkHistoryId_Call) RunAndReturn(run func(ctx context.Context, markHistoryId int) ([]models.Check, error)) *MockChecksRepository_GetChecksByMarkHistoryId_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetChecksByMarkId provides a mock function for the type MockChecksRepository
 func (_mock *MockChecksRepository) GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error) {
 	ret := _mock.Called(ctx, markId)

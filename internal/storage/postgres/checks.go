@@ -115,6 +115,28 @@ func (r *ChecksRepository) GetChecksByUserId(ctx context.Context, userId int) ([
 	return checks, nil
 }
 
+func (r *ChecksRepository) GetChecksByMarkHistoryId(ctx context.Context, markHistoryId int) ([]models.Check, error) {
+	const op = "storage.postgres.GetChecksByMarkHistoryId"
+
+	checks := []models.Check{}
+
+	query := `
+		SELECT 
+			c.*, u.name as username 
+		FROM 
+			checks as c 
+		JOIN 
+			users AS u ON c.user_id = u.user_id 
+		WHERE 
+			c.mark_status_history_id = $1`
+
+	if err := r.Conn.SelectContext(ctx, &checks, query, markHistoryId); err != nil {
+		return checks, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return checks, nil
+}
+
 func (r *ChecksRepository) GetUserMarkCheck(ctx context.Context, userId int, markStatusHistoryId int) (models.Check, error) {
 	const op = "storage.postgres.GetUserMarkCheck"
 
