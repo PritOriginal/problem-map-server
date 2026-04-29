@@ -911,7 +911,7 @@ paths:
       - application/json
       description: admin boundaries
       parameters:
-      - collectionFormat: multi
+      - collectionFormat: csv
         description: filter by admin level
         in: query
         items:
@@ -942,12 +942,19 @@ paths:
       - application/json
       description: the count of markers of all administrative boundaries
       parameters:
-      - collectionFormat: multi
+      - collectionFormat: csv
         description: filter by admin level
         in: query
         items:
           type: number
         name: admin_levels
+        type: array
+      - collectionFormat: csv
+        description: filter by mark type
+        in: query
+        items:
+          type: number
+        name: mark_type_ids
         type: array
       produces:
       - application/json
