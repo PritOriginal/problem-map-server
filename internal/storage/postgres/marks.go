@@ -145,7 +145,7 @@ func (repo *MarksRepository) GetMarkStatuses(ctx context.Context) ([]models.Mark
 
 	statuses := []models.MarkStatus{}
 
-	query := "SELECT * FROM mark_statuses"
+	query := "SELECT * FROM mark_statuses ORDER BY mark_status_id"
 
 	if err := repo.Conn.SelectContext(ctx, &statuses, query); err != nil {
 		return statuses, fmt.Errorf("%s: %w", op, err)
