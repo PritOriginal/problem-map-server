@@ -785,6 +785,88 @@ const docTemplate = `{
                 }
             }
         },
+        "/marks/{id}/confirm": {
+            "post": {
+                "description": "сonfirm the mark and moves it to a new status",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "marks"
+                ],
+                "summary": "Confirm the mark",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_ConfirmResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
+        "/marks/{id}/reject": {
+            "post": {
+                "description": "reject the mark and moves it to a new status",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "marks"
+                ],
+                "summary": "Reject the mark",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_RejectResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
         "/marks/{id}/status-history": {
             "get": {
                 "description": "displays the entire list of status changes history for a specific marker by markId",
@@ -1607,6 +1689,20 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_ConfirmResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_marks.ConfirmResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
         "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkByIdResponse": {
             "type": "object",
             "properties": {
@@ -1685,6 +1781,20 @@ const docTemplate = `{
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.GetMarksResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_RejectResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_marks.RejectResponse"
                 },
                 "success": {
                     "type": "boolean"
@@ -1961,6 +2071,14 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler_marks.ConfirmResponse": {
+            "type": "object",
+            "properties": {
+                "new_mark_staus_id": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType"
+                }
+            }
+        },
         "internal_handler_marks.GetMarkByIdResponse": {
             "type": "object",
             "properties": {
@@ -2021,6 +2139,14 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark"
                     }
+                }
+            }
+        },
+        "internal_handler_marks.RejectResponse": {
+            "type": "object",
+            "properties": {
+                "new_mark_staus_id": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType"
                 }
             }
         },

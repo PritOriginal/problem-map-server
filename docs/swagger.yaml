@@ -355,6 +355,15 @@ definitions:
       success:
         type: boolean
     type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_ConfirmResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      payload:
+        $ref: '#/definitions/internal_handler_marks.ConfirmResponse'
+      success:
+        type: boolean
+    type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkByIdResponse:
     properties:
       error:
@@ -406,6 +415,15 @@ definitions:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
       payload:
         $ref: '#/definitions/internal_handler_marks.GetMarksResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_RejectResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      payload:
+        $ref: '#/definitions/internal_handler_marks.RejectResponse'
       success:
         type: boolean
     type: object
@@ -586,6 +604,11 @@ definitions:
       mark_id:
         type: integer
     type: object
+  internal_handler_marks.ConfirmResponse:
+    properties:
+      new_mark_staus_id:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
+    type: object
   internal_handler_marks.GetMarkByIdResponse:
     properties:
       mark:
@@ -625,6 +648,11 @@ definitions:
         items:
           $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark'
         type: array
+    type: object
+  internal_handler_marks.RejectResponse:
+    properties:
+      new_mark_staus_id:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
     type: object
   internal_handler_tasks.AddTaskRequest:
     properties:
@@ -1138,6 +1166,60 @@ paths:
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       summary: Get mark by id
+      tags:
+      - marks
+  /marks/{id}/confirm:
+    post:
+      consumes:
+      - application/json
+      description: сonfirm the mark and moves it to a new status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_ConfirmResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: Confirm the mark
+      tags:
+      - marks
+  /marks/{id}/reject:
+    post:
+      consumes:
+      - application/json
+      description: reject the mark and moves it to a new status
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_RejectResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: Reject the mark
       tags:
       - marks
   /marks/{id}/status-history:
