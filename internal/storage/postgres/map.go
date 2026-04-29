@@ -18,7 +18,7 @@ func NewMap(conn *sqlx.DB) *MapRepository {
 	return &MapRepository{Conn: conn}
 }
 
-func (repo *MapRepository) GetAdminBoundaries(ctx context.Context, params models.GetAdminBoundaryParams) ([]models.AdminBoundary, error) {
+func (repo *MapRepository) GetAdminBoundaries(ctx context.Context, filters models.GetAdminBoundaryFilters) ([]models.AdminBoundary, error) {
 	const op = "storage.postgres.GetAdminBoundaries"
 
 	boundaries := []models.AdminBoundary{}
@@ -27,9 +27,9 @@ func (repo *MapRepository) GetAdminBoundaries(ctx context.Context, params models
 
 	query := "SELECT id, name, admin_level, ST_AsEWKB(geom) AS geom FROM admin_boundaries WHERE 1=1"
 
-	if len(params.AdminLevels) > 0 {
+	if len(filters.AdminLevels) > 0 {
 		conditions = append(conditions, "admin_level = ANY($?)")
-		args = append(args, pq.Array(params.AdminLevels))
+		args = append(args, pq.Array(filters.AdminLevels))
 	}
 
 	for i, condition := range conditions {
@@ -44,7 +44,7 @@ func (repo *MapRepository) GetAdminBoundaries(ctx context.Context, params models
 	return boundaries, nil
 }
 
-func (repo *MapRepository) GetAdminBoundariesMarksCount(ctx context.Context, params models.GetAdminBoundaryMarksCountParams) ([]models.AdminBoundaryMarksCount, error) {
+func (repo *MapRepository) GetAdminBoundariesMarksCount(ctx context.Context, filters models.GetAdminBoundaryMarksCountFilters) ([]models.AdminBoundaryMarksCount, error) {
 	const op = "storage.postgres.GetAdminBoundariesMarksCount"
 
 	boundariesCount := []models.AdminBoundaryMarksCount{}
@@ -73,9 +73,9 @@ func (repo *MapRepository) GetAdminBoundariesMarksCount(ctx context.Context, par
 			b.id;
 	`
 
-	if len(params.AdminLevels) > 0 {
+	if len(filters.AdminLevels) > 0 {
 		conditions = append(conditions, "admin_level = ANY($?)")
-		args = append(args, pq.Array(params.AdminLevels))
+		args = append(args, pq.Array(filters.AdminLevels))
 	}
 
 	whereQuery := ""

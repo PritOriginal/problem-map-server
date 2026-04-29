@@ -15,7 +15,7 @@ type AdminBoundary struct {
 	Geom       *MultiPolygon `json:"geom" db:"geom"`
 }
 
-type GetAdminBoundaryParams struct {
+type GetAdminBoundaryFilters struct {
 	AdminLevels []int
 }
 
@@ -29,7 +29,7 @@ type AdminBoundaryMarksCount struct {
 	ClosedCount      int    `json:"closed_count" db:"closed_count"`
 }
 
-type GetAdminBoundaryMarksCountParams struct {
+type GetAdminBoundaryMarksCountFilters struct {
 	AdminLevels []int
 }
 

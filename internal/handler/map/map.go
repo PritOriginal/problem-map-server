@@ -13,8 +13,8 @@ import (
 )
 
 type Map interface {
-	GetAdminBoundaries(ctx context.Context, params models.GetAdminBoundaryParams) ([]models.AdminBoundary, error)
-	GetAdminBoundariesMarksCount(ctx context.Context, params models.GetAdminBoundaryMarksCountParams) ([]models.AdminBoundaryMarksCount, error)
+	GetAdminBoundaries(ctx context.Context, filters models.GetAdminBoundaryFilters) ([]models.AdminBoundary, error)
+	GetAdminBoundariesMarksCount(ctx context.Context, filters models.GetAdminBoundaryMarksCountFilters) ([]models.AdminBoundaryMarksCount, error)
 	GetRegions(ctx context.Context) ([]models.Region, error)
 	GetCities(ctx context.Context) ([]models.City, error)
 	GetDistricts(ctx context.Context) ([]models.District, error)
@@ -63,7 +63,7 @@ func (h *handler) GetAdminBoundaries() gin.HandlerFunc {
 			return
 		}
 
-		boundaries, err := h.uc.GetAdminBoundaries(ctx.Request.Context(), models.GetAdminBoundaryParams{
+		boundaries, err := h.uc.GetAdminBoundaries(ctx.Request.Context(), models.GetAdminBoundaryFilters{
 			AdminLevels: req.AdminLevels,
 		})
 		if err != nil {
@@ -99,8 +99,7 @@ func (h *handler) GetAdminBoundariesMarksCount() gin.HandlerFunc {
 			return
 		}
 
-		boundariesCount, err := h.uc.GetAdminBoundariesMarksCount(ctx.Request.Context(), models.GetAdminBoundaryMarksCountParams{
-			AdminLevels: req.AdminLevels,
+		boundariesCount, err := h.uc.GetAdminBoundariesMarksCount(ctx.Request.Context(), models.GetAdminBoundaryMarksCountFilters{
 		})
 		if err != nil {
 			h.log.Error("error get admin boundaries markers count", logger.Err(err))

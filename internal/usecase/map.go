@@ -9,8 +9,8 @@ import (
 )
 
 type MapRepository interface {
-	GetAdminBoundaries(ctx context.Context, params models.GetAdminBoundaryParams) ([]models.AdminBoundary, error)
-	GetAdminBoundariesMarksCount(ctx context.Context, params models.GetAdminBoundaryMarksCountParams) ([]models.AdminBoundaryMarksCount, error)
+	GetAdminBoundaries(ctx context.Context, filters models.GetAdminBoundaryFilters) ([]models.AdminBoundary, error)
+	GetAdminBoundariesMarksCount(ctx context.Context, filters models.GetAdminBoundaryMarksCountFilters) ([]models.AdminBoundaryMarksCount, error)
 	GetRegions(ctx context.Context) ([]models.Region, error)
 	GetCities(ctx context.Context) ([]models.City, error)
 	GetDistricts(ctx context.Context) ([]models.District, error)
@@ -29,20 +29,20 @@ func NewMap(log *slog.Logger, repos MapRepositories) *Map {
 	return &Map{log, repos}
 }
 
-func (uc *Map) GetAdminBoundaries(ctx context.Context, params models.GetAdminBoundaryParams) ([]models.AdminBoundary, error) {
+func (uc *Map) GetAdminBoundaries(ctx context.Context, filters models.GetAdminBoundaryFilters) ([]models.AdminBoundary, error) {
 	const op = "usecase.Map.GetAdminBoundaries"
 
-	boundaries, err := uc.repos.Map.GetAdminBoundaries(ctx, params)
+	boundaries, err := uc.repos.Map.GetAdminBoundaries(ctx, filters)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	return boundaries, nil
 }
 
-func (uc *Map) GetAdminBoundariesMarksCount(ctx context.Context, params models.GetAdminBoundaryMarksCountParams) ([]models.AdminBoundaryMarksCount, error) {
+func (uc *Map) GetAdminBoundariesMarksCount(ctx context.Context, filters models.GetAdminBoundaryMarksCountFilters) ([]models.AdminBoundaryMarksCount, error) {
 	const op = "usecase.Map.GetAdminBoundariesMarksCount"
 
-	boundariesCount, err := uc.repos.Map.GetAdminBoundariesMarksCount(ctx, params)
+	boundariesCount, err := uc.repos.Map.GetAdminBoundariesMarksCount(ctx, filters)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
