@@ -1029,6 +1029,21 @@ paths:
       consumes:
       - application/json
       description: get markers
+      parameters:
+      - collectionFormat: csv
+        description: filter by mark types
+        in: query
+        items:
+          type: number
+        name: mark_type_ids
+        type: array
+      - collectionFormat: csv
+        description: filter by mark statuses
+        in: query
+        items:
+          type: number
+        name: mark_status_ids
+        type: array
       produces:
       - application/json
       responses:
@@ -1036,6 +1051,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarksResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "500":
           description: Internal Server Error
           schema:
