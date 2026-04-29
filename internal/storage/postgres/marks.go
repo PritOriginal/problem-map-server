@@ -131,7 +131,7 @@ func (repo *MarksRepository) GetMarkTypes(ctx context.Context) ([]models.MarkTyp
 
 	types := []models.MarkType{}
 
-	query := "SELECT * FROM types_marks"
+	query := "SELECT * FROM types_marks ORDER BY name"
 
 	if err := repo.Conn.SelectContext(ctx, &types, query); err != nil {
 		return types, fmt.Errorf("%s: %w", op, err)
