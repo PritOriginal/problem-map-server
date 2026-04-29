@@ -31,7 +31,7 @@ func Register(gRPCServer *grpc.Server, uc Marks) {
 }
 
 func (s *server) GetMarks(ctx context.Context, in *emptypb.Empty) (*pb.GetMarksResponse, error) {
-	marks, err := s.uc.GetMarks(ctx)
+	marks, err := s.uc.GetMarks(ctx, models.GetMarksFilters{})
 	if err != nil {
 		return nil, status.Error(codes.Internal, "error get marks")
 	}
