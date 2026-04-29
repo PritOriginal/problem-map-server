@@ -11,6 +11,7 @@ import (
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
@@ -61,6 +62,11 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 		{
 			id.GET("", handler.GetMarkById())
 			id.GET("status-history", handler.GetMarkStatusHistoryByMarkId())
+			auth := id.Group("", params.AuthMiddleware.MiddlewareFunc())
+			{
+				auth.POST("confirm", handler.Confirm())
+				auth.POST("reject", handler.Reject())
+			}
 		}
 		marks.GET("user/:userId", handler.GetMarksByUserId())
 		auth := marks.Group("", params.AuthMiddleware.MiddlewareFunc())
@@ -353,6 +359,88 @@ func (h *handler) GetMarkStatusHistoryByMarkId() gin.HandlerFunc {
 
 		responses.OK(ctx, GetMarkStatusHistoryByMarkIdResponse{
 			HistoryItems: historyItems,
+		})
+	}
+}
+
+// Confirm сonfirm the mark and moves it to a new status
+//
+//	@Summary		Confirm the mark
+//	@Description	сonfirm the mark and moves it to a new status
+//	@Tags			marks
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object}	responses.Response[marksrest.ConfirmResponse]
+//	@Failure		400	{object}	responses.Response[any]
+//	@Failure		409	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
+//	@Router			/marks/{id}/confirm [post]
+func (h *handler) Confirm() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		id, err := strconv.Atoi(ctx.Param("id"))
+		if err != nil {
+			h.log.Debug("failed parse id", logger.Err(err))
+			responses.BadRequest(ctx, "failed parse id")
+			return
+		}
+
+		newStatusId, err := h.statusUpdater.Confirm(ctx.Request.Context(), id)
+		if err != nil {
+			switch err {
+			case usecase.ErrConflict:
+				h.log.Debug("unable to update the mark status", slog.Int("mark_id", id))
+				responses.Conflict(ctx, "user already exists")
+			default:
+				h.log.Error("error confirm mark", slog.Int("mark_id", id), logger.Err(err))
+				responses.Internal(ctx, "error confirm mark")
+			}
+			return
+		}
+
+		h.log.Info("mark status has been updated", slog.Int("mark_id", id), slog.Int("new_mark_status_id", int(newStatusId)))
+		responses.OK(ctx, ConfirmResponse{
+			NewMarkStausId: newStatusId,
+		})
+	}
+}
+
+// Reject reject the mark and moves it to a new status
+//
+//	@Summary		Reject the mark
+//	@Description	reject the mark and moves it to a new status
+//	@Tags			marks
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object}	responses.Response[marksrest.RejectResponse]
+//	@Failure		400	{object}	responses.Response[any]
+//	@Failure		409	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
+//	@Router			/marks/{id}/reject [post]
+func (h *handler) Reject() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		id, err := strconv.Atoi(ctx.Param("id"))
+		if err != nil {
+			h.log.Debug("failed parse id", logger.Err(err))
+			responses.BadRequest(ctx, "failed parse id")
+			return
+		}
+
+		newStatus, err := h.statusUpdater.Reject(ctx.Request.Context(), id)
+		if err != nil {
+			switch err {
+			case usecase.ErrConflict:
+				h.log.Debug("unable to update the mark status", slog.Int("mark_id", id))
+				responses.Conflict(ctx, "user already exists")
+			default:
+				h.log.Error("error confirm mark", slog.Int("mark_id", id), logger.Err(err))
+				responses.Internal(ctx, "error confirm mark")
+			}
+			return
+		}
+
+		h.log.Info("mark status has been updated", slog.Int("mark_id", id), slog.Int("new_mark_status_id", int(newStatus)))
+		responses.OK(ctx, RejectResponse{
+			NewMarkStausId: newStatus,
 		})
 	}
 }
