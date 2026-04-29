@@ -29,7 +29,7 @@ func (repo *MarksRepository) GetMarks(ctx context.Context, filters models.GetMar
 	var args []any
 	query := `
 			SELECT 
-				mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, number_votes, number_checks, created_at, updated_at 
+				mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, created_at, updated_at 
 			FROM 
 				marks
 			WHERE
@@ -62,7 +62,7 @@ func (repo *MarksRepository) GetMarkById(ctx context.Context, id int) (models.Ma
 	mark := models.Mark{}
 
 	query := `SELECT
-				mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, number_votes, number_checks, created_at, updated_at 
+				mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, created_at, updated_at 
 			FROM 
 				marks 
 			WHERE 
@@ -87,7 +87,7 @@ func (repo *MarksRepository) GetMarksByUserId(ctx context.Context, userId int) (
 	marks := []models.Mark{}
 
 	query := `SELECT
-				mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, number_votes, number_checks, created_at, updated_at
+				mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, created_at, updated_at
 			FROM 
 				marks 
 			WHERE 

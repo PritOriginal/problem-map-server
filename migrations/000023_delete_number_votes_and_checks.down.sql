@@ -1,0 +1,2 @@
+ALTER TABLE marks ADD COLUMN number_votes INTEGER;
+ALTER TABLE marks ADD COLUMN number_checks INTEGER;
