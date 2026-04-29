@@ -31,6 +31,7 @@ type AdminBoundaryMarksCount struct {
 
 type GetAdminBoundaryMarksCountFilters struct {
 	AdminLevels []int
+	MarkTypeIds []int
 }
 
 type Region struct {
