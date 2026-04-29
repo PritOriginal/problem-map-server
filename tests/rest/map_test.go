@@ -45,17 +45,12 @@ func (st *MapSuite) TestGetAdminBoundaries() {
 		},
 		{
 			name:       "Ok200",
-			query:      "?admin_levels=9&admin_levels=10",
+			query:      "?admin_levels=9,10",
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "Err400",
 			query:      "?admin_levels=a",
-			statusCode: http.StatusBadRequest,
-		},
-		{
-			name:       "Err400",
-			query:      "?admin_levels=9,10",
 			statusCode: http.StatusBadRequest,
 		},
 	}
@@ -106,17 +101,27 @@ func (st *MapSuite) TestGetAdminBoundariesMarksCount() {
 		},
 		{
 			name:       "Ok200",
-			query:      "?admin_levels=9&admin_levels=10",
+			query:      "?admin_levels=9,10",
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "Ok200",
+			query:      "?admin_levels=9,10&mark_type_ids=",
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "Ok200",
+			query:      "?admin_levels=9,10&mark_type_ids=1",
+			statusCode: http.StatusOK,
+		},
+		{
+			name:       "Ok200",
+			query:      "?admin_levels=9,10&mark_type_ids=1,2",
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "Err400",
 			query:      "?admin_levels=a",
-			statusCode: http.StatusBadRequest,
-		},
-		{
-			name:       "Err400",
-			query:      "?admin_levels=9,10",
 			statusCode: http.StatusBadRequest,
 		},
 	}
