@@ -144,6 +144,24 @@ make migrate-up
 make migrate-down
 ```
 
+`migrate drop`:
+
+```bash
+make migrate-drop
+```
+
+`migrate version`:
+
+```bash
+make migrate-version
+```
+
+`migrate force`:
+
+```bash
+make migrate-force MIGRATION_VERSION=<migration-version> 
+```
+
 ## Примечание
 
 Если в качестве конфигурационного файла был выбран `.env`, то замените путь к конфигурационному файлу в `Makefile` либо запускайте приложение командой:
