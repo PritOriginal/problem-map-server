@@ -1,5 +1,3 @@
-include configs/.env
-
 run-rest:
 	go run ./cmd/rest/ --config=./configs/config.yaml
 build-rest:
@@ -32,14 +30,18 @@ test-cover:
 
 migrate:
 	migrate create -ext=sql -dir=./migrations -seq ${NAME_MIGRATION}     
+migrate-version:
+	go run ./cmd/migrator version --migrations-path=./migrations --config=./configs/config.yaml
+migrate-force:
+	go run ./cmd/migrator force ${MIGRATION_VERSION} --migrations-path=./migrations --config=./configs/config.yaml
 migrate-up:
-	migrate -path ./migrations/ -database postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=disable up
+	go run ./cmd/migrator up --migrations-path=./migrations --config=./configs/config.yaml
 migrate-up-1:
-	migrate -path ./migrations/ -database postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=disable up 1
-migrate-down:
-	migrate -path ./migrations/ -database postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=disable down
+	go run ./cmd/migrator up --steps 1 --migrations-path=./migrations --config=./configs/config.yaml
 migrate-down-1:
-	migrate -path ./migrations/ -database postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=disable down 1
+	go run ./cmd/migrator down --migrations-path=./migrations --config=./configs/config.yaml
+migrate-drop:
+	go run ./cmd/migrator drop --migrations-path=./migrations --config=./configs/config.yaml
 
 run-osm:
 	go run ./cmd/osm/
