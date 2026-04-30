@@ -46,27 +46,27 @@ func Register(r *gin.Engine, log *slog.Logger, uc Users) {
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/users/{id} [get]
 func (h *handler) GetUserById() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		id, err := strconv.Atoi(ctx.Param("id"))
+	return func(c *gin.Context) {
+		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
 			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(ctx, "failed parse id")
+			responses.BadRequest(c, "failed parse id")
 			return
 		}
 
-		user, err := h.uc.GetUserById(ctx.Request.Context(), id)
+		user, err := h.uc.GetUserById(c.Request.Context(), id)
 		if err != nil {
 			if errors.Is(err, storage.ErrNotFound) {
 				h.log.Debug("user not found", slog.Int("id", id))
-				responses.NotFound(ctx, "user not found")
+				responses.NotFound(c, "user not found")
 			} else {
 				h.log.Error("failed get user by id", slog.Int("id", id), logger.Err(err))
-				responses.Internal(ctx, "failed get user by id")
+				responses.Internal(c, "failed get user by id")
 			}
 			return
 		}
 
-		responses.OK(ctx, GetUserByIdResponse{
+		responses.OK(c, GetUserByIdResponse{
 			User: user,
 		})
 	}
@@ -82,15 +82,15 @@ func (h *handler) GetUserById() gin.HandlerFunc {
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/users [get]
 func (h *handler) GetUsers() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		users, err := h.uc.GetUsers(ctx.Request.Context())
+	return func(c *gin.Context) {
+		users, err := h.uc.GetUsers(c.Request.Context())
 		if err != nil {
 			h.log.Error("error get users", logger.Err(err))
-			responses.Internal(ctx, "error get users")
+			responses.Internal(c, "error get users")
 			return
 		}
 
-		responses.OK(ctx, GetUsersResponse{
+		responses.OK(c, GetUsersResponse{
 			Users: users,
 		})
 	}
