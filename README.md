@@ -11,7 +11,7 @@
 [problem-map.pritoriginal.ru](https://problem-map.pritoriginal.ru/) - сайт, на котором можно посмотреть визуализацию.
 `(Находится в активной разработке)`
 
-[problem-map-react](https://github.com/PritOriginal/problem-map-react) - репозиторий фронта.
+[problem-map-react](https://github.com/PritOriginal/problem-map-react) - репозиторий фронта. (очень сырой, лучше не смотреть :) )
 
 [Swagger документация](./docs/swagger.json) - доступна по адресу `http://[host]:[port]/swagger/index.html`
 
@@ -54,7 +54,7 @@ API:
 Для `.yaml`
 
 ```bash
-cp ./configs/config-docker.yaml ./configs/config.yaml
+cp ./configs/config.yaml.example ./configs/config.yaml
 ```
 
 Для `.env` (если предпочитаете переменные окружения)
