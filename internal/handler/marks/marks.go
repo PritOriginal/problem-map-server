@@ -96,33 +96,33 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/marks [get]
 func (h *handler) GetMarks() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		markTypeIdsStr := ctx.Query("mark_type_ids")
+	return func(c *gin.Context) {
+		markTypeIdsStr := c.Query("mark_type_ids")
 		markTypeIds, err := handlers.ParseIntArray(markTypeIdsStr)
 		if err != nil {
 			h.log.Debug("failed parse mark type ids", logger.Err(err))
-			responses.BadRequest(ctx, "failed parse mark type ids")
+			responses.BadRequest(c, "failed parse mark type ids")
 			return
 		}
-		markStatusIdsStr := ctx.Query("mark_status_ids")
+		markStatusIdsStr := c.Query("mark_status_ids")
 		markStatusIds, err := handlers.ParseIntArray(markStatusIdsStr)
 		if err != nil {
 			h.log.Debug("failed parse mark status ids", logger.Err(err))
-			responses.BadRequest(ctx, "failed parse mark status ids")
+			responses.BadRequest(c, "failed parse mark status ids")
 			return
 		}
 
-		marks, err := h.uc.GetMarks(ctx.Request.Context(), models.GetMarksFilters{
+		marks, err := h.uc.GetMarks(c.Request.Context(), models.GetMarksFilters{
 			MarkTypeIds:   markTypeIds,
 			MarkStatusIds: markStatusIds,
 		})
 		if err != nil {
 			h.log.Error("error get marks", logger.Err(err))
-			responses.Internal(ctx, "error get marks")
+			responses.Internal(c, "error get marks")
 			return
 		}
 
-		responses.OK(ctx, GetMarksResponse{
+		responses.OK(c, GetMarksResponse{
 			Marks: marks,
 		})
 	}
@@ -142,27 +142,27 @@ func (h *handler) GetMarks() gin.HandlerFunc {
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/marks/{id} [get]
 func (h *handler) GetMarkById() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		id, err := strconv.Atoi(ctx.Param("id"))
+	return func(c *gin.Context) {
+		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
 			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(ctx, "failed parse id")
+			responses.BadRequest(c, "failed parse id")
 			return
 		}
 
-		mark, err := h.uc.GetMarkById(ctx.Request.Context(), id)
+		mark, err := h.uc.GetMarkById(c.Request.Context(), id)
 		if err != nil {
 			if errors.Is(err, storage.ErrNotFound) {
 				h.log.Debug("mark not found", slog.Int("id", id))
-				responses.NotFound(ctx, "mark not found")
+				responses.NotFound(c, "mark not found")
 			} else {
 				h.log.Error("error get mark by id", slog.Int("id", id), logger.Err(err))
-				responses.Internal(ctx, "error get mark by id")
+				responses.Internal(c, "error get mark by id")
 			}
 			return
 		}
 
-		responses.OK(ctx, GetMarkByIdResponse{
+		responses.OK(c, GetMarkByIdResponse{
 			Mark: mark,
 		})
 	}
@@ -180,22 +180,22 @@ func (h *handler) GetMarkById() gin.HandlerFunc {
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/marks/user/{id} [get]
 func (h *handler) GetMarksByUserId() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		userId, err := strconv.Atoi(ctx.Param("userId"))
+	return func(c *gin.Context) {
+		userId, err := strconv.Atoi(c.Param("userId"))
 		if err != nil {
 			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(ctx, "failed parse id")
+			responses.BadRequest(c, "failed parse id")
 			return
 		}
 
-		marks, err := h.uc.GetMarksByUserId(ctx.Request.Context(), userId)
+		marks, err := h.uc.GetMarksByUserId(c.Request.Context(), userId)
 		if err != nil {
 			h.log.Error("error get marks by user id", slog.Int("user_id", userId), logger.Err(err))
-			responses.Internal(ctx, "error get marks by user id")
+			responses.Internal(c, "error get marks by user id")
 			return
 		}
 
-		responses.OK(ctx, GetMarksByUserIdResponse{
+		responses.OK(c, GetMarksByUserIdResponse{
 			Marks: marks,
 		})
 	}
@@ -214,33 +214,33 @@ func (h *handler) GetMarksByUserId() gin.HandlerFunc {
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/marks [post]
 func (h *handler) AddMark() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
+	return func(c *gin.Context) {
 		var req AddMarkRequest
-		if err := ctx.ShouldBind(&req); err != nil {
+		if err := c.ShouldBind(&req); err != nil {
 			h.log.Debug("failed binding request", logger.Err(err))
-			responses.BadRequest(ctx, "invalid request")
+			responses.BadRequest(c, "invalid request")
 			return
 		}
 
 		photos, err := handlers.ParsePhotos(req.Photos)
 		if err != nil {
 			h.log.Error("error parse photos", logger.Err(err))
-			responses.Internal(ctx, "error parse photos")
+			responses.Internal(c, "error parse photos")
 			return
 		}
 
-		claims := jwt.ExtractClaims(ctx)
+		claims := jwt.ExtractClaims(c)
 
 		userIdStr, err := claims.GetSubject()
 		if err != nil {
 			h.log.Debug("invalid token", logger.Err(err))
-			responses.Unauthorized(ctx, "invalid token")
+			responses.Unauthorized(c, "invalid token")
 			return
 		}
 		userId, err := strconv.Atoi(userIdStr)
 		if err != nil {
 			h.log.Debug("invalid token", logger.Err(err))
-			responses.Unauthorized(ctx, "invalid token")
+			responses.Unauthorized(c, "invalid token")
 			return
 		}
 
@@ -250,10 +250,10 @@ func (h *handler) AddMark() gin.HandlerFunc {
 			UserID:      userId,
 			Description: req.Description,
 		}
-		markId, err := h.uc.AddMark(ctx.Request.Context(), newMark, photos)
+		markId, err := h.uc.AddMark(c.Request.Context(), newMark, photos)
 		if err != nil {
 			h.log.Error("error add mark", logger.Err(err))
-			responses.Internal(ctx, "error add mark")
+			responses.Internal(c, "error add mark")
 			return
 		}
 
@@ -264,7 +264,7 @@ func (h *handler) AddMark() gin.HandlerFunc {
 			slog.Float64("latitude", req.Latitude),
 			slog.Int("photos", len(photos)),
 		)
-		responses.Created(ctx, AddMarkResponse{
+		responses.Created(c, AddMarkResponse{
 			MarkId: int(markId),
 		})
 	}
@@ -281,16 +281,16 @@ func (h *handler) AddMark() gin.HandlerFunc {
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/marks/types [get]
 func (h *handler) GetMarkTypes() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		types, err := h.uc.GetMarkTypes(ctx.Request.Context())
+	return func(c *gin.Context) {
+		types, err := h.uc.GetMarkTypes(c.Request.Context())
 
 		if err != nil {
 			h.log.Error("error get mark types", logger.Err(err))
-			responses.Internal(ctx, "error get mark types")
+			responses.Internal(c, "error get mark types")
 			return
 		}
 
-		responses.OK(ctx, GetMarkTypesResponse{
+		responses.OK(c, GetMarkTypesResponse{
 			MarkTypes: types,
 		})
 	}
@@ -307,16 +307,16 @@ func (h *handler) GetMarkTypes() gin.HandlerFunc {
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/marks/statuses [get]
 func (h *handler) GetMarkStatuses() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		statuses, err := h.uc.GetMarkStatuses(ctx.Request.Context())
+	return func(c *gin.Context) {
+		statuses, err := h.uc.GetMarkStatuses(c.Request.Context())
 
 		if err != nil {
 			h.log.Error("error get mark statuses", logger.Err(err))
-			responses.Internal(ctx, "error get mark statuses")
+			responses.Internal(c, "error get mark statuses")
 			return
 		}
 
-		responses.OK(ctx, GetMarkStatusesResponse{
+		responses.OK(c, GetMarkStatusesResponse{
 			MarkStatuses: statuses,
 		})
 	}
@@ -336,28 +336,28 @@ func (h *handler) GetMarkStatuses() gin.HandlerFunc {
 //	@Failure		500			{object}	responses.Response[any]
 //	@Router			/marks/{id}/status-history [get]
 func (h *handler) GetMarkStatusHistoryByMarkId() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
+	return func(c *gin.Context) {
 		var req GetMarkStatusHistoryByMarkIdRequest
-		if err := ctx.ShouldBindUri(&req); err != nil {
+		if err := c.ShouldBindUri(&req); err != nil {
 			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(ctx, "failed parse id")
+			responses.BadRequest(c, "failed parse id")
 			return
 		}
 
-		if err := ctx.ShouldBindQuery(&req); err != nil {
+		if err := c.ShouldBindQuery(&req); err != nil {
 			h.log.Debug("failed parse query params", logger.Err(err))
-			responses.BadRequest(ctx, "failed parse query params")
+			responses.BadRequest(c, "failed parse query params")
 			return
 		}
 
-		historyItems, err := h.uc.GetMarkStatusHistoryByMarkId(ctx.Request.Context(), req.MarkId, req.WithChecks)
+		historyItems, err := h.uc.GetMarkStatusHistoryByMarkId(c.Request.Context(), req.MarkId, req.WithChecks)
 		if err != nil {
 			h.log.Error("error get mark status history", slog.Int("mark_id", req.MarkId), logger.Err(err))
-			responses.Internal(ctx, "error get mark status history")
+			responses.Internal(c, "error get mark status history")
 			return
 		}
 
-		responses.OK(ctx, GetMarkStatusHistoryByMarkIdResponse{
+		responses.OK(c, GetMarkStatusHistoryByMarkIdResponse{
 			HistoryItems: historyItems,
 		})
 	}
@@ -376,29 +376,29 @@ func (h *handler) GetMarkStatusHistoryByMarkId() gin.HandlerFunc {
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/marks/{id}/confirm [post]
 func (h *handler) Confirm() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		id, err := strconv.Atoi(ctx.Param("id"))
+	return func(c *gin.Context) {
+		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
 			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(ctx, "failed parse id")
+			responses.BadRequest(c, "failed parse id")
 			return
 		}
 
-		newStatusId, err := h.statusUpdater.Confirm(ctx.Request.Context(), id)
+		newStatusId, err := h.statusUpdater.Confirm(c.Request.Context(), id)
 		if err != nil {
 			switch err {
 			case usecase.ErrConflict:
 				h.log.Debug("unable to update the mark status", slog.Int("mark_id", id))
-				responses.Conflict(ctx, "user already exists")
+				responses.Conflict(c, "user already exists")
 			default:
 				h.log.Error("error confirm mark", slog.Int("mark_id", id), logger.Err(err))
-				responses.Internal(ctx, "error confirm mark")
+				responses.Internal(c, "error confirm mark")
 			}
 			return
 		}
 
 		h.log.Info("mark status has been updated", slog.Int("mark_id", id), slog.Int("new_mark_status_id", int(newStatusId)))
-		responses.OK(ctx, ConfirmResponse{
+		responses.OK(c, ConfirmResponse{
 			NewMarkStausId: newStatusId,
 		})
 	}
@@ -417,29 +417,29 @@ func (h *handler) Confirm() gin.HandlerFunc {
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/marks/{id}/reject [post]
 func (h *handler) Reject() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		id, err := strconv.Atoi(ctx.Param("id"))
+	return func(c *gin.Context) {
+		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
 			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(ctx, "failed parse id")
+			responses.BadRequest(c, "failed parse id")
 			return
 		}
 
-		newStatus, err := h.statusUpdater.Reject(ctx.Request.Context(), id)
+		newStatus, err := h.statusUpdater.Reject(c.Request.Context(), id)
 		if err != nil {
 			switch err {
 			case usecase.ErrConflict:
 				h.log.Debug("unable to update the mark status", slog.Int("mark_id", id))
-				responses.Conflict(ctx, "user already exists")
+				responses.Conflict(c, "user already exists")
 			default:
 				h.log.Error("error confirm mark", slog.Int("mark_id", id), logger.Err(err))
-				responses.Internal(ctx, "error confirm mark")
+				responses.Internal(c, "error confirm mark")
 			}
 			return
 		}
 
 		h.log.Info("mark status has been updated", slog.Int("mark_id", id), slog.Int("new_mark_status_id", int(newStatus)))
-		responses.OK(ctx, RejectResponse{
+		responses.OK(c, RejectResponse{
 			NewMarkStausId: newStatus,
 		})
 	}

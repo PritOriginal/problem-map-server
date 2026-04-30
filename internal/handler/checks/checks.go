@@ -57,27 +57,27 @@ func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddlew
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/checks/{id} [get]
 func (h *handler) GetCheckById() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		id, err := strconv.Atoi(ctx.Param("id"))
+	return func(c *gin.Context) {
+		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
 			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(ctx, "failed parse id")
+			responses.BadRequest(c, "failed parse id")
 			return
 		}
 
-		check, err := h.uc.GetCheckById(ctx.Request.Context(), id)
+		check, err := h.uc.GetCheckById(c.Request.Context(), id)
 		if err != nil {
 			if errors.Is(err, storage.ErrNotFound) {
 				h.log.Debug("check not found", slog.Int("id", id))
-				responses.NotFound(ctx, "check not found")
+				responses.NotFound(c, "check not found")
 			} else {
 				h.log.Error("error get check by id", logger.Err(err))
-				responses.Internal(ctx, "error get check by id")
+				responses.Internal(c, "error get check by id")
 			}
 			return
 		}
 
-		responses.OK(ctx, GetCheckByIdResponse{
+		responses.OK(c, GetCheckByIdResponse{
 			Check: check,
 		})
 	}
@@ -95,22 +95,22 @@ func (h *handler) GetCheckById() gin.HandlerFunc {
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/checks/mark/{id} [get]
 func (h *handler) GetChecksByMarkId() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		markId, err := strconv.Atoi(ctx.Param("markId"))
+	return func(c *gin.Context) {
+		markId, err := strconv.Atoi(c.Param("markId"))
 		if err != nil {
 			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(ctx, "failed parse id")
+			responses.BadRequest(c, "failed parse id")
 			return
 		}
 
-		checks, err := h.uc.GetChecksByMarkId(ctx.Request.Context(), markId)
+		checks, err := h.uc.GetChecksByMarkId(c.Request.Context(), markId)
 		if err != nil {
 			h.log.Error("error get checks by mark id", logger.Err(err))
-			responses.Internal(ctx, "error get checks by mark id")
+			responses.Internal(c, "error get checks by mark id")
 			return
 		}
 
-		responses.OK(ctx, GetChecksByMarkIdResponse{
+		responses.OK(c, GetChecksByMarkIdResponse{
 			Checks: checks,
 		})
 	}
@@ -128,22 +128,22 @@ func (h *handler) GetChecksByMarkId() gin.HandlerFunc {
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/checks/user/{id} [get]
 func (h *handler) GetChecksByUserId() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		userId, err := strconv.Atoi(ctx.Param("userId"))
+	return func(c *gin.Context) {
+		userId, err := strconv.Atoi(c.Param("userId"))
 		if err != nil {
 			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(ctx, "failed parse id")
+			responses.BadRequest(c, "failed parse id")
 			return
 		}
 
-		checks, err := h.uc.GetChecksByUserId(ctx.Request.Context(), userId)
+		checks, err := h.uc.GetChecksByUserId(c.Request.Context(), userId)
 		if err != nil {
 			h.log.Error("error get checks by user id", logger.Err(err))
-			responses.Internal(ctx, "error get checks by user id")
+			responses.Internal(c, "error get checks by user id")
 			return
 		}
 
-		responses.OK(ctx, GetChecksByUserIdResponse{
+		responses.OK(c, GetChecksByUserIdResponse{
 			Checks: checks,
 		})
 	}
@@ -162,33 +162,33 @@ func (h *handler) GetChecksByUserId() gin.HandlerFunc {
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/checks [post]
 func (h *handler) AddCheck() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
+	return func(c *gin.Context) {
 		var req AddCheckRequest
-		if err := ctx.ShouldBind(&req); err != nil {
+		if err := c.ShouldBind(&req); err != nil {
 			h.log.Debug("failed binding request", logger.Err(err))
-			responses.BadRequest(ctx, "invalid request")
+			responses.BadRequest(c, "invalid request")
 			return
 		}
 
 		photos, err := handlers.ParsePhotos(req.Photos)
 		if err != nil {
 			h.log.Error("error parse photos", logger.Err(err))
-			responses.Internal(ctx, "error parse photos")
+			responses.Internal(c, "error parse photos")
 			return
 		}
 
-		claims := jwt.ExtractClaims(ctx)
+		claims := jwt.ExtractClaims(c)
 
 		userIdStr, err := claims.GetSubject()
 		if err != nil {
 			h.log.Debug("invalid token", logger.Err(err))
-			responses.Unauthorized(ctx, "invalid token")
+			responses.Unauthorized(c, "invalid token")
 			return
 		}
 		userId, err := strconv.Atoi(userIdStr)
 		if err != nil {
 			h.log.Debug("invalid token", logger.Err(err))
-			responses.Unauthorized(ctx, "invalid token")
+			responses.Unauthorized(c, "invalid token")
 			return
 		}
 
@@ -198,19 +198,19 @@ func (h *handler) AddCheck() gin.HandlerFunc {
 			Result:  req.Result,
 			Comment: req.Comment,
 		}
-		checkId, err := h.uc.AddCheck(ctx.Request.Context(), check, photos)
+		checkId, err := h.uc.AddCheck(c.Request.Context(), check, photos)
 		if err != nil {
 			switch err {
 			case usecase.ErrNotFound:
 				h.log.Debug("mark not found", slog.Int("mark_id", req.MarkID))
-				responses.BadRequest(ctx, "mark not found")
+				responses.BadRequest(c, "mark not found")
 				return
 			case usecase.ErrConflict:
 				h.log.Debug("user has already completed the check", slog.Int("mark_id", req.MarkID), slog.Int("user_id", userId))
-				responses.Conflict(ctx, "user has already completed the check")
+				responses.Conflict(c, "user has already completed the check")
 			default:
 				h.log.Error("error add check", logger.Err(err))
-				responses.Internal(ctx, "error add check")
+				responses.Internal(c, "error add check")
 			}
 			return
 		}
@@ -223,7 +223,7 @@ func (h *handler) AddCheck() gin.HandlerFunc {
 			slog.Bool("result", req.Result),
 			slog.Int("photos", len(photos)),
 		)
-		responses.Created(ctx, AddCheckResponse{
+		responses.Created(c, AddCheckResponse{
 			CheckId: int(checkId),
 		})
 	}
