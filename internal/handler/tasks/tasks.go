@@ -47,15 +47,15 @@ func Register(r *gin.Engine, log *slog.Logger, uc Tasks) {
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/tasks [get]
 func (h *handler) GetTasks() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		tasks, err := h.uc.GetTasks(ctx.Request.Context())
+	return func(c *gin.Context) {
+		tasks, err := h.uc.GetTasks(c.Request.Context())
 		if err != nil {
 			h.log.Error("error get tasks", logger.Err(err))
-			responses.Internal(ctx, "error get tasks")
+			responses.Internal(c, "error get tasks")
 			return
 		}
 
-		responses.OK(ctx, GetTasksResponse{
+		responses.OK(c, GetTasksResponse{
 			Tasks: tasks,
 		})
 	}
@@ -74,27 +74,27 @@ func (h *handler) GetTasks() gin.HandlerFunc {
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/tasks/{id} [get]
 func (h *handler) GetTaskById() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		id, err := strconv.Atoi(ctx.Param("id"))
+	return func(c *gin.Context) {
+		id, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
 			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(ctx, "failed parse id")
+			responses.BadRequest(c, "failed parse id")
 			return
 		}
 
-		task, err := h.uc.GetTaskById(ctx.Request.Context(), id)
+		task, err := h.uc.GetTaskById(c.Request.Context(), id)
 		if err != nil {
 			if errors.Is(err, storage.ErrNotFound) {
 				h.log.Debug("task not found", slog.Int("id", id))
-				responses.NotFound(ctx, "task not found")
+				responses.NotFound(c, "task not found")
 			} else {
 				h.log.Error("error get task by id", slog.Int("id", id), logger.Err(err))
-				responses.Internal(ctx, "error get task by id")
+				responses.Internal(c, "error get task by id")
 			}
 			return
 		}
 
-		responses.OK(ctx, GetTaskByIdResponse{
+		responses.OK(c, GetTaskByIdResponse{
 			Task: task,
 		})
 	}
@@ -112,22 +112,22 @@ func (h *handler) GetTaskById() gin.HandlerFunc {
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/tasks/user/{id} [get]
 func (h *handler) GetTasksByUserId() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
-		userId, err := strconv.Atoi(ctx.Param("id"))
+	return func(c *gin.Context) {
+		userId, err := strconv.Atoi(c.Param("id"))
 		if err != nil {
 			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(ctx, "failed parse id")
+			responses.BadRequest(c, "failed parse id")
 			return
 		}
 
-		tasks, err := h.uc.GetTasksByUserId(ctx.Request.Context(), userId)
+		tasks, err := h.uc.GetTasksByUserId(c.Request.Context(), userId)
 		if err != nil {
 			h.log.Error("error get tasks by user id", slog.Int("user_id", userId), logger.Err(err))
-			responses.Internal(ctx, "error get tasks by user id")
+			responses.Internal(c, "error get tasks by user id")
 			return
 		}
 
-		responses.OK(ctx, GetTasksByUserIdResponse{
+		responses.OK(c, GetTasksByUserIdResponse{
 			Tasks: tasks,
 		})
 	}
@@ -145,11 +145,11 @@ func (h *handler) GetTasksByUserId() gin.HandlerFunc {
 //	@Failure		500		{object}	responses.Response[any]
 //	@Router			/tasks [post]
 func (h *handler) AddTask() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
+	return func(c *gin.Context) {
 		var req AddTaskRequest
-		if err := ctx.ShouldBindJSON(&req); err != nil {
+		if err := c.ShouldBindJSON(&req); err != nil {
 			h.log.Debug("failed binding request", logger.Err(err))
-			responses.BadRequest(ctx, "invalid request")
+			responses.BadRequest(c, "invalid request")
 			return
 		}
 
@@ -159,10 +159,10 @@ func (h *handler) AddTask() gin.HandlerFunc {
 			MarkID: req.MarkID,
 		}
 
-		taskId, err := h.uc.AddTask(ctx.Request.Context(), task)
+		taskId, err := h.uc.AddTask(c.Request.Context(), task)
 		if err != nil {
 			h.log.Error("failed add task", logger.Err(err))
-			responses.Internal(ctx, "failed add task")
+			responses.Internal(c, "failed add task")
 			return
 		}
 
@@ -170,7 +170,7 @@ func (h *handler) AddTask() gin.HandlerFunc {
 			slog.Int("user_id", req.UserID),
 			slog.Int("mark_id", req.MarkID),
 		)
-		responses.Created(ctx, AddTaskResponse{
+		responses.Created(c, AddTaskResponse{
 			TaskId: int(taskId),
 		})
 	}

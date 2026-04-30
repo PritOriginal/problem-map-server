@@ -16,50 +16,50 @@ type ErrorInfo struct {
 	Message string `json:"message"`
 }
 
-func Success[T any](ctx *gin.Context, status int, data T) {
-	ctx.JSON(status, Response[T]{
+func Success[T any](c *gin.Context, status int, data T) {
+	c.JSON(status, Response[T]{
 		Success: true,
 		Payload: data,
 	})
 }
 
-func OK[T any](ctx *gin.Context, data T) {
-	ctx.JSON(http.StatusOK, Response[T]{
+func OK[T any](c *gin.Context, data T) {
+	c.JSON(http.StatusOK, Response[T]{
 		Success: true,
 		Payload: data,
 	})
 }
 
-func Created[T any](ctx *gin.Context, data T) {
-	ctx.JSON(http.StatusCreated, Response[T]{
+func Created[T any](c *gin.Context, data T) {
+	c.JSON(http.StatusCreated, Response[T]{
 		Success: true,
 		Payload: data,
 	})
 }
 
-func Fail(ctx *gin.Context, status int, message string) {
-	ctx.JSON(status, Response[any]{
+func Fail(c *gin.Context, status int, message string) {
+	c.JSON(status, Response[any]{
 		Success: false,
 		Error:   &ErrorInfo{Message: message},
 	})
 }
 
-func BadRequest(ctx *gin.Context, message string) {
-	Fail(ctx, http.StatusBadRequest, message)
+func BadRequest(c *gin.Context, message string) {
+	Fail(c, http.StatusBadRequest, message)
 }
 
-func NotFound(ctx *gin.Context, message string) {
-	Fail(ctx, http.StatusNotFound, message)
+func NotFound(c *gin.Context, message string) {
+	Fail(c, http.StatusNotFound, message)
 }
 
-func Unauthorized(ctx *gin.Context, message string) {
-	Fail(ctx, http.StatusUnauthorized, message)
+func Unauthorized(c *gin.Context, message string) {
+	Fail(c, http.StatusUnauthorized, message)
 }
 
-func Conflict(ctx *gin.Context, message string) {
-	Fail(ctx, http.StatusConflict, message)
+func Conflict(c *gin.Context, message string) {
+	Fail(c, http.StatusConflict, message)
 }
 
-func Internal(ctx *gin.Context, message string) {
-	Fail(ctx, http.StatusInternalServerError, message)
+func Internal(c *gin.Context, message string) {
+	Fail(c, http.StatusInternalServerError, message)
 }

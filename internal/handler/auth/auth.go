@@ -48,29 +48,29 @@ func Register(r *gin.Engine, log *slog.Logger, uc Auth) {
 //	@Failure		500		{object}	responses.Response[any]
 //	@Router			/auth/signup [post]
 func (h *handler) SignUp() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
+	return func(c *gin.Context) {
 		var req SignUpRequest
-		if err := ctx.ShouldBindJSON(&req); err != nil {
+		if err := c.ShouldBindJSON(&req); err != nil {
 			h.log.Debug("failed binding request", logger.Err(err))
-			responses.BadRequest(ctx, "invalid request")
+			responses.BadRequest(c, "invalid request")
 			return
 		}
 
-		userId, err := h.uc.SignUp(ctx.Request.Context(), req.Username, req.Login, req.Password)
+		userId, err := h.uc.SignUp(c.Request.Context(), req.Username, req.Login, req.Password)
 		if err != nil {
 			switch err {
 			case usecase.ErrConflict:
 				h.log.Debug("user already exists", slog.String("login", req.Login))
-				responses.Conflict(ctx, "user already exists")
+				responses.Conflict(c, "user already exists")
 			default:
 				h.log.Error("failed sign up", logger.Err(err))
-				responses.Internal(ctx, "failed sign up")
+				responses.Internal(c, "failed sign up")
 			}
 			return
 		}
 
 		h.log.Info("new user has registered", slog.String("login", req.Login), slog.Int64("id", userId))
-		responses.Created(ctx, SignUpResponse{
+		responses.Created(c, SignUpResponse{
 			UserId: int(userId),
 		})
 	}
@@ -90,27 +90,27 @@ func (h *handler) SignUp() gin.HandlerFunc {
 //	@Failure		500		{object}	responses.Response[any]
 //	@Router			/auth/signin [post]
 func (h *handler) SignIn() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
+	return func(c *gin.Context) {
 		var req SignInRequest
-		if err := ctx.ShouldBindJSON(&req); err != nil {
+		if err := c.ShouldBindJSON(&req); err != nil {
 			h.log.Debug("failed binding request", logger.Err(err))
-			responses.BadRequest(ctx, "invalid request")
+			responses.BadRequest(c, "invalid request")
 			return
 		}
 
-		accessToken, refreshToken, err := h.uc.SignIn(ctx.Request.Context(), req.Login, req.Password)
+		accessToken, refreshToken, err := h.uc.SignIn(c.Request.Context(), req.Login, req.Password)
 		if err != nil {
 			if errors.Is(err, storage.ErrNotFound) {
 				h.log.Debug("failed sign in")
-				responses.Unauthorized(ctx, "failed sign in")
+				responses.Unauthorized(c, "failed sign in")
 			} else {
 				h.log.Error("failed sign in", logger.Err(err))
-				responses.Internal(ctx, "failed sign in")
+				responses.Internal(c, "failed sign in")
 			}
 			return
 		}
 
-		responses.OK(ctx, SignInResponse{
+		responses.OK(c, SignInResponse{
 			AccessToken:  accessToken,
 			RefreshToken: refreshToken,
 		})
@@ -131,27 +131,27 @@ func (h *handler) SignIn() gin.HandlerFunc {
 //	@Failure		500		{object}	responses.Response[any]
 //	@Router			/auth/tokens/refresh [post]
 func (h *handler) RefreshTokens() gin.HandlerFunc {
-	return func(ctx *gin.Context) {
+	return func(c *gin.Context) {
 		var req RefreshTokensRequest
-		if err := ctx.ShouldBindJSON(&req); err != nil {
+		if err := c.ShouldBindJSON(&req); err != nil {
 			h.log.Debug("failed binding request", logger.Err(err))
-			responses.BadRequest(ctx, "invalid request")
+			responses.BadRequest(c, "invalid request")
 			return
 		}
 
-		accessToken, refreshToken, err := h.uc.RefreshTokens(ctx.Request.Context(), req.RefreshToken)
+		accessToken, refreshToken, err := h.uc.RefreshTokens(c.Request.Context(), req.RefreshToken)
 		if err != nil {
 			if errors.Is(err, usecase.ErrUnauthorized) {
 				h.log.Debug("failed refresh tokens", slog.String("refresh_token", req.RefreshToken))
-				responses.Unauthorized(ctx, "failed refresh tokens")
+				responses.Unauthorized(c, "failed refresh tokens")
 			} else {
 				h.log.Error("failed refresh tokens", logger.Err(err))
-				responses.Internal(ctx, "failed refresh tokens")
+				responses.Internal(c, "failed refresh tokens")
 			}
 			return
 		}
 
-		responses.OK(ctx, RefreshTokensResponse{
+		responses.OK(c, RefreshTokensResponse{
 			AccessToken:  accessToken,
 			RefreshToken: refreshToken,
 		})
