@@ -2,6 +2,7 @@ package tests
 
 import (
 	"fmt"
+	"math/rand"
 	"net/url"
 	"testing"
 
@@ -52,4 +53,18 @@ func makeUrl(params makeUrlParams) string {
 		RawQuery: params.query,
 	}
 	return u.String()
+}
+
+func getImages(maxNum int) [][]byte {
+	var images [][]byte
+	num := rand.Intn(maxNum) + 1
+	for range num {
+		isVerticalImg := gofakeit.Bool()
+		if isVerticalImg {
+			images = append(images, gofakeit.ImageJpeg(9, 12))
+		} else {
+			images = append(images, gofakeit.ImageJpeg(12, 9))
+		}
+	}
+	return images
 }
