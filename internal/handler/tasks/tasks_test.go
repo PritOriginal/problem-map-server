@@ -9,7 +9,7 @@ import (
 
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/gin-gonic/gin"
 	mock "github.com/stretchr/testify/mock"
@@ -95,7 +95,7 @@ func (suite *TasksSuite) TestGetTaskById() {
 			name:           "Err404",
 			id:             "1",
 			wantErrParseId: false,
-			errGetTaskById: storage.ErrNotFound,
+			errGetTaskById: repository.ErrNotFound,
 			statusCode:     404,
 		},
 		{

@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/jmoiron/sqlx"
 )
@@ -47,7 +47,7 @@ func (r *TasksRepository) GetTaskById(ctx context.Context, id int) (models.Task,
 	if err := tr.GetContext(ctx, &task, query, id); err != nil {
 		switch err {
 		case sql.ErrNoRows:
-			return task, storage.ErrNotFound
+			return task, repository.ErrNotFound
 		default:
 			return task, fmt.Errorf("%s: %w", op, err)
 		}

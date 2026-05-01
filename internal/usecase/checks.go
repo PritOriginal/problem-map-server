@@ -7,7 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/avito-tech/go-transaction-manager/trm/v2"
 )
 
@@ -52,7 +52,7 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 	historyItem, err := uc.repos.Marks.GetLastMarkStatusHistoryItem(ctx, check.MarkID)
 	if err != nil {
 		switch err {
-		case storage.ErrNotFound:
+		case repository.ErrNotFound:
 			return 0, ErrNotFound
 		default:
 			return 0, fmt.Errorf("%s: %w", op, err)
@@ -101,7 +101,7 @@ func (uc *Checks) checkPossibilityAddCheck(ctx context.Context, userId int, hist
 	_, err := uc.repos.Checks.GetUserMarkCheck(ctx, userId, historyId)
 	if err != nil {
 		switch err {
-		case storage.ErrNotFound:
+		case repository.ErrNotFound:
 			return true, nil
 		default:
 			return false, fmt.Errorf("%s: %w", op, err)

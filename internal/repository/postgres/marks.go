@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
@@ -79,7 +79,7 @@ func (r *MarksRepository) GetMarkById(ctx context.Context, id int) (models.Mark,
 	if err := tr.GetContext(ctx, &mark, query, id); err != nil {
 		switch err {
 		case sql.ErrNoRows:
-			return mark, storage.ErrNotFound
+			return mark, repository.ErrNotFound
 		default:
 			return mark, fmt.Errorf("%s: %w", op, err)
 		}
@@ -200,6 +200,36 @@ func (r *MarksRepository) GetMarkStatusHistoryByMarkId(ctx context.Context, mark
 	return historyItems, nil
 }
 
+func (r *MarksRepository) GetLastMarkStatusHistoryItemWithStatus(ctx context.Context, markId int, newMarkStatusId models.MarkStatusType) (models.MarkStatusHistoryItem, error) {
+	const op = "storage.postgres.GetLastMarkStatusHistoryItemWithStatus"
+
+	var historyItem models.MarkStatusHistoryItem
+
+	query := `
+		SELECT 
+			* 
+		FROM 
+			mark_status_history 
+		WHERE 
+			mark_id = $1 AND new_mark_status_id = $2 
+		ORDER BY 
+			changed_at 
+		LIMIT 1
+		`
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.GetContext(ctx, &historyItem, query, markId, newMarkStatusId); err != nil {
+		switch err {
+		case sql.ErrNoRows:
+			return historyItem, repository.ErrNotFound
+		default:
+			return historyItem, fmt.Errorf("%s: %w", op, err)
+		}
+	}
+
+	return historyItem, nil
+}
+
 func (r *MarksRepository) GetLastMarkStatusHistoryItem(ctx context.Context, markId int) (models.MarkStatusHistoryItem, error) {
 	const op = "storage.postgres.GetLastMarkStatusHistoryItemWithStatus"
 
@@ -221,7 +251,7 @@ func (r *MarksRepository) GetLastMarkStatusHistoryItem(ctx context.Context, mark
 	if err := tr.GetContext(ctx, &historyItem, query, markId); err != nil {
 		switch err {
 		case sql.ErrNoRows:
-			return historyItem, storage.ErrNotFound
+			return historyItem, repository.ErrNotFound
 		default:
 			return historyItem, fmt.Errorf("%s: %w", op, err)
 		}

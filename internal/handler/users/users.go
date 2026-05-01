@@ -7,7 +7,7 @@ import (
 	"strconv"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/gin-gonic/gin"
@@ -56,7 +56,7 @@ func (h *handler) GetUserById() gin.HandlerFunc {
 
 		user, err := h.uc.GetUserById(c.Request.Context(), id)
 		if err != nil {
-			if errors.Is(err, storage.ErrNotFound) {
+			if errors.Is(err, repository.ErrNotFound) {
 				h.log.Debug("user not found", slog.Int("id", id))
 				responses.NotFound(c, "user not found")
 			} else {

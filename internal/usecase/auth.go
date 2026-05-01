@@ -9,7 +9,7 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	passwordUtils "github.com/PritOriginal/problem-map-server/pkg/password"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
@@ -44,7 +44,7 @@ func (uc *Auth) SignUp(ctx context.Context, username, login, password string) (i
 	}
 
 	_, err = uc.repos.Users.GetUserByLogin(ctx, user.Login)
-	if err != storage.ErrNotFound {
+	if err != repository.ErrNotFound {
 		switch err {
 		case nil:
 			return 0, ErrConflict
@@ -71,7 +71,7 @@ func (uc *Auth) SignIn(ctx context.Context, login, password string) (string, str
 	}
 
 	if !passwordUtils.CheckPasswordHash(password, user.PasswordHash) {
-		return "", "", fmt.Errorf("%s: %w", op, storage.ErrNotFound)
+		return "", "", fmt.Errorf("%s: %w", op, repository.ErrNotFound)
 	}
 
 	accessToken, refreshToken, err := uc.generateTokens(user.Id)
@@ -97,7 +97,7 @@ func (uc *Auth) RefreshTokens(ctx context.Context, refreshToken string) (string,
 
 	user, err := uc.repos.Users.GetUserById(ctx, userId)
 	if err != nil {
-		if errors.Is(err, storage.ErrNotFound) {
+		if errors.Is(err, repository.ErrNotFound) {
 			return "", "", fmt.Errorf("%s: %w", op, ErrUnauthorized)
 		} else {
 			return "", "", fmt.Errorf("%s: %w", op, err)

@@ -8,7 +8,7 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
@@ -54,7 +54,7 @@ func (suite *AuthSuite) TestSignUp() {
 		{
 			name: "Ok",
 			getUserByLogin: method[models.User]{
-				err: storage.ErrNotFound,
+				err: repository.ErrNotFound,
 			},
 			addUser: method[int64]{
 				err: nil,
@@ -72,7 +72,7 @@ func (suite *AuthSuite) TestSignUp() {
 		{
 			name: "ErrAddUser",
 			getUserByLogin: method[models.User]{
-				err: storage.ErrNotFound,
+				err: repository.ErrNotFound,
 			},
 			addUser: method[int64]{
 				err: errors.New(""),
@@ -84,7 +84,7 @@ func (suite *AuthSuite) TestSignUp() {
 			func() {
 				suite.usersRepo.On("GetUserByLogin", mock.Anything, mock.AnythingOfType("string")).Once().
 					Return(tt.getUserByLogin.data, tt.getUserByLogin.err)
-				if tt.getUserByLogin.err != storage.ErrNotFound {
+				if tt.getUserByLogin.err != repository.ErrNotFound {
 					return
 				}
 
@@ -97,7 +97,7 @@ func (suite *AuthSuite) TestSignUp() {
 
 			_, gotErr := suite.uc.SignUp(context.Background(), "username", "login", "password")
 
-			if tt.getUserByLogin.err == storage.ErrNotFound && tt.addUser.err == nil {
+			if tt.getUserByLogin.err == repository.ErrNotFound && tt.addUser.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)

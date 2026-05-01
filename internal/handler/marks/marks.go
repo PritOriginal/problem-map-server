@@ -10,7 +10,7 @@ import (
 
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
@@ -152,7 +152,7 @@ func (h *handler) GetMarkById() gin.HandlerFunc {
 
 		mark, err := h.uc.GetMarkById(c.Request.Context(), id)
 		if err != nil {
-			if errors.Is(err, storage.ErrNotFound) {
+			if errors.Is(err, repository.ErrNotFound) {
 				h.log.Debug("mark not found", slog.Int("id", id))
 				responses.NotFound(c, "mark not found")
 			} else {
