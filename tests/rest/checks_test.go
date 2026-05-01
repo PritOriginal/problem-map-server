@@ -268,10 +268,12 @@ func addCheck(t *testing.T, cfg *config.RESTConfig, request checksrest.AddCheckR
 	mpw.WriteField("result", strconv.FormatBool(request.Result))
 	mpw.WriteField("comment", request.Comment)
 
-	image := gofakeit.ImageJpeg(10, 10)
-	fw, err := mpw.CreateFormFile("photos", "test.jpg")
-	require.NoError(t, err)
-	io.Copy(fw, bytes.NewBuffer(image))
+	images := getImages(3)
+	for _, image := range images {
+		fw, err := mpw.CreateFormFile("photos", "test.jpg")
+		require.NoError(t, err)
+		io.Copy(fw, bytes.NewBuffer(image))
+	}
 
 	mpw.Close()
 

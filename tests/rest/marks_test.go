@@ -275,10 +275,12 @@ func (st *MarksSuite) TestAddMark() {
 			mpw.WriteField("mark_type_id", strconv.Itoa(tt.req.MarkTypeID))
 			mpw.WriteField("description", tt.req.Description)
 
-			image := gofakeit.ImageJpeg(10, 10)
-			fw, err := mpw.CreateFormFile("photos", "test.jpg")
-			st.NoError(err)
-			io.Copy(fw, bytes.NewBuffer(image))
+			images := getImages(3)
+			for _, image := range images {
+				fw, err := mpw.CreateFormFile("photos", "test.jpg")
+				st.NoError(err)
+				io.Copy(fw, bytes.NewBuffer(image))
+			}
 
 			mpw.Close()
 
@@ -318,10 +320,12 @@ func addNewMark(t *testing.T, cfg *config.RESTConfig, accessToken string) respon
 	mpw.WriteField("mark_type_id", strconv.Itoa(randomMarkType.ID))
 	mpw.WriteField("description", "")
 
-	image := gofakeit.ImageJpeg(10, 10)
-	fw, err := mpw.CreateFormFile("photos", "test.jpg")
-	require.NoError(t, err)
-	io.Copy(fw, bytes.NewBuffer(image))
+	images := getImages(3)
+	for _, image := range images {
+		fw, err := mpw.CreateFormFile("photos", "test.jpg")
+		require.NoError(t, err)
+		io.Copy(fw, bytes.NewBuffer(image))
+	}
 
 	mpw.Close()
 
