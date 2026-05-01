@@ -23,6 +23,8 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
 	jwt "github.com/appleboy/gin-jwt/v3"
+	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
+	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
 	"github.com/gin-gonic/gin"
 )
 
@@ -41,6 +43,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		panic(err)
 	}
 	log.Info("PostgreSQL connected!")
+	trManager := manager.Must(trmsqlx.NewDefaultFactory(postgresDB.DB))
 
 	redis, err := redis.New(cfg.Redis)
 	if err != nil {
@@ -66,7 +69,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 	handler.SetSwagger(router, cfg)
 
-	mapRepo := postgres.NewMap(postgresDB.DB)
+	mapRepo := postgres.NewMap(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 
 	photoRepo := initPhotosRepository(log, cfg)
 
@@ -75,13 +78,13 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	})
 	maprest.Register(router, log, mapUseCase, redis)
 
-	marksRepo := postgres.NewMarks(postgresDB.DB)
-	checksRepo := postgres.NewChecks(postgresDB.DB)
+	marksRepo := postgres.NewMarks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
+	checksRepo := postgres.NewChecks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	markStatusUpdater := usecase.NewUpdater(log, usecase.UpdaterRepositories{
 		Marks:  marksRepo,
 		Checks: checksRepo,
 	})
-	marksUseCase := usecase.NewMarks(log, usecase.MarksRepositories{
+	marksUseCase := usecase.NewMarks(log, trManager, usecase.MarksRepositories{
 		Marks:  marksRepo,
 		Checks: checksRepo,
 		Photos: photoRepo,
@@ -93,14 +96,14 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		StatusUpdater:  markStatusUpdater,
 	})
 
-	checksUseCase := usecase.NewChecks(log, markStatusUpdater, usecase.ChecksRepositories{
+	checksUseCase := usecase.NewChecks(log, trManager, markStatusUpdater, usecase.ChecksRepositories{
 		Marks:  marksRepo,
 		Checks: checksRepo,
 		Photos: photoRepo,
 	})
 	checksrest.Register(router, log, authMiddleware, checksUseCase)
 
-	usersRepo := postgres.NewUsers(postgresDB.DB)
+	usersRepo := postgres.NewUsers(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	usersUseCase := usecase.NewUsers(log, usecase.UsersRepositories{
 		Users: usersRepo,
 	})
@@ -111,7 +114,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	})
 	authrest.Register(router, log, authUseCase)
 
-	tasksRepo := postgres.NewTasks(postgresDB.DB)
+	tasksRepo := postgres.NewTasks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	tasksUseCase := usecase.NewTasks(log, usecase.TasksRepositories{
 		Tasks: tasksRepo,
 	})
