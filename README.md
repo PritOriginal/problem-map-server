@@ -31,6 +31,7 @@
 - `PostGIS` - Для поддержки хранения геоданных
 - [`migrate`](https://github.com/golang-migrate/migrate) - Миграции
 - `Redis` - Кеширование
+- [`go-transaction-manager`](https://github.com/avito-tech/go-transaction-manager) - Менеджер транзакций
 - `S3` - Для хранения фото меток
 - `Docker` - Контейнеризация
 - `log/slog` - Логгер

@@ -8,19 +8,24 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
+	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 )
 
 type MarksRepository struct {
-	Conn *sqlx.DB
+	db     *sqlx.DB
+	getter *trmsqlx.CtxGetter
 }
 
-func NewMarks(conn *sqlx.DB) *MarksRepository {
-	return &MarksRepository{Conn: conn}
+func NewMarks(db *sqlx.DB, c *trmsqlx.CtxGetter) *MarksRepository {
+	return &MarksRepository{
+		db:     db,
+		getter: c,
+	}
 }
 
-func (repo *MarksRepository) GetMarks(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error) {
+func (r *MarksRepository) GetMarks(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error) {
 	const op = "storage.postgres.GetMarks"
 
 	marks := []models.Mark{}
@@ -49,14 +54,15 @@ func (repo *MarksRepository) GetMarks(ctx context.Context, filters models.GetMar
 		query += " AND " + condition
 		query = strings.Replace(query, "$?", fmt.Sprintf("$%d", len(args)-len(conditions)+i+1), 1)
 	}
-	if err := repo.Conn.SelectContext(ctx, &marks, query, args...); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &marks, query, args...); err != nil {
 		return marks, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return marks, nil
 }
 
-func (repo *MarksRepository) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
+func (r *MarksRepository) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
 	const op = "storage.postgres.GetMarkById"
 
 	mark := models.Mark{}
@@ -69,7 +75,8 @@ func (repo *MarksRepository) GetMarkById(ctx context.Context, id int) (models.Ma
 				mark_id = $1
 			`
 
-	if err := repo.Conn.GetContext(ctx, &mark, query, id); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.GetContext(ctx, &mark, query, id); err != nil {
 		switch err {
 		case sql.ErrNoRows:
 			return mark, storage.ErrNotFound
@@ -81,7 +88,7 @@ func (repo *MarksRepository) GetMarkById(ctx context.Context, id int) (models.Ma
 	return mark, nil
 }
 
-func (repo *MarksRepository) GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error) {
+func (r *MarksRepository) GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error) {
 	const op = "storage.postgres.GetMarksByUserId"
 
 	marks := []models.Mark{}
@@ -94,14 +101,15 @@ func (repo *MarksRepository) GetMarksByUserId(ctx context.Context, userId int) (
 				user_id = $1
 			`
 
-	if err := repo.Conn.SelectContext(ctx, &marks, query, userId); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &marks, query, userId); err != nil {
 		return marks, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return marks, nil
 }
 
-func (repo *MarksRepository) AddMark(ctx context.Context, mark models.Mark) (int64, error) {
+func (r *MarksRepository) AddMark(ctx context.Context, mark models.Mark) (int64, error) {
 	const op = "storage.postgres.AddMark"
 
 	var id int64
@@ -114,7 +122,8 @@ func (repo *MarksRepository) AddMark(ctx context.Context, mark models.Mark) (int
 			RETURNING mark_id
 			`
 
-	stmt, err := repo.Conn.PreparexContext(ctx, query)
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	stmt, err := tr.PreparexContext(ctx, query)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
@@ -126,45 +135,48 @@ func (repo *MarksRepository) AddMark(ctx context.Context, mark models.Mark) (int
 	return id, nil
 }
 
-func (repo *MarksRepository) GetMarkTypes(ctx context.Context) ([]models.MarkType, error) {
+func (r *MarksRepository) GetMarkTypes(ctx context.Context) ([]models.MarkType, error) {
 	const op = "storage.postgres.GetMarkTypes"
 
 	types := []models.MarkType{}
 
 	query := "SELECT * FROM types_marks ORDER BY name"
 
-	if err := repo.Conn.SelectContext(ctx, &types, query); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &types, query); err != nil {
 		return types, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return types, nil
 }
 
-func (repo *MarksRepository) GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error) {
+func (r *MarksRepository) GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error) {
 	const op = "storage.postgres.GetMarkTypes"
 
 	statuses := []models.MarkStatus{}
 
 	query := "SELECT * FROM mark_statuses ORDER BY mark_status_id"
 
-	if err := repo.Conn.SelectContext(ctx, &statuses, query); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &statuses, query); err != nil {
 		return statuses, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return statuses, nil
 }
 
-func (repo *MarksRepository) UpdateMarkStatus(ctx context.Context, markId int, markStatusId models.MarkStatusType) error {
+func (r *MarksRepository) UpdateMarkStatus(ctx context.Context, markId int, markStatusId models.MarkStatusType) error {
 	const op = "storage.postgres.UpdateMarkStatus"
 
-	if _, err := repo.Conn.ExecContext(ctx, "UPDATE marks SET mark_status_id = $1 WHERE mark_id = $2", markStatusId, markId); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if _, err := tr.ExecContext(ctx, "UPDATE marks SET mark_status_id = $1 WHERE mark_id = $2", markStatusId, markId); err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	return nil
 }
 
-func (repo *MarksRepository) GetMarkStatusHistoryByMarkId(ctx context.Context, markId int) ([]models.MarkStatusHistoryItem, error) {
+func (r *MarksRepository) GetMarkStatusHistoryByMarkId(ctx context.Context, markId int) ([]models.MarkStatusHistoryItem, error) {
 	const op = "storage.postgres.GetMarkStatusHistoryByMarkId"
 
 	historyItems := []models.MarkStatusHistoryItem{}
@@ -180,7 +192,8 @@ func (repo *MarksRepository) GetMarkStatusHistoryByMarkId(ctx context.Context, m
 			changed_at
 		`
 
-	if err := repo.Conn.SelectContext(ctx, &historyItems, query, markId); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &historyItems, query, markId); err != nil {
 		return historyItems, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -204,7 +217,8 @@ func (r *MarksRepository) GetLastMarkStatusHistoryItem(ctx context.Context, mark
 		LIMIT 1
 		`
 
-	if err := r.Conn.GetContext(ctx, &historyItem, query, markId); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.GetContext(ctx, &historyItem, query, markId); err != nil {
 		switch err {
 		case sql.ErrNoRows:
 			return historyItem, storage.ErrNotFound

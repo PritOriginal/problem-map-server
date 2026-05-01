@@ -1,5 +1,12 @@
 template: testify
 packages:
+  github.com/avito-tech/go-transaction-manager/trm/v2:
+    interfaces:
+      Manager:
+        config:
+          pkgname: "usecase"
+          dir: "internal/usecase"
+          filename: "trm_mocks.go"
   github.com/PritOriginal/problem-map-server/internal/usecase:
     config:
       all: true

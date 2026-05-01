@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/avito-tech/go-transaction-manager/trm/v2"
 )
 
 type MarksRepository interface {
@@ -29,8 +30,9 @@ type PhotosRepository interface {
 }
 
 type Marks struct {
-	log   *slog.Logger
-	repos MarksRepositories
+	log       *slog.Logger
+	trManager trm.Manager
+	repos     MarksRepositories
 }
 
 type MarksRepositories struct {
@@ -39,10 +41,11 @@ type MarksRepositories struct {
 	Photos PhotosRepository
 }
 
-func NewMarks(log *slog.Logger, repos MarksRepositories) *Marks {
+func NewMarks(log *slog.Logger, trManager trm.Manager, repos MarksRepositories) *Marks {
 	return &Marks{
-		log:   log,
-		repos: repos,
+		log:       log,
+		trManager: trManager,
+		repos:     repos,
 	}
 }
 
@@ -79,32 +82,41 @@ func (uc *Marks) GetMarksByUserId(ctx context.Context, userId int) ([]models.Mar
 func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error) {
 	const op = "usecase.Map.AddMark"
 
-	markId, err := uc.repos.Marks.AddMark(ctx, mark)
+	var markId int64
+	err := uc.trManager.Do(ctx, func(ctx context.Context) error {
+		var err error
+		markId, err = uc.repos.Marks.AddMark(ctx, mark)
+		if err != nil {
+			return err
+		}
+
+		historyItem, err := uc.repos.Marks.GetLastMarkStatusHistoryItem(ctx, int(markId))
+		if err != nil {
+			return err
+		}
+
+		check := models.Check{
+			UserID:                  mark.UserID,
+			MarkID:                  int(markId),
+			MarkStatusId:            models.UnconfirmedStatus,
+			MarkStatusHistoryItemId: historyItem.ID,
+			Result:                  true,
+			Comment:                 mark.Description,
+		}
+
+		checkId, err := uc.repos.Checks.AddCheck(ctx, check)
+		if err != nil {
+			return err
+		}
+
+		if err := uc.repos.Photos.AddPhotos(ctx, int(markId), int(checkId), photos); err != nil {
+			return err
+		}
+
+		return nil
+	})
 	if err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
-	}
-
-	historyItem, err := uc.repos.Marks.GetLastMarkStatusHistoryItem(ctx, int(markId))
-	if err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
-	}
-
-	check := models.Check{
-		UserID:                  mark.UserID,
-		MarkID:                  int(markId),
-		MarkStatusId:            models.UnconfirmedStatus,
-		MarkStatusHistoryItemId: historyItem.ID,
-		Result:                  true,
-		Comment:                 mark.Description,
-	}
-
-	checkId, err := uc.repos.Checks.AddCheck(ctx, check)
-	if err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
-	}
-
-	if err := uc.repos.Photos.AddPhotos(ctx, int(markId), int(checkId), photos); err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
+		return markId, err
 	}
 
 	return markId, nil

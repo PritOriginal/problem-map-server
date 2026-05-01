@@ -7,15 +7,20 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
+	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/jmoiron/sqlx"
 )
 
 type UsersRepository struct {
-	Conn *sqlx.DB
+	db     *sqlx.DB
+	getter *trmsqlx.CtxGetter
 }
 
-func NewUsers(conn *sqlx.DB) *UsersRepository {
-	return &UsersRepository{Conn: conn}
+func NewUsers(db *sqlx.DB, c *trmsqlx.CtxGetter) *UsersRepository {
+	return &UsersRepository{
+		db:     db,
+		getter: c,
+	}
 }
 
 func (r *UsersRepository) GetUserById(ctx context.Context, id int) (models.User, error) {
@@ -31,8 +36,8 @@ func (r *UsersRepository) GetUserById(ctx context.Context, id int) (models.User,
 			WHERE 
 				user_id = $1
 			`
-
-	if err := r.Conn.GetContext(ctx, &user, query, id); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.GetContext(ctx, &user, query, id); err != nil {
 		switch err {
 		case sql.ErrNoRows:
 			return user, storage.ErrNotFound
@@ -58,7 +63,8 @@ func (r *UsersRepository) GetUserByLogin(ctx context.Context, username string) (
 				login = $1
 			`
 
-	if err := r.Conn.GetContext(ctx, &user, query, username); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.GetContext(ctx, &user, query, username); err != nil {
 		switch err {
 		case sql.ErrNoRows:
 			return user, storage.ErrNotFound
@@ -82,7 +88,8 @@ func (r *UsersRepository) GetUsers(ctx context.Context) ([]models.User, error) {
 				users
 			`
 
-	if err := r.Conn.SelectContext(ctx, &users, query); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &users, query); err != nil {
 		return users, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -102,7 +109,8 @@ func (r *UsersRepository) AddUser(ctx context.Context, user models.User) (int64,
 			RETURNING user_id
 			`
 
-	stmt, err := r.Conn.PrepareNamedContext(ctx, query)
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	stmt, err := tr.PrepareNamedContext(ctx, query)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
