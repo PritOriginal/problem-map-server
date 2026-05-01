@@ -505,8 +505,14 @@ func (st *MarksSuite) TestGetMarkStatusHistoryByMarkId() {
 
 func (st *MarksSuite) TestConfirm() {
 	signInResponse := addNewUser(st.T(), &st.Cfg.REST)
-	addMarkResponse := addNewMark(st.T(), &st.Cfg.REST, signInResponse.Payload.AccessToken)
-	markId := addMarkResponse.Payload.MarkId
+	getMarksResponse := getMarks(
+		st.T(),
+		&st.Cfg.REST,
+		"mark_status_ids=2,3,4",
+		http.StatusOK,
+	)
+	randomMarkIndex := rand.Intn(len(getMarksResponse.Payload.Marks))
+	randomMark := getMarksResponse.Payload.Marks[randomMarkIndex]
 
 	addMarkForRejectResponse := addNewMark(st.T(), &st.Cfg.REST, signInResponse.Payload.AccessToken)
 	markForRejectId := addMarkForRejectResponse.Payload.MarkId
@@ -525,7 +531,7 @@ func (st *MarksSuite) TestConfirm() {
 	}{
 		{
 			name:       "Ok200",
-			id:         strconv.Itoa(markId),
+			id:         strconv.Itoa(randomMark.ID),
 			statusCode: http.StatusOK,
 		},
 		{
@@ -561,8 +567,14 @@ func (st *MarksSuite) TestConfirm() {
 
 func (st *MarksSuite) TestReject() {
 	signInResponse := addNewUser(st.T(), &st.Cfg.REST)
-	addMarkResponse := addNewMark(st.T(), &st.Cfg.REST, signInResponse.Payload.AccessToken)
-	markId := addMarkResponse.Payload.MarkId
+	getMarksResponse := getMarks(
+		st.T(),
+		&st.Cfg.REST,
+		"mark_status_ids=2,3,4",
+		http.StatusOK,
+	)
+	randomMarkIndex := rand.Intn(len(getMarksResponse.Payload.Marks))
+	randomMark := getMarksResponse.Payload.Marks[randomMarkIndex]
 
 	addMarkForRejectResponse := addNewMark(st.T(), &st.Cfg.REST, signInResponse.Payload.AccessToken)
 	markForRejectId := addMarkForRejectResponse.Payload.MarkId
@@ -581,7 +593,7 @@ func (st *MarksSuite) TestReject() {
 	}{
 		{
 			name:       "Ok200",
-			id:         strconv.Itoa(markId),
+			id:         strconv.Itoa(randomMark.ID),
 			statusCode: http.StatusOK,
 		},
 		{
