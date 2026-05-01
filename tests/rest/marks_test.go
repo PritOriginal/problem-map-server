@@ -217,9 +217,9 @@ func (st *MarksSuite) TestAddMark() {
 	randomMarkTypeIndex := rand.Intn(len(markTypesResponse.Payload.MarkTypes))
 	randomMarkType := markTypesResponse.Payload.MarkTypes[randomMarkTypeIndex]
 
-	long, err := gofakeit.LatitudeInRange(52.6, 52.8)
+	long, err := gofakeit.LatitudeInRange(52.66, 52.8)
 	st.NoError(err)
-	lat, err := gofakeit.LongitudeInRange(41.25, 41.55)
+	lat, err := gofakeit.LongitudeInRange(41.3, 41.55)
 	st.NoError(err)
 
 	tests := []struct {
