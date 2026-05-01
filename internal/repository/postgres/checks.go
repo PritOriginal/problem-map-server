@@ -4,9 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/jmoiron/sqlx"
 )
@@ -68,7 +69,7 @@ func (r *ChecksRepository) GetCheckById(ctx context.Context, id int) (models.Che
 	if err := tr.GetContext(ctx, &check, query, id); err != nil {
 		switch err {
 		case sql.ErrNoRows:
-			return check, storage.ErrNotFound
+			return check, repository.ErrNotFound
 		default:
 			return check, fmt.Errorf("%s: %w", op, err)
 		}
@@ -147,6 +148,52 @@ func (r *ChecksRepository) GetChecksByMarkHistoryId(ctx context.Context, markHis
 	return checks, nil
 }
 
+func (r *ChecksRepository) GetChecksByUserIdAndMarkId(ctx context.Context, userId int, markId int) ([]models.Check, error) {
+	const op = "storage.postgres.GetChecksByUserIdAndMarkId"
+
+	checks := []models.Check{}
+
+	query := `
+		SELECT 
+			c.*, u.name as username 
+		FROM 
+			checks as c 
+		JOIN 
+			users AS u ON c.user_id = u.user_id 
+		WHERE 
+			c.user_id = $1 AND c.mark_id = $2`
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &checks, query, userId, markId); err != nil {
+		return checks, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return checks, nil
+}
+
+func (r *ChecksRepository) GetChecksByUserIdAndMarkIdSince(ctx context.Context, userId int, markId int, dateTime time.Time) ([]models.Check, error) {
+	const op = "storage.postgres.GetChecksSince"
+
+	checks := []models.Check{}
+
+	query := `
+		SELECT 
+			c.*, u.name as username 
+		FROM 
+			checks as c 
+		JOIN 
+			users AS u ON c.user_id = u.user_id 
+		WHERE 
+			c.user_id = $1 AND c.mark_id = $2 AND changed_at > $3`
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &checks, query, userId, markId, dateTime); err != nil {
+		return checks, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return checks, nil
+}
+
 func (r *ChecksRepository) GetUserMarkCheck(ctx context.Context, userId int, markStatusHistoryId int) (models.Check, error) {
 	const op = "storage.postgres.GetUserMarkCheck"
 
@@ -182,7 +229,7 @@ func (r *ChecksRepository) GetUserMarkCheck(ctx context.Context, userId int, mar
 	if err := tr.GetContext(ctx, &check, query, markStatusHistoryId, userId); err != nil {
 		switch err {
 		case sql.ErrNoRows:
-			return check, storage.ErrNotFound
+			return check, repository.ErrNotFound
 		default:
 			return check, fmt.Errorf("%s: %w", op, err)
 		}

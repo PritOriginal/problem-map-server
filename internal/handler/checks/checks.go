@@ -8,7 +8,7 @@ import (
 	"strconv"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
@@ -67,7 +67,7 @@ func (h *handler) GetCheckById() gin.HandlerFunc {
 
 		check, err := h.uc.GetCheckById(c.Request.Context(), id)
 		if err != nil {
-			if errors.Is(err, storage.ErrNotFound) {
+			if errors.Is(err, repository.ErrNotFound) {
 				h.log.Debug("check not found", slog.Int("id", id))
 				responses.NotFound(c, "check not found")
 			} else {

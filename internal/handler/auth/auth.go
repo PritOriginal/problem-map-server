@@ -5,7 +5,7 @@ import (
 	"errors"
 	"log/slog"
 
-	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
@@ -100,7 +100,7 @@ func (h *handler) SignIn() gin.HandlerFunc {
 
 		accessToken, refreshToken, err := h.uc.SignIn(c.Request.Context(), req.Login, req.Password)
 		if err != nil {
-			if errors.Is(err, storage.ErrNotFound) {
+			if errors.Is(err, repository.ErrNotFound) {
 				h.log.Debug("failed sign in")
 				responses.Unauthorized(c, "failed sign in")
 			} else {

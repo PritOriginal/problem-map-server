@@ -6,7 +6,7 @@ import (
 
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -48,7 +48,7 @@ func (s *server) GetTaskById(ctx context.Context, in *pb.GetTaskByIdRequest) (*p
 	// TODO: добавить валидацию.
 	task, err := s.tasks.GetTaskById(ctx, int(in.GetId()))
 	if err != nil {
-		if errors.Is(err, storage.ErrNotFound) {
+		if errors.Is(err, repository.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "task not found")
 		} else {
 			return nil, status.Error(codes.Internal, "error get task by id")
@@ -64,7 +64,7 @@ func (s *server) GetTasksByUserId(ctx context.Context, in *pb.GetTasksByUserIdRe
 	// TODO: добавить валидацию.
 	tasks, err := s.tasks.GetTasksByUserId(ctx, int(in.GetUserId()))
 	if err != nil {
-		if errors.Is(err, storage.ErrNotFound) {
+		if errors.Is(err, repository.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "task not found")
 		} else {
 			return nil, status.Error(codes.Internal, "error get task by id")

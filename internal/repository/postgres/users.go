@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/jmoiron/sqlx"
 )
@@ -40,7 +40,7 @@ func (r *UsersRepository) GetUserById(ctx context.Context, id int) (models.User,
 	if err := tr.GetContext(ctx, &user, query, id); err != nil {
 		switch err {
 		case sql.ErrNoRows:
-			return user, storage.ErrNotFound
+			return user, repository.ErrNotFound
 		default:
 			return user, fmt.Errorf("%s: %w", op, err)
 		}
@@ -67,7 +67,7 @@ func (r *UsersRepository) GetUserByLogin(ctx context.Context, username string) (
 	if err := tr.GetContext(ctx, &user, query, username); err != nil {
 		switch err {
 		case sql.ErrNoRows:
-			return user, storage.ErrNotFound
+			return user, repository.ErrNotFound
 		default:
 			return user, fmt.Errorf("%s: %w", op, err)
 		}

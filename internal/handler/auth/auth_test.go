@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
-	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/gin-gonic/gin"
@@ -166,7 +166,7 @@ func (suite *AuthSuite) TestSignIn() {
 				Password: "password",
 			},
 			wantErrParseReq: false,
-			errSignIn:       storage.ErrNotFound,
+			errSignIn:       repository.ErrNotFound,
 			statusCode:      401,
 		},
 		{

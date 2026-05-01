@@ -12,7 +12,7 @@ import (
 
 	checksrest "github.com/PritOriginal/problem-map-server/internal/handler/checks"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
@@ -88,7 +88,7 @@ func (suite *ChecksSuite) TestGetCheckById() {
 			name:            "Err404",
 			id:              "1",
 			wantErrParseId:  false,
-			errGetCheckById: storage.ErrNotFound,
+			errGetCheckById: repository.ErrNotFound,
 			statusCode:      404,
 		},
 	}

@@ -15,7 +15,7 @@ import (
 	marksrest "github.com/PritOriginal/problem-map-server/internal/handler/marks"
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
@@ -168,7 +168,7 @@ func (suite *MarksSuite) TestGetMarkById() {
 			name:           "Err404",
 			id:             "1",
 			wantErrParseId: false,
-			errGetMarkById: storage.ErrNotFound,
+			errGetMarkById: repository.ErrNotFound,
 			statusCode:     404,
 		},
 	}
