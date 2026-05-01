@@ -7,15 +7,20 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
+	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/jmoiron/sqlx"
 )
 
 type TasksRepository struct {
-	Conn *sqlx.DB
+	db     *sqlx.DB
+	getter *trmsqlx.CtxGetter
 }
 
-func NewTasks(conn *sqlx.DB) *TasksRepository {
-	return &TasksRepository{Conn: conn}
+func NewTasks(conn *sqlx.DB, c *trmsqlx.CtxGetter) *TasksRepository {
+	return &TasksRepository{
+		db:     conn,
+		getter: c,
+	}
 }
 
 func (r *TasksRepository) GetTasks(ctx context.Context) ([]models.Task, error) {
@@ -24,7 +29,8 @@ func (r *TasksRepository) GetTasks(ctx context.Context) ([]models.Task, error) {
 	tasks := make([]models.Task, 0)
 
 	query := "SELECT * FROM tasks"
-	if err := r.Conn.SelectContext(ctx, &tasks, query); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &tasks, query); err != nil {
 		return tasks, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -37,7 +43,8 @@ func (r *TasksRepository) GetTaskById(ctx context.Context, id int) (models.Task,
 	var task models.Task
 
 	query := "SELECT * FROM tasks WHERE task_id = $1"
-	if err := r.Conn.GetContext(ctx, &task, query, id); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.GetContext(ctx, &task, query, id); err != nil {
 		switch err {
 		case sql.ErrNoRows:
 			return task, storage.ErrNotFound
@@ -55,7 +62,8 @@ func (r *TasksRepository) GetTasksByUserId(ctx context.Context, userId int) ([]m
 	tasks := []models.Task{}
 
 	query := "SELECT * FROM tasks WHERE user_id = $1"
-	err := r.Conn.SelectContext(ctx, &tasks, query, userId)
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	err := tr.SelectContext(ctx, &tasks, query, userId)
 	if err != nil {
 		return tasks, fmt.Errorf("%s: %w", op, err)
 	}
@@ -74,8 +82,8 @@ func (r *TasksRepository) AddTask(ctx context.Context, task models.Task) (int64,
 				(:name, :user_id, :mark_id)
 			RETURNING task_id
 			`
-
-	stmt, err := r.Conn.PrepareNamedContext(ctx, query)
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	stmt, err := tr.PrepareNamedContext(ctx, query)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}

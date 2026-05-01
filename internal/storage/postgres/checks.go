@@ -7,15 +7,20 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/storage"
+	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/jmoiron/sqlx"
 )
 
 type ChecksRepository struct {
-	Conn *sqlx.DB
+	db     *sqlx.DB
+	getter *trmsqlx.CtxGetter
 }
 
-func NewChecks(conn *sqlx.DB) *ChecksRepository {
-	return &ChecksRepository{Conn: conn}
+func NewChecks(db *sqlx.DB, c *trmsqlx.CtxGetter) *ChecksRepository {
+	return &ChecksRepository{
+		db:     db,
+		getter: c,
+	}
 }
 
 func (r *ChecksRepository) AddCheck(ctx context.Context, check models.Check) (int64, error) {
@@ -31,7 +36,8 @@ func (r *ChecksRepository) AddCheck(ctx context.Context, check models.Check) (in
 			RETURNING check_id
 			`
 
-	stmt, err := r.Conn.PrepareNamedContext(ctx, query)
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	stmt, err := tr.PrepareNamedContext(ctx, query)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
@@ -58,7 +64,8 @@ func (r *ChecksRepository) GetCheckById(ctx context.Context, id int) (models.Che
 		WHERE 
 			check_id = $1`
 
-	if err := r.Conn.GetContext(ctx, &check, query, id); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.GetContext(ctx, &check, query, id); err != nil {
 		switch err {
 		case sql.ErrNoRows:
 			return check, storage.ErrNotFound
@@ -86,7 +93,8 @@ func (r *ChecksRepository) GetChecksByMarkId(ctx context.Context, markId int) ([
 			mark_id = $1
 		ORDER BY created_at ASC`
 
-	if err := r.Conn.SelectContext(ctx, &checks, query, markId); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &checks, query, markId); err != nil {
 		return checks, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -108,7 +116,8 @@ func (r *ChecksRepository) GetChecksByUserId(ctx context.Context, userId int) ([
 		WHERE 
 			c.user_id = $1`
 
-	if err := r.Conn.SelectContext(ctx, &checks, query, userId); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &checks, query, userId); err != nil {
 		return checks, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -130,7 +139,8 @@ func (r *ChecksRepository) GetChecksByMarkHistoryId(ctx context.Context, markHis
 		WHERE 
 			c.mark_status_history_id = $1`
 
-	if err := r.Conn.SelectContext(ctx, &checks, query, markHistoryId); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &checks, query, markHistoryId); err != nil {
 		return checks, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -167,7 +177,8 @@ func (r *ChecksRepository) GetUserMarkCheck(ctx context.Context, userId int, mar
 		WHERE 
 			c.user_id = $2 AND mark_status_history_id IN (SELECT id FROM r)`
 
-	if err := r.Conn.GetContext(ctx, &check, query, markStatusHistoryId, userId); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.GetContext(ctx, &check, query, markStatusHistoryId, userId); err != nil {
 		switch err {
 		case sql.ErrNoRows:
 			return check, storage.ErrNotFound
