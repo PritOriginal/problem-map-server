@@ -5,7 +5,6 @@ package tests
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -99,7 +98,11 @@ func (st *AuthSuite) TestSignUp() {
 
 func signUp(t *testing.T, req io.Reader, cfg *config.RESTConfig, expectedStatusCode int) responses.Response[authrest.SignUpResponse] {
 	resp, err := http.Post(
-		fmt.Sprintf("http://%s:%d/auth/signup", cfg.Host, cfg.Port),
+		makeUrl(makeUrlParams{
+			host: cfg.Host,
+			port: cfg.Port,
+			path: "/auth/signup",
+		}),
 		"application/json",
 		req,
 	)
@@ -188,7 +191,11 @@ func (st *AuthSuite) TestSignIn() {
 
 func signIn(t *testing.T, req io.Reader, cfg *config.RESTConfig, expectedStatusCode int) responses.Response[authrest.SignInResponse] {
 	resp, err := http.Post(
-		fmt.Sprintf("http://%s:%d/auth/signin", cfg.Host, cfg.Port),
+		makeUrl(makeUrlParams{
+			host: cfg.Host,
+			port: cfg.Port,
+			path: "/auth/signin",
+		}),
 		"application/json",
 		req,
 	)
@@ -275,7 +282,11 @@ func (st *AuthSuite) TestRefreshTokens() {
 			}
 
 			resp, err := http.Post(
-				fmt.Sprintf("http://%s:%d/auth/tokens/refresh", st.Cfg.REST.Host, st.Cfg.REST.Port),
+				makeUrl(makeUrlParams{
+					host: st.Cfg.REST.Host,
+					port: st.Cfg.REST.Port,
+					path: "/auth/tokens/refresh",
+				}),
 				"application/json",
 				request,
 			)

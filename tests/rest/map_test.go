@@ -4,7 +4,6 @@ package tests
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -40,30 +39,29 @@ func (st *MapSuite) TestGetAdminBoundaries() {
 		},
 		{
 			name:       "Ok200",
-			query:      "?admin_levels=9",
+			query:      "admin_levels=9",
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "Ok200",
-			query:      "?admin_levels=9,10",
+			query:      "admin_levels=9,10",
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "Err400",
-			query:      "?admin_levels=a",
+			query:      "admin_levels=a",
 			statusCode: http.StatusBadRequest,
 		},
 	}
 
 	for _, tt := range tests {
 		st.Run(tt.name, func() {
-			resp, err := http.Get(
-				fmt.Sprintf("http://%s:%d/map/admin-boundaries%s",
-					st.Cfg.REST.Host,
-					st.Cfg.REST.Port,
-					tt.query,
-				),
-			)
+			resp, err := http.Get(makeUrl(makeUrlParams{
+				host:  st.Cfg.REST.Host,
+				port:  st.Cfg.REST.Port,
+				path:  "/map/admin-boundaries",
+				query: tt.query,
+			}))
 			st.NoError(err)
 			defer resp.Body.Close()
 
@@ -96,45 +94,44 @@ func (st *MapSuite) TestGetAdminBoundariesMarksCount() {
 		},
 		{
 			name:       "Ok200",
-			query:      "?admin_levels=9",
+			query:      "admin_levels=9",
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "Ok200",
-			query:      "?admin_levels=9,10",
+			query:      "admin_levels=9,10",
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "Ok200",
-			query:      "?admin_levels=9,10&mark_type_ids=",
+			query:      "admin_levels=9,10&mark_type_ids=",
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "Ok200",
-			query:      "?admin_levels=9,10&mark_type_ids=1",
+			query:      "admin_levels=9,10&mark_type_ids=1",
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "Ok200",
-			query:      "?admin_levels=9,10&mark_type_ids=1,2",
+			query:      "admin_levels=9,10&mark_type_ids=1,2",
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "Err400",
-			query:      "?admin_levels=a",
+			query:      "admin_levels=a",
 			statusCode: http.StatusBadRequest,
 		},
 	}
 
 	for _, tt := range tests {
 		st.Run(tt.name, func() {
-			resp, err := http.Get(
-				fmt.Sprintf("http://%s:%d/map/admin-boundaries/marks/count%s",
-					st.Cfg.REST.Host,
-					st.Cfg.REST.Port,
-					tt.query,
-				),
-			)
+			resp, err := http.Get(makeUrl(makeUrlParams{
+				host:  st.Cfg.REST.Host,
+				port:  st.Cfg.REST.Port,
+				path:  "/map/admin-boundaries/marks/count",
+				query: tt.query,
+			}))
 			st.NoError(err)
 			defer resp.Body.Close()
 
@@ -155,7 +152,11 @@ func (st *MapSuite) TestGetAdminBoundariesMarksCount() {
 }
 
 func (st *MapSuite) TestGetRegions() {
-	resp, err := http.Get(fmt.Sprintf("http://%s:%d/map/regions", st.Cfg.REST.Host, st.Cfg.REST.Port))
+	resp, err := http.Get(makeUrl(makeUrlParams{
+		host: st.Cfg.REST.Host,
+		port: st.Cfg.REST.Port,
+		path: "/map/regions",
+	}))
 
 	st.NoError(err)
 	st.Equal(http.StatusOK, resp.StatusCode)
@@ -171,7 +172,11 @@ func (st *MapSuite) TestGetRegions() {
 }
 
 func (st *MapSuite) TestGetCities() {
-	resp, err := http.Get(fmt.Sprintf("http://%s:%d/map/cities", st.Cfg.REST.Host, st.Cfg.REST.Port))
+	resp, err := http.Get(makeUrl(makeUrlParams{
+		host: st.Cfg.REST.Host,
+		port: st.Cfg.REST.Port,
+		path: "/map/cities",
+	}))
 
 	st.NoError(err)
 	st.Equal(http.StatusOK, resp.StatusCode)
@@ -187,7 +192,11 @@ func (st *MapSuite) TestGetCities() {
 }
 
 func (st *MapSuite) TestGetDistricts() {
-	resp, err := http.Get(fmt.Sprintf("http://%s:%d/map/districts", st.Cfg.REST.Host, st.Cfg.REST.Port))
+	resp, err := http.Get(makeUrl(makeUrlParams{
+		host: st.Cfg.REST.Host,
+		port: st.Cfg.REST.Port,
+		path: "/map/districts",
+	}))
 
 	st.NoError(err)
 	st.Equal(http.StatusOK, resp.StatusCode)
