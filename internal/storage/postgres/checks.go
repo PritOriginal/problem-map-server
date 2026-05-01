@@ -166,6 +166,7 @@ func (r *ChecksRepository) GetUserMarkCheck(ctx context.Context, userId int, mar
 			ON ms2.mark_status_id = h2.new_mark_status_id
 			JOIN r 
 			ON r.prev_id = h2.id
+			WHERE r.parent_id = h2.new_mark_status_id
 		)
 
 		SELECT 
