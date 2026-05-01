@@ -11,11 +11,13 @@ import (
 	marksgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/marks"
 	tasksgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/tasks"
 	usersgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/users"
-	"github.com/PritOriginal/problem-map-server/internal/storage/local"
-	"github.com/PritOriginal/problem-map-server/internal/storage/postgres"
-	"github.com/PritOriginal/problem-map-server/internal/storage/s3"
+	"github.com/PritOriginal/problem-map-server/internal/repository/local"
+	"github.com/PritOriginal/problem-map-server/internal/repository/postgres"
+	"github.com/PritOriginal/problem-map-server/internal/repository/s3"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
+	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
+	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
 	"google.golang.org/grpc"
@@ -37,6 +39,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		panic(err)
 	}
 	log.Info("PostgreSQL connected!")
+	trManager := manager.Must(trmsqlx.NewDefaultFactory(postgresDB.DB))
 
 	loggingOpts := []logging.Option{
 		logging.WithLogOnEvents(
@@ -74,28 +77,28 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		photoRepo = s3.NewPhotos(s3Client)
 	}
 
-	mapRepo := postgres.NewMap(postgresDB.DB)
+	mapRepo := postgres.NewMap(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	mapUseCase := usecase.NewMap(log, usecase.MapRepositories{
 		Map: mapRepo,
 	})
 	mapgrpc.Register(gRPCServer, mapUseCase)
 
-	marksRepo := postgres.NewMarks(postgresDB.DB)
-	checksRepo := postgres.NewChecks(postgresDB.DB)
-	marksUseCase := usecase.NewMarks(log, usecase.MarksRepositories{
+	marksRepo := postgres.NewMarks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
+	checksRepo := postgres.NewChecks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
+	marksUseCase := usecase.NewMarks(log, trManager, usecase.MarksRepositories{
 		Marks:  marksRepo,
 		Checks: checksRepo,
 		Photos: photoRepo,
 	})
 	marksgrpc.Register(gRPCServer, marksUseCase)
 
-	tasksRepo := postgres.NewTasks(postgresDB.DB)
+	tasksRepo := postgres.NewTasks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	tasksUseCase := usecase.NewTasks(log, usecase.TasksRepositories{
 		Tasks: tasksRepo,
 	})
 	tasksgrpc.Register(gRPCServer, tasksUseCase)
 
-	usersRepo := postgres.NewUsers(postgresDB.DB)
+	usersRepo := postgres.NewUsers(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	usersUseCase := usecase.NewUsers(log, usecase.UsersRepositories{
 		Users: usersRepo,
 	})

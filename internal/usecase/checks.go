@@ -7,7 +7,8 @@ import (
 	"log/slog"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
+	"github.com/avito-tech/go-transaction-manager/trm/v2"
 )
 
 type ChecksRepository interface {
@@ -31,13 +32,15 @@ type ChecksRepositories struct {
 
 type Checks struct {
 	log               *slog.Logger
+	trManager         trm.Manager
 	repos             ChecksRepositories
 	markStatusUpdater MarkStatusUpdater
 }
 
-func NewChecks(log *slog.Logger, markStatusUpdater MarkStatusUpdater, repos ChecksRepositories) *Checks {
+func NewChecks(log *slog.Logger, trManager trm.Manager, markStatusUpdater MarkStatusUpdater, repos ChecksRepositories) *Checks {
 	return &Checks{
 		log:               log,
+		trManager:         trManager,
 		repos:             repos,
 		markStatusUpdater: markStatusUpdater,
 	}
@@ -49,7 +52,7 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 	historyItem, err := uc.repos.Marks.GetLastMarkStatusHistoryItem(ctx, check.MarkID)
 	if err != nil {
 		switch err {
-		case storage.ErrNotFound:
+		case repository.ErrNotFound:
 			return 0, ErrNotFound
 		default:
 			return 0, fmt.Errorf("%s: %w", op, err)
@@ -67,20 +70,29 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 		return 0, ErrConflict
 	}
 
-	id, err := uc.repos.Checks.AddCheck(ctx, check)
+	var checkId int64
+	err = uc.trManager.Do(ctx, func(ctx context.Context) error {
+		var err error
+		checkId, err = uc.repos.Checks.AddCheck(ctx, check)
+		if err != nil {
+			return err
+		}
+
+		if err := uc.repos.Photos.AddPhotos(ctx, check.MarkID, int(checkId), photos); err != nil {
+			return err
+		}
+
+		if err := uc.markStatusUpdater.Update(ctx, check.MarkID); err != nil {
+			return err
+		}
+
+		return nil
+	})
 	if err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
+		return checkId, fmt.Errorf("%s: %w", op, err)
 	}
 
-	if err := uc.repos.Photos.AddPhotos(ctx, check.MarkID, int(id), photos); err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
-	}
-
-	if err := uc.markStatusUpdater.Update(ctx, check.MarkID); err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
-	}
-
-	return id, nil
+	return checkId, nil
 }
 
 func (uc *Checks) checkPossibilityAddCheck(ctx context.Context, userId int, historyId int) (bool, error) {
@@ -89,7 +101,7 @@ func (uc *Checks) checkPossibilityAddCheck(ctx context.Context, userId int, hist
 	_, err := uc.repos.Checks.GetUserMarkCheck(ctx, userId, historyId)
 	if err != nil {
 		switch err {
-		case storage.ErrNotFound:
+		case repository.ErrNotFound:
 			return true, nil
 		default:
 			return false, fmt.Errorf("%s: %w", op, err)

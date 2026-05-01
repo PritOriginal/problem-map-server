@@ -7,7 +7,7 @@ import (
 
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/gin-gonic/gin"
 	mock "github.com/stretchr/testify/mock"
@@ -61,7 +61,7 @@ func (suite *UsersSuite) TestGetUserById() {
 			name:           "Err404",
 			id:             "1",
 			wantErrParseId: false,
-			errGetUserById: storage.ErrNotFound,
+			errGetUserById: repository.ErrNotFound,
 			statusCode:     404,
 		},
 		{

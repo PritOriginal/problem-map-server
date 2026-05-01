@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/storage"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/stretchr/testify/mock"
@@ -19,6 +19,7 @@ type ChecksSuite struct {
 	suite.Suite
 	uc         *usecase.Checks
 	log        *slog.Logger
+	trManager  *usecase.MockManager
 	updater    *usecase.MockMarkStatusUpdater
 	marksRepo  *usecase.MockMarksRepository
 	checksRepo *usecase.MockChecksRepository
@@ -27,11 +28,12 @@ type ChecksSuite struct {
 
 func (suite *ChecksSuite) SetupSuite() {
 	suite.log = slogdiscard.NewDiscardLogger()
+	suite.trManager = usecase.NewMockManager(suite.T())
 	suite.updater = usecase.NewMockMarkStatusUpdater(suite.T())
 	suite.marksRepo = usecase.NewMockMarksRepository(suite.T())
 	suite.checksRepo = usecase.NewMockChecksRepository(suite.T())
 	suite.photosRepo = usecase.NewMockPhotosRepository(suite.T())
-	suite.uc = usecase.NewChecks(suite.log, suite.updater, usecase.ChecksRepositories{
+	suite.uc = usecase.NewChecks(suite.log, suite.trManager, suite.updater, usecase.ChecksRepositories{
 		Marks:  suite.marksRepo,
 		Checks: suite.checksRepo,
 		Photos: suite.photosRepo,
@@ -47,6 +49,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 		name                         string
 		getLastMarkStatusHistoryItem method[models.MarkStatusHistoryItem]
 		getUserMarkCheck             method[models.Check]
+		trDo                         method[any]
 		addCheck                     method[int64]
 		addPhotos                    method[any]
 		update                       method[any]
@@ -60,7 +63,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 				err: nil,
 			},
 			getUserMarkCheck: method[models.Check]{
-				err: storage.ErrNotFound,
+				err: repository.ErrNotFound,
 			},
 			addCheck: method[int64]{
 				data: int64(1),
@@ -76,7 +79,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 		{
 			name: "ErrNotFoundMarkStatus",
 			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
-				err: storage.ErrNotFound,
+				err: repository.ErrNotFound,
 			},
 		},
 		{
@@ -149,7 +152,10 @@ func (suite *ChecksSuite) TestAddCheck() {
 				err: nil,
 			},
 			getUserMarkCheck: method[models.Check]{
-				err: storage.ErrNotFound,
+				err: repository.ErrNotFound,
+			},
+			trDo: method[any]{
+				err: errors.New(""),
 			},
 			addCheck: method[int64]{
 				data: int64(0),
@@ -165,7 +171,10 @@ func (suite *ChecksSuite) TestAddCheck() {
 				err: nil,
 			},
 			getUserMarkCheck: method[models.Check]{
-				err: storage.ErrNotFound,
+				err: repository.ErrNotFound,
+			},
+			trDo: method[any]{
+				err: errors.New(""),
 			},
 			addCheck: method[int64]{
 				data: int64(1),
@@ -184,7 +193,10 @@ func (suite *ChecksSuite) TestAddCheck() {
 				err: nil,
 			},
 			getUserMarkCheck: method[models.Check]{
-				err: storage.ErrNotFound,
+				err: repository.ErrNotFound,
+			},
+			trDo: method[any]{
+				err: errors.New(""),
 			},
 			addCheck: method[int64]{
 				data: int64(1),
@@ -209,25 +221,35 @@ func (suite *ChecksSuite) TestAddCheck() {
 
 				suite.checksRepo.On("GetUserMarkCheck", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int"), mock.Anything).Once().
 					Return(tt.getUserMarkCheck.data, tt.getUserMarkCheck.err)
-				if tt.getUserMarkCheck.err != storage.ErrNotFound {
+				if tt.getUserMarkCheck.err != repository.ErrNotFound {
 					return
 				}
 
-				suite.checksRepo.On("AddCheck", mock.Anything, mock.Anything).Once().
-					Return(tt.addCheck.data, tt.addCheck.err)
-				if tt.addCheck.err != nil {
-					return
-				}
+				suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Run(func(args mock.Arguments) {
+					fn := args.Get(1).(func(ctx context.Context) error)
+					ctx := args.Get(0).(context.Context)
+					_ = fn(ctx)
+				}).Return(tt.trDo.err)
+				{
+					suite.checksRepo.On("AddCheck", mock.Anything, mock.Anything).Once().
+						Return(tt.addCheck.data, tt.addCheck.err)
+					if tt.addCheck.err != nil {
+						return
+					}
 
-				suite.photosRepo.On("AddPhotos", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int"), mock.Anything).Once().
-					Return(tt.addPhotos.err)
-				if tt.addPhotos.err != nil {
-					return
-				}
+					suite.photosRepo.On("AddPhotos", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int"), mock.Anything).Once().
+						Return(tt.addPhotos.err)
+					if tt.addPhotos.err != nil {
+						return
+					}
 
-				suite.updater.On("Update", mock.Anything, mock.AnythingOfType("int")).Once().
-					Return(tt.update.err)
-				if tt.update.err != nil {
+					suite.updater.On("Update", mock.Anything, mock.AnythingOfType("int")).Once().
+						Return(tt.update.err)
+					if tt.update.err != nil {
+						return
+					}
+				}
+				if tt.trDo.err != nil {
 					return
 				}
 			}()
@@ -235,7 +257,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 			_, gotErr := suite.uc.AddCheck(context.Background(), models.Check{}, []io.Reader{})
 
 			if tt.getLastMarkStatusHistoryItem.err == nil &&
-				tt.getUserMarkCheck.err == storage.ErrNotFound &&
+				tt.getUserMarkCheck.err == repository.ErrNotFound &&
 				tt.addCheck.err == nil &&
 				tt.addPhotos.err == nil &&
 				tt.update.err == nil {

@@ -48,32 +48,32 @@ func (st *MarksSuite) TestGetMarks() {
 		},
 		{
 			name:       "Ok200",
-			query:      "?mark_type_ids=1",
+			query:      "mark_type_ids=1",
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "Ok200",
-			query:      "?mark_type_ids=1,2",
+			query:      "mark_type_ids=1,2",
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "Ok200",
-			query:      "?mark_type_ids=1,2&mark_status_ids=1",
+			query:      "mark_type_ids=1,2&mark_status_ids=1",
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "Ok200",
-			query:      "?mark_type_ids=1,2&mark_status_ids=1,2",
+			query:      "mark_type_ids=1,2&mark_status_ids=1,2",
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "Ok400",
-			query:      "?mark_type_ids=a",
+			query:      "mark_type_ids=a",
 			statusCode: http.StatusBadRequest,
 		},
 		{
 			name:       "Ok400",
-			query:      "?mark_status_ids=a",
+			query:      "mark_status_ids=a",
 			statusCode: http.StatusBadRequest,
 		},
 	}
@@ -93,14 +93,13 @@ func (st *MarksSuite) TestGetMarks() {
 }
 
 func getMarks(t *testing.T, cfg *config.RESTConfig, query string, expectedStatusCode int) responses.Response[marksrest.GetMarksResponse] {
-	resp, err := http.Get(
-		fmt.Sprintf(
-			"http://%s:%d/marks%s",
-			cfg.Host,
-			cfg.Port,
-			query,
-		),
-	)
+	resp, err := http.Get(makeUrl(makeUrlParams{
+		host:  cfg.Host,
+		port:  cfg.Port,
+		path:  "/marks",
+		query: query,
+	}))
+
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -141,7 +140,11 @@ func (st *MarksSuite) TestGetMarkById() {
 
 	for _, tt := range tests {
 		st.Run(tt.name, func() {
-			resp, err := http.Get(fmt.Sprintf("http://%s:%d/marks/%s", st.Cfg.REST.Host, st.Cfg.REST.Port, tt.id))
+			resp, err := http.Get(makeUrl(makeUrlParams{
+				host: st.Cfg.REST.Host,
+				port: st.Cfg.REST.Port,
+				path: fmt.Sprintf("/marks/%s", tt.id),
+			}))
 			st.NoError(err)
 			defer resp.Body.Close()
 
@@ -183,7 +186,11 @@ func (st *MarksSuite) TestGetMarkByUserId() {
 
 	for _, tt := range tests {
 		st.Run(tt.name, func() {
-			resp, err := http.Get(fmt.Sprintf("http://%s:%d/marks/user/%s", st.Cfg.REST.Host, st.Cfg.REST.Port, tt.id))
+			resp, err := http.Get(makeUrl(makeUrlParams{
+				host: st.Cfg.REST.Host,
+				port: st.Cfg.REST.Port,
+				path: fmt.Sprintf("/marks/user/%s", tt.id),
+			}))
 			st.NoError(err)
 			defer resp.Body.Close()
 
@@ -210,9 +217,9 @@ func (st *MarksSuite) TestAddMark() {
 	randomMarkTypeIndex := rand.Intn(len(markTypesResponse.Payload.MarkTypes))
 	randomMarkType := markTypesResponse.Payload.MarkTypes[randomMarkTypeIndex]
 
-	long, err := gofakeit.LatitudeInRange(52.6, 52.8)
+	long, err := gofakeit.LatitudeInRange(52.66, 52.8)
 	st.NoError(err)
-	lat, err := gofakeit.LongitudeInRange(41.25, 41.55)
+	lat, err := gofakeit.LongitudeInRange(41.3, 41.55)
 	st.NoError(err)
 
 	tests := []struct {
@@ -268,10 +275,12 @@ func (st *MarksSuite) TestAddMark() {
 			mpw.WriteField("mark_type_id", strconv.Itoa(tt.req.MarkTypeID))
 			mpw.WriteField("description", tt.req.Description)
 
-			image := gofakeit.ImageJpeg(10, 10)
-			fw, err := mpw.CreateFormFile("photos", "test.jpg")
-			st.NoError(err)
-			io.Copy(fw, bytes.NewBuffer(image))
+			images := getImages(3)
+			for _, image := range images {
+				fw, err := mpw.CreateFormFile("photos", "test.jpg")
+				st.NoError(err)
+				io.Copy(fw, bytes.NewBuffer(image))
+			}
 
 			mpw.Close()
 
@@ -311,10 +320,12 @@ func addNewMark(t *testing.T, cfg *config.RESTConfig, accessToken string) respon
 	mpw.WriteField("mark_type_id", strconv.Itoa(randomMarkType.ID))
 	mpw.WriteField("description", "")
 
-	image := gofakeit.ImageJpeg(10, 10)
-	fw, err := mpw.CreateFormFile("photos", "test.jpg")
-	require.NoError(t, err)
-	io.Copy(fw, bytes.NewBuffer(image))
+	images := getImages(3)
+	for _, image := range images {
+		fw, err := mpw.CreateFormFile("photos", "test.jpg")
+		require.NoError(t, err)
+		io.Copy(fw, bytes.NewBuffer(image))
+	}
 
 	mpw.Close()
 
@@ -322,7 +333,15 @@ func addNewMark(t *testing.T, cfg *config.RESTConfig, accessToken string) respon
 }
 
 func addMark(t *testing.T, cfg *config.RESTConfig, request io.Reader, contentType string, accessToken string, expectedStatusCode int) responses.Response[marksrest.AddMarkResponse] {
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s:%d/marks", cfg.Host, cfg.Port), request)
+	req, err := http.NewRequest(
+		http.MethodPost,
+		makeUrl(makeUrlParams{
+			host: cfg.Host,
+			port: cfg.Port,
+			path: "/marks",
+		}),
+		request,
+	)
 	require.NoError(t, err)
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
@@ -365,7 +384,11 @@ func (st *MarksSuite) TestGetMarkTypes() {
 }
 
 func getMarkTypes(t *testing.T, cfg *config.RESTConfig, expectedStatusCode int) responses.Response[marksrest.GetMarkTypesResponse] {
-	resp, err := http.Get(fmt.Sprintf("http://%s:%d/marks/types", cfg.Host, cfg.Port))
+	resp, err := http.Get(makeUrl(makeUrlParams{
+		host: cfg.Host,
+		port: cfg.Port,
+		path: "/marks/types",
+	}))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -390,7 +413,11 @@ func (st *MarksSuite) TestGetMarkStatuses() {
 	}
 	for _, tt := range tests {
 		st.Run(tt.name, func() {
-			resp, err := http.Get(fmt.Sprintf("http://%s:%d/marks/statuses", st.Cfg.REST.Host, st.Cfg.REST.Port))
+			resp, err := http.Get(makeUrl(makeUrlParams{
+				host: st.Cfg.REST.Host,
+				port: st.Cfg.REST.Port,
+				path: "/marks/statuses",
+			}))
 			st.NoError(err)
 			defer resp.Body.Close()
 
@@ -428,13 +455,13 @@ func (st *MarksSuite) TestGetMarkStatusHistoryByMarkId() {
 		{
 			name:       "Ok200",
 			id:         markId,
-			query:      "?withChecks=false",
+			query:      "withChecks=false",
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "Ok200",
 			id:         "1",
-			query:      "?withChecks=true",
+			query:      "withChecks=true",
 			statusCode: http.StatusOK,
 		},
 		{
@@ -445,19 +472,18 @@ func (st *MarksSuite) TestGetMarkStatusHistoryByMarkId() {
 		{
 			name:       "Err400-withChecks",
 			id:         "1",
-			query:      "?withChecks=a",
+			query:      "withChecks=a",
 			statusCode: http.StatusBadRequest,
 		},
 	}
 	for _, tt := range tests {
 		st.Run(tt.name, func() {
-			resp, err := http.Get(fmt.Sprintf(
-				"http://%s:%d/marks/%s/status-history%s",
-				st.Cfg.REST.Host,
-				st.Cfg.REST.Port,
-				tt.id,
-				tt.query,
-			))
+			resp, err := http.Get(makeUrl(makeUrlParams{
+				host:  st.Cfg.REST.Host,
+				port:  st.Cfg.REST.Port,
+				path:  fmt.Sprintf("/marks/%s/status-history", tt.id),
+				query: tt.query,
+			}))
 			st.NoError(err)
 			defer resp.Body.Close()
 
@@ -479,8 +505,14 @@ func (st *MarksSuite) TestGetMarkStatusHistoryByMarkId() {
 
 func (st *MarksSuite) TestConfirm() {
 	signInResponse := addNewUser(st.T(), &st.Cfg.REST)
-	addMarkResponse := addNewMark(st.T(), &st.Cfg.REST, signInResponse.Payload.AccessToken)
-	markId := addMarkResponse.Payload.MarkId
+	getMarksResponse := getMarks(
+		st.T(),
+		&st.Cfg.REST,
+		"mark_status_ids=2,3,4",
+		http.StatusOK,
+	)
+	randomMarkIndex := rand.Intn(len(getMarksResponse.Payload.Marks))
+	randomMark := getMarksResponse.Payload.Marks[randomMarkIndex]
 
 	addMarkForRejectResponse := addNewMark(st.T(), &st.Cfg.REST, signInResponse.Payload.AccessToken)
 	markForRejectId := addMarkForRejectResponse.Payload.MarkId
@@ -499,7 +531,7 @@ func (st *MarksSuite) TestConfirm() {
 	}{
 		{
 			name:       "Ok200",
-			id:         strconv.Itoa(markId),
+			id:         strconv.Itoa(randomMark.ID),
 			statusCode: http.StatusOK,
 		},
 		{
@@ -535,8 +567,14 @@ func (st *MarksSuite) TestConfirm() {
 
 func (st *MarksSuite) TestReject() {
 	signInResponse := addNewUser(st.T(), &st.Cfg.REST)
-	addMarkResponse := addNewMark(st.T(), &st.Cfg.REST, signInResponse.Payload.AccessToken)
-	markId := addMarkResponse.Payload.MarkId
+	getMarksResponse := getMarks(
+		st.T(),
+		&st.Cfg.REST,
+		"mark_status_ids=2,3,4",
+		http.StatusOK,
+	)
+	randomMarkIndex := rand.Intn(len(getMarksResponse.Payload.Marks))
+	randomMark := getMarksResponse.Payload.Marks[randomMarkIndex]
 
 	addMarkForRejectResponse := addNewMark(st.T(), &st.Cfg.REST, signInResponse.Payload.AccessToken)
 	markForRejectId := addMarkForRejectResponse.Payload.MarkId
@@ -555,7 +593,7 @@ func (st *MarksSuite) TestReject() {
 	}{
 		{
 			name:       "Ok200",
-			id:         strconv.Itoa(markId),
+			id:         strconv.Itoa(randomMark.ID),
 			statusCode: http.StatusOK,
 		},
 		{
@@ -592,12 +630,11 @@ func (st *MarksSuite) TestReject() {
 func confirm(t *testing.T, cfg *config.RESTConfig, id string, accessToken string, expectedStatusCode int) responses.Response[marksrest.ConfirmResponse] {
 	req, err := http.NewRequest(
 		http.MethodPost,
-		fmt.Sprintf(
-			"http://%s:%d/marks/%s/confirm",
-			cfg.Host,
-			cfg.Port,
-			id,
-		),
+		makeUrl(makeUrlParams{
+			host: cfg.Host,
+			port: cfg.Port,
+			path: fmt.Sprintf("/marks/%s/confirm", id),
+		}),
 		nil,
 	)
 	require.NoError(t, err)
@@ -619,12 +656,11 @@ func confirm(t *testing.T, cfg *config.RESTConfig, id string, accessToken string
 func reject(t *testing.T, cfg *config.RESTConfig, id string, accessToken string, expectedStatusCode int) responses.Response[marksrest.RejectResponse] {
 	req, err := http.NewRequest(
 		http.MethodPost,
-		fmt.Sprintf(
-			"http://%s:%d/marks/%s/reject",
-			cfg.Host,
-			cfg.Port,
-			id,
-		),
+		makeUrl(makeUrlParams{
+			host: cfg.Host,
+			port: cfg.Port,
+			path: fmt.Sprintf("/marks/%s/reject", id),
+		}),
 		nil,
 	)
 	require.NoError(t, err)

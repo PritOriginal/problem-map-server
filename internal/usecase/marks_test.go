@@ -18,6 +18,7 @@ type MarksSuite struct {
 	suite.Suite
 	uc         *usecase.Marks
 	log        *slog.Logger
+	trManager  *usecase.MockManager
 	marksRepo  *usecase.MockMarksRepository
 	checksRepo *usecase.MockChecksRepository
 	photosRepo *usecase.MockPhotosRepository
@@ -25,10 +26,11 @@ type MarksSuite struct {
 
 func (suite *MarksSuite) SetupSuite() {
 	suite.log = slogdiscard.NewDiscardLogger()
+	suite.trManager = usecase.NewMockManager(suite.T())
 	suite.marksRepo = usecase.NewMockMarksRepository(suite.T())
 	suite.checksRepo = usecase.NewMockChecksRepository(suite.T())
 	suite.photosRepo = usecase.NewMockPhotosRepository(suite.T())
-	suite.uc = usecase.NewMarks(suite.log, usecase.MarksRepositories{
+	suite.uc = usecase.NewMarks(suite.log, suite.trManager, usecase.MarksRepositories{
 		Marks:  suite.marksRepo,
 		Checks: suite.checksRepo,
 		Photos: suite.photosRepo,
@@ -171,6 +173,7 @@ func (suite *MarksSuite) TestGetMarksByUserId() {
 func (suite *MarksSuite) TestAddMark() {
 	tests := []struct {
 		name                         string
+		trDo                         method[any]
 		addMark                      method[int64]
 		getLastMarkStatusHistoryItem method[models.MarkStatusHistoryItem]
 		addCheck                     method[int64]
@@ -195,6 +198,9 @@ func (suite *MarksSuite) TestAddMark() {
 		},
 		{
 			name: "ErrAddMark",
+			trDo: method[any]{
+				err: errors.New(""),
+			},
 			addMark: method[int64]{
 				data: int64(0),
 				err:  errors.New(""),
@@ -202,6 +208,9 @@ func (suite *MarksSuite) TestAddMark() {
 		},
 		{
 			name: "ErrGetLastMarkStatusHistoryItem",
+			trDo: method[any]{
+				err: errors.New(""),
+			},
 			addMark: method[int64]{
 				data: int64(1),
 				err:  nil,
@@ -212,6 +221,9 @@ func (suite *MarksSuite) TestAddMark() {
 		},
 		{
 			name: "ErrAddCheck",
+			trDo: method[any]{
+				err: errors.New(""),
+			},
 			addMark: method[int64]{
 				data: int64(1),
 				err:  nil,
@@ -226,6 +238,9 @@ func (suite *MarksSuite) TestAddMark() {
 		},
 		{
 			name: "ErrAddPhotos",
+			trDo: method[any]{
+				err: errors.New(""),
+			},
 			addMark: method[int64]{
 				data: int64(1),
 				err:  nil,
@@ -246,6 +261,12 @@ func (suite *MarksSuite) TestAddMark() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			func() {
+				suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Run(func(args mock.Arguments) {
+					fn := args.Get(1).(func(ctx context.Context) error)
+					ctx := args.Get(0).(context.Context)
+					_ = fn(ctx)
+				}).Return(tt.trDo.err)
+
 				suite.marksRepo.On("AddMark", mock.Anything, mock.Anything).Once().
 					Return(tt.addMark.data, tt.addMark.err)
 				if tt.addMark.err != nil {

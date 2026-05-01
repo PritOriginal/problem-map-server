@@ -80,7 +80,7 @@ func (repo *PhotosRepo) GetPhotosByMarkId(ctx context.Context, markId int) (map[
 }
 
 func (repo *PhotosRepo) GetPhotosByCheckId(ctx context.Context, markId, checkId int) ([]string, error) {
-	const op = "storage.s3.GetPhotosByMarkId"
+	const op = "storage.s3.GetPhotosByCheckId"
 
 	photos, err := repo.getPhotos(ctx, &s3.ListObjectsV2Input{
 		Prefix: aws.String(fmt.Sprintf("marks/%v/%v", markId, checkId)),

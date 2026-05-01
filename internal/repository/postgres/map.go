@@ -6,19 +6,24 @@ import (
 	"strings"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 )
 
 type MapRepository struct {
-	Conn *sqlx.DB
+	db     *sqlx.DB
+	getter *trmsqlx.CtxGetter
 }
 
-func NewMap(conn *sqlx.DB) *MapRepository {
-	return &MapRepository{Conn: conn}
+func NewMap(db *sqlx.DB, c *trmsqlx.CtxGetter) *MapRepository {
+	return &MapRepository{
+		db:     db,
+		getter: c,
+	}
 }
 
-func (repo *MapRepository) GetAdminBoundaries(ctx context.Context, filters models.GetAdminBoundaryFilters) ([]models.AdminBoundary, error) {
+func (r *MapRepository) GetAdminBoundaries(ctx context.Context, filters models.GetAdminBoundaryFilters) ([]models.AdminBoundary, error) {
 	const op = "storage.postgres.GetAdminBoundaries"
 
 	boundaries := []models.AdminBoundary{}
@@ -37,14 +42,15 @@ func (repo *MapRepository) GetAdminBoundaries(ctx context.Context, filters model
 		query = strings.Replace(query, "$?", fmt.Sprintf("$%d", len(args)-len(conditions)+i+1), 1)
 	}
 
-	if err := repo.Conn.SelectContext(ctx, &boundaries, query, args...); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &boundaries, query, args...); err != nil {
 		return boundaries, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return boundaries, nil
 }
 
-func (repo *MapRepository) GetAdminBoundariesMarksCount(ctx context.Context, filters models.GetAdminBoundaryMarksCountFilters) ([]models.AdminBoundaryMarksCount, error) {
+func (r *MapRepository) GetAdminBoundariesMarksCount(ctx context.Context, filters models.GetAdminBoundaryMarksCountFilters) ([]models.AdminBoundaryMarksCount, error) {
 	const op = "storage.postgres.GetAdminBoundariesMarksCount"
 
 	boundariesCount := []models.AdminBoundaryMarksCount{}
@@ -91,46 +97,50 @@ func (repo *MapRepository) GetAdminBoundariesMarksCount(ctx context.Context, fil
 		query = strings.Replace(query, "1=1", "1=1"+whereQuery, 1)
 	}
 
-	if err := repo.Conn.SelectContext(ctx, &boundariesCount, query, args...); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &boundariesCount, query, args...); err != nil {
 		return boundariesCount, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return boundariesCount, nil
 }
 
-func (repo *MapRepository) GetRegions(ctx context.Context) ([]models.Region, error) {
+func (r *MapRepository) GetRegions(ctx context.Context) ([]models.Region, error) {
 	const op = "storage.postgres.GetRegions"
 
 	regions := []models.Region{}
 
 	query := "SELECT name, ST_AsEWKB(geom) AS geom FROM regions"
-	if err := repo.Conn.SelectContext(ctx, &regions, query); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &regions, query); err != nil {
 		return regions, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return regions, nil
 }
 
-func (repo *MapRepository) GetCities(ctx context.Context) ([]models.City, error) {
+func (r *MapRepository) GetCities(ctx context.Context) ([]models.City, error) {
 	const op = "storage.postgres.GetCities"
 
 	cities := []models.City{}
 
 	query := "SELECT name, ST_AsEWKB(geom) AS geom FROM cities"
-	if err := repo.Conn.SelectContext(ctx, &cities, query); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &cities, query); err != nil {
 		return cities, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return cities, nil
 }
 
-func (repo *MapRepository) GetDistricts(ctx context.Context) ([]models.District, error) {
+func (r *MapRepository) GetDistricts(ctx context.Context) ([]models.District, error) {
 	const op = "storage.postgres.GetDistricts"
 
 	districts := []models.District{}
 
 	query := "SELECT district_id, name, ST_AsEWKB(geom) AS geom FROM districts"
-	if err := repo.Conn.SelectContext(ctx, &districts, query); err != nil {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &districts, query); err != nil {
 		return districts, fmt.Errorf("%s: %w", op, err)
 	}
 
