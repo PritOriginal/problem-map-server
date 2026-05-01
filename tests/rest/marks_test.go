@@ -48,32 +48,32 @@ func (st *MarksSuite) TestGetMarks() {
 		},
 		{
 			name:       "Ok200",
-			query:      "?mark_type_ids=1",
+			query:      "mark_type_ids=1",
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "Ok200",
-			query:      "?mark_type_ids=1,2",
+			query:      "mark_type_ids=1,2",
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "Ok200",
-			query:      "?mark_type_ids=1,2&mark_status_ids=1",
+			query:      "mark_type_ids=1,2&mark_status_ids=1",
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "Ok200",
-			query:      "?mark_type_ids=1,2&mark_status_ids=1,2",
+			query:      "mark_type_ids=1,2&mark_status_ids=1,2",
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "Ok400",
-			query:      "?mark_type_ids=a",
+			query:      "mark_type_ids=a",
 			statusCode: http.StatusBadRequest,
 		},
 		{
 			name:       "Ok400",
-			query:      "?mark_status_ids=a",
+			query:      "mark_status_ids=a",
 			statusCode: http.StatusBadRequest,
 		},
 	}
@@ -93,14 +93,13 @@ func (st *MarksSuite) TestGetMarks() {
 }
 
 func getMarks(t *testing.T, cfg *config.RESTConfig, query string, expectedStatusCode int) responses.Response[marksrest.GetMarksResponse] {
-	resp, err := http.Get(
-		fmt.Sprintf(
-			"http://%s:%d/marks%s",
-			cfg.Host,
-			cfg.Port,
-			query,
-		),
-	)
+	resp, err := http.Get(makeUrl(makeUrlParams{
+		host:  cfg.Host,
+		port:  cfg.Port,
+		path:  "/marks",
+		query: query,
+	}))
+
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -141,7 +140,11 @@ func (st *MarksSuite) TestGetMarkById() {
 
 	for _, tt := range tests {
 		st.Run(tt.name, func() {
-			resp, err := http.Get(fmt.Sprintf("http://%s:%d/marks/%s", st.Cfg.REST.Host, st.Cfg.REST.Port, tt.id))
+			resp, err := http.Get(makeUrl(makeUrlParams{
+				host: st.Cfg.REST.Host,
+				port: st.Cfg.REST.Port,
+				path: fmt.Sprintf("/marks/%s", tt.id),
+			}))
 			st.NoError(err)
 			defer resp.Body.Close()
 
@@ -183,7 +186,11 @@ func (st *MarksSuite) TestGetMarkByUserId() {
 
 	for _, tt := range tests {
 		st.Run(tt.name, func() {
-			resp, err := http.Get(fmt.Sprintf("http://%s:%d/marks/user/%s", st.Cfg.REST.Host, st.Cfg.REST.Port, tt.id))
+			resp, err := http.Get(makeUrl(makeUrlParams{
+				host: st.Cfg.REST.Host,
+				port: st.Cfg.REST.Port,
+				path: fmt.Sprintf("/marks/user/%s", tt.id),
+			}))
 			st.NoError(err)
 			defer resp.Body.Close()
 
@@ -322,7 +329,15 @@ func addNewMark(t *testing.T, cfg *config.RESTConfig, accessToken string) respon
 }
 
 func addMark(t *testing.T, cfg *config.RESTConfig, request io.Reader, contentType string, accessToken string, expectedStatusCode int) responses.Response[marksrest.AddMarkResponse] {
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s:%d/marks", cfg.Host, cfg.Port), request)
+	req, err := http.NewRequest(
+		http.MethodPost,
+		makeUrl(makeUrlParams{
+			host: cfg.Host,
+			port: cfg.Port,
+			path: "/marks",
+		}),
+		request,
+	)
 	require.NoError(t, err)
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)
@@ -365,7 +380,11 @@ func (st *MarksSuite) TestGetMarkTypes() {
 }
 
 func getMarkTypes(t *testing.T, cfg *config.RESTConfig, expectedStatusCode int) responses.Response[marksrest.GetMarkTypesResponse] {
-	resp, err := http.Get(fmt.Sprintf("http://%s:%d/marks/types", cfg.Host, cfg.Port))
+	resp, err := http.Get(makeUrl(makeUrlParams{
+		host: cfg.Host,
+		port: cfg.Port,
+		path: "/marks/types",
+	}))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -390,7 +409,11 @@ func (st *MarksSuite) TestGetMarkStatuses() {
 	}
 	for _, tt := range tests {
 		st.Run(tt.name, func() {
-			resp, err := http.Get(fmt.Sprintf("http://%s:%d/marks/statuses", st.Cfg.REST.Host, st.Cfg.REST.Port))
+			resp, err := http.Get(makeUrl(makeUrlParams{
+				host: st.Cfg.REST.Host,
+				port: st.Cfg.REST.Port,
+				path: "/marks/statuses",
+			}))
 			st.NoError(err)
 			defer resp.Body.Close()
 
@@ -428,13 +451,13 @@ func (st *MarksSuite) TestGetMarkStatusHistoryByMarkId() {
 		{
 			name:       "Ok200",
 			id:         markId,
-			query:      "?withChecks=false",
+			query:      "withChecks=false",
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "Ok200",
 			id:         "1",
-			query:      "?withChecks=true",
+			query:      "withChecks=true",
 			statusCode: http.StatusOK,
 		},
 		{
@@ -445,19 +468,18 @@ func (st *MarksSuite) TestGetMarkStatusHistoryByMarkId() {
 		{
 			name:       "Err400-withChecks",
 			id:         "1",
-			query:      "?withChecks=a",
+			query:      "withChecks=a",
 			statusCode: http.StatusBadRequest,
 		},
 	}
 	for _, tt := range tests {
 		st.Run(tt.name, func() {
-			resp, err := http.Get(fmt.Sprintf(
-				"http://%s:%d/marks/%s/status-history%s",
-				st.Cfg.REST.Host,
-				st.Cfg.REST.Port,
-				tt.id,
-				tt.query,
-			))
+			resp, err := http.Get(makeUrl(makeUrlParams{
+				host:  st.Cfg.REST.Host,
+				port:  st.Cfg.REST.Port,
+				path:  fmt.Sprintf("/marks/%s/status-history", tt.id),
+				query: tt.query,
+			}))
 			st.NoError(err)
 			defer resp.Body.Close()
 
@@ -592,12 +614,11 @@ func (st *MarksSuite) TestReject() {
 func confirm(t *testing.T, cfg *config.RESTConfig, id string, accessToken string, expectedStatusCode int) responses.Response[marksrest.ConfirmResponse] {
 	req, err := http.NewRequest(
 		http.MethodPost,
-		fmt.Sprintf(
-			"http://%s:%d/marks/%s/confirm",
-			cfg.Host,
-			cfg.Port,
-			id,
-		),
+		makeUrl(makeUrlParams{
+			host: cfg.Host,
+			port: cfg.Port,
+			path: fmt.Sprintf("/marks/%s/confirm", id),
+		}),
 		nil,
 	)
 	require.NoError(t, err)
@@ -619,12 +640,11 @@ func confirm(t *testing.T, cfg *config.RESTConfig, id string, accessToken string
 func reject(t *testing.T, cfg *config.RESTConfig, id string, accessToken string, expectedStatusCode int) responses.Response[marksrest.RejectResponse] {
 	req, err := http.NewRequest(
 		http.MethodPost,
-		fmt.Sprintf(
-			"http://%s:%d/marks/%s/reject",
-			cfg.Host,
-			cfg.Port,
-			id,
-		),
+		makeUrl(makeUrlParams{
+			host: cfg.Host,
+			port: cfg.Port,
+			path: fmt.Sprintf("/marks/%s/reject", id),
+		}),
 		nil,
 	)
 	require.NoError(t, err)

@@ -39,7 +39,11 @@ func (st *TasksSuite) TestGetTasks() {
 }
 
 func getTasks(t *testing.T, cfg *config.RESTConfig, expectedStatusCode int) responses.Response[tasksrest.GetTasksResponse] {
-	resp, err := http.Get(fmt.Sprintf("http://%s:%d/tasks", cfg.Host, cfg.Port))
+	resp, err := http.Get(makeUrl(makeUrlParams{
+		host: cfg.Host,
+		port: cfg.Port,
+		path: "/tasks",
+	}))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -79,11 +83,11 @@ func (st *TasksSuite) TestGetTaskById() {
 	}
 	for _, tt := range tests {
 		st.Run(tt.name, func() {
-			resp, err := http.Get(fmt.Sprintf("http://%s:%d/tasks/%s",
-				st.Cfg.REST.Host,
-				st.Cfg.REST.Port,
-				tt.id,
-			))
+			resp, err := http.Get(makeUrl(makeUrlParams{
+				host: st.Cfg.REST.Host,
+				port: st.Cfg.REST.Port,
+				path: fmt.Sprintf("tasks/%s", tt.id),
+			}))
 			st.NoError(err)
 			defer resp.Body.Close()
 
@@ -125,12 +129,11 @@ func (st *TasksSuite) TestGetTasksByUserId() {
 	}
 	for _, tt := range tests {
 		st.Run(tt.name, func() {
-			resp, err := http.Get(
-				fmt.Sprintf("http://%s:%d/tasks/user/%s",
-					st.Cfg.REST.Host,
-					st.Cfg.REST.Port,
-					tt.id,
-				))
+			resp, err := http.Get(makeUrl(makeUrlParams{
+				host: st.Cfg.REST.Host,
+				port: st.Cfg.REST.Port,
+				path: fmt.Sprintf("/tasks/user/%s", tt.id),
+			}))
 			st.NoError(err)
 			defer resp.Body.Close()
 
@@ -199,7 +202,11 @@ func (st *TasksSuite) TestAddTask() {
 			}
 
 			resp, err := http.Post(
-				fmt.Sprintf("http://%s:%d/tasks", st.Cfg.REST.Host, st.Cfg.REST.Port),
+				makeUrl(makeUrlParams{
+					host: st.Cfg.REST.Host,
+					port: st.Cfg.REST.Port,
+					path: "/tasks",
+				}),
 				"application/json",
 				request,
 			)

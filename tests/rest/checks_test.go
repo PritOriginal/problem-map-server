@@ -62,7 +62,11 @@ func (st *ChecksSuite) TestGetCheckById() {
 
 	for _, tt := range tests {
 		st.Run(tt.name, func() {
-			resp, err := http.Get(fmt.Sprintf("http://%s:%d/checks/%s", st.Cfg.REST.Host, st.Cfg.REST.Port, tt.id))
+			resp, err := http.Get(makeUrl(makeUrlParams{
+				host: st.Cfg.REST.Host,
+				port: st.Cfg.REST.Port,
+				path: fmt.Sprintf("/checks/%s", tt.id),
+			}))
 			st.NoError(err)
 			defer resp.Body.Close()
 
@@ -104,7 +108,11 @@ func (st *ChecksSuite) TestGetChecksByMarkId() {
 
 	for _, tt := range tests {
 		st.Run(tt.name, func() {
-			resp, err := http.Get(fmt.Sprintf("http://%s:%d/checks/mark/%s", st.Cfg.REST.Host, st.Cfg.REST.Port, tt.id))
+			resp, err := http.Get(makeUrl(makeUrlParams{
+				host: st.Cfg.REST.Host,
+				port: st.Cfg.REST.Port,
+				path: fmt.Sprintf("/checks/mark/%s", tt.id),
+			}))
 			st.NoError(err)
 			defer resp.Body.Close()
 
@@ -144,7 +152,11 @@ func (st *ChecksSuite) TestGetChecksByUserId() {
 
 	for _, tt := range tests {
 		st.Run(tt.name, func() {
-			resp, err := http.Get(fmt.Sprintf("http://%s:%d/checks/user/%s", st.Cfg.REST.Host, st.Cfg.REST.Port, tt.id))
+			resp, err := http.Get(makeUrl(makeUrlParams{
+				host: st.Cfg.REST.Host,
+				port: st.Cfg.REST.Port,
+				path: fmt.Sprintf("/checks/user/%s", tt.id),
+			}))
 			st.NoError(err)
 			defer resp.Body.Close()
 
@@ -263,7 +275,15 @@ func addCheck(t *testing.T, cfg *config.RESTConfig, request checksrest.AddCheckR
 
 	mpw.Close()
 
-	req, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s:%d/checks", cfg.Host, cfg.Port), b)
+	req, err := http.NewRequest(
+		http.MethodPost,
+		makeUrl(makeUrlParams{
+			host: cfg.Host,
+			port: cfg.Port,
+			path: "/checks",
+		}),
+		b,
+	)
 	require.NoError(t, err)
 
 	req.Header.Set("Authorization", "Bearer "+accessToken)

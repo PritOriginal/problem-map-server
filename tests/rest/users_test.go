@@ -38,7 +38,11 @@ func (st *UsersSuite) TestGetUsers() {
 }
 
 func getUsers(t *testing.T, cfg *config.RESTConfig, expectedStatusCode int) responses.Response[usersrest.GetUsersResponse] {
-	resp, err := http.Get(fmt.Sprintf("http://%s:%d/users", cfg.Host, cfg.Port))
+	resp, err := http.Get(makeUrl(makeUrlParams{
+		host: cfg.Host,
+		port: cfg.Port,
+		path: "/users",
+	}))
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
@@ -81,7 +85,11 @@ func (st *UsersSuite) TestGetUserById() {
 
 	for _, tt := range tests {
 		st.Run(tt.name, func() {
-			resp, err := http.Get(fmt.Sprintf("http://%s:%d/users/%s", st.Cfg.REST.Host, st.Cfg.REST.Port, tt.id))
+			resp, err := http.Get(makeUrl(makeUrlParams{
+				host: st.Cfg.REST.Host,
+				port: st.Cfg.REST.Port,
+				path: fmt.Sprintf("/users/%s", tt.id),
+			}))
 			st.NoError(err)
 			defer resp.Body.Close()
 
