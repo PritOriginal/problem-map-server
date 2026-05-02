@@ -4,7 +4,10 @@
 
 В даннои репозитории представлены наработки Golang REST API и gRPC серверов дипломной работы по теме "Разработка краудсорсинговой системы мониторинга городских проблем с оптимизацией процессов модерации".
 
-<img src="./docs/app-screenshot.png" width="50%" alt="App screenshot" />
+<img src="./docs/app-screenshot.png" width="49%" alt="App screenshot" />
+
+<img src="./docs/app-mobile-screenshot-1.png" width="24%" alt="App screenshot" />
+<img src="./docs/app-mobile-screenshot-2.png" width="24%" alt="App screenshot" />
 
 ## О проекте
 
