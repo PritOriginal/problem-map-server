@@ -4,19 +4,24 @@
 
 В даннои репозитории представлены наработки Golang REST API и gRPC серверов дипломной работы по теме "Разработка краудсорсинговой системы мониторинга городских проблем с оптимизацией процессов модерации".
 
-<img src="./docs/app-screenshot.png" width="50%" alt="App screenshot" />
+<img src="./docs/app-screenshot.png" width="49%" alt="App screenshot" />
+
+<p>
+  <img src="./docs/app-mobile-screenshot-1.png" width="24%" alt="App screenshot" />
+  <img src="./docs/app-mobile-screenshot-2.png" width="24%" alt="App screenshot" />
+</p>
 
 ## О проекте
 
 [problem-map.pritoriginal.ru](https://problem-map.pritoriginal.ru/) - сайт, на котором можно посмотреть визуализацию.
 `(Находится в активной разработке)`
 
-[problem-map-react](https://github.com/PritOriginal/problem-map-react) - репозиторий фронта. (очень сырой, лучше не смотреть :) )
+[problem-map-react](https://github.com/PritOriginal/problem-map-react) - репозиторий фронта.
 
 [Swagger документация](./docs/swagger.json) - доступна по адресу `http://[host]:[port]/swagger/index.html`
 
 > [!NOTE]  
-> Этот проект находится в стадии активной разработки, и на данный момент в нём ещё много чего не реализовано, поэтому не исключены ошибки.
+> Этот проект находится в процессе активной разработки. В настоящее время в нём реализовано не всё запланированное, поэтому не исключено наличие ошибок.
 
 ### Работа с геоданными
 
