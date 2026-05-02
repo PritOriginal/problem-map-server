@@ -6,8 +6,10 @@
 
 <img src="./docs/app-screenshot.png" width="49%" alt="App screenshot" />
 
-<img src="./docs/app-mobile-screenshot-1.png" width="24%" alt="App screenshot" />
-<img src="./docs/app-mobile-screenshot-2.png" width="24%" alt="App screenshot" />
+<p>
+  <img src="./docs/app-mobile-screenshot-1.png" width="24%" alt="App screenshot" />
+  <img src="./docs/app-mobile-screenshot-2.png" width="24%" alt="App screenshot" />
+</p>
 
 ## О проекте
 
