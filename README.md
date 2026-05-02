@@ -14,7 +14,7 @@
 [problem-map.pritoriginal.ru](https://problem-map.pritoriginal.ru/) - сайт, на котором можно посмотреть визуализацию.
 `(Находится в активной разработке)`
 
-[problem-map-react](https://github.com/PritOriginal/problem-map-react) - репозиторий фронта. (очень сырой, лучше не смотреть :) )
+[problem-map-react](https://github.com/PritOriginal/problem-map-react) - репозиторий фронта.
 
 [Swagger документация](./docs/swagger.json) - доступна по адресу `http://[host]:[port]/swagger/index.html`
 
