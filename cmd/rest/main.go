@@ -15,6 +15,11 @@ import (
 //	@version		1.0
 //	@description	This is the API documentation for the "Problem Map" project.
 
+//	@securityDefinitions.apikey	BearerAuth
+//	@in							header
+//	@name						Authorization
+//	@description				JWT access token: "Bearer {token}"
+
 //	@tag.name			auth
 //	@tag.description	Authorization and authentication
 

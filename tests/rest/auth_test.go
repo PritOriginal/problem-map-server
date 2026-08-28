@@ -8,11 +8,13 @@ import (
 	"io"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
+	"github.com/PritOriginal/problem-map-server/pkg/token"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -346,4 +348,16 @@ func addNewUser(t *testing.T, cfg *config.RESTConfig) responses.Response[authres
 		Password: password,
 	})
 	return signIn(t, bytes.NewBuffer(signInReqJson), cfg, http.StatusOK)
+}
+
+// moderatorToken registers a new user and issues an access token with the
+// moderator role for it, signed with the server access key from the config.
+func moderatorToken(t *testing.T, cfg *config.Config) string {
+	signInResponse := addNewUser(t, &cfg.REST)
+	userId := currentUserId(t, &cfg.REST, signInResponse.Payload.AccessToken)
+
+	accessToken, err := token.CreateToken(time.Hour, userId, string(models.RoleModerator), cfg.Auth.JWT.Access.Key)
+	require.NoError(t, err)
+
+	return accessToken
 }

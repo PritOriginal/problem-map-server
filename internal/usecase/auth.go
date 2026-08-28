@@ -49,6 +49,7 @@ func (uc *Auth) SignUp(ctx context.Context, params SignUpParams) (int64, error) 
 		Login:        params.Login,
 		PasswordHash: passwordHash,
 		HomePoint:    params.HomePoint,
+		Role:         models.RoleUser,
 	}
 
 	_, err = uc.repos.Users.GetUserByLogin(ctx, user.Login)
@@ -83,7 +84,7 @@ func (uc *Auth) SignIn(ctx context.Context, login, password string) (string, str
 		return "", "", fmt.Errorf("%s: %w", op, repository.ErrNotFound)
 	}
 
-	accessToken, refreshToken, err := uc.generateTokens(user.Id)
+	accessToken, refreshToken, err := uc.generateTokens(user)
 	if err != nil {
 		return "", "", fmt.Errorf("%s: %w", op, err)
 	}
@@ -113,7 +114,7 @@ func (uc *Auth) RefreshTokens(ctx context.Context, refreshToken string) (string,
 		}
 	}
 
-	accessToken, refreshToken, err := uc.generateTokens(user.Id)
+	accessToken, refreshToken, err := uc.generateTokens(user)
 	if err != nil {
 		return "", "", fmt.Errorf("%s: %w", op, err)
 	}
@@ -121,15 +122,20 @@ func (uc *Auth) RefreshTokens(ctx context.Context, refreshToken string) (string,
 	return accessToken, refreshToken, nil
 }
 
-func (uc *Auth) generateTokens(userId int) (string, string, error) {
+func (uc *Auth) generateTokens(user models.User) (string, string, error) {
 	const op = "usecase.Users.generateTokens"
 
-	accessToken, err := token.CreateToken(uc.authCfg.JWT.Access.ExpiredIn, userId, uc.authCfg.JWT.Access.Key)
+	role := user.Role
+	if role == "" {
+		role = models.RoleUser
+	}
+
+	accessToken, err := token.CreateToken(uc.authCfg.JWT.Access.ExpiredIn, user.Id, string(role), uc.authCfg.JWT.Access.Key)
 	if err != nil {
 		return "", "", fmt.Errorf("%s: %w", op, err)
 	}
 
-	refreshToken, err := token.CreateToken(uc.authCfg.JWT.Refresh.ExpiredIn, userId, uc.authCfg.JWT.Refresh.Key)
+	refreshToken, err := token.CreateToken(uc.authCfg.JWT.Refresh.ExpiredIn, user.Id, string(role), uc.authCfg.JWT.Refresh.Key)
 	if err != nil {
 		return "", "", fmt.Errorf("%s: %w", op, err)
 	}

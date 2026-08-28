@@ -6,11 +6,13 @@ import (
 	"log/slog"
 	"strconv"
 
+	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
+	jwt "github.com/appleboy/gin-jwt/v3"
 	"github.com/gin-gonic/gin"
 )
 
@@ -26,7 +28,7 @@ type handler struct {
 	uc  Tasks
 }
 
-func Register(r *gin.Engine, log *slog.Logger, uc Tasks) {
+func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddleware, uc Tasks) {
 	handler := &handler{log: log, uc: uc}
 
 	tasks := r.Group("/tasks")
@@ -34,7 +36,11 @@ func Register(r *gin.Engine, log *slog.Logger, uc Tasks) {
 		tasks.GET("", handler.GetTasks())
 		tasks.GET(":id", handler.GetTaskById())
 		tasks.GET("user/:id", handler.GetTasksByUserId())
-		tasks.POST("", handler.AddTask())
+		auth := tasks.Group("", authMiddleware.MiddlewareFunc(),
+			middleware.RequireRole(models.RoleModerator, models.RoleAdmin))
+		{
+			auth.POST("", handler.AddTask())
+		}
 	}
 }
 
@@ -157,12 +163,16 @@ func (h *handler) GetTasksByUserId() gin.HandlerFunc {
 // AddTask add new task
 //
 //	@Summary		Add task
-//	@Description	add new task
+//	@Description	add new task on behalf of the authenticated user (moderator or admin)
 //	@Tags			tasks
+//	@Accept			json
 //	@Produce		json
+//	@Security		BearerAuth
 //	@Param			request	body		tasksrest.AddTaskRequest	true	"query params"
 //	@Success		201		{object}	responses.Response[tasksrest.AddTaskResponse]
 //	@Failure		400		{object}	responses.Response[any]
+//	@Failure		401		{object}	responses.Response[any]
+//	@Failure		403		{object}	responses.Response[any]
 //	@Failure		500		{object}	responses.Response[any]
 //	@Router			/tasks [post]
 func (h *handler) AddTask() gin.HandlerFunc {
@@ -174,9 +184,16 @@ func (h *handler) AddTask() gin.HandlerFunc {
 			return
 		}
 
+		userId, err := middleware.UserIDFromClaims(c)
+		if err != nil {
+			h.log.Debug("invalid token", logger.Err(err))
+			responses.Unauthorized(c, "invalid token")
+			return
+		}
+
 		task := models.Task{
 			Name:   req.Name,
-			UserID: req.UserID,
+			UserID: userId,
 			MarkID: req.MarkID,
 		}
 
@@ -188,7 +205,7 @@ func (h *handler) AddTask() gin.HandlerFunc {
 		}
 
 		h.log.Info("add new task",
-			slog.Int("user_id", req.UserID),
+			slog.Int("user_id", userId),
 			slog.Int("mark_id", req.MarkID),
 		)
 		responses.Created(c, AddTaskResponse{

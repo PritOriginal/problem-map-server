@@ -154,40 +154,59 @@ func (st *TasksSuite) TestGetTasksByUserId() {
 }
 
 func (st *TasksSuite) TestAddTask() {
-	getUsersResponse := getUsers(st.T(), &st.Cfg.REST, http.StatusOK)
-	userIndex := rand.Intn(len(getUsersResponse.Payload.Users))
-	user := getUsersResponse.Payload.Users[userIndex]
+	moderatorAccessToken := moderatorToken(st.T(), st.Cfg)
+	userSignIn := addNewUser(st.T(), &st.Cfg.REST)
 
 	getMarksResponse := getMarks(st.T(), &st.Cfg.REST, "", http.StatusOK)
 	markIndex := rand.Intn(len(getMarksResponse.Payload.Marks))
 	mark := getMarksResponse.Payload.Marks[markIndex]
 
 	tests := []struct {
-		name       string
-		rawReq     string
-		req        tasksrest.AddTaskRequest
-		statusCode int
+		name        string
+		rawReq      string
+		req         tasksrest.AddTaskRequest
+		accessToken string
+		statusCode  int
 	}{
 		{
 			name: "Ok201",
 			req: tasksrest.AddTaskRequest{
 				Name:   "test",
-				UserID: user.Id,
 				MarkID: mark.ID,
 			},
-			statusCode: http.StatusCreated,
+			accessToken: moderatorAccessToken,
+			statusCode:  http.StatusCreated,
 		},
 		{
-			name:       "Err400InvalidJSON",
-			rawReq:     "{",
-			statusCode: http.StatusBadRequest,
+			name: "Err401NoToken",
+			req: tasksrest.AddTaskRequest{
+				Name:   "test",
+				MarkID: mark.ID,
+			},
+			statusCode: http.StatusUnauthorized,
+		},
+		{
+			name: "Err403User",
+			req: tasksrest.AddTaskRequest{
+				Name:   "test",
+				MarkID: mark.ID,
+			},
+			accessToken: userSignIn.Payload.AccessToken,
+			statusCode:  http.StatusForbidden,
+		},
+		{
+			name:        "Err400InvalidJSON",
+			rawReq:      "{",
+			accessToken: moderatorAccessToken,
+			statusCode:  http.StatusBadRequest,
 		},
 		{
 			name: "Err400InvalidReq",
 			req: tasksrest.AddTaskRequest{
 				Name: "test",
 			},
-			statusCode: http.StatusBadRequest,
+			accessToken: moderatorAccessToken,
+			statusCode:  http.StatusBadRequest,
 		},
 	}
 	for _, tt := range tests {
@@ -201,15 +220,18 @@ func (st *TasksSuite) TestAddTask() {
 				request = bytes.NewBuffer([]byte(tt.rawReq))
 			}
 
-			resp, err := http.Post(
-				makeUrl(makeUrlParams{
-					host: st.Cfg.REST.Host,
-					port: st.Cfg.REST.Port,
-					path: "/tasks",
-				}),
-				"application/json",
-				request,
-			)
+			req, err := http.NewRequest(http.MethodPost, makeUrl(makeUrlParams{
+				host: st.Cfg.REST.Host,
+				port: st.Cfg.REST.Port,
+				path: "/tasks",
+			}), request)
+			st.NoError(err)
+			req.Header.Set("Content-Type", "application/json")
+			if tt.accessToken != "" {
+				req.Header.Set("Authorization", "Bearer "+tt.accessToken)
+			}
+
+			resp, err := http.DefaultClient.Do(req)
 			st.NoError(err)
 			defer resp.Body.Close()
 

@@ -74,7 +74,7 @@ type MockChecks_AddCheck_Call struct {
 //   - ctx context.Context
 //   - check models.Check
 //   - photos []io.Reader
-func (_e *MockChecks_Expecter) AddCheck(ctx interface{}, check interface{}, photos interface{}) *MockChecks_AddCheck_Call {
+func (_e *MockChecks_Expecter) AddCheck(ctx any, check any, photos any) *MockChecks_AddCheck_Call {
 	return &MockChecks_AddCheck_Call{Call: _e.mock.On("AddCheck", ctx, check, photos)}
 }
 
@@ -145,7 +145,7 @@ type MockChecks_GetCheckById_Call struct {
 // GetCheckById is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id int
-func (_e *MockChecks_Expecter) GetCheckById(ctx interface{}, id interface{}) *MockChecks_GetCheckById_Call {
+func (_e *MockChecks_Expecter) GetCheckById(ctx any, id any) *MockChecks_GetCheckById_Call {
 	return &MockChecks_GetCheckById_Call{Call: _e.mock.On("GetCheckById", ctx, id)}
 }
 
@@ -213,7 +213,7 @@ type MockChecks_GetChecksByMarkId_Call struct {
 // GetChecksByMarkId is a helper method to define mock.On call
 //   - ctx context.Context
 //   - markId int
-func (_e *MockChecks_Expecter) GetChecksByMarkId(ctx interface{}, markId interface{}) *MockChecks_GetChecksByMarkId_Call {
+func (_e *MockChecks_Expecter) GetChecksByMarkId(ctx any, markId any) *MockChecks_GetChecksByMarkId_Call {
 	return &MockChecks_GetChecksByMarkId_Call{Call: _e.mock.On("GetChecksByMarkId", ctx, markId)}
 }
 
@@ -281,7 +281,7 @@ type MockChecks_GetChecksByUserId_Call struct {
 // GetChecksByUserId is a helper method to define mock.On call
 //   - ctx context.Context
 //   - userId int
-func (_e *MockChecks_Expecter) GetChecksByUserId(ctx interface{}, userId interface{}) *MockChecks_GetChecksByUserId_Call {
+func (_e *MockChecks_Expecter) GetChecksByUserId(ctx any, userId any) *MockChecks_GetChecksByUserId_Call {
 	return &MockChecks_GetChecksByUserId_Call{Call: _e.mock.On("GetChecksByUserId", ctx, userId)}
 }
 

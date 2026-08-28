@@ -56,6 +56,29 @@ func getUsers(t *testing.T, cfg *config.RESTConfig, expectedStatusCode int) resp
 	return response
 }
 
+// currentUserId returns the id of the user the access token belongs to (GET /users/me).
+func currentUserId(t *testing.T, cfg *config.RESTConfig, accessToken string) int {
+	req, err := http.NewRequest(http.MethodGet, makeUrl(makeUrlParams{
+		host: cfg.Host,
+		port: cfg.Port,
+		path: "/users/me",
+	}), nil)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+accessToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+
+	var response responses.Response[usersrest.GetMeResponse]
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&response))
+	require.NotEmpty(t, response.Payload.User.Login)
+
+	return response.Payload.User.Id
+}
+
 func (st *UsersSuite) TestGetUserById() {
 	responseGetUsers := getUsers(st.T(), &st.Cfg.REST, http.StatusOK)
 

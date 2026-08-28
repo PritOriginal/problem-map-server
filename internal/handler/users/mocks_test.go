@@ -72,7 +72,7 @@ type MockUsers_GetUserById_Call struct {
 // GetUserById is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id int
-func (_e *MockUsers_Expecter) GetUserById(ctx interface{}, id interface{}) *MockUsers_GetUserById_Call {
+func (_e *MockUsers_Expecter) GetUserById(ctx any, id any) *MockUsers_GetUserById_Call {
 	return &MockUsers_GetUserById_Call{Call: _e.mock.On("GetUserById", ctx, id)}
 }
 
@@ -139,7 +139,7 @@ type MockUsers_GetUsers_Call struct {
 
 // GetUsers is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockUsers_Expecter) GetUsers(ctx interface{}) *MockUsers_GetUsers_Call {
+func (_e *MockUsers_Expecter) GetUsers(ctx any) *MockUsers_GetUsers_Call {
 	return &MockUsers_GetUsers_Call{Call: _e.mock.On("GetUsers", ctx)}
 }
 

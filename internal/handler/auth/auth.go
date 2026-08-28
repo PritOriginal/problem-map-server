@@ -23,10 +23,12 @@ type handler struct {
 	uc  Auth
 }
 
-func Register(r *gin.Engine, log *slog.Logger, uc Auth) {
+// Register mounts auth routes. Extra middlewares (e.g. rate limiting) are
+// applied to every auth route.
+func Register(r *gin.Engine, log *slog.Logger, uc Auth, middlewares ...gin.HandlerFunc) {
 	handler := &handler{log: log, uc: uc}
 
-	auth := r.Group("/auth")
+	auth := r.Group("/auth", middlewares...)
 	{
 		auth.POST("signup", handler.SignUp())
 		auth.POST("signin", handler.SignIn())
@@ -147,7 +149,7 @@ func (h *handler) RefreshTokens() gin.HandlerFunc {
 		accessToken, refreshToken, err := h.uc.RefreshTokens(c.Request.Context(), req.RefreshToken)
 		if err != nil {
 			if errors.Is(err, usecase.ErrUnauthorized) {
-				h.log.Debug("failed refresh tokens", slog.String("refresh_token", req.RefreshToken))
+				h.log.Debug("failed refresh tokens", logger.Err(err))
 				responses.Unauthorized(c, "failed refresh tokens")
 			} else {
 				h.log.Error("failed refresh tokens", logger.Err(err))

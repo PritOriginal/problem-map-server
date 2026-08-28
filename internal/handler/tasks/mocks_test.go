@@ -72,7 +72,7 @@ type MockTasks_AddTask_Call struct {
 // AddTask is a helper method to define mock.On call
 //   - ctx context.Context
 //   - task models.Task
-func (_e *MockTasks_Expecter) AddTask(ctx interface{}, task interface{}) *MockTasks_AddTask_Call {
+func (_e *MockTasks_Expecter) AddTask(ctx any, task any) *MockTasks_AddTask_Call {
 	return &MockTasks_AddTask_Call{Call: _e.mock.On("AddTask", ctx, task)}
 }
 
@@ -138,7 +138,7 @@ type MockTasks_GetTaskById_Call struct {
 // GetTaskById is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id int
-func (_e *MockTasks_Expecter) GetTaskById(ctx interface{}, id interface{}) *MockTasks_GetTaskById_Call {
+func (_e *MockTasks_Expecter) GetTaskById(ctx any, id any) *MockTasks_GetTaskById_Call {
 	return &MockTasks_GetTaskById_Call{Call: _e.mock.On("GetTaskById", ctx, id)}
 }
 
@@ -206,7 +206,7 @@ type MockTasks_GetTasks_Call struct {
 // GetTasks is a helper method to define mock.On call
 //   - ctx context.Context
 //   - filters models.GetTasksFilters
-func (_e *MockTasks_Expecter) GetTasks(ctx interface{}, filters interface{}) *MockTasks_GetTasks_Call {
+func (_e *MockTasks_Expecter) GetTasks(ctx any, filters any) *MockTasks_GetTasks_Call {
 	return &MockTasks_GetTasks_Call{Call: _e.mock.On("GetTasks", ctx, filters)}
 }
 
@@ -275,7 +275,7 @@ type MockTasks_GetTasksByUserId_Call struct {
 //   - ctx context.Context
 //   - userId int
 //   - filters models.GetTasksByUserIdFilters
-func (_e *MockTasks_Expecter) GetTasksByUserId(ctx interface{}, userId interface{}, filters interface{}) *MockTasks_GetTasksByUserId_Call {
+func (_e *MockTasks_Expecter) GetTasksByUserId(ctx any, userId any, filters any) *MockTasks_GetTasksByUserId_Call {
 	return &MockTasks_GetTasksByUserId_Call{Call: _e.mock.On("GetTasksByUserId", ctx, userId, filters)}
 }
 

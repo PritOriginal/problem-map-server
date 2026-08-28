@@ -153,7 +153,6 @@ definitions:
           items:
             items:
               items:
-                format: float64
                 type: number
               type: array
             type: array
@@ -179,7 +178,6 @@ definitions:
       coordinates:
         items:
           items:
-            format: float64
             type: number
           type: array
         type: array
@@ -195,19 +193,41 @@ definitions:
       region_id:
         type: integer
     type: object
+  github_com_PritOriginal_problem-map-server_internal_models.Role:
+    enum:
+    - user
+    - moderator
+    - admin
+    type: string
+    x-enum-varnames:
+    - RoleUser
+    - RoleModerator
+    - RoleAdmin
   github_com_PritOriginal_problem-map-server_internal_models.Task:
     properties:
+      created_at:
+        type: string
       mark_id:
         type: integer
       name:
         type: string
       status_id:
-        type: integer
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.TaskStatusType'
       task_id:
         type: integer
+      updated_at:
+        type: string
       user_id:
         type: integer
     type: object
+  github_com_PritOriginal_problem-map-server_internal_models.TaskStatusType:
+    enum:
+    - 1
+    - 2
+    type: integer
+    x-enum-varnames:
+    - UnfulfilledStatus
+    - CompletedStatus
   github_com_PritOriginal_problem-map-server_internal_models.User:
     properties:
       home_point:
@@ -216,6 +236,8 @@ definitions:
         type: string
       rating:
         type: integer
+      role:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Role'
       user_id:
         type: integer
       username:
@@ -459,6 +481,15 @@ definitions:
       success:
         type: boolean
     type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetMeResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      payload:
+        $ref: '#/definitions/internal_handler_users.GetMeResponse'
+      success:
+        type: boolean
+    type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetUserByIdResponse:
     properties:
       error:
@@ -514,6 +545,8 @@ definitions:
     type: object
   internal_handler_auth.SignUpRequest:
     properties:
+      home_point:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON'
       login:
         maxLength: 40
         minLength: 3
@@ -527,6 +560,7 @@ definitions:
         minLength: 2
         type: string
     required:
+    - home_point
     - login
     - password
     - username
@@ -656,12 +690,9 @@ definitions:
         type: integer
       name:
         type: string
-      user_id:
-        type: integer
     required:
     - mark_id
     - name
-    - user_id
     type: object
   internal_handler_tasks.AddTaskResponse:
     properties:
@@ -687,22 +718,37 @@ definitions:
           $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Task'
         type: array
     type: object
-  internal_handler_users.GetUserByIdResponse:
+  internal_handler_users.GetMeResponse:
     properties:
       user:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.User'
+    type: object
+  internal_handler_users.GetUserByIdResponse:
+    properties:
+      user:
+        $ref: '#/definitions/internal_handler_users.PublicUser'
     type: object
   internal_handler_users.GetUsersResponse:
     properties:
       users:
         items:
-          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.User'
+          $ref: '#/definitions/internal_handler_users.PublicUser'
         type: array
+    type: object
+  internal_handler_users.PublicUser:
+    properties:
+      rating:
+        type: integer
+      role:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Role'
+      user_id:
+        type: integer
+      username:
+        type: string
     type: object
   null.Int:
     properties:
       int64:
-        format: int64
         type: integer
       valid:
         description: Valid is true if Int64 is not NULL
@@ -828,13 +874,6 @@ paths:
       consumes:
       - multipart/form-data
       description: add check
-      parameters:
-      - default: Bearer <Add access token here>
-        description: Insert your access token
-        in: header
-        name: Authorization
-        required: true
-        type: string
       produces:
       - application/json
       responses:
@@ -846,10 +885,16 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
       summary: Add check
       tags:
       - checks
@@ -1095,6 +1140,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "500":
           description: Internal Server Error
           schema:
@@ -1106,13 +1155,6 @@ paths:
       consumes:
       - multipart/form-data
       description: add mark
-      parameters:
-      - default: Bearer <Add access token here>
-        description: Insert your access token
-        in: header
-        name: Authorization
-        required: true
-        type: string
       produces:
       - application/json
       responses:
@@ -1124,10 +1166,16 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
       summary: Add mark
       tags:
       - marks
@@ -1169,6 +1217,12 @@ paths:
       consumes:
       - application/json
       description: сonfirm the mark and moves it to a new status
+      parameters:
+      - description: mark id
+        in: path
+        name: id
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
@@ -1180,6 +1234,14 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "409":
           description: Conflict
           schema:
@@ -1188,6 +1250,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
       summary: Confirm the mark
       tags:
       - marks
@@ -1196,6 +1260,12 @@ paths:
       consumes:
       - application/json
       description: reject the mark and moves it to a new status
+      parameters:
+      - description: mark id
+        in: path
+        name: id
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
@@ -1207,6 +1277,14 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "409":
           description: Conflict
           schema:
@@ -1215,6 +1293,8 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
       summary: Reject the mark
       tags:
       - marks
@@ -1335,7 +1415,10 @@ paths:
       tags:
       - tasks
     post:
-      description: add new task
+      consumes:
+      - application/json
+      description: add new task on behalf of the authenticated user (moderator or
+        admin)
       parameters:
       - description: query params
         in: body
@@ -1354,10 +1437,20 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
       summary: Add task
       tags:
       - tasks
@@ -1421,7 +1514,7 @@ paths:
       - tasks
   /users:
     get:
-      description: get users
+      description: get public profiles of all users
       produces:
       - application/json
       responses:
@@ -1438,7 +1531,7 @@ paths:
       - users
   /users/{id}:
     get:
-      description: get user by id
+      description: get public user profile by id
       parameters:
       - description: user id
         in: path
@@ -1467,6 +1560,39 @@ paths:
       summary: Get user by id
       tags:
       - users
+  /users/me:
+    get:
+      description: get full profile of the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetMeResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Get current user
+      tags:
+      - users
+securityDefinitions:
+  BearerAuth:
+    description: 'JWT access token: "Bearer {token}"'
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"
 tags:
 - description: Authorization and authentication

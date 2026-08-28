@@ -14,6 +14,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	passwordUtils "github.com/PritOriginal/problem-map-server/pkg/password"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
+	"github.com/golang-jwt/jwt"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
@@ -138,6 +139,18 @@ func (suite *AuthSuite) TestSignIn() {
 			name: "Ok",
 			getUserByLogin: method[models.User]{
 				data: models.User{
+					Id:           1,
+					PasswordHash: passwordHash,
+					Role:         models.RoleModerator,
+				},
+				err: nil,
+			},
+		},
+		{
+			name: "OkEmptyRoleDefaultsToUser",
+			getUserByLogin: method[models.User]{
+				data: models.User{
+					Id:           1,
 					PasswordHash: passwordHash,
 				},
 				err: nil,
@@ -161,10 +174,23 @@ func (suite *AuthSuite) TestSignIn() {
 				}
 			}()
 
-			_, _, gotErr := suite.uc.SignIn(context.Background(), "login", "password")
+			accessToken, _, gotErr := suite.uc.SignIn(context.Background(), "login", "password")
 
 			if tt.getUserByLogin.err == nil {
 				suite.NoError(gotErr)
+
+				wantRole := tt.getUserByLogin.data.Role
+				if wantRole == "" {
+					wantRole = models.RoleUser
+				}
+				parsed, err := jwt.Parse(accessToken, func(t *jwt.Token) (interface{}, error) {
+					return []byte(suite.authCfg.JWT.Access.Key), nil
+				})
+				suite.NoError(err)
+				claims, ok := parsed.Claims.(jwt.MapClaims)
+				suite.True(ok)
+				suite.Equal(string(wantRole), claims[token.RoleClaim])
+				suite.Equal("1", claims["sub"])
 			} else {
 				suite.NotNil(gotErr)
 			}
@@ -175,7 +201,7 @@ func (suite *AuthSuite) TestSignIn() {
 
 func (suite *AuthSuite) TestRefreshTokens() {
 	userId := 1
-	refreshToken, err := token.CreateToken(suite.authCfg.JWT.Refresh.ExpiredIn, userId, suite.authCfg.JWT.Refresh.Key)
+	refreshToken, err := token.CreateToken(suite.authCfg.JWT.Refresh.ExpiredIn, userId, string(models.RoleUser), suite.authCfg.JWT.Refresh.Key)
 	suite.NoError(err)
 
 	tests := []struct {

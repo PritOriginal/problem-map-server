@@ -6,11 +6,14 @@ import (
 	"errors"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
+	"github.com/PritOriginal/problem-map-server/pkg/token"
+	jwt "github.com/appleboy/gin-jwt/v3"
 	"github.com/gin-gonic/gin"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
@@ -23,6 +26,16 @@ type TasksSuite struct {
 }
 
 func (suite *TasksSuite) SetupSuite() {
+	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
+		Key: []byte("1234"),
+	})
+	if err != nil {
+		panic(err)
+	}
+	if err := authMiddleware.MiddlewareInit(); err != nil {
+		panic(err)
+	}
+
 	suite.uc = tasksrest.NewMockTasks(suite.T())
 
 	log := slogdiscard.NewDiscardLogger()
@@ -30,7 +43,7 @@ func (suite *TasksSuite) SetupSuite() {
 	gin.SetMode(gin.TestMode)
 	suite.r = gin.New()
 
-	tasksrest.Register(suite.r, log, suite.uc)
+	tasksrest.Register(suite.r, log, authMiddleware, suite.uc)
 }
 
 func TestUsers(t *testing.T) {
@@ -217,20 +230,53 @@ func (suite *TasksSuite) TestAddTask() {
 		name            string
 		rawReq          string
 		req             tasksrest.AddTaskRequest
+		role            models.Role
+		noToken         bool
 		wantErrParseReq bool
 		errAddTask      error
 		statusCode      int
 	}{
 		{
-			name: "Ok201",
+			name: "Ok201Moderator",
 			req: tasksrest.AddTaskRequest{
 				Name:   "test",
-				UserID: 1,
 				MarkID: 1,
 			},
+			role:            models.RoleModerator,
 			wantErrParseReq: false,
 			errAddTask:      nil,
 			statusCode:      201,
+		},
+		{
+			name: "Ok201Admin",
+			req: tasksrest.AddTaskRequest{
+				Name:   "test",
+				MarkID: 1,
+			},
+			role:            models.RoleAdmin,
+			wantErrParseReq: false,
+			errAddTask:      nil,
+			statusCode:      201,
+		},
+		{
+			name: "Err401NoToken",
+			req: tasksrest.AddTaskRequest{
+				Name:   "test",
+				MarkID: 1,
+			},
+			noToken:         true,
+			wantErrParseReq: true,
+			statusCode:      401,
+		},
+		{
+			name: "Err403User",
+			req: tasksrest.AddTaskRequest{
+				Name:   "test",
+				MarkID: 1,
+			},
+			role:            models.RoleUser,
+			wantErrParseReq: true,
+			statusCode:      403,
 		},
 		{
 			name:            "Err400InvalidJSON",
@@ -252,7 +298,6 @@ func (suite *TasksSuite) TestAddTask() {
 			name: "Err500",
 			req: tasksrest.AddTaskRequest{
 				Name:   "test",
-				UserID: 1,
 				MarkID: 1,
 			},
 			wantErrParseReq: false,
@@ -262,8 +307,11 @@ func (suite *TasksSuite) TestAddTask() {
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
+			const userId = 7
 			if !tt.wantErrParseReq {
-				suite.uc.On("AddTask", mock.Anything, mock.Anything).Once().
+				suite.uc.On("AddTask", mock.Anything, mock.MatchedBy(func(task models.Task) bool {
+					return task.UserID == userId && task.MarkID == tt.req.MarkID && task.Name == tt.req.Name
+				})).Once().
 					Return(int64(1), tt.errAddTask)
 			}
 
@@ -279,6 +327,15 @@ func (suite *TasksSuite) TestAddTask() {
 			}
 
 			req := httptest.NewRequest("POST", "/tasks", buf)
+			if !tt.noToken {
+				role := tt.role
+				if role == "" {
+					role = models.RoleModerator
+				}
+				accessToken, err := token.CreateToken(1*time.Minute, userId, string(role), "1234")
+				suite.NoError(err)
+				req.Header.Set("Authorization", "Bearer "+accessToken)
+			}
 
 			suite.r.ServeHTTP(w, req)
 

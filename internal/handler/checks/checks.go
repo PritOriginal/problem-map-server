@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strconv"
 
+	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
@@ -190,10 +191,11 @@ func (h *handler) GetChecksByUserId() gin.HandlerFunc {
 //	@Tags			checks
 //	@Accept			mpfd
 //	@Produce		json
-//	@Param			Authorization	header		string	true	"Insert your access token"	default(Bearer <Add access token here>)
-//	@Success		201				{object}	responses.Response[checksrest.AddCheckResponse]
-//	@Failure		400				{object}	responses.Response[any]
-//	@Failure		500				{object}	responses.Response[any]
+//	@Security		BearerAuth
+//	@Success		201	{object}	responses.Response[checksrest.AddCheckResponse]
+//	@Failure		400	{object}	responses.Response[any]
+//	@Failure		401	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
 //	@Router			/checks [post]
 func (h *handler) AddCheck() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -206,20 +208,17 @@ func (h *handler) AddCheck() gin.HandlerFunc {
 
 		photos, err := handlers.ParsePhotos(req.Photos)
 		if err != nil {
-			h.log.Error("error parse photos", logger.Err(err))
-			responses.Internal(c, "error parse photos")
+			if errors.Is(err, handlers.ErrInvalidPhoto) {
+				h.log.Debug("invalid photos", logger.Err(err))
+				responses.BadRequest(c, "invalid photos")
+			} else {
+				h.log.Error("error parse photos", logger.Err(err))
+				responses.Internal(c, "error parse photos")
+			}
 			return
 		}
 
-		claims := jwt.ExtractClaims(c)
-
-		userIdStr, err := claims.GetSubject()
-		if err != nil {
-			h.log.Debug("invalid token", logger.Err(err))
-			responses.Unauthorized(c, "invalid token")
-			return
-		}
-		userId, err := strconv.Atoi(userIdStr)
+		userId, err := middleware.UserIDFromClaims(c)
 		if err != nil {
 			h.log.Debug("invalid token", logger.Err(err))
 			responses.Unauthorized(c, "invalid token")

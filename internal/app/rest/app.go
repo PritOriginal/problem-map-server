@@ -16,6 +16,7 @@ import (
 	marksrest "github.com/PritOriginal/problem-map-server/internal/handler/marks"
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/ratelimit"
 	"github.com/PritOriginal/problem-map-server/internal/repository/local"
 	"github.com/PritOriginal/problem-map-server/internal/repository/postgres"
 	"github.com/PritOriginal/problem-map-server/internal/repository/redis"
@@ -65,7 +66,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		panic(errInit)
 	}
 
-	router := handler.GetRouter(log, cfg.Env)
+	router := handler.GetRouter(log, cfg.Env, cfg.REST.TrustedProxies)
 
 	handler.SetSwagger(router, cfg)
 
@@ -109,17 +110,21 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	usersUseCase := usecase.NewUsers(log, usecase.UsersRepositories{
 		Users: usersRepo,
 	})
-	usersrest.Register(router, log, usersUseCase)
+	usersrest.Register(router, log, authMiddleware, usersUseCase)
 
 	authUseCase := usecase.NewAuth(log, cfg.Auth, usecase.AuthRepositories{
 		Users: usersRepo,
 	})
-	authrest.Register(router, log, authUseCase)
+	authRateLimit := ratelimit.New(log, redis, ratelimit.Config{
+		Requests: cfg.REST.RateLimit.Requests,
+		Window:   cfg.REST.RateLimit.Window,
+	})
+	authrest.Register(router, log, authUseCase, authRateLimit)
 
 	tasksUseCase := usecase.NewTasks(log, usecase.TasksRepositories{
 		Tasks: tasksRepo,
 	})
-	tasksrest.Register(router, log, tasksUseCase)
+	tasksrest.Register(router, log, authMiddleware, tasksUseCase)
 
 	server := &http.Server{
 		Addr:         cfg.REST.Host + ":" + strconv.Itoa(cfg.REST.Port),

@@ -514,13 +514,15 @@ func (st *MarksSuite) TestConfirm() {
 	randomMarkIndex := rand.Intn(len(getMarksResponse.Payload.Marks))
 	randomMark := getMarksResponse.Payload.Marks[randomMarkIndex]
 
+	moderatorAccessToken := moderatorToken(st.T(), st.Cfg)
+
 	addMarkForRejectResponse := addNewMark(st.T(), &st.Cfg.REST, signInResponse.Payload.AccessToken)
 	markForRejectId := addMarkForRejectResponse.Payload.MarkId
 	reject(
 		st.T(),
 		&st.Cfg.REST,
 		strconv.Itoa(markForRejectId),
-		signInResponse.Payload.AccessToken,
+		moderatorAccessToken,
 		http.StatusOK,
 	)
 
@@ -551,7 +553,7 @@ func (st *MarksSuite) TestConfirm() {
 				st.T(),
 				&st.Cfg.REST,
 				tt.id,
-				signInResponse.Payload.AccessToken,
+				moderatorAccessToken,
 				tt.statusCode,
 			)
 
@@ -576,13 +578,15 @@ func (st *MarksSuite) TestReject() {
 	randomMarkIndex := rand.Intn(len(getMarksResponse.Payload.Marks))
 	randomMark := getMarksResponse.Payload.Marks[randomMarkIndex]
 
+	moderatorAccessToken := moderatorToken(st.T(), st.Cfg)
+
 	addMarkForRejectResponse := addNewMark(st.T(), &st.Cfg.REST, signInResponse.Payload.AccessToken)
 	markForRejectId := addMarkForRejectResponse.Payload.MarkId
 	reject(
 		st.T(),
 		&st.Cfg.REST,
 		strconv.Itoa(markForRejectId),
-		signInResponse.Payload.AccessToken,
+		moderatorAccessToken,
 		http.StatusOK,
 	)
 
@@ -613,7 +617,7 @@ func (st *MarksSuite) TestReject() {
 				st.T(),
 				&st.Cfg.REST,
 				tt.id,
-				signInResponse.Payload.AccessToken,
+				moderatorAccessToken,
 				tt.statusCode,
 			)
 
