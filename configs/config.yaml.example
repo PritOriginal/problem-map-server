@@ -13,10 +13,10 @@ photo-storage: local
 auth:
   jwt:
     access:
-      key: qwer
+      key: CHANGE_ME_dev_only_access_key_000000
       expired_in: 12h
     refresh:
-      key: 1234
+      key: CHANGE_ME_dev_only_refresh_key_00000
       expired_in: 24h
 db:
   host: 127.0.0.1
@@ -24,6 +24,11 @@ db:
   username: postgres
   password: postgres
   name: problem_map
+  sslmode: disable
+  pool:
+    max_open_conns: 25
+    max_idle_conns: 5
+    conn_max_lifetime: 5m
 redis:
   host: 127.0.0.1
   port: 6379
