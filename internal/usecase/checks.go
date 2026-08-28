@@ -3,7 +3,6 @@ package usecase
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 	"maps"
@@ -58,12 +57,7 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 
 	historyItem, err := uc.repos.Marks.GetLastMarkStatusHistoryItem(ctx, check.MarkID)
 	if err != nil {
-		switch {
-		case errors.Is(err, repository.ErrNotFound):
-			return 0, ErrNotFound
-		default:
-			return 0, fmt.Errorf("%s: %w", op, err)
-		}
+		return 0, mapRepoErr(op, err)
 	}
 	check.MarkStatusHistoryItemId = historyItem.ID
 	check.MarkStatusId = historyItem.NewMarkStatusID
@@ -80,9 +74,6 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 
 		checkId, err = uc.repos.Checks.AddCheck(ctx, check)
 		if err != nil {
-			if errors.Is(err, repository.ErrExists) {
-				return ErrConflict
-			}
 			return err
 		}
 
@@ -105,7 +96,7 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 		}
 	})
 	if err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
+		return 0, mapRepoErr(op, err)
 	}
 
 	return checkId, nil
@@ -120,7 +111,7 @@ func (uc *Checks) checkPossibilityAddCheck(ctx context.Context, userId int, hist
 		case errors.Is(err, repository.ErrNotFound):
 			return true, nil
 		default:
-			return false, fmt.Errorf("%s: %w", op, err)
+			return false, mapRepoErr(op, err)
 		}
 	}
 
@@ -132,12 +123,12 @@ func (uc *Checks) GetCheckById(ctx context.Context, id int) (models.Check, error
 
 	check, err := uc.repos.Checks.GetCheckById(ctx, id)
 	if err != nil {
-		return check, fmt.Errorf("%s: %w", op, err)
+		return check, mapRepoErr(op, err)
 	}
 
 	check.Photos, err = uc.repos.Photos.GetPhotosByCheckId(ctx, check.MarkID, check.ID)
 	if err != nil {
-		return check, fmt.Errorf("%s: %w", op, err)
+		return check, mapRepoErr(op, err)
 	}
 
 	return check, nil
@@ -148,12 +139,12 @@ func (uc *Checks) GetChecksByMarkId(ctx context.Context, markId int) ([]models.C
 
 	checks, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId)
 	if err != nil {
-		return checks, fmt.Errorf("%s: %w", op, err)
+		return checks, mapRepoErr(op, err)
 	}
 
 	photosMap, err := uc.repos.Photos.GetPhotosByMarkId(ctx, markId)
 	if err != nil {
-		return checks, fmt.Errorf("%s: %w", op, err)
+		return checks, mapRepoErr(op, err)
 	}
 
 	for i := range len(checks) {
@@ -168,12 +159,12 @@ func (uc *Checks) GetGroupedChecksByMarkStatusHistoryId(ctx context.Context, mar
 
 	checks, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return nil, mapRepoErr(op, err)
 	}
 
 	photosMap, err := uc.repos.Photos.GetPhotosByMarkId(ctx, markId)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return nil, mapRepoErr(op, err)
 	}
 
 	for i := range len(checks) {
@@ -211,13 +202,13 @@ func (uc *Checks) GetChecksByUserId(ctx context.Context, userId int) ([]models.C
 
 	checks, err := uc.repos.Checks.GetChecksByUserId(ctx, userId)
 	if err != nil {
-		return checks, fmt.Errorf("%s: %w", op, err)
+		return checks, mapRepoErr(op, err)
 	}
 
 	for i := range len(checks) {
 		checks[i].Photos, err = uc.repos.Photos.GetPhotosByCheckId(ctx, checks[i].MarkID, checks[i].ID)
 		if err != nil {
-			return checks, fmt.Errorf("%s: %w", op, err)
+			return checks, mapRepoErr(op, err)
 		}
 	}
 
@@ -245,18 +236,18 @@ func (u *Updater) Update(ctx context.Context, markId int) error {
 
 	mark, err := u.repos.Marks.GetMarkById(ctx, markId)
 	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return mapRepoErr(op, err)
 	}
 
 	historyItem, err := u.repos.Marks.GetLastMarkStatusHistoryItem(ctx, markId)
 	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return mapRepoErr(op, err)
 	}
 
 	if mark.MarkStatusID == models.UnconfirmedStatus || mark.MarkStatusID == models.UnderReviewStatus {
 		checks, err := u.repos.Checks.GetChecksByMarkHistoryId(ctx, historyItem.ID)
 		if err != nil {
-			return fmt.Errorf("%s: %w", op, err)
+			return mapRepoErr(op, err)
 		}
 
 		score := 0
@@ -273,13 +264,13 @@ func (u *Updater) Update(ctx context.Context, markId int) error {
 		if score >= 3 {
 			newMarkStatusId, err := u.confirm(ctx, mark)
 			if err != nil {
-				return fmt.Errorf("%s: %w", op, err)
+				return mapRepoErr(op, err)
 			}
 			u.log.Debug("change mark status", slog.Int("old", int(mark.MarkStatusID)), slog.Int("new", int(newMarkStatusId)))
 		} else if score <= -3 {
 			newMarkStatusId, err := u.reject(ctx, mark)
 			if err != nil {
-				return fmt.Errorf("%s: %w", op, err)
+				return mapRepoErr(op, err)
 			}
 			u.log.Debug("change mark status", slog.Int("old", int(mark.MarkStatusID)), slog.Int("new", int(newMarkStatusId)))
 		}
@@ -292,7 +283,7 @@ func (u *Updater) Confirm(ctx context.Context, markId int) (models.MarkStatusTyp
 
 	mark, err := u.repos.Marks.GetMarkById(ctx, markId)
 	if err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
+		return 0, mapRepoErr(op, err)
 	}
 
 	return u.confirm(ctx, mark)
@@ -315,7 +306,7 @@ func (u *Updater) confirm(ctx context.Context, mark models.Mark) (models.MarkSta
 	}
 
 	if err := u.repos.Marks.UpdateMarkStatus(ctx, mark.ID, newStatus); err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
+		return 0, mapRepoErr(op, err)
 	}
 
 	return newStatus, nil
@@ -327,7 +318,7 @@ func (u *Updater) Reject(ctx context.Context, markId int) (models.MarkStatusType
 
 	mark, err := u.repos.Marks.GetMarkById(ctx, markId)
 	if err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
+		return 0, mapRepoErr(op, err)
 	}
 
 	return u.reject(ctx, mark)
@@ -350,7 +341,7 @@ func (u *Updater) reject(ctx context.Context, mark models.Mark) (models.MarkStat
 	}
 
 	if err := u.repos.Marks.UpdateMarkStatus(ctx, mark.ID, newStatus); err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
+		return 0, mapRepoErr(op, err)
 	}
 
 	return newStatus, nil
