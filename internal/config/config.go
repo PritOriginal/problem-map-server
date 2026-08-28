@@ -111,16 +111,28 @@ func MustLoadPath(configPath string) *Config {
 }
 
 // LoadPath reads the config file at configPath (env vars override file
-// values) and validates it.
+// values) and validates every section.
 func LoadPath(configPath string) (*Config, error) {
+	cfg, err := ReadPath(configPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cfg.Validate(); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+// ReadPath reads the config file at configPath without validating it.
+// Callers that use only a part of the config (e.g. the migrator) can validate
+// just that section.
+func ReadPath(configPath string) (*Config, error) {
 	var cfg Config
 
 	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
 		return nil, fmt.Errorf("cannot read config: %w", err)
-	}
-
-	if err := cfg.Validate(); err != nil {
-		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
 	return &cfg, nil
@@ -128,19 +140,13 @@ func LoadPath(configPath string) (*Config, error) {
 
 // DSN returns a postgres:// connection URL. Credentials are URL-escaped so
 // that reserved characters in the password do not break the DSN.
-// An empty SSLMode falls back to "disable".
 func (d DatabaseConfig) DSN() string {
-	sslMode := d.SSLMode
-	if sslMode == "" {
-		sslMode = "disable"
-	}
-
 	u := url.URL{
 		Scheme:   "postgres",
 		User:     url.UserPassword(d.Username, d.Password),
 		Host:     net.JoinHostPort(d.Host, strconv.Itoa(d.Port)),
 		Path:     "/" + d.Name,
-		RawQuery: "sslmode=" + url.QueryEscape(sslMode),
+		RawQuery: "sslmode=" + url.QueryEscape(d.SSLMode),
 	}
 
 	return u.String()
@@ -152,19 +158,26 @@ const MinJWTKeyLength = 32
 
 // Validate checks that security-sensitive settings are present and sane.
 func (c *Config) Validate() error {
-	var errs []error
+	if err := errors.Join(c.Auth.Validate(), c.DB.Validate()); err != nil {
+		return fmt.Errorf("invalid config: %w", err)
+	}
+	return nil
+}
 
-	if err := validateJWTKey("auth.jwt.access.key (JWT_ACCESS_TOKEN_KEY)", c.Auth.JWT.Access.Key); err != nil {
-		errs = append(errs, err)
-	}
-	if err := validateJWTKey("auth.jwt.refresh.key (JWT_REFRESH_TOKEN_KEY)", c.Auth.JWT.Refresh.Key); err != nil {
-		errs = append(errs, err)
-	}
-	if c.DB.Password == "" {
-		errs = append(errs, errors.New("db.password (POSTGRES_PASSWORD) must not be empty"))
-	}
+// Validate checks that both JWT signing keys are present and strong enough.
+func (a AuthConfig) Validate() error {
+	return errors.Join(
+		validateJWTKey("auth.jwt.access.key (JWT_ACCESS_TOKEN_KEY)", a.JWT.Access.Key),
+		validateJWTKey("auth.jwt.refresh.key (JWT_REFRESH_TOKEN_KEY)", a.JWT.Refresh.Key),
+	)
+}
 
-	return errors.Join(errs...)
+// Validate checks that the database password is set.
+func (d DatabaseConfig) Validate() error {
+	if d.Password == "" {
+		return errors.New("db.password (POSTGRES_PASSWORD) must not be empty")
+	}
+	return nil
 }
 
 func validateJWTKey(name, key string) error {

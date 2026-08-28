@@ -43,7 +43,6 @@ __debug_bin*
 /grpc
 /tasker
 /migrator
-# note: `go build ./cmd/osm` cannot produce a root `osm` binary because osm/ is a directory
 
 # local data
 photos/

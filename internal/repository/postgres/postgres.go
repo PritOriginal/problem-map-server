@@ -13,8 +13,6 @@ type Postgres struct {
 }
 
 // New opens a connection pool and verifies it with a ping.
-// Pool limits come from cfg.Pool; zero values keep database/sql semantics
-// (0 open conns = unlimited, 0 lifetime = never expire).
 func New(cfg config.DatabaseConfig) (*Postgres, error) {
 	const op = "storage.postgres.New"
 
@@ -32,4 +30,8 @@ func New(cfg config.DatabaseConfig) (*Postgres, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	return &Postgres{DB: db}, nil
+}
+
+func (s *Postgres) Stop() error {
+	return s.DB.Close()
 }

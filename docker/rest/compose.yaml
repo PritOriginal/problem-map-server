@@ -8,11 +8,9 @@ services:
       dockerfile: ./docker/rest/Dockerfile
       target: final
     container_name: server-rest
-    restart: unless-stopped
+    restart: always
     networks:
       - server-network
-    # Config is not baked into the image: it is mounted read-only and
-    # can be overridden by environment variables from the same file.
     env_file:
       - ./configs/.env.docker
     volumes:

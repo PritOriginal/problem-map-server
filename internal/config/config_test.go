@@ -19,8 +19,8 @@ func TestDatabaseConfig_DSN(t *testing.T) {
 			want: "postgres://postgres:postgres@localhost:5432/problem_map?sslmode=require",
 		},
 		{
-			name: "escapes reserved characters and defaults sslmode",
-			cfg:  config.DatabaseConfig{Host: "db", Port: 5432, Username: "us er", Password: "p@ss/w#rd", Name: "pm"},
+			name: "escapes reserved characters",
+			cfg:  config.DatabaseConfig{Host: "db", Port: 5432, Username: "us er", Password: "p@ss/w#rd", Name: "pm", SSLMode: "disable"},
 			want: "postgres://us%20er:p%40ss%2Fw%23rd@db:5432/pm?sslmode=disable",
 		},
 	}

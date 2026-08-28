@@ -71,8 +71,6 @@ USER appuser
 # Copy the executable from the "build" stage.
 COPY --from=build /bin/server-rest /bin/
 
-# The config is NOT baked into the image: mount it (or pass env vars via
-# `env_file:`) from compose. See docker/rest/compose.yaml.
 ENV CONFIG_PATH=/etc/problem-map/.env
 
 # What the container should run when it is started.

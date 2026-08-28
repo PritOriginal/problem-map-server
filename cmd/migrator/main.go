@@ -28,8 +28,10 @@ var rootCmd = &cobra.Command{
 			return errors.New("migrations-path is required")
 		}
 		var err error
-		cfg, err = config.LoadPath(configPath)
-		return err
+		if cfg, err = config.ReadPath(configPath); err != nil {
+			return err
+		}
+		return cfg.DB.Validate()
 	},
 }
 
