@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -58,8 +59,8 @@ func (r *TasksRepository) GetTaskById(ctx context.Context, id int) (models.Task,
 	query := "SELECT * FROM tasks WHERE task_id = $1"
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &task, query, id); err != nil {
-		switch err {
-		case sql.ErrNoRows:
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
 			return task, repository.ErrNotFound
 		default:
 			return task, fmt.Errorf("%s: %w", op, err)
@@ -107,8 +108,8 @@ func (r *TasksRepository) GetTaskByUserIdAndMarkId(ctx context.Context, userId i
 	query := "SELECT * FROM tasks WHERE user_id = $1 AND mark_id = $2"
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &task, query, userId, markId); err != nil {
-		switch err {
-		case sql.ErrNoRows:
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
 			return task, repository.ErrNotFound
 		default:
 			return task, fmt.Errorf("%s: %w", op, err)
@@ -135,6 +136,7 @@ func (r *TasksRepository) AddTask(ctx context.Context, task models.Task) (int64,
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
+	defer func() { _ = stmt.Close() }()
 
 	if err := stmt.GetContext(ctx, &id, task); err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)

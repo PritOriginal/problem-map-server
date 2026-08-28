@@ -234,12 +234,12 @@ func (h *handler) AddCheck() gin.HandlerFunc {
 		}
 		checkId, err := h.uc.AddCheck(c.Request.Context(), check, photos)
 		if err != nil {
-			switch err {
-			case usecase.ErrNotFound:
+			switch {
+			case errors.Is(err, usecase.ErrNotFound):
 				h.log.Debug("mark not found", slog.Int("mark_id", req.MarkID))
 				responses.BadRequest(c, "mark not found")
 				return
-			case usecase.ErrConflict:
+			case errors.Is(err, usecase.ErrConflict):
 				h.log.Debug("user has already completed the check", slog.Int("mark_id", req.MarkID), slog.Int("user_id", userId))
 				responses.Conflict(c, "user has already completed the check")
 			default:

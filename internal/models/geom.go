@@ -50,7 +50,9 @@ func (p *Point) MarshalJSON() ([]byte, error) {
 
 func (p *Point) UnmarshalJSON(data []byte) error {
 	var geometry geom.T
-	geojson.Unmarshal(data, &geometry)
+	if err := geojson.Unmarshal(data, &geometry); err != nil {
+		return fmt.Errorf("unmarshal geometry: %w", err)
+	}
 	point, ok := geometry.(*geom.Point)
 	if !ok {
 		return fmt.Errorf("geometry is not a point")
@@ -111,7 +113,9 @@ func (p *Polygon) MarshalJSON() ([]byte, error) {
 
 func (p *Polygon) UnmarshalJSON(data []byte) error {
 	var geometry geom.T
-	geojson.Unmarshal(data, &geometry)
+	if err := geojson.Unmarshal(data, &geometry); err != nil {
+		return fmt.Errorf("unmarshal geometry: %w", err)
+	}
 	polygon, ok := geometry.(*geom.Polygon)
 	if !ok {
 		return fmt.Errorf("geometry is not a polygon")
@@ -169,7 +173,9 @@ func (p *MultiPolygon) MarshalJSON() ([]byte, error) {
 
 func (p *MultiPolygon) UnmarshalJSON(data []byte) error {
 	var geometry geom.T
-	geojson.Unmarshal(data, &geometry)
+	if err := geojson.Unmarshal(data, &geometry); err != nil {
+		return fmt.Errorf("unmarshal geometry: %w", err)
+	}
 	multiPolygon, ok := geometry.(*geom.MultiPolygon)
 	if !ok {
 		return fmt.Errorf("geometry is not a multi polygon")

@@ -84,7 +84,7 @@ func (suite *AuthSuite) TestSignUp() {
 			func() {
 				suite.usersRepo.On("GetUserByLogin", mock.Anything, mock.AnythingOfType("string")).Once().
 					Return(tt.getUserByLogin.data, tt.getUserByLogin.err)
-				if tt.getUserByLogin.err != repository.ErrNotFound {
+				if !errors.Is(tt.getUserByLogin.err, repository.ErrNotFound) {
 					return
 				}
 
@@ -102,7 +102,7 @@ func (suite *AuthSuite) TestSignUp() {
 				HomePoint: &models.Point{},
 			})
 
-			if tt.getUserByLogin.err == repository.ErrNotFound && tt.addUser.err == nil {
+			if errors.Is(tt.getUserByLogin.err, repository.ErrNotFound) && tt.addUser.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)

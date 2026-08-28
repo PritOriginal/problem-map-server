@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
@@ -38,8 +39,8 @@ func (r *UsersRepository) GetUserById(ctx context.Context, id int) (models.User,
 			`
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &user, query, id); err != nil {
-		switch err {
-		case sql.ErrNoRows:
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
 			return user, repository.ErrNotFound
 		default:
 			return user, fmt.Errorf("%s: %w", op, err)
@@ -65,8 +66,8 @@ func (r *UsersRepository) GetUserByLogin(ctx context.Context, username string) (
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &user, query, username); err != nil {
-		switch err {
-		case sql.ErrNoRows:
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
 			return user, repository.ErrNotFound
 		default:
 			return user, fmt.Errorf("%s: %w", op, err)
@@ -114,6 +115,7 @@ func (r *UsersRepository) AddUser(ctx context.Context, user models.User) (int64,
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
+	defer func() { _ = stmt.Close() }()
 
 	if err := stmt.GetContext(ctx, &id, user.Name, user.Login, user.PasswordHash, user.HomePoint); err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)

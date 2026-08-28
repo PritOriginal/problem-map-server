@@ -386,8 +386,8 @@ func (h *handler) Confirm() gin.HandlerFunc {
 
 		newStatusId, err := h.statusUpdater.Confirm(c.Request.Context(), id)
 		if err != nil {
-			switch err {
-			case usecase.ErrConflict:
+			switch {
+			case errors.Is(err, usecase.ErrConflict):
 				h.log.Debug("unable to update the mark status", slog.Int("mark_id", id))
 				responses.Conflict(c, "user already exists")
 			default:
@@ -427,8 +427,8 @@ func (h *handler) Reject() gin.HandlerFunc {
 
 		newStatus, err := h.statusUpdater.Reject(c.Request.Context(), id)
 		if err != nil {
-			switch err {
-			case usecase.ErrConflict:
+			switch {
+			case errors.Is(err, usecase.ErrConflict):
 				h.log.Debug("unable to update the mark status", slog.Int("mark_id", id))
 				responses.Conflict(c, "user already exists")
 			default:

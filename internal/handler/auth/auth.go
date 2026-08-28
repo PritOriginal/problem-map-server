@@ -63,8 +63,8 @@ func (h *handler) SignUp() gin.HandlerFunc {
 			HomePoint: req.HomePoint,
 		})
 		if err != nil {
-			switch err {
-			case usecase.ErrConflict:
+			switch {
+			case errors.Is(err, usecase.ErrConflict):
 				h.log.Debug("user already exists", slog.String("login", req.Login))
 				responses.Conflict(c, "user already exists")
 			default:

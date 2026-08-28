@@ -23,6 +23,7 @@ type ChecksSuite struct {
 	updater    *usecase.MockMarkStatusUpdater
 	marksRepo  *usecase.MockMarksRepository
 	checksRepo *usecase.MockChecksRepository
+	tasksRepo  *usecase.MockTasksRepository
 	photosRepo *usecase.MockPhotosRepository
 }
 
@@ -32,10 +33,12 @@ func (suite *ChecksSuite) SetupSuite() {
 	suite.updater = usecase.NewMockMarkStatusUpdater(suite.T())
 	suite.marksRepo = usecase.NewMockMarksRepository(suite.T())
 	suite.checksRepo = usecase.NewMockChecksRepository(suite.T())
+	suite.tasksRepo = usecase.NewMockTasksRepository(suite.T())
 	suite.photosRepo = usecase.NewMockPhotosRepository(suite.T())
 	suite.uc = usecase.NewChecks(suite.log, suite.trManager, suite.updater, usecase.ChecksRepositories{
 		Marks:  suite.marksRepo,
 		Checks: suite.checksRepo,
+		Tasks:  suite.tasksRepo,
 		Photos: suite.photosRepo,
 	})
 }
@@ -53,6 +56,8 @@ func (suite *ChecksSuite) TestAddCheck() {
 		addCheck                     method[int64]
 		addPhotos                    method[any]
 		update                       method[any]
+		getTask                      method[models.Task]
+		updateTaskStatus             method[any]
 	}{
 		{
 			name: "Ok",
@@ -74,6 +79,92 @@ func (suite *ChecksSuite) TestAddCheck() {
 			},
 			update: method[any]{
 				err: nil,
+			},
+			getTask: method[models.Task]{
+				data: models.Task{ID: 1},
+				err:  nil,
+			},
+			updateTaskStatus: method[any]{
+				err: nil,
+			},
+		},
+		{
+			name: "OkWithoutTask",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					NewMarkStatusID: models.UnconfirmedStatus,
+				},
+				err: nil,
+			},
+			getUserMarkCheck: method[models.Check]{
+				err: repository.ErrNotFound,
+			},
+			addCheck: method[int64]{
+				data: int64(1),
+				err:  nil,
+			},
+			addPhotos: method[any]{
+				err: nil,
+			},
+			update: method[any]{
+				err: nil,
+			},
+			getTask: method[models.Task]{
+				err: repository.ErrNotFound,
+			},
+		},
+		{
+			name: "ErrGetTask",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					NewMarkStatusID: models.UnconfirmedStatus,
+				},
+				err: nil,
+			},
+			getUserMarkCheck: method[models.Check]{
+				err: repository.ErrNotFound,
+			},
+			addCheck: method[int64]{
+				data: int64(1),
+				err:  nil,
+			},
+			addPhotos: method[any]{
+				err: nil,
+			},
+			update: method[any]{
+				err: nil,
+			},
+			getTask: method[models.Task]{
+				err: errors.New(""),
+			},
+		},
+		{
+			name: "ErrUpdateTaskStatus",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					NewMarkStatusID: models.UnconfirmedStatus,
+				},
+				err: nil,
+			},
+			getUserMarkCheck: method[models.Check]{
+				err: repository.ErrNotFound,
+			},
+			addCheck: method[int64]{
+				data: int64(1),
+				err:  nil,
+			},
+			addPhotos: method[any]{
+				err: nil,
+			},
+			update: method[any]{
+				err: nil,
+			},
+			getTask: method[models.Task]{
+				data: models.Task{ID: 1},
+				err:  nil,
+			},
+			updateTaskStatus: method[any]{
+				err: errors.New(""),
 			},
 		},
 		{
@@ -221,7 +312,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 
 				suite.checksRepo.On("GetUserMarkCheck", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int"), mock.Anything).Once().
 					Return(tt.getUserMarkCheck.data, tt.getUserMarkCheck.err)
-				if tt.getUserMarkCheck.err != repository.ErrNotFound {
+				if !errors.Is(tt.getUserMarkCheck.err, repository.ErrNotFound) {
 					return
 				}
 
@@ -252,15 +343,26 @@ func (suite *ChecksSuite) TestAddCheck() {
 				if tt.trDo.err != nil {
 					return
 				}
+
+				suite.tasksRepo.On("GetTaskByUserIdAndMarkId", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int")).Once().
+					Return(tt.getTask.data, tt.getTask.err)
+				if tt.getTask.err != nil {
+					return
+				}
+
+				suite.tasksRepo.On("UpdateTaskStatus", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("models.TaskStatusType")).Once().
+					Return(tt.updateTaskStatus.err)
 			}()
 
 			_, gotErr := suite.uc.AddCheck(context.Background(), models.Check{}, []io.Reader{})
 
 			if tt.getLastMarkStatusHistoryItem.err == nil &&
-				tt.getUserMarkCheck.err == repository.ErrNotFound &&
+				errors.Is(tt.getUserMarkCheck.err, repository.ErrNotFound) &&
 				tt.addCheck.err == nil &&
 				tt.addPhotos.err == nil &&
-				tt.update.err == nil {
+				tt.update.err == nil &&
+				(tt.getTask.err == nil || errors.Is(tt.getTask.err, repository.ErrNotFound)) &&
+				tt.updateTaskStatus.err == nil {
 				suite.NoError(gotErr)
 			} else {
 				suite.NotNil(gotErr)
@@ -268,6 +370,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 			suite.checksRepo.AssertExpectations(suite.T())
 			suite.photosRepo.AssertExpectations(suite.T())
 			suite.updater.AssertExpectations(suite.T())
+			suite.tasksRepo.AssertExpectations(suite.T())
 		})
 	}
 }
@@ -818,7 +921,7 @@ func (suite *MarkStatusUpdaterSuite) TestConfirm() {
 			func() {
 				suite.marksRepo.On("GetMarkById", mock.Anything, mock.AnythingOfType("int")).Once().
 					Return(tt.getMarkById.data, tt.getMarkById.err)
-				if tt.getMarkById.err != nil || tt.err == usecase.ErrConflict {
+				if tt.getMarkById.err != nil || errors.Is(tt.err, usecase.ErrConflict) {
 					return
 				}
 
@@ -917,7 +1020,7 @@ func (suite *MarkStatusUpdaterSuite) TestReject() {
 			func() {
 				suite.marksRepo.On("GetMarkById", mock.Anything, mock.AnythingOfType("int")).Once().
 					Return(tt.getMarkById.data, tt.getMarkById.err)
-				if tt.getMarkById.err != nil || tt.err == usecase.ErrConflict {
+				if tt.getMarkById.err != nil || errors.Is(tt.err, usecase.ErrConflict) {
 					return
 				}
 

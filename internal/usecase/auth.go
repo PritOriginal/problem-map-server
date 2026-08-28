@@ -52,14 +52,12 @@ func (uc *Auth) SignUp(ctx context.Context, params SignUpParams) (int64, error) 
 	}
 
 	_, err = uc.repos.Users.GetUserByLogin(ctx, user.Login)
-	if err != repository.ErrNotFound {
-		switch err {
-		case nil:
-			return 0, ErrConflict
-		default:
-			uc.log.Debug("GetUserByLogin err", logger.Err(err))
-			return 0, fmt.Errorf("%s: %w", op, err)
-		}
+	if err == nil {
+		return 0, ErrConflict
+	}
+	if !errors.Is(err, repository.ErrNotFound) {
+		uc.log.Debug("GetUserByLogin err", logger.Err(err))
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
 	id, err := uc.repos.Users.AddUser(ctx, user)

@@ -118,7 +118,7 @@ func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos []io.Read
 		return nil
 	})
 	if err != nil {
-		return markId, err
+		return markId, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return markId, nil

@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -42,6 +43,7 @@ func (r *ChecksRepository) AddCheck(ctx context.Context, check models.Check) (in
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
+	defer func() { _ = stmt.Close() }()
 
 	if err := stmt.GetContext(ctx, &id, check); err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
@@ -67,8 +69,8 @@ func (r *ChecksRepository) GetCheckById(ctx context.Context, id int) (models.Che
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &check, query, id); err != nil {
-		switch err {
-		case sql.ErrNoRows:
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
 			return check, repository.ErrNotFound
 		default:
 			return check, fmt.Errorf("%s: %w", op, err)
@@ -227,8 +229,8 @@ func (r *ChecksRepository) GetUserMarkCheck(ctx context.Context, userId int, mar
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &check, query, markStatusHistoryId, userId); err != nil {
-		switch err {
-		case sql.ErrNoRows:
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
 			return check, repository.ErrNotFound
 		default:
 			return check, fmt.Errorf("%s: %w", op, err)

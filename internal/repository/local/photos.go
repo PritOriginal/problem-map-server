@@ -19,9 +19,13 @@ func (repo *PhotosRepo) AddPhotos(ctx context.Context, markId, reviewId int, pho
 		if err != nil {
 			return err
 		}
-		defer file.Close()
 
 		if _, err := io.Copy(file, photo); err != nil {
+			_ = file.Close()
+			return err
+		}
+
+		if err := file.Close(); err != nil {
 			return err
 		}
 	}

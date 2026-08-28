@@ -36,7 +36,7 @@ func New(cacher Cacher, ttl time.Duration) gin.HandlerFunc {
 		c.Next()
 
 		if blw.status >= 200 && blw.status < 300 {
-			cacher.Set(c.Request.Context(), cacheKey, blw.body.Bytes(), ttl)
+			_ = cacher.Set(c.Request.Context(), cacheKey, blw.body.Bytes(), ttl)
 		}
 	}
 }

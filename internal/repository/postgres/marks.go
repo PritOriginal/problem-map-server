@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -77,8 +78,8 @@ func (r *MarksRepository) GetMarkById(ctx context.Context, id int) (models.Mark,
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &mark, query, id); err != nil {
-		switch err {
-		case sql.ErrNoRows:
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
 			return mark, repository.ErrNotFound
 		default:
 			return mark, fmt.Errorf("%s: %w", op, err)
@@ -127,6 +128,7 @@ func (r *MarksRepository) AddMark(ctx context.Context, mark models.Mark) (int64,
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
+	defer func() { _ = stmt.Close() }()
 
 	if err := stmt.GetContext(ctx, &id, mark.Description, &mark.Geom, mark.MarkTypeID, mark.UserID); err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
@@ -219,8 +221,8 @@ func (r *MarksRepository) GetLastMarkStatusHistoryItemWithStatus(ctx context.Con
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &historyItem, query, markId, newMarkStatusId); err != nil {
-		switch err {
-		case sql.ErrNoRows:
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
 			return historyItem, repository.ErrNotFound
 		default:
 			return historyItem, fmt.Errorf("%s: %w", op, err)
@@ -249,8 +251,8 @@ func (r *MarksRepository) GetLastMarkStatusHistoryItem(ctx context.Context, mark
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &historyItem, query, markId); err != nil {
-		switch err {
-		case sql.ErrNoRows:
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
 			return historyItem, repository.ErrNotFound
 		default:
 			return historyItem, fmt.Errorf("%s: %w", op, err)

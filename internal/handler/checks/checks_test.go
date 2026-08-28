@@ -275,16 +275,17 @@ func (suite *ChecksSuite) TestAddCheck() {
 
 			b := &bytes.Buffer{}
 			mpw := multipart.NewWriter(b)
-			mpw.WriteField("mark_id", strconv.Itoa(tt.req.MarkID))
-			mpw.WriteField("result", strconv.FormatBool(tt.req.Result))
-			mpw.WriteField("comment", tt.req.Comment)
+			suite.NoError(mpw.WriteField("mark_id", strconv.Itoa(tt.req.MarkID)))
+			suite.NoError(mpw.WriteField("result", strconv.FormatBool(tt.req.Result)))
+			suite.NoError(mpw.WriteField("comment", tt.req.Comment))
 
 			image := gofakeit.ImageJpeg(10, 10)
 			fw, err := mpw.CreateFormFile("photos", "test.jpg")
 			suite.NoError(err)
-			io.Copy(fw, bytes.NewBuffer(image))
+			_, err = io.Copy(fw, bytes.NewBuffer(image))
+			suite.NoError(err)
 
-			mpw.Close()
+			suite.NoError(mpw.Close())
 
 			accessToken, err := token.CreateToken(1*time.Minute, 1, "1234")
 			suite.NoError(err)

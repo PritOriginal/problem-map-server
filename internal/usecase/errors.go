@@ -3,7 +3,7 @@ package usecase
 import "errors"
 
 var (
-	ErrNotFound     = errors.New("Not found")
-	ErrConflict     = errors.New("Conflict")
-	ErrUnauthorized = errors.New("Unauthorized")
+	ErrNotFound     = errors.New("not found")
+	ErrConflict     = errors.New("conflict")
+	ErrUnauthorized = errors.New("unauthorized")
 )

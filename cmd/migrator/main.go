@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/golang-migrate/migrate/v4"
@@ -42,7 +43,7 @@ var upCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		defer m.Close()
+		defer func() { _, _ = m.Close() }()
 
 		if steps > 0 {
 			fmt.Printf("Applying next %d migrations...\n", steps)
@@ -76,7 +77,7 @@ var downCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		defer m.Close()
+		defer func() { _, _ = m.Close() }()
 
 		if steps > 0 {
 			fmt.Printf("Rolling back last %d migrations...\n", steps)
@@ -104,14 +105,16 @@ var forceCmd = &cobra.Command{
 	Short: "Force a specific migration version",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		var version int
-		fmt.Sscanf(args[0], "%d", &version)
+		version, err := strconv.Atoi(args[0])
+		if err != nil {
+			return fmt.Errorf("invalid version %q: %w", args[0], err)
+		}
 
 		m, err := createMigrate()
 		if err != nil {
 			return err
 		}
-		defer m.Close()
+		defer func() { _, _ = m.Close() }()
 
 		if err := m.Force(version); err != nil {
 			return err
@@ -130,7 +133,7 @@ var versionCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		defer m.Close()
+		defer func() { _, _ = m.Close() }()
 
 		version, dirty, err := m.Version()
 		if err != nil {
@@ -165,7 +168,7 @@ var dropCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		defer m.Close()
+		defer func() { _, _ = m.Close() }()
 
 		if err := m.Drop(); err != nil {
 			return err
@@ -180,7 +183,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&migrationsPath, "migrations-path", "", "Path to migrations directory")
 	rootCmd.PersistentFlags().StringVar(&configPath, "config", "", "Path to config file")
 
-	rootCmd.MarkPersistentFlagRequired("migrations-path")
+	cobra.CheckErr(rootCmd.MarkPersistentFlagRequired("migrations-path"))
 
 	upCmd.Flags().IntP("steps", "s", 0, "Number of migrations to apply (0 = all)")
 	downCmd.Flags().IntP("steps", "s", 0, "Number of migrations to rollback (0 = last one)")

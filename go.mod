@@ -5,6 +5,8 @@ go 1.25.1
 require (
 	github.com/PritOriginal/problem-map-protos v0.0.5
 	github.com/appleboy/gin-jwt/v3 v3.5.1
+	github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2 v2.0.2
+	github.com/avito-tech/go-transaction-manager/trm/v2 v2.0.2
 	github.com/brianvoe/gofakeit/v7 v7.9.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/golang-migrate/migrate/v4 v4.19.0
@@ -13,6 +15,7 @@ require (
 	github.com/ilyakaznacheev/cleanenv v1.5.0
 	github.com/jmoiron/sqlx v1.4.0
 	github.com/lib/pq v1.10.9
+	github.com/nats-io/nats.go v1.52.0
 	github.com/redis/go-redis/v9 v9.16.0
 	github.com/spf13/cobra v1.10.2
 	github.com/stretchr/testify v1.11.1
@@ -26,8 +29,6 @@ require (
 	github.com/BurntSushi/toml v1.5.0 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/avito-tech/go-transaction-manager/drivers/sql/v2 v2.0.1 // indirect
-	github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2 v2.0.2 // indirect
-	github.com/avito-tech/go-transaction-manager/trm/v2 v2.0.2 // indirect
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.7.3 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.4.13 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.7.13 // indirect
@@ -75,7 +76,6 @@ require (
 	github.com/mattn/go-isatty v0.0.21 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/nats-io/nats.go v1.52.0 // indirect
 	github.com/nats-io/nkeys v0.4.15 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.3.0 // indirect

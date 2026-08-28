@@ -314,17 +314,18 @@ func (suite *MarksSuite) TestAddMark() {
 			b := &bytes.Buffer{}
 			mpw := multipart.NewWriter(b)
 
-			mpw.WriteField("longitude", strconv.FormatFloat(tt.req.Longitude, 'f', -1, 64))
-			mpw.WriteField("latitude", strconv.FormatFloat(tt.req.Latitude, 'f', -1, 64))
-			mpw.WriteField("mark_type_id", strconv.Itoa(tt.req.MarkTypeID))
-			mpw.WriteField("description", tt.req.Description)
+			suite.NoError(mpw.WriteField("longitude", strconv.FormatFloat(tt.req.Longitude, 'f', -1, 64)))
+			suite.NoError(mpw.WriteField("latitude", strconv.FormatFloat(tt.req.Latitude, 'f', -1, 64)))
+			suite.NoError(mpw.WriteField("mark_type_id", strconv.Itoa(tt.req.MarkTypeID)))
+			suite.NoError(mpw.WriteField("description", tt.req.Description))
 
 			image := gofakeit.ImageJpeg(10, 10)
 			fw, err := mpw.CreateFormFile("photos", "test.jpg")
 			suite.NoError(err)
-			io.Copy(fw, bytes.NewBuffer(image))
+			_, err = io.Copy(fw, bytes.NewBuffer(image))
+			suite.NoError(err)
 
-			mpw.Close()
+			suite.NoError(mpw.Close())
 
 			accessToken, err := token.CreateToken(1*time.Minute, 1, "1234")
 			suite.NoError(err)

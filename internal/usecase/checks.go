@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -57,8 +58,8 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 
 	historyItem, err := uc.repos.Marks.GetLastMarkStatusHistoryItem(ctx, check.MarkID)
 	if err != nil {
-		switch err {
-		case repository.ErrNotFound:
+		switch {
+		case errors.Is(err, repository.ErrNotFound):
 			return 0, ErrNotFound
 		default:
 			return 0, fmt.Errorf("%s: %w", op, err)
@@ -104,7 +105,7 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 		if err != nil {
 			return checkId, fmt.Errorf("%s: %w", op, err)
 		}
-	} else if err != repository.ErrNotFound {
+	} else if !errors.Is(err, repository.ErrNotFound) {
 		return checkId, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -116,8 +117,8 @@ func (uc *Checks) checkPossibilityAddCheck(ctx context.Context, userId int, hist
 
 	_, err := uc.repos.Checks.GetUserMarkCheck(ctx, userId, historyId)
 	if err != nil {
-		switch err {
-		case repository.ErrNotFound:
+		switch {
+		case errors.Is(err, repository.ErrNotFound):
 			return true, nil
 		default:
 			return false, fmt.Errorf("%s: %w", op, err)

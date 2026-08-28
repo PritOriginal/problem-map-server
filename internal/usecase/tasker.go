@@ -89,11 +89,6 @@ func (uc *Tasker) Update() error {
 	return nil
 }
 
-type markWithStats struct {
-	*models.Mark
-	numPeopleShouldCheck int
-}
-
 type userWithStats struct {
 	*models.User
 	numAssignedTasks int
@@ -136,7 +131,7 @@ type userWithStats struct {
 // 			// }
 // 			p[userId][markId] = markWithProbability{
 // 				markId:      markId,
-// 				probability: probabilityVerification(usersMap[userId], marksMap[markId], distancesMap[userId][markId]),
+// 				probability: probabilityVerification(usersMap[userId], distancesMap[userId][markId]),
 // 			}
 // 			// p[userIdx][markIdx] = markWithProbability{
 // 			// 	markId:      mark.ID,
@@ -289,7 +284,7 @@ func (uc *Tasker) update(marks []models.Mark, users []models.User, tasks []model
 		if _, exist := assignmentsOld[task.MarkID]; !exist {
 			assignmentsOld[task.MarkID] = map[int]float64{}
 		}
-		assignmentsOld[task.MarkID][task.UserID] = probabilityVerification(user, marksMap[task.MarkID], distancesMap[task.UserID][task.MarkID])
+		assignmentsOld[task.MarkID][task.UserID] = probabilityVerification(user, distancesMap[task.UserID][task.MarkID])
 	}
 
 	freeUsers := make(map[int]map[int]userWithStats, len(users))
@@ -298,7 +293,7 @@ func (uc *Tasker) update(marks []models.Mark, users []models.User, tasks []model
 		probalities[userId] = make(map[int]float64)
 		freeUsers[userId] = make(map[int]userWithStats)
 		for markId := range distancesMap[userId] {
-			probalities[userId][markId] = probabilityVerification(usersMap[userId], marksMap[markId], distancesMap[userId][markId])
+			probalities[userId][markId] = probabilityVerification(usersMap[userId], distancesMap[userId][markId])
 			freeUsers[userId][markId] = usersMap[userId]
 		}
 	}
@@ -408,7 +403,7 @@ func (uc *Tasker) update(marks []models.Mark, users []models.User, tasks []model
 			}
 
 			for markId := range probalities[bestUserId] {
-				probalities[bestUserId][markId] = probabilityVerification(usersMap[bestUserId], marksMap[markId], distancesMap[bestUserId][markId])
+				probalities[bestUserId][markId] = probabilityVerification(usersMap[bestUserId], distancesMap[bestUserId][markId])
 			}
 		}
 
@@ -435,12 +430,10 @@ func (uc *Tasker) update(marks []models.Mark, users []models.User, tasks []model
 	return assignments
 }
 
-func probabilityVerification(user userWithStats, mark models.Mark, distance float64) float64 {
-	var probability float64
-
+func probabilityVerification(user userWithStats, distance float64) float64 {
 	// homeDist := xy.Distance(user.HomePoint.Ewkb.Coords(), mark.Geom.Ewkb.Coords())
 
-	probability = (ratingFactor(user.Rating) + homeDistFactor(distance, 0.05)) * loadFactor(user.numAssignedTasks, 0.3) * fatigueFactor(0, 0.2)
+	probability := (ratingFactor(user.Rating) + homeDistFactor(distance, 0.05)) * loadFactor(user.numAssignedTasks, 0.3) * fatigueFactor(0, 0.2)
 	// probability = (ratingFactor(user.Rating) + homeDistFactor(distance, 0.05)) * loadFactor(user.numAssignedTasks, 0.3) * fatigueFactor(0, 0.2)
 
 	return min(1.0, probability)
