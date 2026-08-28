@@ -173,6 +173,11 @@ const docTemplate = `{
         },
         "/checks": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "add check",
                 "consumes": [
                     "multipart/form-data"
@@ -184,16 +189,6 @@ const docTemplate = `{
                     "checks"
                 ],
                 "summary": "Add check",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "default": "Bearer \u003cAdd access token here\u003e",
-                        "description": "Insert your access token",
-                        "name": "Authorization",
-                        "in": "header",
-                        "required": true
-                    }
-                ],
                 "responses": {
                     "201": {
                         "description": "Created",
@@ -203,6 +198,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
@@ -584,6 +585,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -593,6 +600,11 @@ const docTemplate = `{
                 }
             },
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "add mark",
                 "consumes": [
                     "multipart/form-data"
@@ -604,16 +616,6 @@ const docTemplate = `{
                     "marks"
                 ],
                 "summary": "Add mark",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "default": "Bearer \u003cAdd access token here\u003e",
-                        "description": "Insert your access token",
-                        "name": "Authorization",
-                        "in": "header",
-                        "required": true
-                    }
-                ],
                 "responses": {
                     "201": {
                         "description": "Created",
@@ -623,6 +625,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
@@ -787,6 +795,11 @@ const docTemplate = `{
         },
         "/marks/{id}/confirm": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "сonfirm the mark and moves it to a new status",
                 "consumes": [
                     "application/json"
@@ -798,6 +811,15 @@ const docTemplate = `{
                     "marks"
                 ],
                 "summary": "Confirm the mark",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "mark id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -807,6 +829,18 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
@@ -828,6 +862,11 @@ const docTemplate = `{
         },
         "/marks/{id}/reject": {
             "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
                 "description": "reject the mark and moves it to a new status",
                 "consumes": [
                     "application/json"
@@ -839,6 +878,15 @@ const docTemplate = `{
                     "marks"
                 ],
                 "summary": "Reject the mark",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "mark id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -848,6 +896,18 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
@@ -943,7 +1003,15 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "description": "add new task",
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "add new task on behalf of the authenticated user (moderator or admin)",
+                "consumes": [
+                    "application/json"
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -971,6 +1039,18 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
@@ -1074,7 +1154,7 @@ const docTemplate = `{
         },
         "/users": {
             "get": {
-                "description": "get users",
+                "description": "get public profiles of all users",
                 "produces": [
                     "application/json"
                 ],
@@ -1098,9 +1178,52 @@ const docTemplate = `{
                 }
             }
         },
+        "/users/me": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "get full profile of the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Get current user",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetMeResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
         "/users/{id}": {
             "get": {
-                "description": "get user by id",
+                "description": "get public user profile by id",
                 "produces": [
                     "application/json"
                 ],
@@ -1379,8 +1502,7 @@ const docTemplate = `{
                             "items": {
                                 "type": "array",
                                 "items": {
-                                    "type": "number",
-                                    "format": "float64"
+                                    "type": "number"
                                 }
                             }
                         }
@@ -1417,8 +1539,7 @@ const docTemplate = `{
                     "items": {
                         "type": "array",
                         "items": {
-                            "type": "number",
-                            "format": "float64"
+                            "type": "number"
                         }
                     }
                 },
@@ -1441,9 +1562,25 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_PritOriginal_problem-map-server_internal_models.Role": {
+            "type": "string",
+            "enum": [
+                "user",
+                "moderator",
+                "admin"
+            ],
+            "x-enum-varnames": [
+                "RoleUser",
+                "RoleModerator",
+                "RoleAdmin"
+            ]
+        },
         "github_com_PritOriginal_problem-map-server_internal_models.Task": {
             "type": "object",
             "properties": {
+                "created_at": {
+                    "type": "string"
+                },
                 "mark_id": {
                     "type": "integer"
                 },
@@ -1451,15 +1588,29 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status_id": {
-                    "type": "integer"
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.TaskStatusType"
                 },
                 "task_id": {
                     "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
                 },
                 "user_id": {
                     "type": "integer"
                 }
             }
+        },
+        "github_com_PritOriginal_problem-map-server_internal_models.TaskStatusType": {
+            "type": "integer",
+            "enum": [
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "UnfulfilledStatus",
+                "CompletedStatus"
+            ]
         },
         "github_com_PritOriginal_problem-map-server_internal_models.User": {
             "type": "object",
@@ -1472,6 +1623,9 @@ const docTemplate = `{
                 },
                 "rating": {
                     "type": "integer"
+                },
+                "role": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Role"
                 },
                 "user_id": {
                     "type": "integer"
@@ -1851,6 +2005,20 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetMeResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_users.GetMeResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
         "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetUserByIdResponse": {
             "type": "object",
             "properties": {
@@ -1934,11 +2102,15 @@ const docTemplate = `{
         "internal_handler_auth.SignUpRequest": {
             "type": "object",
             "required": [
+                "home_point",
                 "login",
                 "password",
                 "username"
             ],
             "properties": {
+                "home_point": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON"
+                },
                 "login": {
                     "type": "string",
                     "maxLength": 40,
@@ -2148,8 +2320,7 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "mark_id",
-                "name",
-                "user_id"
+                "name"
             ],
             "properties": {
                 "mark_id": {
@@ -2157,9 +2328,6 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
-                },
-                "user_id": {
-                    "type": "integer"
                 }
             }
         },
@@ -2201,11 +2369,19 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_handler_users.GetUserByIdResponse": {
+        "internal_handler_users.GetMeResponse": {
             "type": "object",
             "properties": {
                 "user": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.User"
+                }
+            }
+        },
+        "internal_handler_users.GetUserByIdResponse": {
+            "type": "object",
+            "properties": {
+                "user": {
+                    "$ref": "#/definitions/internal_handler_users.PublicUser"
                 }
             }
         },
@@ -2215,8 +2391,25 @@ const docTemplate = `{
                 "users": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.User"
+                        "$ref": "#/definitions/internal_handler_users.PublicUser"
                     }
+                }
+            }
+        },
+        "internal_handler_users.PublicUser": {
+            "type": "object",
+            "properties": {
+                "rating": {
+                    "type": "integer"
+                },
+                "role": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Role"
+                },
+                "user_id": {
+                    "type": "integer"
+                },
+                "username": {
+                    "type": "string"
                 }
             }
         },
@@ -2224,8 +2417,7 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "int64": {
-                    "type": "integer",
-                    "format": "int64"
+                    "type": "integer"
                 },
                 "valid": {
                     "description": "Valid is true if Int64 is not NULL",
@@ -2243,6 +2435,14 @@ const docTemplate = `{
                     "type": "boolean"
                 }
             }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "JWT access token: \"Bearer {token}\"",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
         }
     },
     "tags": [
