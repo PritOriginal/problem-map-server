@@ -56,6 +56,10 @@ func Unauthorized(c *gin.Context, message string) {
 	Fail(c, http.StatusUnauthorized, message)
 }
 
+func Forbidden(c *gin.Context, message string) {
+	Fail(c, http.StatusForbidden, message)
+}
+
 func Conflict(c *gin.Context, message string) {
 	Fail(c, http.StatusConflict, message)
 }

@@ -31,7 +31,7 @@ func (r *UsersRepository) GetUserById(ctx context.Context, id int) (models.User,
 
 	query := `
 			SELECT 
-				user_id, name, login, password_hash, ST_AsEWKB(home_point) as home_point, rating 
+				user_id, name, login, password_hash, ST_AsEWKB(home_point) as home_point, rating, role 
 			FROM 
 				users 
 			WHERE 
@@ -57,7 +57,7 @@ func (r *UsersRepository) GetUserByLogin(ctx context.Context, username string) (
 
 	query := `
 			SELECT
-				user_id, name, login, password_hash, ST_AsEWKB(home_point) as home_point, rating 
+				user_id, name, login, password_hash, ST_AsEWKB(home_point) as home_point, rating, role 
 			FROM 
 				users 
 			WHERE 
@@ -84,7 +84,7 @@ func (r *UsersRepository) GetUsers(ctx context.Context) ([]models.User, error) {
 
 	query := `
 			SELECT
-				user_id, name, login, ST_AsEWKB(home_point) as home_point, rating
+				user_id, name, login, ST_AsEWKB(home_point) as home_point, rating, role
 			FROM 
 				users
 			`
@@ -104,9 +104,9 @@ func (r *UsersRepository) AddUser(ctx context.Context, user models.User) (int64,
 
 	query := `
 			INSERT INTO 
-				users (name, login, password_hash, home_point) 
+				users (name, login, password_hash, home_point, role) 
 			VALUES 
-				($1, $2, $3, ST_GeomFromEWKB($4)) 
+				($1, $2, $3, ST_GeomFromEWKB($4), $5) 
 			RETURNING user_id
 			`
 
@@ -117,7 +117,7 @@ func (r *UsersRepository) AddUser(ctx context.Context, user models.User) (int64,
 	}
 	defer func() { _ = stmt.Close() }()
 
-	if err := stmt.GetContext(ctx, &id, user.Name, user.Login, user.PasswordHash, user.HomePoint); err != nil {
+	if err := stmt.GetContext(ctx, &id, user.Name, user.Login, user.PasswordHash, user.HomePoint, user.Role); err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 

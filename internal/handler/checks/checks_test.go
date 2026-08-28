@@ -207,6 +207,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 	tests := []struct {
 		name            string
 		req             checksrest.AddCheckRequest
+		invalidPhoto    bool
 		wantErrParseReq bool
 		errAddCheck     error
 		statusCode      int
@@ -253,6 +254,17 @@ func (suite *ChecksSuite) TestAddCheck() {
 			statusCode:  409,
 		},
 		{
+			name: "Err400InvalidPhoto",
+			req: checksrest.AddCheckRequest{
+				MarkID:  1,
+				Result:  true,
+				Comment: "",
+			},
+			invalidPhoto:    true,
+			wantErrParseReq: true,
+			statusCode:      400,
+		},
+		{
 			name: "Err500",
 			req: checksrest.AddCheckRequest{
 				MarkID:  1,
@@ -280,6 +292,9 @@ func (suite *ChecksSuite) TestAddCheck() {
 			suite.NoError(mpw.WriteField("comment", tt.req.Comment))
 
 			image := gofakeit.ImageJpeg(10, 10)
+			if tt.invalidPhoto {
+				image = []byte("not an image")
+			}
 			fw, err := mpw.CreateFormFile("photos", "test.jpg")
 			suite.NoError(err)
 			_, err = io.Copy(fw, bytes.NewBuffer(image))
@@ -287,7 +302,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 
 			suite.NoError(mpw.Close())
 
-			accessToken, err := token.CreateToken(1*time.Minute, 1, "1234")
+			accessToken, err := token.CreateToken(1*time.Minute, 1, string(models.RoleUser), "1234")
 			suite.NoError(err)
 
 			req := httptest.NewRequest("POST", "/checks", b)

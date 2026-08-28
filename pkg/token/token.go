@@ -8,13 +8,17 @@ import (
 	"github.com/golang-jwt/jwt"
 )
 
-func CreateToken(ttl time.Duration, userId int, key string) (string, error) {
+// RoleClaim is the JWT claim name that carries the user role.
+const RoleClaim = "role"
+
+func CreateToken(ttl time.Duration, userId int, role string, key string) (string, error) {
 	timeNow := time.Now()
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"iat": timeNow.Unix(),
-		"nbf": timeNow.Unix(),
-		"exp": timeNow.Add(ttl).Unix(),
-		"sub": strconv.Itoa(userId),
+		"iat":     timeNow.Unix(),
+		"nbf":     timeNow.Unix(),
+		"exp":     timeNow.Add(ttl).Unix(),
+		"sub":     strconv.Itoa(userId),
+		RoleClaim: role,
 	})
 	tokenString, err := token.SignedString([]byte(key))
 

@@ -240,10 +240,23 @@ func (suite *MarksSuite) TestAddMark() {
 	tests := []struct {
 		name            string
 		req             marksrest.AddMarkRequest
+		invalidPhoto    bool
 		wantErrParseReq bool
 		errAddCheck     error
 		statusCode      int
 	}{
+		{
+			name: "Err400InvalidPhoto",
+			req: marksrest.AddMarkRequest{
+				Longitude:   42,
+				Latitude:    52,
+				MarkTypeID:  1,
+				Description: "",
+			},
+			invalidPhoto:    true,
+			wantErrParseReq: true,
+			statusCode:      400,
+		},
 		{
 			name: "Ok201",
 			req: marksrest.AddMarkRequest{
@@ -320,6 +333,9 @@ func (suite *MarksSuite) TestAddMark() {
 			suite.NoError(mpw.WriteField("description", tt.req.Description))
 
 			image := gofakeit.ImageJpeg(10, 10)
+			if tt.invalidPhoto {
+				image = []byte("not an image")
+			}
 			fw, err := mpw.CreateFormFile("photos", "test.jpg")
 			suite.NoError(err)
 			_, err = io.Copy(fw, bytes.NewBuffer(image))
@@ -327,7 +343,7 @@ func (suite *MarksSuite) TestAddMark() {
 
 			suite.NoError(mpw.Close())
 
-			accessToken, err := token.CreateToken(1*time.Minute, 1, "1234")
+			accessToken, err := token.CreateToken(1*time.Minute, 1, string(models.RoleUser), "1234")
 			suite.NoError(err)
 
 			req := httptest.NewRequest("POST", "/marks", b)
@@ -491,14 +507,37 @@ func (suite *MarksSuite) TestConfirm() {
 	tests := []struct {
 		name           string
 		id             string
+		role           models.Role
+		noToken        bool
 		wantErrParseId bool
 		errConfirm     error
 		statusCode     int
 	}{
 		{
-			name:       "Ok200",
+			name:       "Ok200Moderator",
 			id:         "1",
+			role:       models.RoleModerator,
 			statusCode: http.StatusOK,
+		},
+		{
+			name:       "Ok200Admin",
+			id:         "1",
+			role:       models.RoleAdmin,
+			statusCode: http.StatusOK,
+		},
+		{
+			name:           "Err401NoToken",
+			id:             "1",
+			noToken:        true,
+			wantErrParseId: true,
+			statusCode:     http.StatusUnauthorized,
+		},
+		{
+			name:           "Err403User",
+			id:             "1",
+			role:           models.RoleUser,
+			wantErrParseId: true,
+			statusCode:     http.StatusForbidden,
 		},
 		{
 			name:           "Ok400",
@@ -527,11 +566,16 @@ func (suite *MarksSuite) TestConfirm() {
 			}
 			w := httptest.NewRecorder()
 
-			accessToken, err := token.CreateToken(1*time.Minute, 1, "1234")
-			suite.NoError(err)
-
 			req := httptest.NewRequest("POST", "/marks/"+tt.id+"/confirm", nil)
-			req.Header.Set("Authorization", "Bearer "+accessToken)
+			if !tt.noToken {
+				role := tt.role
+				if role == "" {
+					role = models.RoleModerator
+				}
+				accessToken, err := token.CreateToken(1*time.Minute, 1, string(role), "1234")
+				suite.NoError(err)
+				req.Header.Set("Authorization", "Bearer "+accessToken)
+			}
 
 			suite.r.ServeHTTP(w, req)
 
@@ -544,14 +588,37 @@ func (suite *MarksSuite) TestReject() {
 	tests := []struct {
 		name           string
 		id             string
+		role           models.Role
+		noToken        bool
 		wantErrParseId bool
 		errReject      error
 		statusCode     int
 	}{
 		{
-			name:       "Ok200",
+			name:       "Ok200Moderator",
 			id:         "1",
+			role:       models.RoleModerator,
 			statusCode: http.StatusOK,
+		},
+		{
+			name:       "Ok200Admin",
+			id:         "1",
+			role:       models.RoleAdmin,
+			statusCode: http.StatusOK,
+		},
+		{
+			name:           "Err401NoToken",
+			id:             "1",
+			noToken:        true,
+			wantErrParseId: true,
+			statusCode:     http.StatusUnauthorized,
+		},
+		{
+			name:           "Err403User",
+			id:             "1",
+			role:           models.RoleUser,
+			wantErrParseId: true,
+			statusCode:     http.StatusForbidden,
 		},
 		{
 			name:           "Ok400",
@@ -580,11 +647,16 @@ func (suite *MarksSuite) TestReject() {
 			}
 			w := httptest.NewRecorder()
 
-			accessToken, err := token.CreateToken(1*time.Minute, 1, "1234")
-			suite.NoError(err)
-
 			req := httptest.NewRequest("POST", "/marks/"+tt.id+"/reject", nil)
-			req.Header.Set("Authorization", "Bearer "+accessToken)
+			if !tt.noToken {
+				role := tt.role
+				if role == "" {
+					role = models.RoleModerator
+				}
+				accessToken, err := token.CreateToken(1*time.Minute, 1, string(role), "1234")
+				suite.NoError(err)
+				req.Header.Set("Authorization", "Bearer "+accessToken)
+			}
 
 			suite.r.ServeHTTP(w, req)
 

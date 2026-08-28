@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
@@ -62,10 +63,11 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 		{
 			id.GET("", handler.GetMarkById())
 			id.GET("status-history", handler.GetMarkStatusHistoryByMarkId())
-			auth := id.Group("", params.AuthMiddleware.MiddlewareFunc())
+			moderation := id.Group("", params.AuthMiddleware.MiddlewareFunc(),
+				middleware.RequireRole(models.RoleModerator, models.RoleAdmin))
 			{
-				auth.POST("confirm", handler.Confirm())
-				auth.POST("reject", handler.Reject())
+				moderation.POST("confirm", handler.Confirm())
+				moderation.POST("reject", handler.Reject())
 			}
 		}
 		marks.GET("user/:userId", handler.GetMarksByUserId())
@@ -93,6 +95,7 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 //	@Param			mark_status_ids	query		[]number	false	"filter by mark statuses"
 //	@Success		200				{object}	responses.Response[marksrest.GetMarksResponse]
 //	@Failure		400				{object}	responses.Response[any]
+//	@Failure		401				{object}	responses.Response[any]
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/marks [get]
 func (h *handler) GetMarks() gin.HandlerFunc {
@@ -208,10 +211,11 @@ func (h *handler) GetMarksByUserId() gin.HandlerFunc {
 //	@Tags			marks
 //	@Accept			mpfd
 //	@Produce		json
-//	@Param			Authorization	header		string	true	"Insert your access token"	default(Bearer <Add access token here>)
-//	@Success		201				{object}	responses.Response[marksrest.AddMarkResponse]
-//	@Failure		400				{object}	responses.Response[any]
-//	@Failure		500				{object}	responses.Response[any]
+//	@Security		BearerAuth
+//	@Success		201	{object}	responses.Response[marksrest.AddMarkResponse]
+//	@Failure		400	{object}	responses.Response[any]
+//	@Failure		401	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
 //	@Router			/marks [post]
 func (h *handler) AddMark() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -224,20 +228,17 @@ func (h *handler) AddMark() gin.HandlerFunc {
 
 		photos, err := handlers.ParsePhotos(req.Photos)
 		if err != nil {
-			h.log.Error("error parse photos", logger.Err(err))
-			responses.Internal(c, "error parse photos")
+			if errors.Is(err, handlers.ErrInvalidPhoto) {
+				h.log.Debug("invalid photos", logger.Err(err))
+				responses.BadRequest(c, "invalid photos")
+			} else {
+				h.log.Error("error parse photos", logger.Err(err))
+				responses.Internal(c, "error parse photos")
+			}
 			return
 		}
 
-		claims := jwt.ExtractClaims(c)
-
-		userIdStr, err := claims.GetSubject()
-		if err != nil {
-			h.log.Debug("invalid token", logger.Err(err))
-			responses.Unauthorized(c, "invalid token")
-			return
-		}
-		userId, err := strconv.Atoi(userIdStr)
+		userId, err := middleware.UserIDFromClaims(c)
 		if err != nil {
 			h.log.Debug("invalid token", logger.Err(err))
 			responses.Unauthorized(c, "invalid token")
@@ -370,8 +371,12 @@ func (h *handler) GetMarkStatusHistoryByMarkId() gin.HandlerFunc {
 //	@Tags			marks
 //	@Accept			json
 //	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		int	true	"mark id"
 //	@Success		200	{object}	responses.Response[marksrest.ConfirmResponse]
 //	@Failure		400	{object}	responses.Response[any]
+//	@Failure		401	{object}	responses.Response[any]
+//	@Failure		403	{object}	responses.Response[any]
 //	@Failure		409	{object}	responses.Response[any]
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/marks/{id}/confirm [post]
@@ -411,8 +416,12 @@ func (h *handler) Confirm() gin.HandlerFunc {
 //	@Tags			marks
 //	@Accept			json
 //	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		int	true	"mark id"
 //	@Success		200	{object}	responses.Response[marksrest.RejectResponse]
 //	@Failure		400	{object}	responses.Response[any]
+//	@Failure		401	{object}	responses.Response[any]
+//	@Failure		403	{object}	responses.Response[any]
 //	@Failure		409	{object}	responses.Response[any]
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/marks/{id}/reject [post]

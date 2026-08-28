@@ -6,6 +6,24 @@ import (
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
 )
 
+// Role is a user role that controls access to moderation endpoints.
+type Role string
+
+const (
+	RoleUser      Role = "user"
+	RoleModerator Role = "moderator"
+	RoleAdmin     Role = "admin"
+)
+
+// IsValid reports whether the role is one of the known roles.
+func (r Role) IsValid() bool {
+	switch r {
+	case RoleUser, RoleModerator, RoleAdmin:
+		return true
+	}
+	return false
+}
+
 type User struct {
 	Id           int    `json:"user_id" db:"user_id"`
 	Name         string `json:"username" db:"name"`
@@ -13,6 +31,7 @@ type User struct {
 	PasswordHash string `json:"-" db:"password_hash"`
 	HomePoint    *Point `json:"home_point" db:"home_point"`
 	Rating       int    `json:"rating" db:"rating"`
+	Role         Role   `json:"role" db:"role"`
 }
 
 func (u *User) ToProtobufObject() *pb.User {
