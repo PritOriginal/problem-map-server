@@ -14,6 +14,10 @@ packages:
     config:
       all: true
       recursive: true
+  github.com/PritOriginal/problem-map-server/internal/grpc:
+    config:
+      all: true
+      recursive: true
   github.com/PritOriginal/problem-map-server/internal/middleware/cache:
     config:
       all: true
