@@ -21,22 +21,30 @@ const (
 )
 
 // FromError maps a usecase error to an HTTP response. Well-known usecase and
-// handler errors become 4xx responses with a generic message; everything else
-// is logged with op and reported as 500 without details.
+// handler errors become 4xx responses with a generic message and are logged
+// at debug level; everything else is logged as an error with op and reported
+// as 500 without details.
 func FromError(c *gin.Context, log *slog.Logger, op string, err error) {
+	var respond func(*gin.Context, string)
+	var msg string
+
 	switch {
 	case errors.Is(err, usecase.ErrNotFound):
-		NotFound(c, MsgNotFound)
+		respond, msg = NotFound, MsgNotFound
 	case errors.Is(err, usecase.ErrConflict):
-		Conflict(c, MsgConflict)
+		respond, msg = Conflict, MsgConflict
 	case errors.Is(err, usecase.ErrUnauthorized):
-		Unauthorized(c, MsgUnauthorized)
+		respond, msg = Unauthorized, MsgUnauthorized
 	case errors.Is(err, usecase.ErrForbidden):
-		Forbidden(c, MsgForbidden)
+		respond, msg = Forbidden, MsgForbidden
 	case errors.Is(err, handlers.ErrInvalidPhoto), errors.Is(err, handlers.ErrBadRequest):
-		BadRequest(c, MsgBadRequest)
+		respond, msg = BadRequest, MsgBadRequest
 	default:
 		log.Error(op, slogger.Err(err))
 		Internal(c, MsgInternal)
+		return
 	}
+
+	log.Debug(op, slogger.Err(err))
+	respond(c, msg)
 }
