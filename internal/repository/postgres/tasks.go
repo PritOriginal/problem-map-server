@@ -128,17 +128,11 @@ func (r *TasksRepository) AddTask(ctx context.Context, task models.Task) (int64,
 			INSERT INTO 
 				tasks (name, user_id, mark_id) 
 			VALUES 
-				(:name, :user_id, :mark_id)
+				($1, $2, $3)
 			RETURNING task_id
 			`
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	stmt, err := tr.PrepareNamedContext(ctx, query)
-	if err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
-	}
-	defer func() { _ = stmt.Close() }()
-
-	if err := stmt.GetContext(ctx, &id, task); err != nil {
+	if err := tr.GetContext(ctx, &id, query, task.Name, task.UserID, task.MarkID); err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 

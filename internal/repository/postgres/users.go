@@ -111,14 +111,8 @@ func (r *UsersRepository) AddUser(ctx context.Context, user models.User) (int64,
 			`
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	stmt, err := tr.PreparexContext(ctx, query)
-	if err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
-	}
-	defer func() { _ = stmt.Close() }()
-
-	if err := stmt.GetContext(ctx, &id, user.Name, user.Login, user.PasswordHash, user.HomePoint); err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
+	if err := tr.GetContext(ctx, &id, query, user.Name, user.Login, user.PasswordHash, user.HomePoint); err != nil {
+		return 0, fmt.Errorf("%s: %w", op, wrapUniqueViolation(err))
 	}
 
 	return id, nil

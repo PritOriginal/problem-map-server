@@ -62,6 +62,9 @@ func (uc *Auth) SignUp(ctx context.Context, params SignUpParams) (int64, error) 
 
 	id, err := uc.repos.Users.AddUser(ctx, user)
 	if err != nil {
+		if errors.Is(err, repository.ErrExists) {
+			return 0, ErrConflict
+		}
 		return id, fmt.Errorf("%s: %w", op, err)
 	}
 
