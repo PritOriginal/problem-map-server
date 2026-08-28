@@ -13,11 +13,16 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '>=1.23.0'
+          go-version: '1.25'
       
+      - name: Lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+
       - name: Start tests
         run: |
-          go test ./...
+          go test -tags=nomsgpack ./...
 
   deploy:
     runs-on: ubuntu-latest
@@ -31,7 +36,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '>=1.23.0'
+          go-version: '1.25'
       
       - name: Build app
         run: |
