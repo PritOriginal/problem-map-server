@@ -261,26 +261,20 @@ func (r *MarksRepository) GetDistancesFromMarkToPoint(ctx context.Context, filte
 
 	distances := []models.DistanceFromMarkToPoint{}
 
+	// ST_DWithin on geography lets the planner use the GiST indexes on
+	// marks.geom and users.home_point instead of a full cross join.
 	query := `
-		WITH distances AS (
-			SELECT 
-				m.mark_id,
-				u.user_id,
-				ST_DistanceSphere(m.geom, u.home_point) AS dist_meters
-			FROM
-				marks m
-			CROSS JOIN
-				users u
-			WHERE
-				m.mark_status_id = ANY($1)
-		)
-		SELECT 
-			mark_id,
-			user_id,
-			ROUND((dist_meters / 1000.0)::numeric, 2) AS distance_km
-		FROM distances
-		WHERE dist_meters < $2
-		ORDER BY mark_id, user_id
+		SELECT
+			m.mark_id,
+			u.user_id,
+			ROUND((ST_DistanceSphere(m.geom, u.home_point) / 1000.0)::numeric, 2) AS distance_km
+		FROM
+			marks m
+		JOIN
+			users u ON ST_DWithin(m.geom::geography, u.home_point::geography, $2)
+		WHERE
+			m.mark_status_id = ANY($1)
+		ORDER BY m.mark_id, u.user_id
 		`
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
@@ -289,5 +283,4 @@ func (r *MarksRepository) GetDistancesFromMarkToPoint(ctx context.Context, filte
 	}
 
 	return distances, nil
-
 }

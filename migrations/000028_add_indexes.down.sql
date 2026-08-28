@@ -1,4 +1,5 @@
-DROP INDEX IF EXISTS idx_users_home_point;
+DROP INDEX IF EXISTS idx_marks_geom_geog;
+DROP INDEX IF EXISTS idx_users_home_point_geog;
 DROP INDEX IF EXISTS idx_mark_status_history_prev_id;
 DROP INDEX IF EXISTS idx_tasks_status_id;
 DROP INDEX IF EXISTS idx_tasks_mark_id;

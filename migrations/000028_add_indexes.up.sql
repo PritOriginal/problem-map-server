@@ -13,4 +13,7 @@ CREATE INDEX IF NOT EXISTS idx_tasks_status_id ON tasks (status_id);
 -- idx_mark_status_history_mark_id already exists (see 000013).
 CREATE INDEX IF NOT EXISTS idx_mark_status_history_prev_id ON mark_status_history (prev_id);
 
-CREATE INDEX IF NOT EXISTS idx_users_home_point ON users USING GIST (home_point);
+-- Geography expression indexes: ST_DWithin(geom::geography, ...) cannot use
+-- the plain geometry GiST index, it needs an index on the casted expression.
+CREATE INDEX IF NOT EXISTS idx_users_home_point_geog ON users USING GIST ((home_point::geography));
+CREATE INDEX IF NOT EXISTS idx_marks_geom_geog ON marks USING GIST ((geom::geography));
