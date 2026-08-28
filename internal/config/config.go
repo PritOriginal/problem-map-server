@@ -4,7 +4,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"net"
+	"net/url"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
@@ -99,17 +102,48 @@ func MustLoad() *Config {
 }
 
 func MustLoadPath(configPath string) *Config {
+	cfg, err := LoadPath(configPath)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	return cfg
+}
+
+// LoadPath reads the config file at configPath (env vars override file
+// values) and validates it.
+func LoadPath(configPath string) (*Config, error) {
 	var cfg Config
 
 	if err := cleanenv.ReadConfig(configPath, &cfg); err != nil {
-		panic("cannot read config: " + err.Error())
+		return nil, fmt.Errorf("cannot read config: %w", err)
 	}
 
 	if err := cfg.Validate(); err != nil {
-		panic("invalid config: " + err.Error())
+		return nil, fmt.Errorf("invalid config: %w", err)
 	}
 
-	return &cfg
+	return &cfg, nil
+}
+
+// DSN returns a postgres:// connection URL. Credentials are URL-escaped so
+// that reserved characters in the password do not break the DSN.
+// An empty SSLMode falls back to "disable".
+func (d DatabaseConfig) DSN() string {
+	sslMode := d.SSLMode
+	if sslMode == "" {
+		sslMode = "disable"
+	}
+
+	u := url.URL{
+		Scheme:   "postgres",
+		User:     url.UserPassword(d.Username, d.Password),
+		Host:     net.JoinHostPort(d.Host, strconv.Itoa(d.Port)),
+		Path:     "/" + d.Name,
+		RawQuery: "sslmode=" + url.QueryEscape(sslMode),
+	}
+
+	return u.String()
 }
 
 // MinJWTKeyLength is the minimum length (in bytes) of a JWT signing key.

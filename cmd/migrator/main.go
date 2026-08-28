@@ -27,8 +27,9 @@ var rootCmd = &cobra.Command{
 		if migrationsPath == "" {
 			return errors.New("migrations-path is required")
 		}
-		cfg = config.MustLoadPath(configPath)
-		return nil
+		var err error
+		cfg, err = config.LoadPath(configPath)
+		return err
 	},
 }
 
@@ -151,18 +152,7 @@ var versionCmd = &cobra.Command{
 }
 
 func createMigrate() (*migrate.Migrate, error) {
-	sslMode := cfg.DB.SSLMode
-	if sslMode == "" {
-		sslMode = "disable"
-	}
-
-	databaseURL := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
-		cfg.DB.Username, cfg.DB.Password, cfg.DB.Host, cfg.DB.Port, cfg.DB.Name, sslMode)
-
-	return migrate.New(
-		"file://"+migrationsPath,
-		databaseURL,
-	)
+	return migrate.New("file://"+migrationsPath, cfg.DB.DSN())
 }
 
 var dropCmd = &cobra.Command{

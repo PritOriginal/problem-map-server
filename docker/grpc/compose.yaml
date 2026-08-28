@@ -1,3 +1,6 @@
+# Relative paths below (./configs, ./migrations, ./osm) are resolved against
+# the repository root: run via `make docker-rest|docker-grpc` or pass
+# `--project-directory .` to `docker compose`.
 services:
   server:
     build:
