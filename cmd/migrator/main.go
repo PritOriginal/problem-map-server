@@ -151,8 +151,13 @@ var versionCmd = &cobra.Command{
 }
 
 func createMigrate() (*migrate.Migrate, error) {
-	databaseURL := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=disable",
-		cfg.DB.Username, cfg.DB.Password, cfg.DB.Host, cfg.DB.Port, cfg.DB.Name)
+	sslMode := cfg.DB.SSLMode
+	if sslMode == "" {
+		sslMode = "disable"
+	}
+
+	databaseURL := fmt.Sprintf("postgres://%s:%s@%s:%d/%s?sslmode=%s",
+		cfg.DB.Username, cfg.DB.Password, cfg.DB.Host, cfg.DB.Port, cfg.DB.Name, sslMode)
 
 	return migrate.New(
 		"file://"+migrationsPath,
