@@ -31,7 +31,7 @@ ARG TARGETARCH
 # source code into the container.
 RUN --mount=type=cache,target=/go/pkg/mod/ \
     --mount=type=bind,target=. \
-    CGO_ENABLED=0 GOARCH=$TARGETARCH go build -o /bin/server-rest ./cmd/rest
+    CGO_ENABLED=0 GOARCH=$TARGETARCH go build -trimpath -ldflags="-s -w" -o /bin/server-rest ./cmd/rest
 
 ################################################################################
 # Create a new stage for running the application that contains the minimal
@@ -44,7 +44,7 @@ RUN --mount=type=cache,target=/go/pkg/mod/ \
 # most recent version of that image when you build your Dockerfile. If
 # reproducibility is important, consider using a versioned tag
 # (e.g., alpine:3.17.2) or SHA (e.g., alpine@sha256:c41ab5c992deb4fe7e5da09f67a8804a46bd0592bfdf0b1847dde0e0889d2bff).
-FROM alpine:latest AS final
+FROM alpine:3.21 AS final
 
 # Install any runtime dependencies that are needed to run your application.
 # Leverage a cache mount to /var/cache/apk/ to speed up subsequent builds.
@@ -71,7 +71,9 @@ USER appuser
 # Copy the executable from the "build" stage.
 COPY --from=build /bin/server-rest /bin/
 
-COPY ./configs/.env.docker /bin/configs/.env
+# The config is NOT baked into the image: mount it (or pass env vars via
+# `env_file:`) from compose. See docker/rest/compose.yaml.
+ENV CONFIG_PATH=/etc/problem-map/.env
 
 # What the container should run when it is started.
-ENTRYPOINT [ "/bin/server-rest", "--config=/bin/configs/.env" ]
+ENTRYPOINT [ "/bin/server-rest" ]

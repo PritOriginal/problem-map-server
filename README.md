@@ -69,6 +69,42 @@ cp ./configs/config.yaml.example ./configs/config.yaml
 cp ./configs/.env.example ./configs/.env
 ```
 
+### Переменные окружения и секреты
+
+Конфиг читается из файла, путь к которому передаётся флагом `--config=<path>`
+или переменной `CONFIG_PATH`. Значения из файла можно переопределить
+переменными окружения (имена указаны в `configs/.env.example`).
+
+Локальные конфиги (`configs/config*.yaml`, `configs/.env*`) игнорируются git —
+в репозитории лежат только шаблоны `config.yaml.example` / `.env.example`
+и `.env.docker` для compose.
+
+**JWT-ключи в шаблонах — плейсхолдеры.** При старте сервер проверяет, что
+`JWT_ACCESS_TOKEN_KEY` / `JWT_REFRESH_TOKEN_KEY` не пустые и не короче
+32 байт, а `POSTGRES_PASSWORD` задан; иначе запуск завершится с понятной ошибкой.
+Сгенерируйте собственные ключи и подставьте их в конфиг:
+
+```bash
+openssl rand -base64 32   # JWT_ACCESS_TOKEN_KEY
+openssl rand -base64 32   # JWT_REFRESH_TOKEN_KEY
+```
+
+Основные переменные:
+
+| Переменная | Описание | По умолчанию |
+|---|---|---|
+| `JWT_ACCESS_TOKEN_KEY` / `JWT_REFRESH_TOKEN_KEY` | ключи подписи JWT (>= 32 байт) | — |
+| `JWT_ACCESS_TOKEN_EXPIRED_IN` / `JWT_REFRESH_TOKEN_EXPIRED_IN` | время жизни токенов | — |
+| `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | подключение к PostgreSQL | — |
+| `POSTGRES_SSLMODE` | `sslmode` для PostgreSQL | `disable` |
+| `POSTGRES_MAX_OPEN_CONNS` / `POSTGRES_MAX_IDLE_CONNS` / `POSTGRES_CONN_MAX_LIFETIME` | пул соединений | `25` / `5` / `5m` |
+| `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD` | подключение к Redis | — |
+| `AWS_KEY`, `AWS_SECRET_KEY`, `AWS_ENDPOINT` | S3-хранилище фото (при `PHOTO_STORAGE=s3`) | — |
+
+В Docker конфиг не копируется в образ: `docker/*/compose.yaml` монтирует
+`configs/.env.docker` в контейнер (`/etc/problem-map/.env`) и передаёт его же
+через `env_file`.
+
 ## Запуск
 
 ### Запуск REST API сервера
