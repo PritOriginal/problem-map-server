@@ -68,20 +68,21 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 	check.MarkStatusHistoryItemId = historyItem.ID
 	check.MarkStatusId = historyItem.NewMarkStatusID
 
-	hasPossibilityAdd, err := uc.checkPossibilityAddCheck(ctx, check.UserID, check.MarkStatusHistoryItemId)
-	if err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
-	}
-
-	if !hasPossibilityAdd {
-		return 0, ErrConflict
-	}
-
 	var checkId int64
 	err = uc.trManager.Do(ctx, func(ctx context.Context) error {
-		var err error
+		hasPossibilityAdd, err := uc.checkPossibilityAddCheck(ctx, check.UserID, check.MarkStatusHistoryItemId)
+		if err != nil {
+			return err
+		}
+		if !hasPossibilityAdd {
+			return ErrConflict
+		}
+
 		checkId, err = uc.repos.Checks.AddCheck(ctx, check)
 		if err != nil {
+			if errors.Is(err, repository.ErrExists) {
+				return ErrConflict
+			}
 			return err
 		}
 
@@ -93,20 +94,21 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 			return err
 		}
 
-		return nil
+		task, err := uc.repos.Tasks.GetTaskByUserIdAndMarkId(ctx, check.UserID, check.MarkID)
+		switch {
+		case err == nil:
+			return uc.repos.Tasks.UpdateTaskStatus(ctx, task.ID, models.CompletedStatus)
+		case errors.Is(err, repository.ErrNotFound):
+			return nil
+		default:
+			return err
+		}
 	})
 	if err != nil {
-		return checkId, fmt.Errorf("%s: %w", op, err)
-	}
-
-	task, err := uc.repos.Tasks.GetTaskByUserIdAndMarkId(ctx, check.UserID, check.MarkID)
-	if err == nil {
-		err = uc.repos.Tasks.UpdateTaskStatus(ctx, task.ID, models.CompletedStatus)
-		if err != nil {
-			return checkId, fmt.Errorf("%s: %w", op, err)
+		if errors.Is(err, ErrConflict) {
+			return 0, ErrConflict
 		}
-	} else if !errors.Is(err, repository.ErrNotFound) {
-		return checkId, fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return checkId, nil

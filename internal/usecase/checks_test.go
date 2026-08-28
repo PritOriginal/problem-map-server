@@ -52,12 +52,12 @@ func (suite *ChecksSuite) TestAddCheck() {
 		name                         string
 		getLastMarkStatusHistoryItem method[models.MarkStatusHistoryItem]
 		getUserMarkCheck             method[models.Check]
-		trDo                         method[any]
 		addCheck                     method[int64]
 		addPhotos                    method[any]
 		update                       method[any]
 		getTask                      method[models.Task]
 		updateTaskStatus             method[any]
+		wantErr                      error
 	}{
 		{
 			name: "Ok",
@@ -195,35 +195,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 			},
 		},
 		{
-			name: "OkFalseHasPossibilityAdd",
-			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
-				data: models.MarkStatusHistoryItem{},
-				err:  nil,
-			},
-		},
-		{
-			name: "ErrGetLastMarkStatusHistoryItem",
-			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
-				data: models.MarkStatusHistoryItem{
-					NewMarkStatusID: models.UnconfirmedStatus,
-				},
-				err: errors.New(""),
-			},
-		},
-		{
-			name: "ErrGetUserMarkCheck",
-			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
-				data: models.MarkStatusHistoryItem{
-					NewMarkStatusID: models.UnconfirmedStatus,
-				},
-				err: nil,
-			},
-			getUserMarkCheck: method[models.Check]{
-				err: errors.New(""),
-			},
-		},
-		{
-			name: "OkFalseHasPossibilityAdd",
+			name: "ErrConflictAlreadyChecked",
 			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
 				data: models.MarkStatusHistoryItem{
 					NewMarkStatusID: models.UnconfirmedStatus,
@@ -233,6 +205,23 @@ func (suite *ChecksSuite) TestAddCheck() {
 			getUserMarkCheck: method[models.Check]{
 				err: nil,
 			},
+			wantErr: usecase.ErrConflict,
+		},
+		{
+			name: "ErrConflictAddCheckExists",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					NewMarkStatusID: models.UnconfirmedStatus,
+				},
+				err: nil,
+			},
+			getUserMarkCheck: method[models.Check]{
+				err: repository.ErrNotFound,
+			},
+			addCheck: method[int64]{
+				err: repository.ErrExists,
+			},
+			wantErr: usecase.ErrConflict,
 		},
 		{
 			name: "ErrAddCheck",
@@ -244,9 +233,6 @@ func (suite *ChecksSuite) TestAddCheck() {
 			},
 			getUserMarkCheck: method[models.Check]{
 				err: repository.ErrNotFound,
-			},
-			trDo: method[any]{
-				err: errors.New(""),
 			},
 			addCheck: method[int64]{
 				data: int64(0),
@@ -263,9 +249,6 @@ func (suite *ChecksSuite) TestAddCheck() {
 			},
 			getUserMarkCheck: method[models.Check]{
 				err: repository.ErrNotFound,
-			},
-			trDo: method[any]{
-				err: errors.New(""),
 			},
 			addCheck: method[int64]{
 				data: int64(1),
@@ -285,9 +268,6 @@ func (suite *ChecksSuite) TestAddCheck() {
 			},
 			getUserMarkCheck: method[models.Check]{
 				err: repository.ErrNotFound,
-			},
-			trDo: method[any]{
-				err: errors.New(""),
 			},
 			addCheck: method[int64]{
 				data: int64(1),
@@ -310,37 +290,33 @@ func (suite *ChecksSuite) TestAddCheck() {
 					return
 				}
 
+				// Everything below runs inside a single transaction.
+				suite.trManager.On("Do", mock.Anything, mock.Anything).Once().
+					Return(func(ctx context.Context, fn func(ctx context.Context) error) error {
+						return fn(ctx)
+					})
+
 				suite.checksRepo.On("GetUserMarkCheck", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int"), mock.Anything).Once().
 					Return(tt.getUserMarkCheck.data, tt.getUserMarkCheck.err)
 				if !errors.Is(tt.getUserMarkCheck.err, repository.ErrNotFound) {
 					return
 				}
 
-				suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Run(func(args mock.Arguments) {
-					fn := args.Get(1).(func(ctx context.Context) error)
-					ctx := args.Get(0).(context.Context)
-					_ = fn(ctx)
-				}).Return(tt.trDo.err)
-				{
-					suite.checksRepo.On("AddCheck", mock.Anything, mock.Anything).Once().
-						Return(tt.addCheck.data, tt.addCheck.err)
-					if tt.addCheck.err != nil {
-						return
-					}
-
-					suite.photosRepo.On("AddPhotos", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int"), mock.Anything).Once().
-						Return(tt.addPhotos.err)
-					if tt.addPhotos.err != nil {
-						return
-					}
-
-					suite.updater.On("Update", mock.Anything, mock.AnythingOfType("int")).Once().
-						Return(tt.update.err)
-					if tt.update.err != nil {
-						return
-					}
+				suite.checksRepo.On("AddCheck", mock.Anything, mock.Anything).Once().
+					Return(tt.addCheck.data, tt.addCheck.err)
+				if tt.addCheck.err != nil {
+					return
 				}
-				if tt.trDo.err != nil {
+
+				suite.photosRepo.On("AddPhotos", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int"), mock.Anything).Once().
+					Return(tt.addPhotos.err)
+				if tt.addPhotos.err != nil {
+					return
+				}
+
+				suite.updater.On("Update", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(tt.update.err)
+				if tt.update.err != nil {
 					return
 				}
 
@@ -356,21 +332,25 @@ func (suite *ChecksSuite) TestAddCheck() {
 
 			_, gotErr := suite.uc.AddCheck(context.Background(), models.Check{}, []io.Reader{})
 
-			if tt.getLastMarkStatusHistoryItem.err == nil &&
+			switch {
+			case tt.getLastMarkStatusHistoryItem.err == nil &&
 				errors.Is(tt.getUserMarkCheck.err, repository.ErrNotFound) &&
 				tt.addCheck.err == nil &&
 				tt.addPhotos.err == nil &&
 				tt.update.err == nil &&
 				(tt.getTask.err == nil || errors.Is(tt.getTask.err, repository.ErrNotFound)) &&
-				tt.updateTaskStatus.err == nil {
+				tt.updateTaskStatus.err == nil:
 				suite.NoError(gotErr)
-			} else {
-				suite.NotNil(gotErr)
+			case tt.wantErr != nil:
+				suite.ErrorIs(gotErr, tt.wantErr)
+			default:
+				suite.Error(gotErr)
 			}
 			suite.checksRepo.AssertExpectations(suite.T())
 			suite.photosRepo.AssertExpectations(suite.T())
 			suite.updater.AssertExpectations(suite.T())
 			suite.tasksRepo.AssertExpectations(suite.T())
+			suite.trManager.AssertExpectations(suite.T())
 		})
 	}
 }

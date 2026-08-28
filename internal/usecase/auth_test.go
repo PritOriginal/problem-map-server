@@ -78,6 +78,15 @@ func (suite *AuthSuite) TestSignUp() {
 				err: errors.New(""),
 			},
 		},
+		{
+			name: "ErrConflictAddUserExists",
+			getUserByLogin: method[models.User]{
+				err: repository.ErrNotFound,
+			},
+			addUser: method[int64]{
+				err: repository.ErrExists,
+			},
+		},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
@@ -102,9 +111,12 @@ func (suite *AuthSuite) TestSignUp() {
 				HomePoint: &models.Point{},
 			})
 
-			if errors.Is(tt.getUserByLogin.err, repository.ErrNotFound) && tt.addUser.err == nil {
+			switch {
+			case errors.Is(tt.getUserByLogin.err, repository.ErrNotFound) && tt.addUser.err == nil:
 				suite.NoError(gotErr)
-			} else {
+			case errors.Is(tt.addUser.err, repository.ErrExists):
+				suite.ErrorIs(gotErr, usecase.ErrConflict)
+			default:
 				suite.NotNil(gotErr)
 			}
 
