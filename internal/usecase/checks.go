@@ -105,9 +105,6 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 		}
 	})
 	if err != nil {
-		if errors.Is(err, ErrConflict) {
-			return 0, ErrConflict
-		}
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 

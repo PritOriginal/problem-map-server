@@ -60,7 +60,7 @@ func (r *MapRepository) GetAdminBoundariesMarksCount(ctx context.Context, filter
 	// boundaries without matching marks are kept (with zero counts);
 	// conditions on the boundaries themselves live in WHERE.
 	joinConditions := []string{"ST_Contains(b.geom, m.geom)"}
-	whereConditions := []string{"1=1"}
+	whereConditions := []string{"TRUE"}
 
 	if len(filters.AdminLevels) > 0 {
 		args = append(args, pq.Array(filters.AdminLevels))
