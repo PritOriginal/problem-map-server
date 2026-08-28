@@ -13,7 +13,7 @@ func TestTasker_update(t *testing.T) {
 	tasksRepo := NewMockTasksRepository(t)
 	marksRepo := NewMockMarksRepository(t)
 	usersRepo := NewMockUsersRepository(t)
-	uc := NewTaskser(log, TaskerRepositories{
+	uc := NewTaskser(log, NewMockManager(t), TaskerRepositories{
 		Tasks: tasksRepo,
 		Marks: marksRepo,
 		Users: usersRepo,

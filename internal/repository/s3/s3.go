@@ -7,6 +7,7 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -51,8 +52,11 @@ func (client *S3) Close() error {
 	if client.Client == nil {
 		return nil
 	}
-	if t, ok := client.Client.Options().HTTPClient.(interface{ CloseIdleConnections() }); ok {
-		t.CloseIdleConnections()
+	switch hc := client.Client.Options().HTTPClient.(type) {
+	case *awshttp.BuildableClient:
+		hc.GetTransport().CloseIdleConnections()
+	case interface{ CloseIdleConnections() }:
+		hc.CloseIdleConnections()
 	}
 	return nil
 }

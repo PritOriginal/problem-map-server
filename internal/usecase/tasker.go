@@ -9,11 +9,13 @@ import (
 	"slices"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/avito-tech/go-transaction-manager/trm/v2"
 )
 
 type Tasker struct {
-	log   *slog.Logger
-	repos TaskerRepositories
+	log       *slog.Logger
+	trManager trm.Manager
+	repos     TaskerRepositories
 }
 
 type TaskerRepositories struct {
@@ -22,10 +24,11 @@ type TaskerRepositories struct {
 	Users UsersRepository
 }
 
-func NewTaskser(log *slog.Logger, repos TaskerRepositories) *Tasker {
+func NewTaskser(log *slog.Logger, trManager trm.Manager, repos TaskerRepositories) *Tasker {
 	return &Tasker{
-		log:   log,
-		repos: repos,
+		log:       log,
+		trManager: trManager,
+		repos:     repos,
 	}
 }
 
@@ -74,16 +77,24 @@ func (uc *Tasker) Update(ctx context.Context) error {
 
 	assignments := uc.update(marks, users, tasks, distances)
 
-	for markId, users := range assignments {
-		for userId := range users {
-			_, err := uc.repos.Tasks.AddTask(ctx, models.Task{
-				MarkID: markId,
-				UserID: userId,
-			})
-			if err != nil {
-				return err
+	// All assignments are written in one transaction so that a failure or a
+	// cancellation (SIGTERM) never leaves a partially written batch.
+	err = uc.trManager.Do(ctx, func(ctx context.Context) error {
+		for markId, users := range assignments {
+			for userId := range users {
+				_, err := uc.repos.Tasks.AddTask(ctx, models.Task{
+					MarkID: markId,
+					UserID: userId,
+				})
+				if err != nil {
+					return err
+				}
 			}
 		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	return nil

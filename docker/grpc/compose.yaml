@@ -9,6 +9,7 @@ services:
       - server-network
     ports:
       - ${GRPC_PORT}:${GRPC_PORT}
+      - ${GRPC_METRICS_PORT}:${GRPC_METRICS_PORT}
     depends_on:
       migrate:
         condition: service_completed_successfully

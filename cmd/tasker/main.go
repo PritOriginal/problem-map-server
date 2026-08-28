@@ -12,6 +12,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
 	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
+	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
 )
 
 func main() {
@@ -46,7 +47,8 @@ func run() int {
 	marksRepo := postgres.NewMarks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	usersRepo := postgres.NewUsers(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 
-	tasker := usecase.NewTaskser(logger, usecase.TaskerRepositories{
+	trManager := manager.Must(trmsqlx.NewDefaultFactory(postgresDB.DB))
+	tasker := usecase.NewTaskser(logger, trManager, usecase.TaskerRepositories{
 		Tasks: tasksRepo,
 		Marks: marksRepo,
 		Users: usersRepo,
@@ -58,9 +60,9 @@ func run() int {
 	if err := tasker.Update(ctx); err != nil {
 		if ctx.Err() != nil {
 			logger.Warn("shutdown signal received, update aborted", slogger.Err(err))
-		} else {
-			logger.Error("error update", slogger.Err(err))
+			return 0
 		}
+		logger.Error("error update", slogger.Err(err))
 		return 1
 	}
 
