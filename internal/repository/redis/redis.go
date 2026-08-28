@@ -59,3 +59,15 @@ func (r *Redis) Set(ctx context.Context, key string, value any, expiration time.
 	}
 	return nil
 }
+
+// Incr increments the integer stored under key and returns the new value.
+// The expiration is set only when the key has just been created.
+func (r *Redis) Incr(ctx context.Context, key string, expiration time.Duration) (int64, error) {
+	pipe := r.Client.TxPipeline()
+	incr := pipe.Incr(ctx, key)
+	pipe.ExpireNX(ctx, key, expiration)
+	if _, err := pipe.Exec(ctx); err != nil {
+		return 0, err
+	}
+	return incr.Val(), nil
+}

@@ -36,6 +36,13 @@ type RESTConfig struct {
 		Read  time.Duration `yaml:"read" env:"REST_TIMEOUT_READ"`
 		Idle  time.Duration `yaml:"idle" env:"REST_TIMEOUT_IDLE"`
 	} `yaml:"timeout"`
+	RateLimit RateLimitConfig `yaml:"rate_limit"`
+}
+
+// RateLimitConfig limits requests per client IP for auth endpoints (signin, signup, refresh).
+type RateLimitConfig struct {
+	Requests int           `yaml:"requests" env:"REST_RATE_LIMIT_REQUESTS" env-default:"10"`
+	Window   time.Duration `yaml:"window" env:"REST_RATE_LIMIT_WINDOW" env-default:"1m"`
 }
 
 type GRPCConfig struct {
