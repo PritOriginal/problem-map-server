@@ -66,7 +66,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		panic(errInit)
 	}
 
-	router := handler.GetRouter(log, cfg.Env)
+	router := handler.GetRouter(log, cfg.Env, cfg.REST.TrustedProxies)
 
 	handler.SetSwagger(router, cfg)
 

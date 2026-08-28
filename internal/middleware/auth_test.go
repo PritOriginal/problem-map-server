@@ -11,6 +11,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/pkg/token"
 	jwt "github.com/appleboy/gin-jwt/v3"
 	"github.com/gin-gonic/gin"
+	gojwt "github.com/golang-jwt/jwt"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -96,4 +97,40 @@ func (suite *AuthSuite) TestClaims() {
 
 	suite.Equal(http.StatusOK, w.Code)
 	suite.JSONEq(`{"id":42,"role":"admin"}`, w.Body.String())
+}
+
+// signClaims issues a token with arbitrary claims to emulate legacy or
+// malformed tokens.
+func (suite *AuthSuite) signClaims(claims gojwt.MapClaims) string {
+	claims["exp"] = time.Now().Add(time.Minute).Unix()
+	signed, err := gojwt.NewWithClaims(gojwt.SigningMethodHS256, claims).SignedString([]byte(testKey))
+	suite.Require().NoError(err)
+	return signed
+}
+
+func (suite *AuthSuite) TestClaimsLegacyAndMalformed() {
+	tests := []struct {
+		name       string
+		claims     gojwt.MapClaims
+		statusCode int
+		body       string
+	}{
+		{name: "NoRoleClaim", claims: gojwt.MapClaims{"sub": "7"}, statusCode: http.StatusOK, body: `{"id":7,"role":"user"}`},
+		{name: "NonNumericSub", claims: gojwt.MapClaims{"sub": "abc", "role": "user"}, statusCode: http.StatusUnauthorized},
+		{name: "NoSub", claims: gojwt.MapClaims{"role": "user"}, statusCode: http.StatusUnauthorized},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodGet, "/me", nil)
+			req.Header.Set("Authorization", "Bearer "+suite.signClaims(tt.claims))
+
+			suite.r.ServeHTTP(w, req)
+
+			suite.Equal(tt.statusCode, w.Code)
+			if tt.body != "" {
+				suite.JSONEq(tt.body, w.Body.String())
+			}
+		})
+	}
 }

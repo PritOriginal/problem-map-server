@@ -37,6 +37,9 @@ type RESTConfig struct {
 		Idle  time.Duration `yaml:"idle" env:"REST_TIMEOUT_IDLE"`
 	} `yaml:"timeout"`
 	RateLimit RateLimitConfig `yaml:"rate_limit"`
+	// TrustedProxies lists IPs/CIDRs of reverse proxies whose X-Forwarded-For
+	// is trusted for the client IP (used by rate limiting). Empty means none.
+	TrustedProxies []string `yaml:"trusted_proxies" env:"REST_TRUSTED_PROXIES"`
 }
 
 // RateLimitConfig limits requests per client IP for auth endpoints (signin, signup, refresh).
