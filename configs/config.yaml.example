@@ -9,6 +9,7 @@ rest:
 grpc:
   port: 44044
   timeout: 5s
+  metrics-port: 9091
 photo-storage: local
 auth:
   jwt:

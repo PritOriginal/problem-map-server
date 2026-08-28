@@ -41,6 +41,9 @@ type RESTConfig struct {
 type GRPCConfig struct {
 	Port    int           `yaml:"port" env:"GRPC_PORT"`
 	Timeout time.Duration `yaml:"timeout" env:"GRPC_TIMEOUT"`
+	// MetricsPort is the HTTP port serving Prometheus metrics for the gRPC
+	// server; 0 disables the metrics endpoint.
+	MetricsPort int `yaml:"metrics-port" env:"GRPC_METRICS_PORT" env-default:"0"`
 }
 
 type AuthConfing struct {

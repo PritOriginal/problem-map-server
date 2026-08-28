@@ -5,6 +5,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
@@ -54,20 +55,33 @@ func (h *handler) Readyz() gin.HandlerFunc {
 		ctx, cancel := context.WithTimeout(c.Request.Context(), readyTimeout)
 		defer cancel()
 
-		report := make(map[string]string, len(h.deps))
-		status := http.StatusOK
+		var (
+			mu     sync.Mutex
+			wg     sync.WaitGroup
+			report = make(map[string]string, len(h.deps))
+			status = http.StatusOK
+		)
 
+		// Ping dependencies concurrently so each one gets the full timeout
+		// budget and the total latency is bounded by the slowest, not the sum.
 		for name, p := range h.deps {
 			report[name] = StatusOK
 			if p == nil {
 				continue
 			}
-			if err := p.Ping(ctx); err != nil {
-				h.log.Warn("readiness check failed", slog.String("dependency", name), slogger.Err(err))
-				report[name] = StatusError
-				status = http.StatusServiceUnavailable
-			}
+			wg.Add(1)
+			go func(name string, p Pinger) {
+				defer wg.Done()
+				if err := p.Ping(ctx); err != nil {
+					h.log.Warn("readiness check failed", slog.String("dependency", name), slogger.Err(err))
+					mu.Lock()
+					report[name] = StatusError
+					status = http.StatusServiceUnavailable
+					mu.Unlock()
+				}
+			}(name, p)
 		}
+		wg.Wait()
 
 		c.JSON(status, report)
 	}

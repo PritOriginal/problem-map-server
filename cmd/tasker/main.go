@@ -52,20 +52,16 @@ func run() int {
 		Users: usersRepo,
 	})
 
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- tasker.Update()
-	}()
-
-	select {
-	case <-ctx.Done():
-		logger.Warn("shutdown signal received, aborting update")
-		return 1
-	case err := <-errCh:
-		if err != nil {
+	// Update observes ctx: on SIGINT/SIGTERM the in-flight repository call
+	// is cancelled and Update returns, so the deferred DB close never races
+	// with a running query.
+	if err := tasker.Update(ctx); err != nil {
+		if ctx.Err() != nil {
+			logger.Warn("shutdown signal received, update aborted", slogger.Err(err))
+		} else {
 			logger.Error("error update", slogger.Err(err))
-			return 1
 		}
+		return 1
 	}
 
 	logger.Info("update finished")

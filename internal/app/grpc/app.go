@@ -2,10 +2,13 @@ package grpcapp
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net"
+	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
@@ -24,6 +27,7 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health"
@@ -40,10 +44,12 @@ type App struct {
 	gRPCServer *grpc.Server
 	health     *health.Server
 	log        *slog.Logger
-	db         *postgres.Postgres
 	closers    []namedCloser
 	metrics    *prometheus.Registry
-	port       int
+	// metricsServer serves the Prometheus registry over HTTP; nil when
+	// cfg.GRPC.MetricsPort is 0.
+	metricsServer *http.Server
+	port          int
 }
 
 type namedCloser struct {
@@ -149,14 +155,25 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 	srvMetrics.InitializeMetrics(gRPCServer)
 
+	var metricsServer *http.Server
+	if cfg.GRPC.MetricsPort > 0 {
+		mux := http.NewServeMux()
+		mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+		metricsServer = &http.Server{
+			Addr:              ":" + strconv.Itoa(cfg.GRPC.MetricsPort),
+			Handler:           mux,
+			ReadHeaderTimeout: 5 * time.Second,
+		}
+	}
+
 	return &App{
-		gRPCServer: gRPCServer,
-		health:     healthServer,
-		log:        log,
-		db:         postgresDB,
-		closers:    closers,
-		metrics:    registry,
-		port:       cfg.GRPC.Port,
+		gRPCServer:    gRPCServer,
+		health:        healthServer,
+		log:           log,
+		closers:       closers,
+		metrics:       registry,
+		metricsServer: metricsServer,
+		port:          cfg.GRPC.Port,
 	}
 }
 
@@ -179,13 +196,24 @@ func (a *App) MustRun() {
 	}
 }
 
-// Run starts the gRPC server and blocks until it stops.
+// Run starts the gRPC server (and the metrics HTTP server, when configured)
+// and blocks until the gRPC server stops. A failure of the metrics server is
+// logged but does not stop the gRPC server.
 func (a *App) Run() error {
 	const op = "grpcapp.Run"
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", a.port))
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if a.metricsServer != nil {
+		go func() {
+			a.log.Info("grpc metrics server started", slog.String("address", a.metricsServer.Addr))
+			if err := a.metricsServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				a.log.Error("grpc metrics server failed", slogger.Err(err))
+			}
+		}()
 	}
 
 	a.log.Info("grpc server started", slog.String("address", l.Addr().String()))
@@ -213,6 +241,14 @@ func (a *App) Stop() {
 	})
 	a.gRPCServer.GracefulStop()
 	forceStop.Stop()
+
+	if a.metricsServer != nil {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulStopTimeout)
+		defer cancel()
+		if err := a.metricsServer.Shutdown(shutdownCtx); err != nil {
+			log.Error("an error occurred while stopping the metrics server", slogger.Err(err))
+		}
+	}
 
 	for _, nc := range a.closers {
 		if err := nc.c.Close(); err != nil {
