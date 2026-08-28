@@ -2,10 +2,8 @@ package authrest
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 
-	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
@@ -51,6 +49,8 @@ func Register(r *gin.Engine, log *slog.Logger, uc Auth, middlewares ...gin.Handl
 //	@Router			/auth/signup [post]
 func (h *handler) SignUp() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		const op = "authrest.SignUp"
+
 		var req SignUpRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			h.log.Debug("failed binding request", logger.Err(err))
@@ -65,14 +65,7 @@ func (h *handler) SignUp() gin.HandlerFunc {
 			HomePoint: req.HomePoint,
 		})
 		if err != nil {
-			switch {
-			case errors.Is(err, usecase.ErrConflict):
-				h.log.Debug("user already exists", slog.String("login", req.Login))
-				responses.Conflict(c, "user already exists")
-			default:
-				h.log.Error("failed sign up", logger.Err(err))
-				responses.Internal(c, "failed sign up")
-			}
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -98,6 +91,8 @@ func (h *handler) SignUp() gin.HandlerFunc {
 //	@Router			/auth/signin [post]
 func (h *handler) SignIn() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		const op = "authrest.SignIn"
+
 		var req SignInRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			h.log.Debug("failed binding request", logger.Err(err))
@@ -107,13 +102,7 @@ func (h *handler) SignIn() gin.HandlerFunc {
 
 		accessToken, refreshToken, err := h.uc.SignIn(c.Request.Context(), req.Login, req.Password)
 		if err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
-				h.log.Debug("failed sign in")
-				responses.Unauthorized(c, "failed sign in")
-			} else {
-				h.log.Error("failed sign in", logger.Err(err))
-				responses.Internal(c, "failed sign in")
-			}
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -139,6 +128,8 @@ func (h *handler) SignIn() gin.HandlerFunc {
 //	@Router			/auth/tokens/refresh [post]
 func (h *handler) RefreshTokens() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		const op = "authrest.RefreshTokens"
+
 		var req RefreshTokensRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			h.log.Debug("failed binding request", logger.Err(err))
@@ -148,13 +139,7 @@ func (h *handler) RefreshTokens() gin.HandlerFunc {
 
 		accessToken, refreshToken, err := h.uc.RefreshTokens(c.Request.Context(), req.RefreshToken)
 		if err != nil {
-			if errors.Is(err, usecase.ErrUnauthorized) {
-				h.log.Debug("failed refresh tokens", logger.Err(err))
-				responses.Unauthorized(c, "failed refresh tokens")
-			} else {
-				h.log.Error("failed refresh tokens", logger.Err(err))
-				responses.Internal(c, "failed refresh tokens")
-			}
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 

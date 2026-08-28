@@ -8,7 +8,6 @@ import (
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
-	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/gin-gonic/gin"
 )
@@ -57,11 +56,11 @@ func Register(r *gin.Engine, log *slog.Logger, uc Map, cacher mwcache.Cacher) {
 //	@Router			/map/admin-boundaries [get]
 func (h *handler) GetAdminBoundaries() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		adminLevelsStr := c.Query("admin_levels")
-		adminLevels, err := handlers.ParseIntArray(adminLevelsStr)
+		const op = "maprest.GetAdminBoundaries"
+
+		adminLevels, err := handlers.QueryIntArray(c, "admin_levels")
 		if err != nil {
-			h.log.Debug("failed parse admin levels", logger.Err(err))
-			responses.BadRequest(c, "failed parse admin levels")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -69,8 +68,7 @@ func (h *handler) GetAdminBoundaries() gin.HandlerFunc {
 			AdminLevels: adminLevels,
 		})
 		if err != nil {
-			h.log.Error("error get admin boundaries", logger.Err(err))
-			responses.Internal(c, "error get admin boundaries")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -95,19 +93,17 @@ func (h *handler) GetAdminBoundaries() gin.HandlerFunc {
 //	@Router			/map/admin-boundaries/marks/count [get]
 func (h *handler) GetAdminBoundariesMarksCount() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		adminLevelsStr := c.Query("admin_levels")
-		adminLevels, err := handlers.ParseIntArray(adminLevelsStr)
+		const op = "maprest.GetAdminBoundariesMarksCount"
+
+		adminLevels, err := handlers.QueryIntArray(c, "admin_levels")
 		if err != nil {
-			h.log.Debug("failed parse admin levels", logger.Err(err))
-			responses.BadRequest(c, "failed parse admin levels")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
-		markTypeIdsStr := c.Query("mark_type_ids")
-		markTypeIds, err := handlers.ParseIntArray(markTypeIdsStr)
+		markTypeIds, err := handlers.QueryIntArray(c, "mark_type_ids")
 		if err != nil {
-			h.log.Debug("failed parse mark type ids", logger.Err(err))
-			responses.BadRequest(c, "failed parse mark type ids")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -116,8 +112,7 @@ func (h *handler) GetAdminBoundariesMarksCount() gin.HandlerFunc {
 			MarkTypeIds: markTypeIds,
 		})
 		if err != nil {
-			h.log.Error("error get admin boundaries markers count", logger.Err(err))
-			responses.Internal(c, "error get admin boundaries markers count")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -139,10 +134,11 @@ func (h *handler) GetAdminBoundariesMarksCount() gin.HandlerFunc {
 //	@Router			/map/regions [get]
 func (h *handler) GetRegions() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		const op = "maprest.GetRegions"
+
 		regions, err := h.uc.GetRegions(c.Request.Context())
 		if err != nil {
-			h.log.Error("error get regions", logger.Err(err))
-			responses.Internal(c, "error get regions")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -164,10 +160,11 @@ func (h *handler) GetRegions() gin.HandlerFunc {
 //	@Router			/map/cities [get]
 func (h *handler) GetCities() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		const op = "maprest.GetCities"
+
 		cities, err := h.uc.GetCities(c.Request.Context())
 		if err != nil {
-			h.log.Error("error get cities", logger.Err(err))
-			responses.Internal(c, "error get cities")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -189,10 +186,11 @@ func (h *handler) GetCities() gin.HandlerFunc {
 //	@Router			/map/districts [get]
 func (h *handler) GetDistricts() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		const op = "maprest.GetDistricts"
+
 		districts, err := h.uc.GetDistricts(c.Request.Context())
 		if err != nil {
-			h.log.Error("error get districts", logger.Err(err))
-			responses.Internal(c, "error get districts")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 

@@ -2,13 +2,11 @@ package usersrest
 
 import (
 	"context"
-	"errors"
 	"log/slog"
-	"strconv"
 
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/repository"
+	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	jwt "github.com/appleboy/gin-jwt/v3"
@@ -53,22 +51,17 @@ func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddlew
 //	@Router			/users/{id} [get]
 func (h *handler) GetUserById() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
+		const op = "usersrest.GetUserById"
+
+		id, err := handlers.ParamInt(c, "id")
 		if err != nil {
-			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(c, "failed parse id")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
 		user, err := h.uc.GetUserById(c.Request.Context(), id)
 		if err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
-				h.log.Debug("user not found", slog.Int("id", id))
-				responses.NotFound(c, "user not found")
-			} else {
-				h.log.Error("failed get user by id", slog.Int("id", id), logger.Err(err))
-				responses.Internal(c, "failed get user by id")
-			}
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -92,6 +85,8 @@ func (h *handler) GetUserById() gin.HandlerFunc {
 //	@Router			/users/me [get]
 func (h *handler) GetMe() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		const op = "usersrest.GetMe"
+
 		id, err := middleware.UserIDFromClaims(c)
 		if err != nil {
 			h.log.Debug("invalid token", logger.Err(err))
@@ -101,13 +96,7 @@ func (h *handler) GetMe() gin.HandlerFunc {
 
 		user, err := h.uc.GetUserById(c.Request.Context(), id)
 		if err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
-				h.log.Debug("user not found", slog.Int("id", id))
-				responses.NotFound(c, "user not found")
-			} else {
-				h.log.Error("failed get current user", slog.Int("id", id), logger.Err(err))
-				responses.Internal(c, "failed get current user")
-			}
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -128,10 +117,11 @@ func (h *handler) GetMe() gin.HandlerFunc {
 //	@Router			/users [get]
 func (h *handler) GetUsers() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		const op = "usersrest.GetUsers"
+
 		users, err := h.uc.GetUsers(c.Request.Context())
 		if err != nil {
-			h.log.Error("error get users", logger.Err(err))
-			responses.Internal(c, "error get users")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
