@@ -1,7 +1,9 @@
 package config
 
 import (
+	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"time"
 
@@ -14,7 +16,7 @@ type Config struct {
 	REST         RESTConfig         `yaml:"rest"`
 	GRPC         GRPCConfig         `yaml:"grpc"`
 	PhotoStorage PhotoStorageType   `yaml:"photo-storage" env:"PHOTO_STORAGE" env-default:"local"`
-	Auth         AuthConfing        `yaml:"auth"`
+	Auth         AuthConfig         `yaml:"auth"`
 	DB           DatabaseConfig     `yaml:"db"`
 	Redis        RedisConfig        `yaml:"redis"`
 	Aws          AwsConfig          `yaml:"aws"`
@@ -43,7 +45,7 @@ type GRPCConfig struct {
 	Timeout time.Duration `yaml:"timeout" env:"GRPC_TIMEOUT"`
 }
 
-type AuthConfing struct {
+type AuthConfig struct {
 	JWT struct {
 		Access struct {
 			Key       string        `yaml:"key" env:"JWT_ACCESS_TOKEN_KEY"`
@@ -62,6 +64,12 @@ type DatabaseConfig struct {
 	Username string `yaml:"username" env:"POSTGRES_USER"`
 	Password string `yaml:"password" env:"POSTGRES_PASSWORD"`
 	Name     string `yaml:"name" env:"POSTGRES_DB"`
+	SSLMode  string `yaml:"sslmode" env:"POSTGRES_SSLMODE" env-default:"disable"`
+	Pool     struct {
+		MaxOpenConns    int           `yaml:"max_open_conns" env:"POSTGRES_MAX_OPEN_CONNS" env-default:"25"`
+		MaxIdleConns    int           `yaml:"max_idle_conns" env:"POSTGRES_MAX_IDLE_CONNS" env-default:"5"`
+		ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime" env:"POSTGRES_CONN_MAX_LIFETIME" env-default:"5m"`
+	} `yaml:"pool"`
 }
 
 type RedisConfig struct {
@@ -97,7 +105,43 @@ func MustLoadPath(configPath string) *Config {
 		panic("cannot read config: " + err.Error())
 	}
 
+	if err := cfg.Validate(); err != nil {
+		panic("invalid config: " + err.Error())
+	}
+
 	return &cfg
+}
+
+// MinJWTKeyLength is the minimum length (in bytes) of a JWT signing key.
+// HMAC-SHA256 keys shorter than the hash output size are considered weak.
+const MinJWTKeyLength = 32
+
+// Validate checks that security-sensitive settings are present and sane.
+func (c *Config) Validate() error {
+	var errs []error
+
+	if err := validateJWTKey("auth.jwt.access.key (JWT_ACCESS_TOKEN_KEY)", c.Auth.JWT.Access.Key); err != nil {
+		errs = append(errs, err)
+	}
+	if err := validateJWTKey("auth.jwt.refresh.key (JWT_REFRESH_TOKEN_KEY)", c.Auth.JWT.Refresh.Key); err != nil {
+		errs = append(errs, err)
+	}
+	if c.DB.Password == "" {
+		errs = append(errs, errors.New("db.password (POSTGRES_PASSWORD) must not be empty"))
+	}
+
+	return errors.Join(errs...)
+}
+
+func validateJWTKey(name, key string) error {
+	if key == "" {
+		return fmt.Errorf("%s must not be empty", name)
+	}
+	if len(key) < MinJWTKeyLength {
+		return fmt.Errorf("%s must be at least %d bytes long, got %d (generate one with `openssl rand -base64 32`)",
+			name, MinJWTKeyLength, len(key))
+	}
+	return nil
 }
 
 // fetchConfigPath fetches config path from command line flag or environment variable.

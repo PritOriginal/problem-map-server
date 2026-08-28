@@ -28,7 +28,7 @@ type AuthSuite struct {
 	uc        *usecase.Auth
 	log       *slog.Logger
 	usersRepo *usecase.MockUsersRepository
-	authCfg   config.AuthConfing
+	authCfg   config.AuthConfig
 }
 
 func (suite *AuthSuite) SetupSuite() {

@@ -18,14 +18,14 @@ import (
 type Auth struct {
 	log     *slog.Logger
 	repos   AuthRepositories
-	authCfg config.AuthConfing
+	authCfg config.AuthConfig
 }
 
 type AuthRepositories struct {
 	Users UsersRepository
 }
 
-func NewAuth(log *slog.Logger, authCfg config.AuthConfing, repos AuthRepositories) *Auth {
+func NewAuth(log *slog.Logger, authCfg config.AuthConfig, repos AuthRepositories) *Auth {
 	return &Auth{log: log, repos: repos, authCfg: authCfg}
 }
 
