@@ -124,13 +124,7 @@ func (r *MarksRepository) AddMark(ctx context.Context, mark models.Mark) (int64,
 			`
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	stmt, err := tr.PreparexContext(ctx, query)
-	if err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
-	}
-	defer func() { _ = stmt.Close() }()
-
-	if err := stmt.GetContext(ctx, &id, mark.Description, &mark.Geom, mark.MarkTypeID, mark.UserID); err != nil {
+	if err := tr.GetContext(ctx, &id, query, mark.Description, &mark.Geom, mark.MarkTypeID, mark.UserID); err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -191,7 +185,7 @@ func (r *MarksRepository) GetMarkStatusHistoryByMarkId(ctx context.Context, mark
 		WHERE
 			mark_id = $1 
 		ORDER BY
-			changed_at
+			changed_at ASC, id ASC
 		`
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
@@ -215,7 +209,7 @@ func (r *MarksRepository) GetLastMarkStatusHistoryItemWithStatus(ctx context.Con
 		WHERE 
 			mark_id = $1 AND new_mark_status_id = $2 
 		ORDER BY 
-			changed_at 
+			changed_at DESC, id DESC 
 		LIMIT 1
 		`
 
@@ -245,7 +239,7 @@ func (r *MarksRepository) GetLastMarkStatusHistoryItem(ctx context.Context, mark
 		WHERE 
 			mark_id = $1 
 		ORDER BY 
-			changed_at DESC 
+			changed_at DESC, id DESC 
 		LIMIT 1
 		`
 

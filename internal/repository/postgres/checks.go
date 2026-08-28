@@ -34,19 +34,15 @@ func (r *ChecksRepository) AddCheck(ctx context.Context, check models.Check) (in
 			INSERT INTO 
 				checks (user_id, mark_id, mark_status_id, mark_status_history_id, comment, result) 
 			VALUES 
-				(:user_id, :mark_id, :mark_status_id, :mark_status_history_id, :comment, :result)
+				($1, $2, $3, $4, $5, $6)
 			RETURNING check_id
 			`
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	stmt, err := tr.PrepareNamedContext(ctx, query)
-	if err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
-	}
-	defer func() { _ = stmt.Close() }()
-
-	if err := stmt.GetContext(ctx, &id, check); err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
+	if err := tr.GetContext(ctx, &id, query,
+		check.UserID, check.MarkID, check.MarkStatusId, check.MarkStatusHistoryItemId, check.Comment, check.Result,
+	); err != nil {
+		return 0, fmt.Errorf("%s: %w", op, wrapUniqueViolation(err))
 	}
 
 	return id, nil
@@ -186,7 +182,7 @@ func (r *ChecksRepository) GetChecksByUserIdAndMarkIdSince(ctx context.Context, 
 		JOIN 
 			users AS u ON c.user_id = u.user_id 
 		WHERE 
-			c.user_id = $1 AND c.mark_id = $2 AND changed_at > $3`
+			c.user_id = $1 AND c.mark_id = $2 AND c.created_at > $3`
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.SelectContext(ctx, &checks, query, userId, markId, dateTime); err != nil {
@@ -225,7 +221,10 @@ func (r *ChecksRepository) GetUserMarkCheck(ctx context.Context, userId int, mar
 		JOIN 
 			users AS u ON c.user_id = u.user_id 
 		WHERE 
-			c.user_id = $2 AND mark_status_history_id IN (SELECT id FROM r)`
+			c.user_id = $2 AND mark_status_history_id IN (SELECT id FROM r)
+		ORDER BY
+			c.created_at DESC, c.check_id DESC
+		LIMIT 1`
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &check, query, markStatusHistoryId, userId); err != nil {
