@@ -15,15 +15,6 @@ const (
 	RoleAdmin     Role = "admin"
 )
 
-// IsValid reports whether the role is one of the known roles.
-func (r Role) IsValid() bool {
-	switch r {
-	case RoleUser, RoleModerator, RoleAdmin:
-		return true
-	}
-	return false
-}
-
 type User struct {
 	Id           int    `json:"user_id" db:"user_id"`
 	Name         string `json:"username" db:"name"`
