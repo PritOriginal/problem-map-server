@@ -18,6 +18,7 @@ type Config struct {
 	DB           DatabaseConfig     `yaml:"db"`
 	Redis        RedisConfig        `yaml:"redis"`
 	Aws          AwsConfig          `yaml:"aws"`
+	Nats         NatsConfig         `yaml:"nats"`
 }
 
 type PhotoStorageType string
@@ -75,6 +76,11 @@ type AwsConfig struct {
 	EndPoint  string `yaml:"endpoint" env:"AWS_ENDPOINT"`
 }
 
+type NatsConfig struct {
+	URL  string `yaml:"url" env:"NATS_URL"`
+	Name string `yaml:"name" env:"NATS_NAME"`
+}
+
 func MustLoad() *Config {
 	configPath := fetchConfigPath()
 	if configPath == "" {
@@ -94,6 +100,9 @@ func MustLoadPath(configPath string) *Config {
 	return &cfg
 }
 
+// fetchConfigPath fetches config path from command line flag or environment variable.
+// Priority: flag > env > default.
+// Default value is empty string.
 func fetchConfigPath() string {
 	var res string
 

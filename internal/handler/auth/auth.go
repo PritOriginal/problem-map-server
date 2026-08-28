@@ -13,7 +13,7 @@ import (
 )
 
 type Auth interface {
-	SignUp(ctx context.Context, username, login, password string) (int64, error)
+	SignUp(ctx context.Context, params usecase.SignUpParams) (int64, error)
 	SignIn(ctx context.Context, login, password string) (string, string, error)
 	RefreshTokens(ctx context.Context, refreshToken string) (string, string, error)
 }
@@ -56,7 +56,12 @@ func (h *handler) SignUp() gin.HandlerFunc {
 			return
 		}
 
-		userId, err := h.uc.SignUp(c.Request.Context(), req.Username, req.Login, req.Password)
+		userId, err := h.uc.SignUp(c.Request.Context(), usecase.SignUpParams{
+			Username:  req.Username,
+			Login:     req.Login,
+			Password:  req.Password,
+			HomePoint: req.HomePoint,
+		})
 		if err != nil {
 			switch err {
 			case usecase.ErrConflict:

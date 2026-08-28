@@ -20,6 +20,8 @@ type MarksRepository interface {
 	UpdateMarkStatus(ctx context.Context, markId int, markStatusId models.MarkStatusType) error
 	GetMarkStatusHistoryByMarkId(ctx context.Context, markId int) ([]models.MarkStatusHistoryItem, error)
 	GetLastMarkStatusHistoryItem(ctx context.Context, markId int) (models.MarkStatusHistoryItem, error)
+	GetLastMarkStatusHistoryItemWithStatus(ctx context.Context, markId int, newMarkStatusId models.MarkStatusType) (models.MarkStatusHistoryItem, error)
+	GetDistancesFromMarkToPoint(ctx context.Context, filters models.GetDistanceFromMarkToPointFilters) ([]models.DistanceFromMarkToPoint, error)
 }
 
 type PhotosRepository interface {
@@ -50,7 +52,7 @@ func NewMarks(log *slog.Logger, trManager trm.Manager, repos MarksRepositories) 
 }
 
 func (uc *Marks) GetMarks(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error) {
-	const op = "usecase.Map.GetMarks"
+	const op = "usecase.Marks.GetMarks"
 
 	marks, err := uc.repos.Marks.GetMarks(ctx, filters)
 	if err != nil {
@@ -60,7 +62,7 @@ func (uc *Marks) GetMarks(ctx context.Context, filters models.GetMarksFilters) (
 }
 
 func (uc *Marks) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
-	const op = "usecase.Map.GetMarkById"
+	const op = "usecase.Marks.GetMarkById"
 
 	mark, err := uc.repos.Marks.GetMarkById(ctx, id)
 	if err != nil {
@@ -70,7 +72,7 @@ func (uc *Marks) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
 }
 
 func (uc *Marks) GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error) {
-	const op = "usecase.Map.GetMarksByUserId"
+	const op = "usecase.Marks.GetMarksByUserId"
 
 	marks, err := uc.repos.Marks.GetMarksByUserId(ctx, userId)
 	if err != nil {
@@ -80,7 +82,7 @@ func (uc *Marks) GetMarksByUserId(ctx context.Context, userId int) ([]models.Mar
 }
 
 func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error) {
-	const op = "usecase.Map.AddMark"
+	const op = "usecase.Marks.AddMark"
 
 	var markId int64
 	err := uc.trManager.Do(ctx, func(ctx context.Context) error {
@@ -123,7 +125,7 @@ func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos []io.Read
 }
 
 func (uc *Marks) GetMarkTypes(ctx context.Context) ([]models.MarkType, error) {
-	const op = "usecase.Map.GetMarkTypes"
+	const op = "usecase.Marks.GetMarkTypes"
 
 	types, err := uc.repos.Marks.GetMarkTypes(ctx)
 	if err != nil {
@@ -134,7 +136,7 @@ func (uc *Marks) GetMarkTypes(ctx context.Context) ([]models.MarkType, error) {
 }
 
 func (uc *Marks) GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error) {
-	const op = "usecase.Map.GetMarkTypes"
+	const op = "usecase.Marks.GetMarkTypes"
 
 	statuses, err := uc.repos.Marks.GetMarkStatuses(ctx)
 	if err != nil {
@@ -145,7 +147,7 @@ func (uc *Marks) GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, erro
 }
 
 func (uc *Marks) GetMarkStatusHistoryByMarkId(ctx context.Context, markId int, withChecks bool) ([]models.MarkStatusHistoryItem, error) {
-	const op = "usecase.Map.GetMarkStatusHistoryByMarkId"
+	const op = "usecase.Marks.GetMarkStatusHistoryByMarkId"
 
 	historyItems, err := uc.repos.Marks.GetMarkStatusHistoryByMarkId(ctx, markId)
 	if err != nil {
@@ -194,3 +196,55 @@ func (uc *Marks) addChecksToHistoryItems(historyItems []models.MarkStatusHistory
 
 	return historyItems
 }
+
+// func (uc *Marks) Confirm(ctx context.Context, markId int) (models.MarkStatusType, error) {
+// 	const op = "usecase.Map.Confirm"
+
+// 	mark, err := uc.repos.Marks.GetMarkById(ctx, markId)
+// 	if err != nil {
+// 		return 0, fmt.Errorf("%s: %w", op, err)
+// 	}
+
+// 	var newStatus models.MarkStatusType
+
+// 	switch mark.MarkStatusID {
+// 	case models.UnconfirmedStatus:
+// 		newStatus = models.ConfirmedStatus
+// 	case models.ConfirmedStatus, models.RediscoveredStatus:
+// 		newStatus = models.UnderReviewStatus
+// 	case models.UnderReviewStatus:
+// 		newStatus = models.ClosedStatus
+// 	default:
+// 		return 0, ErrConflict
+// 	}
+
+// 	if err := uc.repos.Marks.UpdateMarkStatus(ctx, markId, newStatus); err != nil {
+// 		return 0, fmt.Errorf("%s: %w", op, err)
+// 	}
+
+// 	return newStatus, nil
+// }
+
+// func (uc *Marks) Reject(ctx context.Context, markId int) (models.MarkStatusType, error) {
+// 	const op = "usecase.Map.Confirm"
+
+// 	mark, err := uc.repos.Marks.GetMarkById(ctx, markId)
+// 	if err != nil {
+// 		return 0, fmt.Errorf("%s: %w", op, err)
+// 	}
+
+// 	var newStatus models.MarkStatusType
+
+// 	switch mark.MarkStatusID {
+// 	case models.UnconfirmedStatus, models.ConfirmedStatus, models.RediscoveredStatus:
+// 		newStatus = models.RefutedStatus
+// 	case models.UnderReviewStatus:
+// 		newStatus = models.RediscoveredStatus
+// 	}
+
+// 	if err := uc.repos.Marks.UpdateMarkStatus(ctx, markId, newStatus); err != nil {
+// 		return 0, fmt.Errorf("%s: %w", op, err)
+// 	}
+
+// 	return newStatus, nil
+// }

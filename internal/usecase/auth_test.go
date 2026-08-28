@@ -95,7 +95,12 @@ func (suite *AuthSuite) TestSignUp() {
 				}
 			}()
 
-			_, gotErr := suite.uc.SignUp(context.Background(), "username", "login", "password")
+			_, gotErr := suite.uc.SignUp(context.Background(), usecase.SignUpParams{
+				Username:  "username",
+				Login:     "login",
+				Password:  "password",
+				HomePoint: &models.Point{},
+			})
 
 			if tt.getUserByLogin.err == repository.ErrNotFound && tt.addUser.err == nil {
 				suite.NoError(gotErr)

@@ -7,6 +7,7 @@ package authrest
 import (
 	"context"
 
+	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -188,8 +189,8 @@ func (_c *MockAuth_SignIn_Call) RunAndReturn(run func(ctx context.Context, login
 }
 
 // SignUp provides a mock function for the type MockAuth
-func (_mock *MockAuth) SignUp(ctx context.Context, username string, login string, password string) (int64, error) {
-	ret := _mock.Called(ctx, username, login, password)
+func (_mock *MockAuth) SignUp(ctx context.Context, params usecase.SignUpParams) (int64, error) {
+	ret := _mock.Called(ctx, params)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SignUp")
@@ -197,16 +198,16 @@ func (_mock *MockAuth) SignUp(ctx context.Context, username string, login string
 
 	var r0 int64
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) (int64, error)); ok {
-		return returnFunc(ctx, username, login, password)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, usecase.SignUpParams) (int64, error)); ok {
+		return returnFunc(ctx, params)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, string, string) int64); ok {
-		r0 = returnFunc(ctx, username, login, password)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, usecase.SignUpParams) int64); ok {
+		r0 = returnFunc(ctx, params)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, string, string) error); ok {
-		r1 = returnFunc(ctx, username, login, password)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, usecase.SignUpParams) error); ok {
+		r1 = returnFunc(ctx, params)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -220,36 +221,24 @@ type MockAuth_SignUp_Call struct {
 
 // SignUp is a helper method to define mock.On call
 //   - ctx context.Context
-//   - username string
-//   - login string
-//   - password string
-func (_e *MockAuth_Expecter) SignUp(ctx interface{}, username interface{}, login interface{}, password interface{}) *MockAuth_SignUp_Call {
-	return &MockAuth_SignUp_Call{Call: _e.mock.On("SignUp", ctx, username, login, password)}
+//   - params usecase.SignUpParams
+func (_e *MockAuth_Expecter) SignUp(ctx interface{}, params interface{}) *MockAuth_SignUp_Call {
+	return &MockAuth_SignUp_Call{Call: _e.mock.On("SignUp", ctx, params)}
 }
 
-func (_c *MockAuth_SignUp_Call) Run(run func(ctx context.Context, username string, login string, password string)) *MockAuth_SignUp_Call {
+func (_c *MockAuth_SignUp_Call) Run(run func(ctx context.Context, params usecase.SignUpParams)) *MockAuth_SignUp_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 string
+		var arg1 usecase.SignUpParams
 		if args[1] != nil {
-			arg1 = args[1].(string)
-		}
-		var arg2 string
-		if args[2] != nil {
-			arg2 = args[2].(string)
-		}
-		var arg3 string
-		if args[3] != nil {
-			arg3 = args[3].(string)
+			arg1 = args[1].(usecase.SignUpParams)
 		}
 		run(
 			arg0,
 			arg1,
-			arg2,
-			arg3,
 		)
 	})
 	return _c
@@ -260,7 +249,7 @@ func (_c *MockAuth_SignUp_Call) Return(n int64, err error) *MockAuth_SignUp_Call
 	return _c
 }
 
-func (_c *MockAuth_SignUp_Call) RunAndReturn(run func(ctx context.Context, username string, login string, password string) (int64, error)) *MockAuth_SignUp_Call {
+func (_c *MockAuth_SignUp_Call) RunAndReturn(run func(ctx context.Context, params usecase.SignUpParams) (int64, error)) *MockAuth_SignUp_Call {
 	_c.Call.Return(run)
 	return _c
 }

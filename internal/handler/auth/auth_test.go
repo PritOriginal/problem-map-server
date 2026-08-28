@@ -8,12 +8,14 @@ import (
 	"testing"
 
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
+	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/gin-gonic/gin"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
+	"github.com/twpayne/go-geom"
 )
 
 type AuthSuite struct {
@@ -49,9 +51,10 @@ func (suite *AuthSuite) TestSignUp() {
 		{
 			name: "Ok201",
 			req: authrest.SignUpRequest{
-				Username: "name",
-				Login:    "username",
-				Password: "password",
+				Username:  "name",
+				Login:     "username",
+				Password:  "password",
+				HomePoint: models.NewPoint(geom.Coord{41.400422, 52.699787}),
 			},
 			wantErrParseReq: false,
 			errSignUp:       nil,
@@ -69,6 +72,17 @@ func (suite *AuthSuite) TestSignUp() {
 			req: authrest.SignUpRequest{
 				Username: "name",
 				Login:    "username",
+				Password: "password",
+			},
+			wantErrParseReq: true,
+			errSignUp:       nil,
+			statusCode:      400,
+		},
+		{
+			name: "Err400InvalidReq",
+			req: authrest.SignUpRequest{
+				Username: "name",
+				Login:    "username",
 			},
 			wantErrParseReq: true,
 			errSignUp:       nil,
@@ -77,9 +91,10 @@ func (suite *AuthSuite) TestSignUp() {
 		{
 			name: "Err409",
 			req: authrest.SignUpRequest{
-				Username: "name",
-				Login:    "username",
-				Password: "password",
+				Username:  "name",
+				Login:     "username",
+				Password:  "password",
+				HomePoint: models.NewPoint(geom.Coord{41.400422, 52.699787}),
 			},
 			wantErrParseReq: false,
 			errSignUp:       usecase.ErrConflict,
@@ -88,9 +103,10 @@ func (suite *AuthSuite) TestSignUp() {
 		{
 			name: "Err500",
 			req: authrest.SignUpRequest{
-				Username: "name",
-				Login:    "username",
-				Password: "password",
+				Username:  "name",
+				Login:     "username",
+				Password:  "password",
+				HomePoint: models.NewPoint(geom.Coord{41.400422, 52.699787}),
 			},
 			wantErrParseReq: false,
 			errSignUp:       errors.New(""),
@@ -100,7 +116,7 @@ func (suite *AuthSuite) TestSignUp() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			if !tt.wantErrParseReq {
-				suite.uc.On("SignUp", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Once().
+				suite.uc.On("SignUp", mock.Anything, mock.AnythingOfType("usecase.SignUpParams")).Once().
 					Return(int64(1), tt.errSignUp)
 			}
 

@@ -14,9 +14,9 @@ import (
 )
 
 type Tasks interface {
-	GetTasks(ctx context.Context) ([]models.Task, error)
+	GetTasks(ctx context.Context, filters models.GetTasksFilters) ([]models.Task, error)
 	GetTaskById(ctx context.Context, id int) (models.Task, error)
-	GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error)
+	GetTasksByUserId(ctx context.Context, userId int, filters models.GetTasksByUserIdFilters) ([]models.Task, error)
 	AddTask(ctx context.Context, task models.Task) (int64, error)
 }
 type server struct {
@@ -29,7 +29,7 @@ func Register(gRPCServer *grpc.Server, tasks Tasks) {
 }
 
 func (s *server) GetTasks(ctx context.Context, in *emptypb.Empty) (*pb.GetTasksResponse, error) {
-	tasks, err := s.tasks.GetTasks(context.Background())
+	tasks, err := s.tasks.GetTasks(context.Background(), models.GetTasksFilters{})
 	if err != nil {
 		return nil, status.Error(codes.Internal, "error get tasks")
 	}
@@ -62,7 +62,7 @@ func (s *server) GetTaskById(ctx context.Context, in *pb.GetTaskByIdRequest) (*p
 
 func (s *server) GetTasksByUserId(ctx context.Context, in *pb.GetTasksByUserIdRequest) (*pb.GetTasksByUserIdResponse, error) {
 	// TODO: добавить валидацию.
-	tasks, err := s.tasks.GetTasksByUserId(ctx, int(in.GetUserId()))
+	tasks, err := s.tasks.GetTasksByUserId(ctx, int(in.GetUserId()), models.GetTasksByUserIdFilters{})
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "task not found")

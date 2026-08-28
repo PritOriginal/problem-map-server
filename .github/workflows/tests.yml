@@ -14,6 +14,11 @@ jobs:
         with:
           go-version: '>=1.25.0'
       
+      - name: Lint
+        uses: golangci/golangci-lint-action@v8
+        with:
+          version: latest
+
       - name: Start tests
         run: |
-          go test ./... -cover
+          go test -tags=nomsgpack ./... -cover

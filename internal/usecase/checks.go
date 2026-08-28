@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
+	"slices"
+	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
@@ -17,6 +20,8 @@ type ChecksRepository interface {
 	GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error)
 	GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error)
 	GetChecksByMarkHistoryId(ctx context.Context, markHistoryId int) ([]models.Check, error)
+	GetChecksByUserIdAndMarkId(ctx context.Context, userId int, markId int) ([]models.Check, error)
+	GetChecksByUserIdAndMarkIdSince(ctx context.Context, userId int, markId int, dateTime time.Time) ([]models.Check, error)
 	GetUserMarkCheck(ctx context.Context, userId int, markStatusHistoryId int) (models.Check, error)
 }
 
@@ -27,6 +32,7 @@ type MarkStatusUpdater interface {
 type ChecksRepositories struct {
 	Marks  MarksRepository
 	Checks ChecksRepository
+	Tasks  TasksRepository
 	Photos PhotosRepository
 }
 
@@ -92,6 +98,16 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 		return checkId, fmt.Errorf("%s: %w", op, err)
 	}
 
+	task, err := uc.repos.Tasks.GetTaskByUserIdAndMarkId(ctx, check.UserID, check.MarkID)
+	if err == nil {
+		err = uc.repos.Tasks.UpdateTaskStatus(ctx, task.ID, models.CompletedStatus)
+		if err != nil {
+			return checkId, fmt.Errorf("%s: %w", op, err)
+		}
+	} else if err != repository.ErrNotFound {
+		return checkId, fmt.Errorf("%s: %w", op, err)
+	}
+
 	return checkId, nil
 }
 
@@ -145,6 +161,49 @@ func (uc *Checks) GetChecksByMarkId(ctx context.Context, markId int) ([]models.C
 	}
 
 	return checks, nil
+}
+
+func (uc *Checks) GetGroupedChecksByMarkStatusHistoryId(ctx context.Context, markId int) ([]models.GroupedChecksByMarkStatusHistoryId, error) {
+	const op = "usecase.Checks.GetGroupedChecksByMarkStatusHistoryId"
+
+	checks, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	photosMap, err := uc.repos.Photos.GetPhotosByMarkId(ctx, markId)
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	for i := range len(checks) {
+		checks[i].Photos = photosMap[markId][checks[i].ID]
+	}
+
+	groupedChecks := uc.groupChecks(checks)
+
+	return groupedChecks, nil
+}
+
+func (uc *Checks) groupChecks(checks []models.Check) []models.GroupedChecksByMarkStatusHistoryId {
+	groupedChecksMap := make(map[int][]models.Check, 0)
+	for _, check := range checks {
+		historyItemId := check.MarkStatusHistoryItemId
+		groupedChecksMap[historyItemId] = append(groupedChecksMap[historyItemId], check)
+	}
+
+	keys := slices.Collect(maps.Keys(groupedChecksMap))
+	slices.Sort(keys)
+
+	groupedChecks := make([]models.GroupedChecksByMarkStatusHistoryId, 0, len(groupedChecksMap))
+	for _, k := range keys {
+		groupedChecks = append(groupedChecks, models.GroupedChecksByMarkStatusHistoryId{
+			MarkStatusHistoryId: k,
+			Сhecks:              groupedChecksMap[k],
+		})
+	}
+
+	return groupedChecks
 }
 
 func (uc *Checks) GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error) {

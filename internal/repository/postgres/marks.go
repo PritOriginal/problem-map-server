@@ -259,3 +259,39 @@ func (r *MarksRepository) GetLastMarkStatusHistoryItem(ctx context.Context, mark
 
 	return historyItem, nil
 }
+
+func (r *MarksRepository) GetDistancesFromMarkToPoint(ctx context.Context, filters models.GetDistanceFromMarkToPointFilters) ([]models.DistanceFromMarkToPoint, error) {
+	const op = "storage.postgres.GetDistancesFromMarkToPoint"
+
+	distances := []models.DistanceFromMarkToPoint{}
+
+	query := `
+		WITH distances AS (
+			SELECT 
+				m.mark_id,
+				u.user_id,
+				ST_DistanceSphere(m.geom, u.home_point) AS dist_meters
+			FROM
+				marks m
+			CROSS JOIN
+				users u
+			WHERE
+				m.mark_status_id = ANY($1)
+		)
+		SELECT 
+			mark_id,
+			user_id,
+			ROUND((dist_meters / 1000.0)::numeric, 2) AS distance_km
+		FROM distances
+		WHERE dist_meters < $2
+		ORDER BY mark_id, user_id
+		`
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &distances, query, pq.Array(filters.MarkStatusIds), filters.MaxRadius); err != nil {
+		return distances, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return distances, nil
+
+}

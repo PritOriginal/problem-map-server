@@ -171,8 +171,8 @@ func (_c *MockTasks_GetTaskById_Call) RunAndReturn(run func(ctx context.Context,
 }
 
 // GetTasks provides a mock function for the type MockTasks
-func (_mock *MockTasks) GetTasks(ctx context.Context) ([]models.Task, error) {
-	ret := _mock.Called(ctx)
+func (_mock *MockTasks) GetTasks(ctx context.Context, filters models.GetTasksFilters) ([]models.Task, error) {
+	ret := _mock.Called(ctx, filters)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetTasks")
@@ -180,18 +180,18 @@ func (_mock *MockTasks) GetTasks(ctx context.Context) ([]models.Task, error) {
 
 	var r0 []models.Task
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]models.Task, error)); ok {
-		return returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetTasksFilters) ([]models.Task, error)); ok {
+		return returnFunc(ctx, filters)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) []models.Task); ok {
-		r0 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetTasksFilters) []models.Task); ok {
+		r0 = returnFunc(ctx, filters)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]models.Task)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.GetTasksFilters) error); ok {
+		r1 = returnFunc(ctx, filters)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -205,18 +205,24 @@ type MockTasks_GetTasks_Call struct {
 
 // GetTasks is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockTasks_Expecter) GetTasks(ctx interface{}) *MockTasks_GetTasks_Call {
-	return &MockTasks_GetTasks_Call{Call: _e.mock.On("GetTasks", ctx)}
+//   - filters models.GetTasksFilters
+func (_e *MockTasks_Expecter) GetTasks(ctx interface{}, filters interface{}) *MockTasks_GetTasks_Call {
+	return &MockTasks_GetTasks_Call{Call: _e.mock.On("GetTasks", ctx, filters)}
 }
 
-func (_c *MockTasks_GetTasks_Call) Run(run func(ctx context.Context)) *MockTasks_GetTasks_Call {
+func (_c *MockTasks_GetTasks_Call) Run(run func(ctx context.Context, filters models.GetTasksFilters)) *MockTasks_GetTasks_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
+		var arg1 models.GetTasksFilters
+		if args[1] != nil {
+			arg1 = args[1].(models.GetTasksFilters)
+		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -227,14 +233,14 @@ func (_c *MockTasks_GetTasks_Call) Return(tasks []models.Task, err error) *MockT
 	return _c
 }
 
-func (_c *MockTasks_GetTasks_Call) RunAndReturn(run func(ctx context.Context) ([]models.Task, error)) *MockTasks_GetTasks_Call {
+func (_c *MockTasks_GetTasks_Call) RunAndReturn(run func(ctx context.Context, filters models.GetTasksFilters) ([]models.Task, error)) *MockTasks_GetTasks_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetTasksByUserId provides a mock function for the type MockTasks
-func (_mock *MockTasks) GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error) {
-	ret := _mock.Called(ctx, userId)
+func (_mock *MockTasks) GetTasksByUserId(ctx context.Context, userId int, filters models.GetTasksByUserIdFilters) ([]models.Task, error) {
+	ret := _mock.Called(ctx, userId, filters)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetTasksByUserId")
@@ -242,18 +248,18 @@ func (_mock *MockTasks) GetTasksByUserId(ctx context.Context, userId int) ([]mod
 
 	var r0 []models.Task
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int) ([]models.Task, error)); ok {
-		return returnFunc(ctx, userId)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, models.GetTasksByUserIdFilters) ([]models.Task, error)); ok {
+		return returnFunc(ctx, userId, filters)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int) []models.Task); ok {
-		r0 = returnFunc(ctx, userId)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, models.GetTasksByUserIdFilters) []models.Task); ok {
+		r0 = returnFunc(ctx, userId, filters)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]models.Task)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
-		r1 = returnFunc(ctx, userId)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, models.GetTasksByUserIdFilters) error); ok {
+		r1 = returnFunc(ctx, userId, filters)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -268,11 +274,12 @@ type MockTasks_GetTasksByUserId_Call struct {
 // GetTasksByUserId is a helper method to define mock.On call
 //   - ctx context.Context
 //   - userId int
-func (_e *MockTasks_Expecter) GetTasksByUserId(ctx interface{}, userId interface{}) *MockTasks_GetTasksByUserId_Call {
-	return &MockTasks_GetTasksByUserId_Call{Call: _e.mock.On("GetTasksByUserId", ctx, userId)}
+//   - filters models.GetTasksByUserIdFilters
+func (_e *MockTasks_Expecter) GetTasksByUserId(ctx interface{}, userId interface{}, filters interface{}) *MockTasks_GetTasksByUserId_Call {
+	return &MockTasks_GetTasksByUserId_Call{Call: _e.mock.On("GetTasksByUserId", ctx, userId, filters)}
 }
 
-func (_c *MockTasks_GetTasksByUserId_Call) Run(run func(ctx context.Context, userId int)) *MockTasks_GetTasksByUserId_Call {
+func (_c *MockTasks_GetTasksByUserId_Call) Run(run func(ctx context.Context, userId int, filters models.GetTasksByUserIdFilters)) *MockTasks_GetTasksByUserId_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -282,9 +289,14 @@ func (_c *MockTasks_GetTasksByUserId_Call) Run(run func(ctx context.Context, use
 		if args[1] != nil {
 			arg1 = args[1].(int)
 		}
+		var arg2 models.GetTasksByUserIdFilters
+		if args[2] != nil {
+			arg2 = args[2].(models.GetTasksByUserIdFilters)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
@@ -295,7 +307,7 @@ func (_c *MockTasks_GetTasksByUserId_Call) Return(tasks []models.Task, err error
 	return _c
 }
 
-func (_c *MockTasks_GetTasksByUserId_Call) RunAndReturn(run func(ctx context.Context, userId int) ([]models.Task, error)) *MockTasks_GetTasksByUserId_Call {
+func (_c *MockTasks_GetTasksByUserId_Call) RunAndReturn(run func(ctx context.Context, userId int, filters models.GetTasksByUserIdFilters) ([]models.Task, error)) *MockTasks_GetTasksByUserId_Call {
 	_c.Call.Return(run)
 	return _c
 }

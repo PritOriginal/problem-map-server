@@ -1,9 +1,12 @@
 package authrest
 
+import "github.com/PritOriginal/problem-map-server/internal/models"
+
 type SignUpRequest struct {
-	Username string `json:"username" binding:"required,min=2,max=40"`
-	Login    string `json:"login" binding:"required,min=3,max=40"`
-	Password string `json:"password" binding:"required,min=8,max=64"`
+	Username  string        `json:"username" binding:"required,min=2,max=40"`
+	Login     string        `json:"login" binding:"required,min=3,max=40"`
+	Password  string        `json:"password" binding:"required,min=8,max=64"`
+	HomePoint *models.Point `json:"home_point" binding:"required"`
 }
 
 type SignUpResponse struct {

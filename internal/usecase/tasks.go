@@ -9,10 +9,12 @@ import (
 )
 
 type TasksRepository interface {
-	GetTasks(ctx context.Context) ([]models.Task, error)
+	GetTasks(ctx context.Context, filters models.GetTasksFilters) ([]models.Task, error)
 	GetTaskById(ctx context.Context, id int) (models.Task, error)
-	GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error)
+	GetTasksByUserId(ctx context.Context, userId int, filters models.GetTasksByUserIdFilters) ([]models.Task, error)
+	GetTaskByUserIdAndMarkId(ctx context.Context, userId int, markId int) (models.Task, error)
 	AddTask(ctx context.Context, task models.Task) (int64, error)
+	UpdateTaskStatus(ctx context.Context, taskId int, taskStatusId models.TaskStatusType) error
 }
 
 type Tasks struct {
@@ -28,10 +30,10 @@ func NewTasks(log *slog.Logger, repos TasksRepositories) *Tasks {
 	return &Tasks{log: log, repos: repos}
 }
 
-func (uc *Tasks) GetTasks(ctx context.Context) ([]models.Task, error) {
+func (uc *Tasks) GetTasks(ctx context.Context, filters models.GetTasksFilters) ([]models.Task, error) {
 	const op = "usecase.Tasks.GetTasks"
 
-	tasks, err := uc.repos.Tasks.GetTasks(ctx)
+	tasks, err := uc.repos.Tasks.GetTasks(ctx, filters)
 	if err != nil {
 		return tasks, fmt.Errorf("%s: %w", op, err)
 	}
@@ -50,10 +52,10 @@ func (uc *Tasks) GetTaskById(ctx context.Context, id int) (models.Task, error) {
 	return task, nil
 }
 
-func (uc *Tasks) GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error) {
+func (uc *Tasks) GetTasksByUserId(ctx context.Context, userId int, filters models.GetTasksByUserIdFilters) ([]models.Task, error) {
 	const op = "usecase.Tasks.GetTasksByUserId"
 
-	tasks, err := uc.repos.Tasks.GetTasksByUserId(ctx, userId)
+	tasks, err := uc.repos.Tasks.GetTasksByUserId(ctx, userId, filters)
 	if err != nil {
 		return tasks, fmt.Errorf("%s: %w", op, err)
 	}

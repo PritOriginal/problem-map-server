@@ -116,6 +116,40 @@ func (h *handler) GetChecksByMarkId() gin.HandlerFunc {
 	}
 }
 
+// // GetGroupedChecksByMarkStatusHistoryId get grouped checks by mark status history id
+// //
+// //	@Summary		Get check by mark id
+// //	@Description	get check by mark id
+// //	@Tags			checks
+// //	@Produce		json
+// //	@Param			id	path		int	true	"mark id"
+// //	@Success		200	{object}	responses.Response[checksrest.GetChecksByMarkIdResponse]
+// //	@Failure		400	{object}	responses.Response[any]
+// //	@Failure		500	{object}	responses.Response[any]
+// //	@Router			/checks/mark/{id}/grouped [get]
+// func (h *handler) GetGroupedChecksByMarkStatusHistoryId() http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		markId, err := strconv.Atoi(chi.URLParam(r, "markId"))
+// 		if err != nil {
+// 			h.RenderError(w, r,
+// 				handlers.HandlerError{Msg: "failed parse id", Err: err},
+// 				responses.ErrBadRequest,
+// 			)
+// 			return
+// 		}
+
+// 		groupedChecks, err := h.uc.GetGroupedChecksByMarkStatusHistoryId(r.Context(), markId)
+// 		if err != nil {
+// 			h.RenderInternalError(w, r, handlers.HandlerError{Msg: "error get checks", Err: err})
+// 			return
+// 		}
+
+// 		h.Render(w, r, responses.SucceededRenderer(GetGroupedChecksByMarkStatusHistoryIdResponse{
+// 			GroupedChecks: groupedChecks,
+// 		}))
+// 	}
+// }
+
 // GetChecksByUserId get checks by user id
 //
 //	@Summary		List checks by user id

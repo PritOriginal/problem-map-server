@@ -56,14 +56,14 @@ func (suite *TasksSuite) TestGetTasks() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			func() {
-				suite.tasksRepo.On("GetTasks", mock.Anything).Once().
+				suite.tasksRepo.On("GetTasks", mock.Anything, mock.AnythingOfType("models.GetTasksFilters")).Once().
 					Return(tt.getTasks.data, tt.getTasks.err)
 				if tt.getTasks.err != nil {
 					return
 				}
 			}()
 
-			_, gotErr := suite.uc.GetTasks(context.Background())
+			_, gotErr := suite.uc.GetTasks(context.Background(), models.GetTasksFilters{})
 
 			if tt.getTasks.err == nil {
 				suite.NoError(gotErr)
@@ -142,14 +142,14 @@ func (suite *TasksSuite) TestGetTasksByUserId() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			func() {
-				suite.tasksRepo.On("GetTasksByUserId", mock.Anything, mock.AnythingOfType("int")).Once().
+				suite.tasksRepo.On("GetTasksByUserId", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("models.GetTasksByUserIdFilters")).Once().
 					Return(tt.getTasksByUserId.data, tt.getTasksByUserId.err)
 				if tt.getTasksByUserId.err != nil {
 					return
 				}
 			}()
 
-			_, gotErr := suite.uc.GetTasksByUserId(context.Background(), 1)
+			_, gotErr := suite.uc.GetTasksByUserId(context.Background(), 1, models.GetTasksByUserIdFilters{})
 
 			if tt.getTasksByUserId.err == nil {
 				suite.NoError(gotErr)

@@ -8,15 +8,16 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
+	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/gin-gonic/gin"
 )
 
 type Tasks interface {
-	GetTasks(ctx context.Context) ([]models.Task, error)
+	GetTasks(ctx context.Context, filters models.GetTasksFilters) ([]models.Task, error)
 	GetTaskById(ctx context.Context, id int) (models.Task, error)
-	GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error)
+	GetTasksByUserId(ctx context.Context, userId int, filters models.GetTasksByUserIdFilters) ([]models.Task, error)
 	AddTask(ctx context.Context, task models.Task) (int64, error)
 }
 
@@ -48,7 +49,17 @@ func Register(r *gin.Engine, log *slog.Logger, uc Tasks) {
 //	@Router			/tasks [get]
 func (h *handler) GetTasks() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tasks, err := h.uc.GetTasks(c.Request.Context())
+		statusesStr := c.Query("statuses")
+		statuses, err := handlers.ParseIntArray(statusesStr)
+		if err != nil {
+			h.log.Debug("failed parse statuses", logger.Err(err))
+			responses.BadRequest(c, "failed parse statuses")
+			return
+		}
+
+		tasks, err := h.uc.GetTasks(c.Request.Context(), models.GetTasksFilters{
+			Statuses: statuses,
+		})
 		if err != nil {
 			h.log.Error("error get tasks", logger.Err(err))
 			responses.Internal(c, "error get tasks")
@@ -120,7 +131,17 @@ func (h *handler) GetTasksByUserId() gin.HandlerFunc {
 			return
 		}
 
-		tasks, err := h.uc.GetTasksByUserId(c.Request.Context(), userId)
+		statusesStr := c.Query("statuses")
+		statuses, err := handlers.ParseIntArray(statusesStr)
+		if err != nil {
+			h.log.Debug("failed parse statuses", logger.Err(err))
+			responses.BadRequest(c, "failed parse statuses")
+			return
+		}
+
+		tasks, err := h.uc.GetTasksByUserId(c.Request.Context(), userId, models.GetTasksByUserIdFilters{
+			Statuses: statuses,
+		})
 		if err != nil {
 			h.log.Error("error get tasks by user id", slog.Int("user_id", userId), logger.Err(err))
 			responses.Internal(c, "error get tasks by user id")

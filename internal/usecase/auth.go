@@ -29,18 +29,26 @@ func NewAuth(log *slog.Logger, authCfg config.AuthConfing, repos AuthRepositorie
 	return &Auth{log: log, repos: repos, authCfg: authCfg}
 }
 
-func (uc *Auth) SignUp(ctx context.Context, username, login, password string) (int64, error) {
+type SignUpParams struct {
+	Username  string
+	Login     string
+	Password  string
+	HomePoint *models.Point
+}
+
+func (uc *Auth) SignUp(ctx context.Context, params SignUpParams) (int64, error) {
 	const op = "usecase.Users.SignUp"
 
-	passwordHash, err := passwordUtils.HashPassword(password)
+	passwordHash, err := passwordUtils.HashPassword(params.Password)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
 	user := models.User{
-		Name:         username,
-		Login:        login,
+		Name:         params.Username,
+		Login:        params.Login,
 		PasswordHash: passwordHash,
+		HomePoint:    params.HomePoint,
 	}
 
 	_, err = uc.repos.Users.GetUserByLogin(ctx, user.Login)

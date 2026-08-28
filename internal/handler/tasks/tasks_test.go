@@ -39,14 +39,34 @@ func TestUsers(t *testing.T) {
 
 func (suite *TasksSuite) TestGetTasks() {
 	tests := []struct {
-		name        string
-		errGetTasks error
-		statusCode  int
+		name                 string
+		query                string
+		wantErrParseStatuses bool
+		errGetTasks          error
+		statusCode           int
 	}{
 		{
 			name:        "Ok200",
 			errGetTasks: nil,
 			statusCode:  200,
+		},
+		{
+			name:        "Ok200",
+			query:       "?statuses=1",
+			errGetTasks: nil,
+			statusCode:  200,
+		},
+		{
+			name:        "Ok200",
+			query:       "?statuses=1,2",
+			errGetTasks: nil,
+			statusCode:  200,
+		},
+		{
+			name:                 "Err400",
+			query:                "?statuses=a",
+			wantErrParseStatuses: true,
+			statusCode:           400,
 		},
 		{
 			name:        "Err500",
@@ -56,11 +76,13 @@ func (suite *TasksSuite) TestGetTasks() {
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			suite.uc.On("GetTasks", mock.Anything).Once().
-				Return([]models.Task{}, tt.errGetTasks)
+			if !tt.wantErrParseStatuses {
+				suite.uc.On("GetTasks", mock.Anything, mock.AnythingOfType("models.GetTasksFilters")).Once().
+					Return([]models.Task{}, tt.errGetTasks)
+			}
 
 			w := httptest.NewRecorder()
-			req := httptest.NewRequest("GET", "/tasks", nil)
+			req := httptest.NewRequest("GET", "/tasks"+tt.query, nil)
 
 			suite.r.ServeHTTP(w, req)
 
@@ -125,18 +147,38 @@ func (suite *TasksSuite) TestGetTaskById() {
 
 func (suite *TasksSuite) TestGetTasksByUserId() {
 	tests := []struct {
-		name                string
-		id                  string
-		wantErrParseId      bool
-		errGetTasksByUserId error
-		statusCode          int
+		name                 string
+		id                   string
+		query                string
+		wantErrParseId       bool
+		wantErrParseStatuses bool
+		errGetTasksByUserId  error
+		statusCode           int
 	}{
 		{
 			name:                "Ok200",
 			id:                  "1",
-			wantErrParseId:      false,
 			errGetTasksByUserId: nil,
 			statusCode:          200,
+		},
+		{
+			name:       "Ok200",
+			id:         "1",
+			query:      "?statuses=1",
+			statusCode: 200,
+		},
+		{
+			name:       "Ok200",
+			id:         "1",
+			query:      "?statuses=1,2",
+			statusCode: 200,
+		},
+		{
+			name:                 "Err400",
+			id:                   "1",
+			query:                "?statuses=a",
+			wantErrParseStatuses: true,
+			statusCode:           400,
 		},
 		{
 			name:                "Err400",
@@ -155,13 +197,13 @@ func (suite *TasksSuite) TestGetTasksByUserId() {
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			if !tt.wantErrParseId {
-				suite.uc.On("GetTasksByUserId", mock.Anything, mock.AnythingOfType("int")).Once().
+			if !tt.wantErrParseId && !tt.wantErrParseStatuses {
+				suite.uc.On("GetTasksByUserId", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("models.GetTasksByUserIdFilters")).Once().
 					Return([]models.Task{}, tt.errGetTasksByUserId)
 			}
 
 			w := httptest.NewRecorder()
-			req := httptest.NewRequest("GET", "/tasks/user/"+tt.id, nil)
+			req := httptest.NewRequest("GET", "/tasks/user/"+tt.id+tt.query, nil)
 
 			suite.r.ServeHTTP(w, req)
 

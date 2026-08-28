@@ -108,6 +108,17 @@ type GetMarksFilters struct {
 	MarkStatusIds []int
 }
 
+type DistanceFromMarkToPoint struct {
+	MarkId   int     `db:"mark_id"`
+	UserId   int     `db:"user_id"`
+	Distance float64 `db:"distance_km"`
+}
+
+type GetDistanceFromMarkToPointFilters struct {
+	MarkStatusIds []MarkStatusType
+	MaxRadius     int
+}
+
 type MarkType struct {
 	ID   int    `json:"mark_type_id" db:"type_mark_id"`
 	Name string `json:"name"`
@@ -181,4 +192,9 @@ func (c *Check) ToProtobufObject() *pb.Check {
 		CreatedAt: timestamppb.New(c.CreatedAt),
 		UpdatedAt: timestamppb.New(c.UpdatedAt),
 	}
+}
+
+type GroupedChecksByMarkStatusHistoryId struct {
+	MarkStatusHistoryId int     `json:"mark_status_history_id"`
+	Сhecks              []Check `json:"checks"`
 }

@@ -11,10 +11,12 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
+	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"github.com/twpayne/go-geom"
 )
 
 type AuthSuite struct {
@@ -35,6 +37,12 @@ func (st *AuthSuite) TestSignUp() {
 	login := gofakeit.Username()
 	password := gofakeit.Password(true, true, true, true, true, 10)
 
+	long, err := gofakeit.LatitudeInRange(52.66, 52.8)
+	st.NoError(err)
+	lat, err := gofakeit.LongitudeInRange(41.3, 41.55)
+	st.NoError(err)
+	homePoint := models.NewPoint(geom.Coord{lat, long})
+
 	tests := []struct {
 		name       string
 		rawReq     string
@@ -44,9 +52,10 @@ func (st *AuthSuite) TestSignUp() {
 		{
 			name: "Ok201",
 			req: authrest.SignUpRequest{
-				Username: username,
-				Login:    login,
-				Password: password,
+				Username:  username,
+				Login:     login,
+				Password:  password,
+				HomePoint: homePoint,
 			},
 			statusCode: http.StatusCreated,
 		},
@@ -64,11 +73,21 @@ func (st *AuthSuite) TestSignUp() {
 			statusCode: http.StatusBadRequest,
 		},
 		{
+			name: "Err400InvalidReq",
+			req: authrest.SignUpRequest{
+				Username:  "name",
+				Login:     "username",
+				HomePoint: homePoint,
+			},
+			statusCode: http.StatusBadRequest,
+		},
+		{
 			name: "Err409",
 			req: authrest.SignUpRequest{
-				Username: username,
-				Login:    login,
-				Password: password,
+				Username:  username,
+				Login:     login,
+				Password:  password,
+				HomePoint: homePoint,
 			},
 			statusCode: http.StatusConflict,
 		},

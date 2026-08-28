@@ -13,6 +13,9 @@ run-grpc:
 build-grpc:
 	go build ./cmd/grpc/
 
+run-tasker:
+	go run ./cmd/tasker/ --config=./configs/config.yaml
+
 test:
 	go test -tags=nomsgpack ./...
 
@@ -27,6 +30,11 @@ test-cover:
 	cat cover.test.tmp | grep -v "mocks" > cover.test 
 	rm cover.test.tmp 
 	go tool cover -func cover.test 
+
+test-cover-functional-rest:
+	mkdir test-cover 
+	go build -cover -o test-rest.test ./cmd/rest/
+	GOCOVERDIR=test-cover ./test-rest.test --config=./configs/config.yaml     
 
 migrate:
 	migrate create -ext=sql -dir=./migrations -seq ${NAME_MIGRATION}     
@@ -51,3 +59,5 @@ build-osm:
 swag:
 	swag init -g ./cmd/rest/main.go --parseDependency --overridesFile .swaggo
 	swag fmt
+lint:
+	golangci-lint run ./...

@@ -103,19 +103,19 @@ func (r *UsersRepository) AddUser(ctx context.Context, user models.User) (int64,
 
 	query := `
 			INSERT INTO 
-				users (name, login, password_hash) 
+				users (name, login, password_hash, home_point) 
 			VALUES 
-				(:name, :login, :password_hash) 
+				($1, $2, $3, ST_GeomFromEWKB($4)) 
 			RETURNING user_id
 			`
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	stmt, err := tr.PrepareNamedContext(ctx, query)
+	stmt, err := tr.PreparexContext(ctx, query)
 	if err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
-	if err := stmt.GetContext(ctx, &id, user); err != nil {
+	if err := stmt.GetContext(ctx, &id, user.Name, user.Login, user.PasswordHash, user.HomePoint); err != nil {
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 

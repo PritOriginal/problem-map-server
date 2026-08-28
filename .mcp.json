@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres", "${POSTGRES_URL:-postgresql://postgres:postgres@127.0.0.1:5432/problem_map}"]
+    }
+  }
+}

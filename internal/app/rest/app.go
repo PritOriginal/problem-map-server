@@ -96,9 +96,11 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		StatusUpdater:  markStatusUpdater,
 	})
 
+	tasksRepo := postgres.NewTasks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	checksUseCase := usecase.NewChecks(log, trManager, markStatusUpdater, usecase.ChecksRepositories{
 		Marks:  marksRepo,
 		Checks: checksRepo,
+		Tasks:  tasksRepo,
 		Photos: photoRepo,
 	})
 	checksrest.Register(router, log, authMiddleware, checksUseCase)
@@ -114,7 +116,6 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	})
 	authrest.Register(router, log, authUseCase)
 
-	tasksRepo := postgres.NewTasks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	tasksUseCase := usecase.NewTasks(log, usecase.TasksRepositories{
 		Tasks: tasksRepo,
 	})
