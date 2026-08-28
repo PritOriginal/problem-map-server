@@ -9,11 +9,13 @@ import (
 	"slices"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/avito-tech/go-transaction-manager/trm/v2"
 )
 
 type Tasker struct {
-	log   *slog.Logger
-	repos TaskerRepositories
+	log       *slog.Logger
+	trManager trm.Manager
+	repos     TaskerRepositories
 }
 
 type TaskerRepositories struct {
@@ -22,18 +24,19 @@ type TaskerRepositories struct {
 	Users UsersRepository
 }
 
-func NewTaskser(log *slog.Logger, repos TaskerRepositories) *Tasker {
+func NewTaskser(log *slog.Logger, trManager trm.Manager, repos TaskerRepositories) *Tasker {
 	return &Tasker{
-		log:   log,
-		repos: repos,
+		log:       log,
+		trManager: trManager,
+		repos:     repos,
 	}
 }
 
-func (uc *Tasker) Update() error {
+func (uc *Tasker) Update(ctx context.Context) error {
 	const op = "usecase.Tasker.Update"
 
 	uc.log.Debug("start update")
-	marks, err := uc.repos.Marks.GetMarks(context.Background(), models.GetMarksFilters{
+	marks, err := uc.repos.Marks.GetMarks(ctx, models.GetMarksFilters{
 		MarkStatusIds: []int{
 			int(models.UnconfirmedStatus),
 			int(models.UnderReviewStatus),
@@ -44,13 +47,13 @@ func (uc *Tasker) Update() error {
 	}
 	uc.log.Debug("marks received")
 
-	users, err := uc.repos.Users.GetUsers(context.Background())
+	users, err := uc.repos.Users.GetUsers(ctx)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 	uc.log.Debug("users received")
 
-	tasks, err := uc.repos.Tasks.GetTasks(context.Background(), models.GetTasksFilters{
+	tasks, err := uc.repos.Tasks.GetTasks(ctx, models.GetTasksFilters{
 		Statuses: []int{
 			int(models.UnfulfilledStatus),
 		},
@@ -60,7 +63,7 @@ func (uc *Tasker) Update() error {
 	}
 	uc.log.Debug("tasks received")
 
-	distances, err := uc.repos.Marks.GetDistancesFromMarkToPoint(context.Background(), models.GetDistanceFromMarkToPointFilters{
+	distances, err := uc.repos.Marks.GetDistancesFromMarkToPoint(ctx, models.GetDistanceFromMarkToPointFilters{
 		MarkStatusIds: []models.MarkStatusType{
 			models.UnconfirmedStatus,
 			models.UnderReviewStatus,
@@ -74,16 +77,24 @@ func (uc *Tasker) Update() error {
 
 	assignments := uc.update(marks, users, tasks, distances)
 
-	for markId, users := range assignments {
-		for userId := range users {
-			_, err := uc.repos.Tasks.AddTask(context.Background(), models.Task{
-				MarkID: markId,
-				UserID: userId,
-			})
-			if err != nil {
-				return err
+	// All assignments are written in one transaction so that a failure or a
+	// cancellation (SIGTERM) never leaves a partially written batch.
+	err = uc.trManager.Do(ctx, func(ctx context.Context) error {
+		for markId, users := range assignments {
+			for userId := range users {
+				_, err := uc.repos.Tasks.AddTask(ctx, models.Task{
+					MarkID: markId,
+					UserID: userId,
+				})
+				if err != nil {
+					return err
+				}
 			}
 		}
+		return nil
+	})
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	return nil

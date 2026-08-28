@@ -30,7 +30,13 @@ func New(cfg config.RedisConfig) (*Redis, error) {
 	return &Redis{Client: client}, nil
 }
 
-func (r *Redis) Stop() error {
+// Ping verifies the Redis connection is alive.
+func (r *Redis) Ping(ctx context.Context) error {
+	return r.Client.Ping(ctx).Err()
+}
+
+// Close closes the Redis client.
+func (r *Redis) Close() error {
 	return r.Client.Close()
 }
 

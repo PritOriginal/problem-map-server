@@ -5,7 +5,10 @@ import (
 
 	_ "github.com/PritOriginal/problem-map-server/docs"
 	"github.com/PritOriginal/problem-map-server/internal/config"
+	"github.com/PritOriginal/problem-map-server/internal/handler/health"
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/requestid"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/gin-gonic/gin"
@@ -27,7 +30,9 @@ const (
 // GetRouter builds the base router. trustedProxies lists the CIDRs/IPs of
 // reverse proxies whose X-Forwarded-For header may be used to derive the
 // client IP; with an empty list the remote address is used as is.
-func GetRouter(log *slog.Logger, env logger.Environment, trustedProxies []string) *gin.Engine {
+// Prometheus metrics are exposed at GET /metrics; probe and metrics routes
+// are excluded from both the access log and the metrics.
+func GetRouter(log *slog.Logger, env logger.Environment, trustedProxies []string, m *metrics.Metrics) *gin.Engine {
 	r := gin.New()
 	r.MaxMultipartMemory = MaxMultipartMemory
 	if err := r.SetTrustedProxies(trustedProxies); err != nil {
@@ -39,14 +44,24 @@ func GetRouter(log *slog.Logger, env logger.Environment, trustedProxies []string
 		gin.SetMode(gin.ReleaseMode)
 	}
 
+	quietPaths := []string{health.PathLive, health.PathReady, metrics.Path}
+
+	r.Use(requestid.New())
+
 	if env == logger.Local {
 		r.Use(gin.Logger())
 	} else {
-		r.Use(sloggin.New(log))
+		cfg := sloggin.DefaultConfig()
+		cfg.WithRequestID = true
+		cfg.Filters = []sloggin.Filter{sloggin.IgnorePath(quietPaths...)}
+		r.Use(sloggin.NewWithConfig(log, cfg))
 	}
 
+	r.Use(m.Middleware(quietPaths...))
 	r.Use(gin.Recovery())
 	r.Use(middleware.MaxBodySize(MaxBodySize))
+
+	r.GET(metrics.Path, m.Handler())
 
 	return r
 }

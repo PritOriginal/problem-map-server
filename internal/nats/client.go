@@ -3,18 +3,20 @@ package nats
 import (
 	"encoding/json"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
+	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/nats-io/nats.go"
 )
 
 type Client struct {
 	conn *nats.Conn
+	log  *slog.Logger
 }
 
-func New(cfg config.NatsConfig) (*Client, error) {
+func New(log *slog.Logger, cfg config.NatsConfig) (*Client, error) {
 	const op = "nats.New"
 
 	opts := []nats.Option{
@@ -32,6 +34,7 @@ func New(cfg config.NatsConfig) (*Client, error) {
 
 	client := &Client{
 		conn: conn,
+		log:  log.With(slog.String("component", "nats")),
 	}
 
 	return client, nil
@@ -48,7 +51,7 @@ func (c *Client) PublishJSON(subject string, data any) error {
 func (c *Client) SubscribeJSON(subject string, handler func(msg *nats.Msg, data []byte) error) (*nats.Subscription, error) {
 	return c.conn.Subscribe(subject, func(msg *nats.Msg) {
 		if err := handler(msg, msg.Data); err != nil {
-			log.Printf("[NATS] Handler error for %s: %v", subject, err)
+			c.log.Error("handler error", slog.String("subject", subject), slogger.Err(err))
 		}
 	})
 }

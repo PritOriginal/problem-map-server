@@ -9,6 +9,12 @@ rest:
 grpc:
   port: 44044
   timeout: 5s
+  connection-timeout: 120s
+  metrics-port: 9091
+health:
+  timeout: 3s
+  cache-ttl: 2s
+shutdown-timeout: 10s
 photo-storage: local
 auth:
   jwt:

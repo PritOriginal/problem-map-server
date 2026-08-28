@@ -2,20 +2,24 @@ package rest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/PritOriginal/problem-map-server/internal/app"
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/handler"
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
 	checksrest "github.com/PritOriginal/problem-map-server/internal/handler/checks"
+	"github.com/PritOriginal/problem-map-server/internal/handler/health"
 	maprest "github.com/PritOriginal/problem-map-server/internal/handler/map"
 	marksrest "github.com/PritOriginal/problem-map-server/internal/handler/marks"
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/ratelimit"
 	"github.com/PritOriginal/problem-map-server/internal/repository/local"
 	"github.com/PritOriginal/problem-map-server/internal/repository/postgres"
@@ -26,32 +30,37 @@ import (
 	jwt "github.com/appleboy/gin-jwt/v3"
 	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
-	"github.com/gin-gonic/gin"
 )
 
 type App struct {
-	server *http.Server
-	log    *slog.Logger
-	db     *postgres.Postgres
-	router *gin.Engine
-	port   int
+	server          *http.Server
+	log             *slog.Logger
+	closers         app.Closers
+	shutdownTimeout time.Duration
+	port            int
 }
 
 func New(log *slog.Logger, cfg *config.Config) *App {
+	// Clients are registered in dependency order; app.Closers closes them in
+	// reverse (s3 -> redis -> database).
+	var closers app.Closers
+
 	postgresDB, err := postgres.New(cfg.DB)
 	if err != nil {
 		log.Error("failed connection to database", slogger.Err(err))
 		panic(err)
 	}
 	log.Info("PostgreSQL connected!")
+	closers.Add("database", postgresDB)
 	trManager := manager.Must(trmsqlx.NewDefaultFactory(postgresDB.DB))
 
-	redis, err := redis.New(cfg.Redis)
+	redisClient, err := redis.New(cfg.Redis)
 	if err != nil {
 		log.Error("failed connection to redis", slogger.Err(err))
 		panic(err)
 	}
 	log.Info("Redis connected!")
+	closers.Add("redis", redisClient)
 
 	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
 		Key: []byte(cfg.Auth.JWT.Access.Key),
@@ -66,18 +75,25 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		panic(errInit)
 	}
 
-	router := handler.GetRouter(log, cfg.Env, cfg.REST.TrustedProxies)
+	router := handler.GetRouter(log, cfg.Env, cfg.REST.TrustedProxies, metrics.New())
 
 	handler.SetSwagger(router, cfg)
 
+	healthUseCase := usecase.NewHealth(log, cfg.Health, usecase.HealthDependencies{
+		"postgres": postgresDB,
+		"redis":    redisClient,
+	})
+	health.Register(router, log, healthUseCase)
+
 	mapRepo := postgres.NewMap(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 
-	photoRepo := initPhotosRepository(log, cfg)
+	photoRepo, photoCloser := initPhotosRepository(log, cfg)
+	closers.Add("s3", photoCloser)
 
 	mapUseCase := usecase.NewMap(log, usecase.MapRepositories{
 		Map: mapRepo,
 	})
-	maprest.Register(router, log, mapUseCase, redis)
+	maprest.Register(router, log, mapUseCase, redisClient)
 
 	marksRepo := postgres.NewMarks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	checksRepo := postgres.NewChecks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
@@ -92,7 +108,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	})
 	marksrest.Register(router, log, marksrest.Params{
 		AuthMiddleware: authMiddleware,
-		Cacher:         redis,
+		Cacher:         redisClient,
 		Usecase:        marksUseCase,
 		StatusUpdater:  markStatusUpdater,
 	})
@@ -115,7 +131,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	authUseCase := usecase.NewAuth(log, cfg.Auth, usecase.AuthRepositories{
 		Users: usersRepo,
 	})
-	authRateLimit := ratelimit.New(log, redis, ratelimit.Config{
+	authRateLimit := ratelimit.New(log, redisClient, ratelimit.Config{
 		Requests: cfg.REST.RateLimit.Requests,
 		Window:   cfg.REST.RateLimit.Window,
 	})
@@ -135,15 +151,17 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	}
 
 	return &App{
-		server: server,
-		log:    log,
-		db:     postgresDB,
-		router: router,
-		port:   cfg.REST.Port,
+		server:          server,
+		log:             log,
+		closers:         closers,
+		shutdownTimeout: cfg.ShutdownTimeout,
+		port:            cfg.REST.Port,
 	}
 }
 
-func initPhotosRepository(log *slog.Logger, cfg *config.Config) usecase.PhotosRepository {
+// initPhotosRepository returns the photo repository and, when a remote client
+// is used, a closer that must be called on shutdown (nil otherwise).
+func initPhotosRepository(log *slog.Logger, cfg *config.Config) (usecase.PhotosRepository, *s3.S3) {
 	switch cfg.PhotoStorage {
 	case config.S3:
 		s3Client, err := s3.New(log, cfg.Aws)
@@ -153,44 +171,40 @@ func initPhotosRepository(log *slog.Logger, cfg *config.Config) usecase.PhotosRe
 		}
 		log.Info("s3 connected!")
 
-		return s3.NewPhotos(s3Client)
+		return s3.NewPhotos(s3Client), s3Client
 	default:
-		return local.NewPhotos()
+		return local.NewPhotos(), nil
 	}
 }
 
-func (a *App) MustRun() {
-	if err := a.Run(); err != nil {
-		panic(err)
-	}
-}
-
+// Run starts the HTTP server and blocks until it stops. A clean shutdown
+// (http.ErrServerClosed) is reported as nil.
 func (a *App) Run() error {
 	const op = "rest.Run"
 
 	a.log.Info("server started", slog.String("address", ":"+strconv.Itoa(a.port)))
-	if err := a.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		a.log.Error("failed to start server")
+	if err := a.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		a.log.Error("failed to start server", slogger.Err(err))
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	return nil
 }
 
+// Stop gracefully shuts down the HTTP server and closes every infrastructure
+// client (S3, Redis, PostgreSQL) in that order.
 func (a *App) Stop() {
 	const op = "rest.Stop"
 
-	a.log.With(slog.String("op", op)).
-		Info("stopping REST server", slog.Int("port", a.port))
+	log := a.log.With(slog.String("op", op))
+	log.Info("stopping REST server", slog.Int("port", a.port))
 
-	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), a.shutdownTimeout)
 	defer shutdownRelease()
 
 	if err := a.server.Shutdown(shutdownCtx); err != nil {
-		a.log.Error("an error occurred while stopping the server", slogger.Err(err))
+		log.Error("an error occurred while stopping the server", slogger.Err(err))
 	}
 
-	if err := a.db.DB.Close(); err != nil {
-		a.log.Error("an error occurred while closing the connection to the database", slogger.Err(err))
-	}
+	a.closers.Close(log)
 }
