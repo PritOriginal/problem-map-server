@@ -1,0 +1,11 @@
+DROP INDEX IF EXISTS idx_users_home_point;
+DROP INDEX IF EXISTS idx_mark_status_history_prev_id;
+DROP INDEX IF EXISTS idx_tasks_status_id;
+DROP INDEX IF EXISTS idx_tasks_mark_id;
+DROP INDEX IF EXISTS idx_tasks_user_id;
+DROP INDEX IF EXISTS idx_checks_mark_status_history_id;
+DROP INDEX IF EXISTS idx_checks_user_id;
+DROP INDEX IF EXISTS idx_checks_mark_id;
+DROP INDEX IF EXISTS idx_marks_type_mark_id;
+DROP INDEX IF EXISTS idx_marks_mark_status_id;
+DROP INDEX IF EXISTS idx_marks_user_id;
