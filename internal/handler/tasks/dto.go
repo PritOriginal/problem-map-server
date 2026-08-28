@@ -14,9 +14,9 @@ type GetTasksByUserIdResponse struct {
 	Tasks []models.Task `json:"tasks"`
 }
 
+// AddTaskRequest describes a new task. The owner is taken from the JWT claims.
 type AddTaskRequest struct {
 	Name   string `json:"name" binding:"required"`
-	UserID int    `json:"user_id" binding:"required"`
 	MarkID int    `json:"mark_id" binding:"required"`
 }
 
