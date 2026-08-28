@@ -2,13 +2,12 @@ package mapgrpc
 
 import (
 	"context"
-	"fmt"
+	"log/slog"
 
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
+	"github.com/PritOriginal/problem-map-server/internal/grpc/grpcerr"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -19,24 +18,29 @@ type Map interface {
 }
 
 type server struct {
-	uc Map
+	log *slog.Logger
+	uc  Map
 	pb.UnimplementedMapServer
 }
 
-func Register(gRPCServer *grpc.Server, uc Map) {
-	pb.RegisterMapServer(gRPCServer, &server{uc: uc})
+// New creates the Map gRPC service implementation.
+func New(log *slog.Logger, uc Map) pb.MapServer {
+	return &server{log: log, uc: uc}
+}
+
+func Register(gRPCServer *grpc.Server, log *slog.Logger, uc Map) {
+	pb.RegisterMapServer(gRPCServer, New(log, uc))
 }
 
 func (s *server) GetRegions(ctx context.Context, in *emptypb.Empty) (*pb.GetRegionsResponse, error) {
 	regions, err := s.uc.GetRegions(ctx)
 	if err != nil {
-		fmt.Println(err.Error())
-		return nil, status.Error(codes.Internal, "error get regions")
+		return nil, grpcerr.Map(s.log, err, "error get regions")
 	}
 
 	regionsPb := make([]*pb.Region, len(regions))
-	for i, region := range regions {
-		regionsPb[i] = region.ToProtobufObject()
+	for i := range regions {
+		regionsPb[i] = regions[i].ToProtobufObject()
 	}
 
 	return &pb.GetRegionsResponse{
@@ -47,12 +51,12 @@ func (s *server) GetRegions(ctx context.Context, in *emptypb.Empty) (*pb.GetRegi
 func (s *server) GetCities(ctx context.Context, in *emptypb.Empty) (*pb.GetCitiesResponse, error) {
 	cities, err := s.uc.GetCities(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "error get cities")
+		return nil, grpcerr.Map(s.log, err, "error get cities")
 	}
 
 	citiesPb := make([]*pb.City, len(cities))
-	for i, city := range cities {
-		citiesPb[i] = city.ToProtobufObject()
+	for i := range cities {
+		citiesPb[i] = cities[i].ToProtobufObject()
 	}
 
 	return &pb.GetCitiesResponse{
@@ -63,12 +67,12 @@ func (s *server) GetCities(ctx context.Context, in *emptypb.Empty) (*pb.GetCitie
 func (s *server) GetDistricts(ctx context.Context, in *emptypb.Empty) (*pb.GetDistrictsResponse, error) {
 	districts, err := s.uc.GetDistricts(ctx)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "error get districts")
+		return nil, grpcerr.Map(s.log, err, "error get districts")
 	}
 
 	districtsPb := make([]*pb.District, len(districts))
-	for i, district := range districts {
-		districtsPb[i] = district.ToProtobufObject()
+	for i := range districts {
+		districtsPb[i] = districts[i].ToProtobufObject()
 	}
 
 	return &pb.GetDistrictsResponse{

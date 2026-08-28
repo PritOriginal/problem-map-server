@@ -3,14 +3,21 @@ package marksgrpc
 import (
 	"context"
 	"io"
+	"log/slog"
 
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
+	"github.com/PritOriginal/problem-map-server/internal/grpc/grpcerr"
+	"github.com/PritOriginal/problem-map-server/internal/grpc/interceptors"
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/twpayne/go-geom"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
+
+// maxDescriptionLen mirrors the REST AddMarkRequest binding (max=256).
+const maxDescriptionLen = 256
 
 type Marks interface {
 	GetMarks(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error)
@@ -22,23 +29,29 @@ type Marks interface {
 }
 
 type server struct {
-	uc Marks
+	log *slog.Logger
+	uc  Marks
 	pb.UnimplementedMarksServer
 }
 
-func Register(gRPCServer *grpc.Server, uc Marks) {
-	pb.RegisterMarksServer(gRPCServer, &server{uc: uc})
+// New creates the Marks gRPC service implementation.
+func New(log *slog.Logger, uc Marks) pb.MarksServer {
+	return &server{log: log, uc: uc}
+}
+
+func Register(gRPCServer *grpc.Server, log *slog.Logger, uc Marks) {
+	pb.RegisterMarksServer(gRPCServer, New(log, uc))
 }
 
 func (s *server) GetMarks(ctx context.Context, in *emptypb.Empty) (*pb.GetMarksResponse, error) {
 	marks, err := s.uc.GetMarks(ctx, models.GetMarksFilters{})
 	if err != nil {
-		return nil, status.Error(codes.Internal, "error get marks")
+		return nil, grpcerr.Map(s.log, err, "error get marks")
 	}
 
 	marksPb := make([]*pb.Mark, len(marks))
-	for i, mark := range marks {
-		marksPb[i] = mark.ToProtobufObject()
+	for i := range marks {
+		marksPb[i] = marks[i].ToProtobufObject()
 	}
 
 	return &pb.GetMarksResponse{
@@ -46,6 +59,135 @@ func (s *server) GetMarks(ctx context.Context, in *emptypb.Empty) (*pb.GetMarksR
 	}, nil
 }
 
+func (s *server) GetMarkById(ctx context.Context, in *pb.GetMarkByIdRequest) (*pb.GetMarkByIdResponse, error) {
+	id := in.GetMarkId()
+	if id <= 0 {
+		return nil, grpcerr.InvalidArgument("mark_id must be positive")
+	}
+
+	mark, err := s.uc.GetMarkById(ctx, int(id))
+	if err != nil {
+		return nil, grpcerr.Map(s.log, err, "error get mark by id", slog.Int64("mark_id", id))
+	}
+
+	return &pb.GetMarkByIdResponse{
+		Mark: mark.ToProtobufObject(),
+	}, nil
+}
+
+func (s *server) GetMarksByUserId(ctx context.Context, in *pb.GetMarksByUserIdRequest) (*pb.GetMarksByUserIdResponse, error) {
+	userId := in.GetUserId()
+	if userId <= 0 {
+		return nil, grpcerr.InvalidArgument("user_id must be positive")
+	}
+
+	marks, err := s.uc.GetMarksByUserId(ctx, int(userId))
+	if err != nil {
+		return nil, grpcerr.Map(s.log, err, "error get marks by user id", slog.Int64("user_id", userId))
+	}
+
+	marksPb := make([]*pb.Mark, len(marks))
+	for i := range marks {
+		marksPb[i] = marks[i].ToProtobufObject()
+	}
+
+	return &pb.GetMarksByUserIdResponse{
+		Marks: marksPb,
+	}, nil
+}
+
+// AddMark creates a mark for the authenticated user. The protobuf request
+// carries no photo payload, so the mark is created without photos (unlike
+// the REST endpoint, where photos are required).
 func (s *server) AddMark(ctx context.Context, in *pb.AddMarkRequest) (*pb.AddMarkResponse, error) {
-	return &pb.AddMarkResponse{}, nil
+	claims, ok := interceptors.ClaimsFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "authentication required")
+	}
+
+	if err := validateAddMark(in); err != nil {
+		s.log.Debug("invalid add mark request", slog.String("reason", err.Error()))
+		return nil, grpcerr.InvalidArgument(err.Error())
+	}
+
+	coords := in.GetPoint().GetCoordinates()
+	newMark := models.Mark{
+		Geom:        models.NewPoint(geom.Coord{coords.GetLongitude(), coords.GetLatitude()}),
+		MarkTypeID:  int(in.GetMarkTypeId()),
+		UserID:      claims.UserID,
+		Description: in.GetDescription(),
+	}
+
+	markId, err := s.uc.AddMark(ctx, newMark, nil)
+	if err != nil {
+		return nil, grpcerr.Map(s.log, err, "error add mark", slog.Int("user_id", claims.UserID))
+	}
+
+	s.log.Info("add new mark",
+		slog.Int64("mark_id", markId),
+		slog.Int("user_id", claims.UserID),
+		slog.Float64("longitude", coords.GetLongitude()),
+		slog.Float64("latitude", coords.GetLatitude()),
+	)
+
+	return &pb.AddMarkResponse{
+		MarkId: markId,
+	}, nil
+}
+
+func validateAddMark(in *pb.AddMarkRequest) error {
+	coords := in.GetPoint().GetCoordinates()
+	if coords == nil {
+		return errInvalidArgument("point is required")
+	}
+	if lon := coords.GetLongitude(); lon < -180 || lon > 180 {
+		return errInvalidArgument("longitude must be in [-180, 180]")
+	}
+	if lat := coords.GetLatitude(); lat < -90 || lat > 90 {
+		return errInvalidArgument("latitude must be in [-90, 90]")
+	}
+	if in.GetMarkTypeId() <= 0 {
+		return errInvalidArgument("mark_type_id must be positive")
+	}
+	if len([]rune(in.GetDescription())) > maxDescriptionLen {
+		return errInvalidArgument("description is too long")
+	}
+
+	return nil
+}
+
+type errInvalidArgument string
+
+func (e errInvalidArgument) Error() string { return string(e) }
+
+func (s *server) GetMarkTypes(ctx context.Context, in *emptypb.Empty) (*pb.GetMarkTypesResponse, error) {
+	types, err := s.uc.GetMarkTypes(ctx)
+	if err != nil {
+		return nil, grpcerr.Map(s.log, err, "error get mark types")
+	}
+
+	typesPb := make([]*pb.MarkType, len(types))
+	for i := range types {
+		typesPb[i] = types[i].ToProtobufObject()
+	}
+
+	return &pb.GetMarkTypesResponse{
+		Types: typesPb,
+	}, nil
+}
+
+func (s *server) GetMarkStatuses(ctx context.Context, in *emptypb.Empty) (*pb.GetMarkStatusesResponse, error) {
+	statuses, err := s.uc.GetMarkStatuses(ctx)
+	if err != nil {
+		return nil, grpcerr.Map(s.log, err, "error get mark statuses")
+	}
+
+	statusesPb := make([]*pb.MarkStatus, len(statuses))
+	for i := range statuses {
+		statusesPb[i] = statuses[i].ToProtobufObject()
+	}
+
+	return &pb.GetMarkStatusesResponse{
+		Statuses: statusesPb,
+	}, nil
 }

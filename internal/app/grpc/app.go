@@ -12,13 +12,16 @@ import (
 	"sync"
 	"time"
 
+	pb "github.com/PritOriginal/problem-map-protos/gen/go"
 	"github.com/PritOriginal/problem-map-server/internal/app"
 	"github.com/PritOriginal/problem-map-server/internal/config"
+	grpcauth "github.com/PritOriginal/problem-map-server/internal/grpc/interceptors"
 	mapgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/map"
 	marksgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/marks"
 	tasksgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/tasks"
 	usersgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/users"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
+	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository/local"
 	"github.com/PritOriginal/problem-map-server/internal/repository/postgres"
 	"github.com/PritOriginal/problem-map-server/internal/repository/s3"
@@ -41,6 +44,17 @@ import (
 // healthCheckInterval is how often dependencies are re-checked to update the
 // gRPC health service status.
 const healthCheckInterval = 5 * time.Second
+
+// protectedMethods require an authenticated caller.
+var protectedMethods = []string{
+	pb.Marks_AddMark_FullMethodName,
+	pb.Tasks_AddTask_FullMethodName,
+}
+
+// moderationMethods additionally require the moderator or admin role.
+var moderationMethods = []string{
+	pb.Tasks_AddTask_FullMethodName,
+}
 
 type App struct {
 	gRPCServer *grpc.Server
@@ -98,6 +112,10 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	)
 	m.Registry().MustRegister(srvMetrics)
 
+	// Bearer tokens are parsed on every call; only the listed methods require
+	// them (see protectedMethods / moderationMethods).
+	authInterceptor := grpcauth.NewAuth(log, cfg.Auth.JWT.Access.Key)
+
 	gRPCServer := grpc.NewServer(
 		grpc.ConnectionTimeout(cfg.GRPC.ConnectionTimeout),
 		grpc.ChainUnaryInterceptor(
@@ -105,12 +123,16 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 			recovery.UnaryServerInterceptor(recoveryOpts...),
 			selector.UnaryServerInterceptor(
 				logging.UnaryServerInterceptor(InterceptorLogger(log), loggingOpts...), notHealth),
+			authInterceptor.Unary(),
+			grpcauth.RequireAuth(protectedMethods...),
+			grpcauth.RequireRole([]models.Role{models.RoleModerator, models.RoleAdmin}, moderationMethods...),
 		),
 		grpc.ChainStreamInterceptor(
 			srvMetrics.StreamServerInterceptor(),
 			recovery.StreamServerInterceptor(recoveryOpts...),
 			selector.StreamServerInterceptor(
 				logging.StreamServerInterceptor(InterceptorLogger(log), loggingOpts...), notHealth),
+			authInterceptor.Stream(),
 		),
 	)
 
@@ -135,7 +157,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	mapUseCase := usecase.NewMap(log, usecase.MapRepositories{
 		Map: mapRepo,
 	})
-	mapgrpc.Register(gRPCServer, mapUseCase)
+	mapgrpc.Register(gRPCServer, log, mapUseCase)
 
 	marksRepo := postgres.NewMarks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	checksRepo := postgres.NewChecks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
@@ -144,19 +166,19 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Checks: checksRepo,
 		Photos: photoRepo,
 	})
-	marksgrpc.Register(gRPCServer, marksUseCase)
+	marksgrpc.Register(gRPCServer, log, marksUseCase)
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	tasksUseCase := usecase.NewTasks(log, usecase.TasksRepositories{
 		Tasks: tasksRepo,
 	})
-	tasksgrpc.Register(gRPCServer, tasksUseCase)
+	tasksgrpc.Register(gRPCServer, log, tasksUseCase)
 
 	usersRepo := postgres.NewUsers(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	usersUseCase := usecase.NewUsers(log, usecase.UsersRepositories{
 		Users: usersRepo,
 	})
-	usersgrpc.Register(gRPCServer, usersUseCase)
+	usersgrpc.Register(gRPCServer, log, usersUseCase)
 
 	healthUseCase := usecase.NewHealth(log, cfg.Health, usecase.HealthDependencies{
 		"postgres": postgresDB,

@@ -2,11 +2,13 @@ package tasksgrpc
 
 import (
 	"context"
-	"errors"
+	"log/slog"
+	"strings"
 
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
+	"github.com/PritOriginal/problem-map-server/internal/grpc/grpcerr"
+	"github.com/PritOriginal/problem-map-server/internal/grpc/interceptors"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -19,24 +21,31 @@ type Tasks interface {
 	GetTasksByUserId(ctx context.Context, userId int, filters models.GetTasksByUserIdFilters) ([]models.Task, error)
 	AddTask(ctx context.Context, task models.Task) (int64, error)
 }
+
 type server struct {
+	log   *slog.Logger
 	tasks Tasks
 	pb.UnimplementedTasksServer
 }
 
-func Register(gRPCServer *grpc.Server, tasks Tasks) {
-	pb.RegisterTasksServer(gRPCServer, &server{tasks: tasks})
+// New creates the Tasks gRPC service implementation.
+func New(log *slog.Logger, tasks Tasks) pb.TasksServer {
+	return &server{log: log, tasks: tasks}
+}
+
+func Register(gRPCServer *grpc.Server, log *slog.Logger, tasks Tasks) {
+	pb.RegisterTasksServer(gRPCServer, New(log, tasks))
 }
 
 func (s *server) GetTasks(ctx context.Context, in *emptypb.Empty) (*pb.GetTasksResponse, error) {
-	tasks, err := s.tasks.GetTasks(context.Background(), models.GetTasksFilters{})
+	tasks, err := s.tasks.GetTasks(ctx, models.GetTasksFilters{})
 	if err != nil {
-		return nil, status.Error(codes.Internal, "error get tasks")
+		return nil, grpcerr.Map(s.log, err, "error get tasks")
 	}
 
 	tasksPb := make([]*pb.Task, len(tasks))
-	for i, task := range tasks {
-		tasksPb[i] = task.ToProtobufObject()
+	for i := range tasks {
+		tasksPb[i] = tasks[i].ToProtobufObject()
 	}
 
 	return &pb.GetTasksResponse{
@@ -45,14 +54,14 @@ func (s *server) GetTasks(ctx context.Context, in *emptypb.Empty) (*pb.GetTasksR
 }
 
 func (s *server) GetTaskById(ctx context.Context, in *pb.GetTaskByIdRequest) (*pb.GetTaskByIdResponse, error) {
-	// TODO: добавить валидацию.
-	task, err := s.tasks.GetTaskById(ctx, int(in.GetId()))
+	id := in.GetId()
+	if id <= 0 {
+		return nil, grpcerr.InvalidArgument("id must be positive")
+	}
+
+	task, err := s.tasks.GetTaskById(ctx, int(id))
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return nil, status.Error(codes.NotFound, "task not found")
-		} else {
-			return nil, status.Error(codes.Internal, "error get task by id")
-		}
+		return nil, grpcerr.Map(s.log, err, "error get task by id", slog.Int64("task_id", id))
 	}
 
 	return &pb.GetTaskByIdResponse{
@@ -61,19 +70,19 @@ func (s *server) GetTaskById(ctx context.Context, in *pb.GetTaskByIdRequest) (*p
 }
 
 func (s *server) GetTasksByUserId(ctx context.Context, in *pb.GetTasksByUserIdRequest) (*pb.GetTasksByUserIdResponse, error) {
-	// TODO: добавить валидацию.
-	tasks, err := s.tasks.GetTasksByUserId(ctx, int(in.GetUserId()), models.GetTasksByUserIdFilters{})
+	userId := in.GetUserId()
+	if userId <= 0 {
+		return nil, grpcerr.InvalidArgument("user_id must be positive")
+	}
+
+	tasks, err := s.tasks.GetTasksByUserId(ctx, int(userId), models.GetTasksByUserIdFilters{})
 	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return nil, status.Error(codes.NotFound, "task not found")
-		} else {
-			return nil, status.Error(codes.Internal, "error get task by id")
-		}
+		return nil, grpcerr.Map(s.log, err, "error get tasks by user id", slog.Int64("user_id", userId))
 	}
 
 	tasksPb := make([]*pb.Task, len(tasks))
-	for i, task := range tasks {
-		tasksPb[i] = task.ToProtobufObject()
+	for i := range tasks {
+		tasksPb[i] = tasks[i].ToProtobufObject()
 	}
 
 	return &pb.GetTasksByUserIdResponse{
@@ -81,17 +90,35 @@ func (s *server) GetTasksByUserId(ctx context.Context, in *pb.GetTasksByUserIdRe
 	}, nil
 }
 
+// AddTask creates a task on behalf of the authenticated moderator/admin.
+// As in REST, the task owner is taken from the token; the request user_id
+// is ignored. Role checks are enforced by the interceptors.
 func (s *server) AddTask(ctx context.Context, in *pb.AddTaskRequest) (*pb.AddTaskResponse, error) {
+	claims, ok := interceptors.ClaimsFromContext(ctx)
+	if !ok {
+		return nil, status.Error(codes.Unauthenticated, "authentication required")
+	}
+
+	if strings.TrimSpace(in.GetName()) == "" {
+		return nil, grpcerr.InvalidArgument("name is required")
+	}
+	if in.GetMarkId() <= 0 {
+		return nil, grpcerr.InvalidArgument("mark_id must be positive")
+	}
+
 	task := models.Task{
 		Name:   in.GetName(),
-		UserID: int(in.GetUserId()),
+		UserID: claims.UserID,
 		MarkID: int(in.GetMarkId()),
 	}
 
 	taskId, err := s.tasks.AddTask(ctx, task)
 	if err != nil {
-		return nil, status.Error(codes.Internal, "failed add task")
+		return nil, grpcerr.Map(s.log, err, "error add task",
+			slog.Int("user_id", claims.UserID), slog.Int64("mark_id", in.GetMarkId()))
 	}
+
+	s.log.Info("add new task", slog.Int64("task_id", taskId), slog.Int("user_id", claims.UserID))
 
 	return &pb.AddTaskResponse{
 		TaskId: taskId,
