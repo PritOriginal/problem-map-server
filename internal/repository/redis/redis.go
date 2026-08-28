@@ -40,11 +40,6 @@ func (r *Redis) Close() error {
 	return r.Client.Close()
 }
 
-// Stop is an alias of Close kept for backward compatibility.
-func (r *Redis) Stop() error {
-	return r.Close()
-}
-
 func (r *Redis) Exists(ctx context.Context, key string) bool {
 	return r.Client.Exists(ctx, key).Val() > 0
 }

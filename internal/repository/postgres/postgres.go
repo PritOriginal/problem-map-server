@@ -39,8 +39,3 @@ func (s *Postgres) Ping(ctx context.Context) error {
 func (s *Postgres) Close() error {
 	return s.DB.Close()
 }
-
-// Stop is an alias of Close kept for backward compatibility.
-func (s *Postgres) Stop() error {
-	return s.Close()
-}

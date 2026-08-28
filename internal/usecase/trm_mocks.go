@@ -63,7 +63,7 @@ type MockManager_Do_Call struct {
 // Do is a helper method to define mock.On call
 //   - context1 context.Context
 //   - fn func(ctx context.Context) error
-func (_e *MockManager_Expecter) Do(context1 interface{}, fn interface{}) *MockManager_Do_Call {
+func (_e *MockManager_Expecter) Do(context1 any, fn any) *MockManager_Do_Call {
 	return &MockManager_Do_Call{Call: _e.mock.On("Do", context1, fn)}
 }
 
@@ -121,7 +121,7 @@ type MockManager_DoWithSettings_Call struct {
 //   - context1 context.Context
 //   - settings trm.Settings
 //   - fn func(ctx context.Context) error
-func (_e *MockManager_Expecter) DoWithSettings(context1 interface{}, settings interface{}, fn interface{}) *MockManager_DoWithSettings_Call {
+func (_e *MockManager_Expecter) DoWithSettings(context1 any, settings any, fn any) *MockManager_DoWithSettings_Call {
 	return &MockManager_DoWithSettings_Call{Call: _e.mock.On("DoWithSettings", context1, settings, fn)}
 }
 

@@ -1,7 +1,9 @@
-// Package metrics provides a lightweight Prometheus gin middleware.
+// Package metrics provides a Prometheus registry with HTTP request
+// collectors, a gin middleware recording them and handlers exposing them.
 package metrics
 
 import (
+	"net/http"
 	"strconv"
 	"time"
 
@@ -10,6 +12,19 @@ import (
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
+
+// Path is the route exposing the metrics.
+const Path = "/metrics"
+
+const otherMethod = "other"
+
+// knownMethods bounds the cardinality of the "method" label: anything else a
+// client sends is recorded as "other".
+var knownMethods = map[string]struct{}{
+	http.MethodGet: {}, http.MethodHead: {}, http.MethodPost: {}, http.MethodPut: {},
+	http.MethodPatch: {}, http.MethodDelete: {}, http.MethodConnect: {},
+	http.MethodOptions: {}, http.MethodTrace: {},
+}
 
 // Metrics holds the HTTP collectors registered on a Prometheus registry.
 type Metrics struct {
@@ -45,30 +60,65 @@ func New() *Metrics {
 }
 
 // Registry returns the underlying Prometheus registry so that other
-// collectors can be registered on it.
+// collectors (e.g. gRPC server metrics) can be registered on it.
 func (m *Metrics) Registry() *prometheus.Registry {
 	return m.registry
 }
 
 // Middleware records request count and latency labelled by method, matched
-// route template and status code. Unmatched routes are labelled "unknown".
-func (m *Metrics) Middleware() gin.HandlerFunc {
+// route template and status code. Unmatched routes are labelled "unknown";
+// requests to the routes listed in skip are not recorded.
+func (m *Metrics) Middleware(skip ...string) gin.HandlerFunc {
+	skipped := make(map[string]struct{}, len(skip))
+	for _, p := range skip {
+		skipped[p] = struct{}{}
+	}
+
 	return func(c *gin.Context) {
 		start := time.Now()
 		c.Next()
 
 		route := c.FullPath()
+		if _, ok := skipped[route]; ok {
+			return
+		}
 		if route == "" {
 			route = "unknown"
 		}
-		status := strconv.Itoa(c.Writer.Status())
+		method := c.Request.Method
+		if _, ok := knownMethods[method]; !ok {
+			method = otherMethod
+		}
+		labels := prometheus.Labels{
+			"method": method,
+			"route":  route,
+			"status": strconv.Itoa(c.Writer.Status()),
+		}
 
-		m.requests.WithLabelValues(c.Request.Method, route, status).Inc()
-		m.duration.WithLabelValues(c.Request.Method, route, status).Observe(time.Since(start).Seconds())
+		m.requests.With(labels).Inc()
+		m.duration.With(labels).Observe(time.Since(start).Seconds())
 	}
 }
 
-// Handler returns the /metrics HTTP handler for the registry.
+// HTTPHandler returns the net/http handler serving the registry.
+func (m *Metrics) HTTPHandler() http.Handler {
+	return promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{})
+}
+
+// Handler returns the gin handler serving the registry.
 func (m *Metrics) Handler() gin.HandlerFunc {
-	return gin.WrapH(promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{}))
+	return gin.WrapH(m.HTTPHandler())
+}
+
+// Server returns a standalone HTTP server exposing the registry at Path on
+// addr, for binaries that have no HTTP router of their own.
+func (m *Metrics) Server(addr string) *http.Server {
+	mux := http.NewServeMux()
+	mux.Handle(Path, m.HTTPHandler())
+
+	return &http.Server{
+		Addr:              addr,
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 }

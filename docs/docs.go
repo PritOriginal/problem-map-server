@@ -345,6 +345,26 @@ const docTemplate = `{
                 }
             }
         },
+        "/healthz": {
+            "get": {
+                "description": "Always returns 200 while the process is running.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Liveness probe",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-map_string_string"
+                        }
+                    }
+                }
+            }
+        },
         "/map/admin-boundaries": {
             "get": {
                 "description": "admin boundaries",
@@ -917,6 +937,32 @@ const docTemplate = `{
                 }
             }
         },
+        "/readyz": {
+            "get": {
+                "description": "Pings every infrastructure dependency and reports their status; 503 when at least one is down.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "health"
+                ],
+                "summary": "Readiness probe",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-github_com_PritOriginal_problem-map-server_internal_usecase_HealthReport"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-github_com_PritOriginal_problem-map-server_internal_usecase_HealthReport"
+                        }
+                    }
+                }
+            }
+        },
         "/tasks": {
             "get": {
                 "description": "get tasks",
@@ -1379,8 +1425,7 @@ const docTemplate = `{
                             "items": {
                                 "type": "array",
                                 "items": {
-                                    "type": "number",
-                                    "format": "float64"
+                                    "type": "number"
                                 }
                             }
                         }
@@ -1417,8 +1462,7 @@ const docTemplate = `{
                     "items": {
                         "type": "array",
                         "items": {
-                            "type": "number",
-                            "format": "float64"
+                            "type": "number"
                         }
                     }
                 },
@@ -1444,6 +1488,9 @@ const docTemplate = `{
         "github_com_PritOriginal_problem-map-server_internal_models.Task": {
             "type": "object",
             "properties": {
+                "created_at": {
+                    "type": "string"
+                },
                 "mark_id": {
                     "type": "integer"
                 },
@@ -1451,15 +1498,29 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "status_id": {
-                    "type": "integer"
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.TaskStatusType"
                 },
                 "task_id": {
                     "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
                 },
                 "user_id": {
                     "type": "integer"
                 }
             }
+        },
+        "github_com_PritOriginal_problem-map-server_internal_models.TaskStatusType": {
+            "type": "integer",
+            "enum": [
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "UnfulfilledStatus",
+                "CompletedStatus"
+            ]
         },
         "github_com_PritOriginal_problem-map-server_internal_models.User": {
             "type": "object",
@@ -1481,6 +1542,12 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_PritOriginal_problem-map-server_internal_usecase.HealthReport": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
         "github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo": {
             "type": "object",
             "properties": {
@@ -1496,6 +1563,20 @@ const docTemplate = `{
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
                 "payload": {},
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-github_com_PritOriginal_problem-map-server_internal_usecase_HealthReport": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "payload": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.HealthReport"
+                },
                 "success": {
                     "type": "boolean"
                 }
@@ -1879,6 +1960,20 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-map_string_string": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "payload": {
+                    "$ref": "#/definitions/map_string_string"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
         "internal_handler_auth.RefreshTokensRequest": {
             "type": "object",
             "required": [
@@ -1934,11 +2029,15 @@ const docTemplate = `{
         "internal_handler_auth.SignUpRequest": {
             "type": "object",
             "required": [
+                "home_point",
                 "login",
                 "password",
                 "username"
             ],
             "properties": {
+                "home_point": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON"
+                },
                 "login": {
                     "type": "string",
                     "maxLength": 40,
@@ -2220,12 +2319,17 @@ const docTemplate = `{
                 }
             }
         },
+        "map_string_string": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "string"
+            }
+        },
         "null.Int": {
             "type": "object",
             "properties": {
                 "int64": {
-                    "type": "integer",
-                    "format": "int64"
+                    "type": "integer"
                 },
                 "valid": {
                     "description": "Valid is true if Int64 is not NULL",

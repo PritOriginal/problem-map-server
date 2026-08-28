@@ -10,15 +10,19 @@ import (
 )
 
 type Config struct {
-	Env          logger.Environment `yaml:"env" env:"ENV" env-default:"local"`
-	REST         RESTConfig         `yaml:"rest"`
-	GRPC         GRPCConfig         `yaml:"grpc"`
-	PhotoStorage PhotoStorageType   `yaml:"photo-storage" env:"PHOTO_STORAGE" env-default:"local"`
-	Auth         AuthConfing        `yaml:"auth"`
-	DB           DatabaseConfig     `yaml:"db"`
-	Redis        RedisConfig        `yaml:"redis"`
-	Aws          AwsConfig          `yaml:"aws"`
-	Nats         NatsConfig         `yaml:"nats"`
+	Env    logger.Environment `yaml:"env" env:"ENV" env-default:"local"`
+	REST   RESTConfig         `yaml:"rest"`
+	GRPC   GRPCConfig         `yaml:"grpc"`
+	Health HealthConfig       `yaml:"health"`
+	// ShutdownTimeout bounds graceful shutdown (draining requests and closing
+	// clients); align it with the orchestrator's termination grace period.
+	ShutdownTimeout time.Duration    `yaml:"shutdown-timeout" env:"SHUTDOWN_TIMEOUT" env-default:"10s"`
+	PhotoStorage    PhotoStorageType `yaml:"photo-storage" env:"PHOTO_STORAGE" env-default:"local"`
+	Auth            AuthConfing      `yaml:"auth"`
+	DB              DatabaseConfig   `yaml:"db"`
+	Redis           RedisConfig      `yaml:"redis"`
+	Aws             AwsConfig        `yaml:"aws"`
+	Nats            NatsConfig       `yaml:"nats"`
 }
 
 type PhotoStorageType string
@@ -32,15 +36,26 @@ type RESTConfig struct {
 	Host    string `yaml:"host" env:"REST_HOST"`
 	Port    int    `yaml:"port" env:"REST_PORT"`
 	Timeout struct {
-		Write time.Duration `yaml:"write" env:"REST_TIMEOUT_WRITE"`
-		Read  time.Duration `yaml:"read" env:"REST_TIMEOUT_READ"`
-		Idle  time.Duration `yaml:"idle" env:"REST_TIMEOUT_IDLE"`
+		Write time.Duration `yaml:"write" env:"REST_TIMEOUT_WRITE" env-default:"10s"`
+		Read  time.Duration `yaml:"read" env:"REST_TIMEOUT_READ" env-default:"15s"`
+		Idle  time.Duration `yaml:"idle" env:"REST_TIMEOUT_IDLE" env-default:"60s"`
 	} `yaml:"timeout"`
 }
 
+// HealthConfig tunes the readiness probe.
+type HealthConfig struct {
+	// Timeout bounds a single dependency ping.
+	Timeout time.Duration `yaml:"timeout" env:"HEALTH_TIMEOUT" env-default:"3s"`
+	// CacheTTL is how long a readiness result is reused before re-pinging.
+	CacheTTL time.Duration `yaml:"cache-ttl" env:"HEALTH_CACHE_TTL" env-default:"2s"`
+}
+
 type GRPCConfig struct {
-	Port    int           `yaml:"port" env:"GRPC_PORT"`
+	Port int `yaml:"port" env:"GRPC_PORT"`
+	// Timeout is the per-RPC deadline used by clients (functional tests).
 	Timeout time.Duration `yaml:"timeout" env:"GRPC_TIMEOUT"`
+	// ConnectionTimeout bounds connection establishment (handshake) on the server.
+	ConnectionTimeout time.Duration `yaml:"connection-timeout" env:"GRPC_CONNECTION_TIMEOUT" env-default:"120s"`
 	// MetricsPort is the HTTP port serving Prometheus metrics for the gRPC
 	// server; 0 disables the metrics endpoint.
 	MetricsPort int `yaml:"metrics-port" env:"GRPC_METRICS_PORT" env-default:"0"`

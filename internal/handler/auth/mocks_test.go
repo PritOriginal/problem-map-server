@@ -78,7 +78,7 @@ type MockAuth_RefreshTokens_Call struct {
 // RefreshTokens is a helper method to define mock.On call
 //   - ctx context.Context
 //   - refreshToken string
-func (_e *MockAuth_Expecter) RefreshTokens(ctx interface{}, refreshToken interface{}) *MockAuth_RefreshTokens_Call {
+func (_e *MockAuth_Expecter) RefreshTokens(ctx any, refreshToken any) *MockAuth_RefreshTokens_Call {
 	return &MockAuth_RefreshTokens_Call{Call: _e.mock.On("RefreshTokens", ctx, refreshToken)}
 }
 
@@ -151,7 +151,7 @@ type MockAuth_SignIn_Call struct {
 //   - ctx context.Context
 //   - login string
 //   - password string
-func (_e *MockAuth_Expecter) SignIn(ctx interface{}, login interface{}, password interface{}) *MockAuth_SignIn_Call {
+func (_e *MockAuth_Expecter) SignIn(ctx any, login any, password any) *MockAuth_SignIn_Call {
 	return &MockAuth_SignIn_Call{Call: _e.mock.On("SignIn", ctx, login, password)}
 }
 
@@ -222,7 +222,7 @@ type MockAuth_SignUp_Call struct {
 // SignUp is a helper method to define mock.On call
 //   - ctx context.Context
 //   - params usecase.SignUpParams
-func (_e *MockAuth_Expecter) SignUp(ctx interface{}, params interface{}) *MockAuth_SignUp_Call {
+func (_e *MockAuth_Expecter) SignUp(ctx any, params any) *MockAuth_SignUp_Call {
 	return &MockAuth_SignUp_Call{Call: _e.mock.On("SignUp", ctx, params)}
 }
 

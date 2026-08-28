@@ -5,6 +5,7 @@ import (
 
 	_ "github.com/PritOriginal/problem-map-server/docs"
 	"github.com/PritOriginal/problem-map-server/internal/config"
+	"github.com/PritOriginal/problem-map-server/internal/handler/health"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/requestid"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
@@ -15,34 +16,32 @@ import (
 )
 
 // GetRouter builds the base gin engine with request-id, logging, Prometheus
-// metrics (exposed at GET /metrics) and recovery middleware.
-func GetRouter(log *slog.Logger, env logger.Environment) *gin.Engine {
+// metrics (exposed at GET /metrics) and recovery middleware. Probe and
+// metrics routes are excluded from both the access log and the metrics.
+func GetRouter(log *slog.Logger, env logger.Environment, m *metrics.Metrics) *gin.Engine {
 	r := gin.New()
 
 	if env == logger.Prod {
 		gin.SetMode(gin.ReleaseMode)
 	}
 
-	r.Use(requestid.New(log))
+	quietPaths := []string{health.PathLive, health.PathReady, metrics.Path}
+
+	r.Use(requestid.New())
 
 	if env == logger.Local {
 		r.Use(gin.Logger())
 	} else {
-		r.Use(sloggin.NewWithConfig(log, sloggin.Config{
-			DefaultLevel:      slog.LevelInfo,
-			ClientErrorLevel:  slog.LevelWarn,
-			ServerErrorLevel:  slog.LevelError,
-			WithRequestID:     true,
-			WithRequestHeader: false,
-			Filters:           []sloggin.Filter{sloggin.IgnorePath("/healthz", "/readyz", "/metrics")},
-		}))
+		cfg := sloggin.DefaultConfig()
+		cfg.WithRequestID = true
+		cfg.Filters = []sloggin.Filter{sloggin.IgnorePath(quietPaths...)}
+		r.Use(sloggin.NewWithConfig(log, cfg))
 	}
 
-	m := metrics.New()
-	r.Use(m.Middleware())
+	r.Use(m.Middleware(quietPaths...))
 	r.Use(gin.Recovery())
 
-	r.GET("/metrics", m.Handler())
+	r.GET(metrics.Path, m.Handler())
 
 	return r
 }

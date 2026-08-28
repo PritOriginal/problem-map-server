@@ -4,18 +4,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
+	"sync"
 	"time"
 
+	"github.com/PritOriginal/problem-map-server/internal/app"
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	mapgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/map"
 	marksgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/marks"
 	tasksgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/tasks"
 	usersgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/users"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
 	"github.com/PritOriginal/problem-map-server/internal/repository/local"
 	"github.com/PritOriginal/problem-map-server/internal/repository/postgres"
 	"github.com/PritOriginal/problem-map-server/internal/repository/s3"
@@ -24,10 +27,10 @@ import (
 	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
 	grpcprom "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/selector"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/health"
@@ -35,40 +38,48 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-const (
-	defaultConnectionTimeout = 120 * time.Second
-	gracefulStopTimeout      = 10 * time.Second
-)
+// healthCheckInterval is how often dependencies are re-checked to update the
+// gRPC health service status.
+const healthCheckInterval = 5 * time.Second
 
 type App struct {
 	gRPCServer *grpc.Server
 	health     *health.Server
+	healthUC   *usecase.Health
 	log        *slog.Logger
-	closers    []namedCloser
-	metrics    *prometheus.Registry
+	closers    app.Closers
 	// metricsServer serves the Prometheus registry over HTTP; nil when
 	// cfg.GRPC.MetricsPort is 0.
-	metricsServer *http.Server
-	port          int
-}
+	metricsServer   *http.Server
+	shutdownTimeout time.Duration
+	port            int
 
-type namedCloser struct {
-	name string
-	c    io.Closer
+	// stopBackground cancels the health-check loop started by Run.
+	stopBackground context.CancelFunc
+	background     sync.WaitGroup
 }
 
 func New(log *slog.Logger, cfg *config.Config) *App {
+	// Clients are registered in dependency order; app.Closers closes them in
+	// reverse (s3 -> database).
+	var closers app.Closers
+
 	postgresDB, err := postgres.New(cfg.DB)
 	if err != nil {
 		log.Error("failed connection to database", slogger.Err(err))
 		panic(err)
 	}
 	log.Info("PostgreSQL connected!")
+	closers.Add("database", postgresDB)
 	trManager := manager.Must(trmsqlx.NewDefaultFactory(postgresDB.DB))
 
 	loggingOpts := []logging.Option{
-		logging.WithLogOnEvents(logging.StartCall, logging.FinishCall),
+		logging.WithLogOnEvents(logging.FinishCall),
 	}
+	// Health probes are frequent and uninteresting; keep them out of the log.
+	notHealth := selector.MatchFunc(func(_ context.Context, c interceptors.CallMeta) bool {
+		return !strings.HasPrefix(c.FullMethod(), "/"+healthpb.Health_ServiceDesc.ServiceName+"/")
+	})
 
 	recoveryOpts := []recovery.Option{
 		recovery.WithRecoveryHandler(func(p interface{}) (err error) {
@@ -78,39 +89,38 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		}),
 	}
 
-	registry := prometheus.NewRegistry()
+	// Same registry layout as the REST app (Go/process collectors included).
+	m := metrics.New()
 	srvMetrics := grpcprom.NewServerMetrics(
-		grpcprom.WithServerHandlingTimeHistogram(),
+		grpcprom.WithServerHandlingTimeHistogram(
+			grpcprom.WithHistogramBuckets([]float64{.001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10}),
+		),
 	)
-	registry.MustRegister(srvMetrics)
-
-	connTimeout := cfg.GRPC.Timeout
-	if connTimeout <= 0 {
-		connTimeout = defaultConnectionTimeout
-	}
+	m.Registry().MustRegister(srvMetrics)
 
 	gRPCServer := grpc.NewServer(
-		grpc.ConnectionTimeout(connTimeout),
+		grpc.ConnectionTimeout(cfg.GRPC.ConnectionTimeout),
 		grpc.ChainUnaryInterceptor(
 			srvMetrics.UnaryServerInterceptor(),
 			recovery.UnaryServerInterceptor(recoveryOpts...),
-			logging.UnaryServerInterceptor(InterceptorLogger(log), loggingOpts...),
+			selector.UnaryServerInterceptor(
+				logging.UnaryServerInterceptor(InterceptorLogger(log), loggingOpts...), notHealth),
 		),
 		grpc.ChainStreamInterceptor(
 			srvMetrics.StreamServerInterceptor(),
 			recovery.StreamServerInterceptor(recoveryOpts...),
-			logging.StreamServerInterceptor(InterceptorLogger(log), loggingOpts...),
+			selector.StreamServerInterceptor(
+				logging.StreamServerInterceptor(InterceptorLogger(log), loggingOpts...), notHealth),
 		),
 	)
 
-	var closers []namedCloser
-
 	var photoRepo usecase.PhotosRepository
+	var s3Client *s3.S3
 	switch cfg.PhotoStorage {
 	case config.Local:
 		photoRepo = local.NewPhotos()
 	case config.S3:
-		s3Client, err := s3.New(log, cfg.Aws)
+		s3Client, err = s3.New(log, cfg.Aws)
 		if err != nil {
 			log.Error("failed connection to s3", slogger.Err(err))
 			panic(err)
@@ -118,9 +128,8 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		log.Info("s3 connected!")
 
 		photoRepo = s3.NewPhotos(s3Client)
-		closers = append(closers, namedCloser{name: "s3", c: s3Client})
+		closers.Add("s3", s3Client)
 	}
-	closers = append(closers, namedCloser{name: "database", c: postgresDB})
 
 	mapRepo := postgres.NewMap(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	mapUseCase := usecase.NewMap(log, usecase.MapRepositories{
@@ -149,37 +158,29 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	})
 	usersgrpc.Register(gRPCServer, usersUseCase)
 
+	healthUseCase := usecase.NewHealth(log, cfg.Health, usecase.HealthDependencies{
+		"postgres": postgresDB,
+	})
 	healthServer := health.NewServer()
 	healthpb.RegisterHealthServer(gRPCServer, healthServer)
-	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
 
 	srvMetrics.InitializeMetrics(gRPCServer)
 
 	var metricsServer *http.Server
 	if cfg.GRPC.MetricsPort > 0 {
-		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
-		metricsServer = &http.Server{
-			Addr:              ":" + strconv.Itoa(cfg.GRPC.MetricsPort),
-			Handler:           mux,
-			ReadHeaderTimeout: 5 * time.Second,
-		}
+		metricsServer = m.Server(":" + strconv.Itoa(cfg.GRPC.MetricsPort))
 	}
 
 	return &App{
-		gRPCServer:    gRPCServer,
-		health:        healthServer,
-		log:           log,
-		closers:       closers,
-		metrics:       registry,
-		metricsServer: metricsServer,
-		port:          cfg.GRPC.Port,
+		gRPCServer:      gRPCServer,
+		health:          healthServer,
+		healthUC:        healthUseCase,
+		log:             log,
+		closers:         closers,
+		metricsServer:   metricsServer,
+		shutdownTimeout: cfg.ShutdownTimeout,
+		port:            cfg.GRPC.Port,
 	}
-}
-
-// MetricsRegistry returns the Prometheus registry holding gRPC server metrics.
-func (a *App) MetricsRegistry() *prometheus.Registry {
-	return a.metrics
 }
 
 // InterceptorLogger adapts slog logger to interceptor logger.
@@ -190,15 +191,9 @@ func InterceptorLogger(l *slog.Logger) logging.Logger {
 	})
 }
 
-func (a *App) MustRun() {
-	if err := a.Run(); err != nil {
-		panic(err)
-	}
-}
-
-// Run starts the gRPC server (and the metrics HTTP server, when configured)
-// and blocks until the gRPC server stops. A failure of the metrics server is
-// logged but does not stop the gRPC server.
+// Run starts the gRPC server, the health-check loop and the metrics HTTP
+// server (when configured) and blocks until the gRPC server stops. A failure
+// of the metrics server is logged but does not stop the gRPC server.
 func (a *App) Run() error {
 	const op = "grpcapp.Run"
 
@@ -206,6 +201,10 @@ func (a *App) Run() error {
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	a.stopBackground = cancel
+	a.background.Go(func() { a.watchHealth(ctx) })
 
 	if a.metricsServer != nil {
 		go func() {
@@ -225,34 +224,61 @@ func (a *App) Run() error {
 	return nil
 }
 
+// watchHealth mirrors the dependency readiness into the gRPC health service
+// until ctx is cancelled.
+func (a *App) watchHealth(ctx context.Context) {
+	ticker := time.NewTicker(healthCheckInterval)
+	defer ticker.Stop()
+
+	for {
+		st := healthpb.HealthCheckResponse_SERVING
+		if _, err := a.healthUC.Check(ctx); err != nil {
+			st = healthpb.HealthCheckResponse_NOT_SERVING
+		}
+		a.health.SetServingStatus("", st)
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+	}
+}
+
 // Stop marks the server NOT_SERVING, drains in-flight RPCs with a bounded
-// GracefulStop (falling back to a hard Stop on timeout) and closes clients.
+// GracefulStop (falling back to a hard Stop on timeout), shuts the metrics
+// server down within the same deadline and closes clients.
 func (a *App) Stop() {
 	const op = "grpcapp.Stop"
 
 	log := a.log.With(slog.String("op", op))
 	log.Info("stopping gRPC server", slog.Int("port", a.port))
 
+	if a.stopBackground != nil {
+		a.stopBackground()
+	}
+	a.background.Wait()
 	a.health.Shutdown()
 
-	forceStop := time.AfterFunc(gracefulStopTimeout, func() {
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), a.shutdownTimeout)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	if a.metricsServer != nil {
+		wg.Go(func() {
+			if err := a.metricsServer.Shutdown(shutdownCtx); err != nil {
+				log.Error("an error occurred while stopping the metrics server", slogger.Err(err))
+			}
+		})
+	}
+
+	forceStop := context.AfterFunc(shutdownCtx, func() {
 		log.Warn("graceful stop timed out, forcing stop")
 		a.gRPCServer.Stop()
 	})
 	a.gRPCServer.GracefulStop()
-	forceStop.Stop()
+	forceStop()
+	wg.Wait()
 
-	if a.metricsServer != nil {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), gracefulStopTimeout)
-		defer cancel()
-		if err := a.metricsServer.Shutdown(shutdownCtx); err != nil {
-			log.Error("an error occurred while stopping the metrics server", slogger.Err(err))
-		}
-	}
-
-	for _, nc := range a.closers {
-		if err := nc.c.Close(); err != nil {
-			log.Error("an error occurred while closing the client", slog.String("client", nc.name), slogger.Err(err))
-		}
-	}
+	a.closers.Close(log)
 }

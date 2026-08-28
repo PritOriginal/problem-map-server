@@ -1,30 +1,18 @@
-package health_test
+package health
 
 import (
-	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/PritOriginal/problem-map-server/internal/handler/health"
+	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
+	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
-
-type pingerFunc func(ctx context.Context) error
-
-func (f pingerFunc) Ping(ctx context.Context) error { return f(ctx) }
-
-func okPinger() health.Pinger {
-	return pingerFunc(func(context.Context) error { return nil })
-}
-
-func failPinger() health.Pinger {
-	return pingerFunc(func(context.Context) error { return errors.New("down") })
-}
 
 type HealthSuite struct {
 	suite.Suite
@@ -38,72 +26,56 @@ func (suite *HealthSuite) SetupSuite() {
 	gin.SetMode(gin.TestMode)
 }
 
-func (suite *HealthSuite) newRouter(deps health.Dependencies) *gin.Engine {
+func (suite *HealthSuite) newRouter(checker Checker) *gin.Engine {
 	r := gin.New()
-	health.Register(r, slogdiscard.NewDiscardLogger(), deps)
+	Register(r, slogdiscard.NewDiscardLogger(), checker)
 	return r
 }
 
 func (suite *HealthSuite) TestHealthz() {
-	r := suite.newRouter(health.Dependencies{"postgres": failPinger()})
+	r := suite.newRouter(NewMockChecker(suite.T()))
 
 	w := httptest.NewRecorder()
-	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/healthz", nil))
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, PathLive, nil))
 
 	suite.Equal(http.StatusOK, w.Code)
-	suite.JSONEq(`{"status":"ok"}`, w.Body.String())
+	suite.JSONEq(`{"success":true,"payload":{"status":"ok"}}`, w.Body.String())
 }
 
 func (suite *HealthSuite) TestReadyz() {
 	tests := []struct {
 		name       string
-		deps       health.Dependencies
+		report     usecase.HealthReport
+		err        error
 		statusCode int
-		want       map[string]string
 	}{
 		{
 			name:       "Ok200",
-			deps:       health.Dependencies{"postgres": okPinger(), "redis": okPinger()},
+			report:     usecase.HealthReport{"postgres": "ok", "redis": "ok"},
 			statusCode: http.StatusOK,
-			want:       map[string]string{"postgres": "ok", "redis": "ok"},
 		},
 		{
-			name:       "Err503Postgres",
-			deps:       health.Dependencies{"postgres": failPinger(), "redis": okPinger()},
+			name:       "Err503",
+			report:     usecase.HealthReport{"postgres": "error", "redis": "ok"},
+			err:        usecase.ErrUnavailable,
 			statusCode: http.StatusServiceUnavailable,
-			want:       map[string]string{"postgres": "error", "redis": "ok"},
-		},
-		{
-			name:       "Err503All",
-			deps:       health.Dependencies{"postgres": failPinger(), "redis": failPinger()},
-			statusCode: http.StatusServiceUnavailable,
-			want:       map[string]string{"postgres": "error", "redis": "error"},
-		},
-		{
-			name:       "Ok200NilDependency",
-			deps:       health.Dependencies{"postgres": okPinger(), "redis": nil},
-			statusCode: http.StatusOK,
-			want:       map[string]string{"postgres": "ok", "redis": "ok"},
-		},
-		{
-			name:       "Ok200NoDependencies",
-			deps:       health.Dependencies{},
-			statusCode: http.StatusOK,
-			want:       map[string]string{},
 		},
 	}
 
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			r := suite.newRouter(tt.deps)
+			checker := NewMockChecker(suite.T())
+			checker.EXPECT().Check(mock.Anything).Return(tt.report, tt.err)
+			r := suite.newRouter(checker)
 
 			w := httptest.NewRecorder()
-			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/readyz", nil))
+			r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, PathReady, nil))
 
 			suite.Equal(tt.statusCode, w.Code)
-			var got map[string]string
+			var got responses.Response[usecase.HealthReport]
 			suite.NoError(json.Unmarshal(w.Body.Bytes(), &got))
-			suite.Equal(tt.want, got)
+			suite.Equal(tt.err == nil, got.Success)
+			suite.Equal(tt.report, got.Payload)
 		})
 	}
 }

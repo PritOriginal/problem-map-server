@@ -74,7 +74,7 @@ type MockChecksRepository_AddCheck_Call struct {
 // AddCheck is a helper method to define mock.On call
 //   - ctx context.Context
 //   - check models.Check
-func (_e *MockChecksRepository_Expecter) AddCheck(ctx interface{}, check interface{}) *MockChecksRepository_AddCheck_Call {
+func (_e *MockChecksRepository_Expecter) AddCheck(ctx any, check any) *MockChecksRepository_AddCheck_Call {
 	return &MockChecksRepository_AddCheck_Call{Call: _e.mock.On("AddCheck", ctx, check)}
 }
 
@@ -140,7 +140,7 @@ type MockChecksRepository_GetCheckById_Call struct {
 // GetCheckById is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id int
-func (_e *MockChecksRepository_Expecter) GetCheckById(ctx interface{}, id interface{}) *MockChecksRepository_GetCheckById_Call {
+func (_e *MockChecksRepository_Expecter) GetCheckById(ctx any, id any) *MockChecksRepository_GetCheckById_Call {
 	return &MockChecksRepository_GetCheckById_Call{Call: _e.mock.On("GetCheckById", ctx, id)}
 }
 
@@ -208,7 +208,7 @@ type MockChecksRepository_GetChecksByMarkHistoryId_Call struct {
 // GetChecksByMarkHistoryId is a helper method to define mock.On call
 //   - ctx context.Context
 //   - markHistoryId int
-func (_e *MockChecksRepository_Expecter) GetChecksByMarkHistoryId(ctx interface{}, markHistoryId interface{}) *MockChecksRepository_GetChecksByMarkHistoryId_Call {
+func (_e *MockChecksRepository_Expecter) GetChecksByMarkHistoryId(ctx any, markHistoryId any) *MockChecksRepository_GetChecksByMarkHistoryId_Call {
 	return &MockChecksRepository_GetChecksByMarkHistoryId_Call{Call: _e.mock.On("GetChecksByMarkHistoryId", ctx, markHistoryId)}
 }
 
@@ -276,7 +276,7 @@ type MockChecksRepository_GetChecksByMarkId_Call struct {
 // GetChecksByMarkId is a helper method to define mock.On call
 //   - ctx context.Context
 //   - markId int
-func (_e *MockChecksRepository_Expecter) GetChecksByMarkId(ctx interface{}, markId interface{}) *MockChecksRepository_GetChecksByMarkId_Call {
+func (_e *MockChecksRepository_Expecter) GetChecksByMarkId(ctx any, markId any) *MockChecksRepository_GetChecksByMarkId_Call {
 	return &MockChecksRepository_GetChecksByMarkId_Call{Call: _e.mock.On("GetChecksByMarkId", ctx, markId)}
 }
 
@@ -344,7 +344,7 @@ type MockChecksRepository_GetChecksByUserId_Call struct {
 // GetChecksByUserId is a helper method to define mock.On call
 //   - ctx context.Context
 //   - userId int
-func (_e *MockChecksRepository_Expecter) GetChecksByUserId(ctx interface{}, userId interface{}) *MockChecksRepository_GetChecksByUserId_Call {
+func (_e *MockChecksRepository_Expecter) GetChecksByUserId(ctx any, userId any) *MockChecksRepository_GetChecksByUserId_Call {
 	return &MockChecksRepository_GetChecksByUserId_Call{Call: _e.mock.On("GetChecksByUserId", ctx, userId)}
 }
 
@@ -413,7 +413,7 @@ type MockChecksRepository_GetChecksByUserIdAndMarkId_Call struct {
 //   - ctx context.Context
 //   - userId int
 //   - markId int
-func (_e *MockChecksRepository_Expecter) GetChecksByUserIdAndMarkId(ctx interface{}, userId interface{}, markId interface{}) *MockChecksRepository_GetChecksByUserIdAndMarkId_Call {
+func (_e *MockChecksRepository_Expecter) GetChecksByUserIdAndMarkId(ctx any, userId any, markId any) *MockChecksRepository_GetChecksByUserIdAndMarkId_Call {
 	return &MockChecksRepository_GetChecksByUserIdAndMarkId_Call{Call: _e.mock.On("GetChecksByUserIdAndMarkId", ctx, userId, markId)}
 }
 
@@ -488,7 +488,7 @@ type MockChecksRepository_GetChecksByUserIdAndMarkIdSince_Call struct {
 //   - userId int
 //   - markId int
 //   - dateTime time.Time
-func (_e *MockChecksRepository_Expecter) GetChecksByUserIdAndMarkIdSince(ctx interface{}, userId interface{}, markId interface{}, dateTime interface{}) *MockChecksRepository_GetChecksByUserIdAndMarkIdSince_Call {
+func (_e *MockChecksRepository_Expecter) GetChecksByUserIdAndMarkIdSince(ctx any, userId any, markId any, dateTime any) *MockChecksRepository_GetChecksByUserIdAndMarkIdSince_Call {
 	return &MockChecksRepository_GetChecksByUserIdAndMarkIdSince_Call{Call: _e.mock.On("GetChecksByUserIdAndMarkIdSince", ctx, userId, markId, dateTime)}
 }
 
@@ -565,7 +565,7 @@ type MockChecksRepository_GetUserMarkCheck_Call struct {
 //   - ctx context.Context
 //   - userId int
 //   - markStatusHistoryId int
-func (_e *MockChecksRepository_Expecter) GetUserMarkCheck(ctx interface{}, userId interface{}, markStatusHistoryId interface{}) *MockChecksRepository_GetUserMarkCheck_Call {
+func (_e *MockChecksRepository_Expecter) GetUserMarkCheck(ctx any, userId any, markStatusHistoryId any) *MockChecksRepository_GetUserMarkCheck_Call {
 	return &MockChecksRepository_GetUserMarkCheck_Call{Call: _e.mock.On("GetUserMarkCheck", ctx, userId, markStatusHistoryId)}
 }
 
@@ -654,7 +654,7 @@ type MockMarkStatusUpdater_Update_Call struct {
 // Update is a helper method to define mock.On call
 //   - ctx context.Context
 //   - markId int
-func (_e *MockMarkStatusUpdater_Expecter) Update(ctx interface{}, markId interface{}) *MockMarkStatusUpdater_Update_Call {
+func (_e *MockMarkStatusUpdater_Expecter) Update(ctx any, markId any) *MockMarkStatusUpdater_Update_Call {
 	return &MockMarkStatusUpdater_Update_Call{Call: _e.mock.On("Update", ctx, markId)}
 }
 
@@ -682,6 +682,84 @@ func (_c *MockMarkStatusUpdater_Update_Call) Return(err error) *MockMarkStatusUp
 }
 
 func (_c *MockMarkStatusUpdater_Update_Call) RunAndReturn(run func(ctx context.Context, markId int) error) *MockMarkStatusUpdater_Update_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// NewMockPinger creates a new instance of MockPinger. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+// The first argument is typically a *testing.T value.
+func NewMockPinger(t interface {
+	mock.TestingT
+	Cleanup(func())
+}) *MockPinger {
+	mock := &MockPinger{}
+	mock.Mock.Test(t)
+
+	t.Cleanup(func() { mock.AssertExpectations(t) })
+
+	return mock
+}
+
+// MockPinger is an autogenerated mock type for the Pinger type
+type MockPinger struct {
+	mock.Mock
+}
+
+type MockPinger_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *MockPinger) EXPECT() *MockPinger_Expecter {
+	return &MockPinger_Expecter{mock: &_m.Mock}
+}
+
+// Ping provides a mock function for the type MockPinger
+func (_mock *MockPinger) Ping(ctx context.Context) error {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Ping")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) error); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockPinger_Ping_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Ping'
+type MockPinger_Ping_Call struct {
+	*mock.Call
+}
+
+// Ping is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *MockPinger_Expecter) Ping(ctx any) *MockPinger_Ping_Call {
+	return &MockPinger_Ping_Call{Call: _e.mock.On("Ping", ctx)}
+}
+
+func (_c *MockPinger_Ping_Call) Run(run func(ctx context.Context)) *MockPinger_Ping_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *MockPinger_Ping_Call) Return(err error) *MockPinger_Ping_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockPinger_Ping_Call) RunAndReturn(run func(ctx context.Context) error) *MockPinger_Ping_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -749,7 +827,7 @@ type MockMapRepository_GetAdminBoundaries_Call struct {
 // GetAdminBoundaries is a helper method to define mock.On call
 //   - ctx context.Context
 //   - filters models.GetAdminBoundaryFilters
-func (_e *MockMapRepository_Expecter) GetAdminBoundaries(ctx interface{}, filters interface{}) *MockMapRepository_GetAdminBoundaries_Call {
+func (_e *MockMapRepository_Expecter) GetAdminBoundaries(ctx any, filters any) *MockMapRepository_GetAdminBoundaries_Call {
 	return &MockMapRepository_GetAdminBoundaries_Call{Call: _e.mock.On("GetAdminBoundaries", ctx, filters)}
 }
 
@@ -817,7 +895,7 @@ type MockMapRepository_GetAdminBoundariesMarksCount_Call struct {
 // GetAdminBoundariesMarksCount is a helper method to define mock.On call
 //   - ctx context.Context
 //   - filters models.GetAdminBoundaryMarksCountFilters
-func (_e *MockMapRepository_Expecter) GetAdminBoundariesMarksCount(ctx interface{}, filters interface{}) *MockMapRepository_GetAdminBoundariesMarksCount_Call {
+func (_e *MockMapRepository_Expecter) GetAdminBoundariesMarksCount(ctx any, filters any) *MockMapRepository_GetAdminBoundariesMarksCount_Call {
 	return &MockMapRepository_GetAdminBoundariesMarksCount_Call{Call: _e.mock.On("GetAdminBoundariesMarksCount", ctx, filters)}
 }
 
@@ -884,7 +962,7 @@ type MockMapRepository_GetCities_Call struct {
 
 // GetCities is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockMapRepository_Expecter) GetCities(ctx interface{}) *MockMapRepository_GetCities_Call {
+func (_e *MockMapRepository_Expecter) GetCities(ctx any) *MockMapRepository_GetCities_Call {
 	return &MockMapRepository_GetCities_Call{Call: _e.mock.On("GetCities", ctx)}
 }
 
@@ -946,7 +1024,7 @@ type MockMapRepository_GetDistricts_Call struct {
 
 // GetDistricts is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockMapRepository_Expecter) GetDistricts(ctx interface{}) *MockMapRepository_GetDistricts_Call {
+func (_e *MockMapRepository_Expecter) GetDistricts(ctx any) *MockMapRepository_GetDistricts_Call {
 	return &MockMapRepository_GetDistricts_Call{Call: _e.mock.On("GetDistricts", ctx)}
 }
 
@@ -1008,7 +1086,7 @@ type MockMapRepository_GetRegions_Call struct {
 
 // GetRegions is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockMapRepository_Expecter) GetRegions(ctx interface{}) *MockMapRepository_GetRegions_Call {
+func (_e *MockMapRepository_Expecter) GetRegions(ctx any) *MockMapRepository_GetRegions_Call {
 	return &MockMapRepository_GetRegions_Call{Call: _e.mock.On("GetRegions", ctx)}
 }
 
@@ -1096,7 +1174,7 @@ type MockMarksRepository_AddMark_Call struct {
 // AddMark is a helper method to define mock.On call
 //   - ctx context.Context
 //   - mark models.Mark
-func (_e *MockMarksRepository_Expecter) AddMark(ctx interface{}, mark interface{}) *MockMarksRepository_AddMark_Call {
+func (_e *MockMarksRepository_Expecter) AddMark(ctx any, mark any) *MockMarksRepository_AddMark_Call {
 	return &MockMarksRepository_AddMark_Call{Call: _e.mock.On("AddMark", ctx, mark)}
 }
 
@@ -1164,7 +1242,7 @@ type MockMarksRepository_GetDistancesFromMarkToPoint_Call struct {
 // GetDistancesFromMarkToPoint is a helper method to define mock.On call
 //   - ctx context.Context
 //   - filters models.GetDistanceFromMarkToPointFilters
-func (_e *MockMarksRepository_Expecter) GetDistancesFromMarkToPoint(ctx interface{}, filters interface{}) *MockMarksRepository_GetDistancesFromMarkToPoint_Call {
+func (_e *MockMarksRepository_Expecter) GetDistancesFromMarkToPoint(ctx any, filters any) *MockMarksRepository_GetDistancesFromMarkToPoint_Call {
 	return &MockMarksRepository_GetDistancesFromMarkToPoint_Call{Call: _e.mock.On("GetDistancesFromMarkToPoint", ctx, filters)}
 }
 
@@ -1230,7 +1308,7 @@ type MockMarksRepository_GetLastMarkStatusHistoryItem_Call struct {
 // GetLastMarkStatusHistoryItem is a helper method to define mock.On call
 //   - ctx context.Context
 //   - markId int
-func (_e *MockMarksRepository_Expecter) GetLastMarkStatusHistoryItem(ctx interface{}, markId interface{}) *MockMarksRepository_GetLastMarkStatusHistoryItem_Call {
+func (_e *MockMarksRepository_Expecter) GetLastMarkStatusHistoryItem(ctx any, markId any) *MockMarksRepository_GetLastMarkStatusHistoryItem_Call {
 	return &MockMarksRepository_GetLastMarkStatusHistoryItem_Call{Call: _e.mock.On("GetLastMarkStatusHistoryItem", ctx, markId)}
 }
 
@@ -1297,7 +1375,7 @@ type MockMarksRepository_GetLastMarkStatusHistoryItemWithStatus_Call struct {
 //   - ctx context.Context
 //   - markId int
 //   - newMarkStatusId models.MarkStatusType
-func (_e *MockMarksRepository_Expecter) GetLastMarkStatusHistoryItemWithStatus(ctx interface{}, markId interface{}, newMarkStatusId interface{}) *MockMarksRepository_GetLastMarkStatusHistoryItemWithStatus_Call {
+func (_e *MockMarksRepository_Expecter) GetLastMarkStatusHistoryItemWithStatus(ctx any, markId any, newMarkStatusId any) *MockMarksRepository_GetLastMarkStatusHistoryItemWithStatus_Call {
 	return &MockMarksRepository_GetLastMarkStatusHistoryItemWithStatus_Call{Call: _e.mock.On("GetLastMarkStatusHistoryItemWithStatus", ctx, markId, newMarkStatusId)}
 }
 
@@ -1368,7 +1446,7 @@ type MockMarksRepository_GetMarkById_Call struct {
 // GetMarkById is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id int
-func (_e *MockMarksRepository_Expecter) GetMarkById(ctx interface{}, id interface{}) *MockMarksRepository_GetMarkById_Call {
+func (_e *MockMarksRepository_Expecter) GetMarkById(ctx any, id any) *MockMarksRepository_GetMarkById_Call {
 	return &MockMarksRepository_GetMarkById_Call{Call: _e.mock.On("GetMarkById", ctx, id)}
 }
 
@@ -1436,7 +1514,7 @@ type MockMarksRepository_GetMarkStatusHistoryByMarkId_Call struct {
 // GetMarkStatusHistoryByMarkId is a helper method to define mock.On call
 //   - ctx context.Context
 //   - markId int
-func (_e *MockMarksRepository_Expecter) GetMarkStatusHistoryByMarkId(ctx interface{}, markId interface{}) *MockMarksRepository_GetMarkStatusHistoryByMarkId_Call {
+func (_e *MockMarksRepository_Expecter) GetMarkStatusHistoryByMarkId(ctx any, markId any) *MockMarksRepository_GetMarkStatusHistoryByMarkId_Call {
 	return &MockMarksRepository_GetMarkStatusHistoryByMarkId_Call{Call: _e.mock.On("GetMarkStatusHistoryByMarkId", ctx, markId)}
 }
 
@@ -1503,7 +1581,7 @@ type MockMarksRepository_GetMarkStatuses_Call struct {
 
 // GetMarkStatuses is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockMarksRepository_Expecter) GetMarkStatuses(ctx interface{}) *MockMarksRepository_GetMarkStatuses_Call {
+func (_e *MockMarksRepository_Expecter) GetMarkStatuses(ctx any) *MockMarksRepository_GetMarkStatuses_Call {
 	return &MockMarksRepository_GetMarkStatuses_Call{Call: _e.mock.On("GetMarkStatuses", ctx)}
 }
 
@@ -1565,7 +1643,7 @@ type MockMarksRepository_GetMarkTypes_Call struct {
 
 // GetMarkTypes is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockMarksRepository_Expecter) GetMarkTypes(ctx interface{}) *MockMarksRepository_GetMarkTypes_Call {
+func (_e *MockMarksRepository_Expecter) GetMarkTypes(ctx any) *MockMarksRepository_GetMarkTypes_Call {
 	return &MockMarksRepository_GetMarkTypes_Call{Call: _e.mock.On("GetMarkTypes", ctx)}
 }
 
@@ -1628,7 +1706,7 @@ type MockMarksRepository_GetMarks_Call struct {
 // GetMarks is a helper method to define mock.On call
 //   - ctx context.Context
 //   - filters models.GetMarksFilters
-func (_e *MockMarksRepository_Expecter) GetMarks(ctx interface{}, filters interface{}) *MockMarksRepository_GetMarks_Call {
+func (_e *MockMarksRepository_Expecter) GetMarks(ctx any, filters any) *MockMarksRepository_GetMarks_Call {
 	return &MockMarksRepository_GetMarks_Call{Call: _e.mock.On("GetMarks", ctx, filters)}
 }
 
@@ -1696,7 +1774,7 @@ type MockMarksRepository_GetMarksByUserId_Call struct {
 // GetMarksByUserId is a helper method to define mock.On call
 //   - ctx context.Context
 //   - userId int
-func (_e *MockMarksRepository_Expecter) GetMarksByUserId(ctx interface{}, userId interface{}) *MockMarksRepository_GetMarksByUserId_Call {
+func (_e *MockMarksRepository_Expecter) GetMarksByUserId(ctx any, userId any) *MockMarksRepository_GetMarksByUserId_Call {
 	return &MockMarksRepository_GetMarksByUserId_Call{Call: _e.mock.On("GetMarksByUserId", ctx, userId)}
 }
 
@@ -1754,7 +1832,7 @@ type MockMarksRepository_UpdateMarkStatus_Call struct {
 //   - ctx context.Context
 //   - markId int
 //   - markStatusId models.MarkStatusType
-func (_e *MockMarksRepository_Expecter) UpdateMarkStatus(ctx interface{}, markId interface{}, markStatusId interface{}) *MockMarksRepository_UpdateMarkStatus_Call {
+func (_e *MockMarksRepository_Expecter) UpdateMarkStatus(ctx any, markId any, markStatusId any) *MockMarksRepository_UpdateMarkStatus_Call {
 	return &MockMarksRepository_UpdateMarkStatus_Call{Call: _e.mock.On("UpdateMarkStatus", ctx, markId, markStatusId)}
 }
 
@@ -1845,7 +1923,7 @@ type MockPhotosRepository_AddPhotos_Call struct {
 //   - markId int
 //   - checkId int
 //   - photos []io.Reader
-func (_e *MockPhotosRepository_Expecter) AddPhotos(ctx interface{}, markId interface{}, checkId interface{}, photos interface{}) *MockPhotosRepository_AddPhotos_Call {
+func (_e *MockPhotosRepository_Expecter) AddPhotos(ctx any, markId any, checkId any, photos any) *MockPhotosRepository_AddPhotos_Call {
 	return &MockPhotosRepository_AddPhotos_Call{Call: _e.mock.On("AddPhotos", ctx, markId, checkId, photos)}
 }
 
@@ -1922,7 +2000,7 @@ type MockPhotosRepository_GetPhotos_Call struct {
 
 // GetPhotos is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockPhotosRepository_Expecter) GetPhotos(ctx interface{}) *MockPhotosRepository_GetPhotos_Call {
+func (_e *MockPhotosRepository_Expecter) GetPhotos(ctx any) *MockPhotosRepository_GetPhotos_Call {
 	return &MockPhotosRepository_GetPhotos_Call{Call: _e.mock.On("GetPhotos", ctx)}
 }
 
@@ -1986,7 +2064,7 @@ type MockPhotosRepository_GetPhotosByCheckId_Call struct {
 //   - ctx context.Context
 //   - markId int
 //   - checkId int
-func (_e *MockPhotosRepository_Expecter) GetPhotosByCheckId(ctx interface{}, markId interface{}, checkId interface{}) *MockPhotosRepository_GetPhotosByCheckId_Call {
+func (_e *MockPhotosRepository_Expecter) GetPhotosByCheckId(ctx any, markId any, checkId any) *MockPhotosRepository_GetPhotosByCheckId_Call {
 	return &MockPhotosRepository_GetPhotosByCheckId_Call{Call: _e.mock.On("GetPhotosByCheckId", ctx, markId, checkId)}
 }
 
@@ -2059,7 +2137,7 @@ type MockPhotosRepository_GetPhotosByMarkId_Call struct {
 // GetPhotosByMarkId is a helper method to define mock.On call
 //   - ctx context.Context
 //   - markId int
-func (_e *MockPhotosRepository_Expecter) GetPhotosByMarkId(ctx interface{}, markId interface{}) *MockPhotosRepository_GetPhotosByMarkId_Call {
+func (_e *MockPhotosRepository_Expecter) GetPhotosByMarkId(ctx any, markId any) *MockPhotosRepository_GetPhotosByMarkId_Call {
 	return &MockPhotosRepository_GetPhotosByMarkId_Call{Call: _e.mock.On("GetPhotosByMarkId", ctx, markId)}
 }
 
@@ -2152,7 +2230,7 @@ type MockTasksRepository_AddTask_Call struct {
 // AddTask is a helper method to define mock.On call
 //   - ctx context.Context
 //   - task models.Task
-func (_e *MockTasksRepository_Expecter) AddTask(ctx interface{}, task interface{}) *MockTasksRepository_AddTask_Call {
+func (_e *MockTasksRepository_Expecter) AddTask(ctx any, task any) *MockTasksRepository_AddTask_Call {
 	return &MockTasksRepository_AddTask_Call{Call: _e.mock.On("AddTask", ctx, task)}
 }
 
@@ -2218,7 +2296,7 @@ type MockTasksRepository_GetTaskById_Call struct {
 // GetTaskById is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id int
-func (_e *MockTasksRepository_Expecter) GetTaskById(ctx interface{}, id interface{}) *MockTasksRepository_GetTaskById_Call {
+func (_e *MockTasksRepository_Expecter) GetTaskById(ctx any, id any) *MockTasksRepository_GetTaskById_Call {
 	return &MockTasksRepository_GetTaskById_Call{Call: _e.mock.On("GetTaskById", ctx, id)}
 }
 
@@ -2285,7 +2363,7 @@ type MockTasksRepository_GetTaskByUserIdAndMarkId_Call struct {
 //   - ctx context.Context
 //   - userId int
 //   - markId int
-func (_e *MockTasksRepository_Expecter) GetTaskByUserIdAndMarkId(ctx interface{}, userId interface{}, markId interface{}) *MockTasksRepository_GetTaskByUserIdAndMarkId_Call {
+func (_e *MockTasksRepository_Expecter) GetTaskByUserIdAndMarkId(ctx any, userId any, markId any) *MockTasksRepository_GetTaskByUserIdAndMarkId_Call {
 	return &MockTasksRepository_GetTaskByUserIdAndMarkId_Call{Call: _e.mock.On("GetTaskByUserIdAndMarkId", ctx, userId, markId)}
 }
 
@@ -2358,7 +2436,7 @@ type MockTasksRepository_GetTasks_Call struct {
 // GetTasks is a helper method to define mock.On call
 //   - ctx context.Context
 //   - filters models.GetTasksFilters
-func (_e *MockTasksRepository_Expecter) GetTasks(ctx interface{}, filters interface{}) *MockTasksRepository_GetTasks_Call {
+func (_e *MockTasksRepository_Expecter) GetTasks(ctx any, filters any) *MockTasksRepository_GetTasks_Call {
 	return &MockTasksRepository_GetTasks_Call{Call: _e.mock.On("GetTasks", ctx, filters)}
 }
 
@@ -2427,7 +2505,7 @@ type MockTasksRepository_GetTasksByUserId_Call struct {
 //   - ctx context.Context
 //   - userId int
 //   - filters models.GetTasksByUserIdFilters
-func (_e *MockTasksRepository_Expecter) GetTasksByUserId(ctx interface{}, userId interface{}, filters interface{}) *MockTasksRepository_GetTasksByUserId_Call {
+func (_e *MockTasksRepository_Expecter) GetTasksByUserId(ctx any, userId any, filters any) *MockTasksRepository_GetTasksByUserId_Call {
 	return &MockTasksRepository_GetTasksByUserId_Call{Call: _e.mock.On("GetTasksByUserId", ctx, userId, filters)}
 }
 
@@ -2490,7 +2568,7 @@ type MockTasksRepository_UpdateTaskStatus_Call struct {
 //   - ctx context.Context
 //   - taskId int
 //   - taskStatusId models.TaskStatusType
-func (_e *MockTasksRepository_Expecter) UpdateTaskStatus(ctx interface{}, taskId interface{}, taskStatusId interface{}) *MockTasksRepository_UpdateTaskStatus_Call {
+func (_e *MockTasksRepository_Expecter) UpdateTaskStatus(ctx any, taskId any, taskStatusId any) *MockTasksRepository_UpdateTaskStatus_Call {
 	return &MockTasksRepository_UpdateTaskStatus_Call{Call: _e.mock.On("UpdateTaskStatus", ctx, taskId, taskStatusId)}
 }
 
@@ -2588,7 +2666,7 @@ type MockUsersRepository_AddUser_Call struct {
 // AddUser is a helper method to define mock.On call
 //   - ctx context.Context
 //   - user models.User
-func (_e *MockUsersRepository_Expecter) AddUser(ctx interface{}, user interface{}) *MockUsersRepository_AddUser_Call {
+func (_e *MockUsersRepository_Expecter) AddUser(ctx any, user any) *MockUsersRepository_AddUser_Call {
 	return &MockUsersRepository_AddUser_Call{Call: _e.mock.On("AddUser", ctx, user)}
 }
 
@@ -2654,7 +2732,7 @@ type MockUsersRepository_GetUserById_Call struct {
 // GetUserById is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id int
-func (_e *MockUsersRepository_Expecter) GetUserById(ctx interface{}, id interface{}) *MockUsersRepository_GetUserById_Call {
+func (_e *MockUsersRepository_Expecter) GetUserById(ctx any, id any) *MockUsersRepository_GetUserById_Call {
 	return &MockUsersRepository_GetUserById_Call{Call: _e.mock.On("GetUserById", ctx, id)}
 }
 
@@ -2720,7 +2798,7 @@ type MockUsersRepository_GetUserByLogin_Call struct {
 // GetUserByLogin is a helper method to define mock.On call
 //   - ctx context.Context
 //   - username string
-func (_e *MockUsersRepository_Expecter) GetUserByLogin(ctx interface{}, username interface{}) *MockUsersRepository_GetUserByLogin_Call {
+func (_e *MockUsersRepository_Expecter) GetUserByLogin(ctx any, username any) *MockUsersRepository_GetUserByLogin_Call {
 	return &MockUsersRepository_GetUserByLogin_Call{Call: _e.mock.On("GetUserByLogin", ctx, username)}
 }
 
@@ -2787,7 +2865,7 @@ type MockUsersRepository_GetUsers_Call struct {
 
 // GetUsers is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockUsersRepository_Expecter) GetUsers(ctx interface{}) *MockUsersRepository_GetUsers_Call {
+func (_e *MockUsersRepository_Expecter) GetUsers(ctx any) *MockUsersRepository_GetUsers_Call {
 	return &MockUsersRepository_GetUsers_Call{Call: _e.mock.On("GetUsers", ctx)}
 }
 

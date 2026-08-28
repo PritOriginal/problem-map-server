@@ -153,7 +153,6 @@ definitions:
           items:
             items:
               items:
-                format: float64
                 type: number
               type: array
             type: array
@@ -179,7 +178,6 @@ definitions:
       coordinates:
         items:
           items:
-            format: float64
             type: number
           type: array
         type: array
@@ -197,17 +195,29 @@ definitions:
     type: object
   github_com_PritOriginal_problem-map-server_internal_models.Task:
     properties:
+      created_at:
+        type: string
       mark_id:
         type: integer
       name:
         type: string
       status_id:
-        type: integer
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.TaskStatusType'
       task_id:
         type: integer
+      updated_at:
+        type: string
       user_id:
         type: integer
     type: object
+  github_com_PritOriginal_problem-map-server_internal_models.TaskStatusType:
+    enum:
+    - 1
+    - 2
+    type: integer
+    x-enum-varnames:
+    - UnfulfilledStatus
+    - CompletedStatus
   github_com_PritOriginal_problem-map-server_internal_models.User:
     properties:
       home_point:
@@ -221,6 +231,10 @@ definitions:
       username:
         type: string
     type: object
+  github_com_PritOriginal_problem-map-server_internal_usecase.HealthReport:
+    additionalProperties:
+      type: string
+    type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo:
     properties:
       message:
@@ -231,6 +245,15 @@ definitions:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
       payload: {}
+      success:
+        type: boolean
+    type: object
+  ? github_com_PritOriginal_problem-map-server_pkg_responses.Response-github_com_PritOriginal_problem-map-server_internal_usecase_HealthReport
+  : properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      payload:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.HealthReport'
       success:
         type: boolean
     type: object
@@ -477,6 +500,15 @@ definitions:
       success:
         type: boolean
     type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-map_string_string:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      payload:
+        $ref: '#/definitions/map_string_string'
+      success:
+        type: boolean
+    type: object
   internal_handler_auth.RefreshTokensRequest:
     properties:
       refresh_token:
@@ -514,6 +546,8 @@ definitions:
     type: object
   internal_handler_auth.SignUpRequest:
     properties:
+      home_point:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON'
       login:
         maxLength: 40
         minLength: 3
@@ -527,6 +561,7 @@ definitions:
         minLength: 2
         type: string
     required:
+    - home_point
     - login
     - password
     - username
@@ -699,10 +734,13 @@ definitions:
           $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.User'
         type: array
     type: object
+  map_string_string:
+    additionalProperties:
+      type: string
+    type: object
   null.Int:
     properties:
       int64:
-        format: int64
         type: integer
       valid:
         description: Valid is true if Int64 is not NULL
@@ -938,6 +976,19 @@ paths:
       summary: List checks by user id
       tags:
       - checks
+  /healthz:
+    get:
+      description: Always returns 200 while the process is running.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-map_string_string'
+      summary: Liveness probe
+      tags:
+      - health
   /map/admin-boundaries:
     get:
       consumes:
@@ -1317,6 +1368,24 @@ paths:
       summary: List markers by user id
       tags:
       - marks
+  /readyz:
+    get:
+      description: Pings every infrastructure dependency and reports their status;
+        503 when at least one is down.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-github_com_PritOriginal_problem-map-server_internal_usecase_HealthReport'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-github_com_PritOriginal_problem-map-server_internal_usecase_HealthReport'
+      summary: Readiness probe
+      tags:
+      - health
   /tasks:
     get:
       description: get tasks

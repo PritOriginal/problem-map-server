@@ -64,7 +64,7 @@ type MockCacher_Get_Call struct {
 //   - ctx context.Context
 //   - key string
 //   - v any
-func (_e *MockCacher_Expecter) Get(ctx interface{}, key interface{}, v interface{}) *MockCacher_Get_Call {
+func (_e *MockCacher_Expecter) Get(ctx any, key any, v any) *MockCacher_Get_Call {
 	return &MockCacher_Get_Call{Call: _e.mock.On("Get", ctx, key, v)}
 }
 
@@ -137,7 +137,7 @@ type MockCacher_GetBytes_Call struct {
 // GetBytes is a helper method to define mock.On call
 //   - ctx context.Context
 //   - key string
-func (_e *MockCacher_Expecter) GetBytes(ctx interface{}, key interface{}) *MockCacher_GetBytes_Call {
+func (_e *MockCacher_Expecter) GetBytes(ctx any, key any) *MockCacher_GetBytes_Call {
 	return &MockCacher_GetBytes_Call{Call: _e.mock.On("GetBytes", ctx, key)}
 }
 
@@ -196,7 +196,7 @@ type MockCacher_Set_Call struct {
 //   - key string
 //   - value any
 //   - expiration time.Duration
-func (_e *MockCacher_Expecter) Set(ctx interface{}, key interface{}, value interface{}, expiration interface{}) *MockCacher_Set_Call {
+func (_e *MockCacher_Expecter) Set(ctx any, key any, value any, expiration any) *MockCacher_Set_Call {
 	return &MockCacher_Set_Call{Call: _e.mock.On("Set", ctx, key, value, expiration)}
 }
 
