@@ -24,6 +24,33 @@ type method[T any] struct {
 	err  error
 }
 
+// errRepo stands for an unexpected repository failure that must be wrapped
+// and passed through the usecase as is.
+var errRepo = errors.New("repository error")
+
+// assertRepoErr checks that the usecase mapped the first non-nil repository
+// error correctly: repository.ErrNotFound -> usecase.ErrNotFound,
+// repository.ErrExists -> usecase.ErrConflict, anything else is wrapped.
+func assertRepoErr(s *suite.Suite, got error, repoErrs ...error) {
+	s.T().Helper()
+
+	for _, repoErr := range repoErrs {
+		if repoErr == nil {
+			continue
+		}
+		switch {
+		case errors.Is(repoErr, repository.ErrNotFound):
+			s.ErrorIs(got, usecase.ErrNotFound)
+		case errors.Is(repoErr, repository.ErrExists):
+			s.ErrorIs(got, usecase.ErrConflict)
+		default:
+			s.ErrorIs(got, repoErr)
+		}
+		return
+	}
+	s.Fail("assertRepoErr: no repository error given")
+}
+
 type AuthSuite struct {
 	suite.Suite
 	uc        *usecase.Auth
@@ -32,7 +59,7 @@ type AuthSuite struct {
 	authCfg   config.AuthConfig
 }
 
-func (suite *AuthSuite) SetupSuite() {
+func (suite *AuthSuite) SetupTest() {
 	suite.log = slogdiscard.NewDiscardLogger()
 	suite.usersRepo = usecase.NewMockUsersRepository(suite.T())
 	cfg := config.MustLoadPath("../../configs/config-tests.yaml")
@@ -64,7 +91,7 @@ func (suite *AuthSuite) TestSignUp() {
 		{
 			name: "ErrGetUserByLogin",
 			getUserByLogin: method[models.User]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 			addUser: method[int64]{
 				err: nil,
@@ -76,7 +103,7 @@ func (suite *AuthSuite) TestSignUp() {
 				err: repository.ErrNotFound,
 			},
 			addUser: method[int64]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 		{
@@ -118,7 +145,7 @@ func (suite *AuthSuite) TestSignUp() {
 			case errors.Is(tt.addUser.err, repository.ErrExists):
 				suite.ErrorIs(gotErr, usecase.ErrConflict)
 			default:
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.addUser.err, tt.getUserByLogin.err)
 			}
 
 			suite.usersRepo.AssertExpectations(suite.T())
@@ -133,10 +160,13 @@ func (suite *AuthSuite) TestSignIn() {
 
 	tests := []struct {
 		name           string
+		password       string
 		getUserByLogin method[models.User]
+		wantErr        error
 	}{
 		{
-			name: "Ok",
+			name:     "Ok",
+			password: password,
 			getUserByLogin: method[models.User]{
 				data: models.User{
 					Id:           1,
@@ -147,7 +177,8 @@ func (suite *AuthSuite) TestSignIn() {
 			},
 		},
 		{
-			name: "OkEmptyRoleDefaultsToUser",
+			name:     "OkEmptyRoleDefaultsToUser",
+			password: password,
 			getUserByLogin: method[models.User]{
 				data: models.User{
 					Id:           1,
@@ -157,10 +188,31 @@ func (suite *AuthSuite) TestSignIn() {
 			},
 		},
 		{
-			name: "Err",
+			name:     "ErrUnauthorizedUnknownLogin",
+			password: password,
 			getUserByLogin: method[models.User]{
-				err: errors.New(""),
+				err: repository.ErrNotFound,
 			},
+			wantErr: usecase.ErrUnauthorized,
+		},
+		{
+			name:     "ErrUnauthorizedWrongPassword",
+			password: "wrong",
+			getUserByLogin: method[models.User]{
+				data: models.User{
+					Id:           1,
+					PasswordHash: passwordHash,
+				},
+			},
+			wantErr: usecase.ErrUnauthorized,
+		},
+		{
+			name:     "ErrRepo",
+			password: password,
+			getUserByLogin: method[models.User]{
+				err: errRepo,
+			},
+			wantErr: errRepo,
 		},
 	}
 
@@ -174,9 +226,9 @@ func (suite *AuthSuite) TestSignIn() {
 				}
 			}()
 
-			accessToken, _, gotErr := suite.uc.SignIn(context.Background(), "login", "password")
+			accessToken, _, gotErr := suite.uc.SignIn(context.Background(), "login", tt.password)
 
-			if tt.getUserByLogin.err == nil {
+			if tt.wantErr == nil {
 				suite.NoError(gotErr)
 
 				wantRole := tt.getUserByLogin.data.Role
@@ -192,7 +244,7 @@ func (suite *AuthSuite) TestSignIn() {
 				suite.Equal(string(wantRole), claims[token.RoleClaim])
 				suite.Equal("1", claims["sub"])
 			} else {
-				suite.NotNil(gotErr)
+				suite.ErrorIs(gotErr, tt.wantErr)
 			}
 			suite.usersRepo.AssertExpectations(suite.T())
 		})
@@ -207,6 +259,7 @@ func (suite *AuthSuite) TestRefreshTokens() {
 	tests := []struct {
 		name        string
 		getUserById method[models.User]
+		wantErr     error
 	}{
 		{
 			name: "Ok",
@@ -218,10 +271,18 @@ func (suite *AuthSuite) TestRefreshTokens() {
 			},
 		},
 		{
-			name: "Err",
+			name: "ErrUnauthorizedUserNotFound",
 			getUserById: method[models.User]{
-				err: errors.New(""),
+				err: repository.ErrNotFound,
 			},
+			wantErr: usecase.ErrUnauthorized,
+		},
+		{
+			name: "ErrRepo",
+			getUserById: method[models.User]{
+				err: errRepo,
+			},
+			wantErr: errRepo,
 		},
 	}
 
@@ -237,10 +298,10 @@ func (suite *AuthSuite) TestRefreshTokens() {
 
 			_, _, gotErr := suite.uc.RefreshTokens(context.Background(), refreshToken)
 
-			if tt.getUserById.err == nil {
+			if tt.wantErr == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				suite.ErrorIs(gotErr, tt.wantErr)
 			}
 			suite.usersRepo.AssertExpectations(suite.T())
 		})

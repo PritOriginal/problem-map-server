@@ -27,7 +27,7 @@ type ChecksSuite struct {
 	photosRepo *usecase.MockPhotosRepository
 }
 
-func (suite *ChecksSuite) SetupSuite() {
+func (suite *ChecksSuite) SetupTest() {
 	suite.log = slogdiscard.NewDiscardLogger()
 	suite.trManager = usecase.NewMockManager(suite.T())
 	suite.updater = usecase.NewMockMarkStatusUpdater(suite.T())
@@ -135,7 +135,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 				err: nil,
 			},
 			getTask: method[models.Task]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 		{
@@ -164,7 +164,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 				err:  nil,
 			},
 			updateTaskStatus: method[any]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 		{
@@ -179,7 +179,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 				data: models.MarkStatusHistoryItem{
 					NewMarkStatusID: models.UnconfirmedStatus,
 				},
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 		{
@@ -191,7 +191,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 				err: nil,
 			},
 			getUserMarkCheck: method[models.Check]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 		{
@@ -236,7 +236,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 			},
 			addCheck: method[int64]{
 				data: int64(0),
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 		{
@@ -255,7 +255,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 				err:  nil,
 			},
 			addPhotos: method[any]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 		{
@@ -277,7 +277,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 				err: nil,
 			},
 			update: method[any]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 	}
@@ -369,7 +369,14 @@ func (suite *ChecksSuite) TestGetCheckById() {
 		{
 			name: "ErrGetCheckById",
 			getCheckById: method[models.Check]{
-				err: errors.New(""),
+				err: errRepo,
+			},
+			getPhotosByCheckId: method[[]string]{},
+		},
+		{
+			name: "ErrGetCheckByIdNotFound",
+			getCheckById: method[models.Check]{
+				err: repository.ErrNotFound,
 			},
 			getPhotosByCheckId: method[[]string]{},
 		},
@@ -377,7 +384,7 @@ func (suite *ChecksSuite) TestGetCheckById() {
 			name:         "ErrGetPhotosByCheckId",
 			getCheckById: method[models.Check]{},
 			getPhotosByCheckId: method[[]string]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 	}
@@ -402,7 +409,7 @@ func (suite *ChecksSuite) TestGetCheckById() {
 			if tt.getCheckById.err == nil && tt.getPhotosByCheckId.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getCheckById.err, tt.getPhotosByCheckId.err)
 			}
 			suite.checksRepo.AssertExpectations(suite.T())
 			suite.photosRepo.AssertExpectations(suite.T())
@@ -431,7 +438,7 @@ func (suite *ChecksSuite) TestGetChecksByMarkId() {
 			name: "ErrGetChecksByMarkId",
 			getChecksByMarkId: method[[]models.Check]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 			getPhotosByMarkId: method[map[int]map[int][]string]{
 				data: nil,
@@ -446,7 +453,7 @@ func (suite *ChecksSuite) TestGetChecksByMarkId() {
 			},
 			getPhotosByMarkId: method[map[int]map[int][]string]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 	}
@@ -472,7 +479,7 @@ func (suite *ChecksSuite) TestGetChecksByMarkId() {
 			if tt.getChecksByMarkId.err == nil && tt.getPhotosByMarkId.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getChecksByMarkId.err, tt.getPhotosByMarkId.err)
 			}
 			suite.checksRepo.AssertExpectations(suite.T())
 			suite.photosRepo.AssertExpectations(suite.T())
@@ -501,7 +508,7 @@ func (suite *ChecksSuite) TestGetChecksByUserId() {
 			name: "ErrGetChecksByUserId",
 			getChecksByUserId: method[[]models.Check]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 			getPhotosByCheckId: method[[]string]{
 				data: nil,
@@ -516,7 +523,7 @@ func (suite *ChecksSuite) TestGetChecksByUserId() {
 			},
 			getPhotosByCheckId: method[[]string]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 	}
@@ -542,7 +549,7 @@ func (suite *ChecksSuite) TestGetChecksByUserId() {
 			if tt.getChecksByUserId.err == nil && tt.getPhotosByCheckId.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getChecksByUserId.err, tt.getPhotosByCheckId.err)
 			}
 			suite.checksRepo.AssertExpectations(suite.T())
 			suite.photosRepo.AssertExpectations(suite.T())
@@ -558,7 +565,7 @@ type MarkStatusUpdaterSuite struct {
 	checksRepo *usecase.MockChecksRepository
 }
 
-func (suite *MarkStatusUpdaterSuite) SetupSuite() {
+func (suite *MarkStatusUpdaterSuite) SetupTest() {
 	suite.log = slogdiscard.NewDiscardLogger()
 	suite.marksRepo = usecase.NewMockMarksRepository(suite.T())
 	suite.checksRepo = usecase.NewMockChecksRepository(suite.T())
@@ -667,7 +674,7 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 			},
 			wantUpdated: true,
 			updateMarkStatus: method[any]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 		{
@@ -731,13 +738,13 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 			},
 			wantUpdated: true,
 			updateMarkStatus: method[any]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 		{
 			name: "Err-GetMarkStatusHistoryByMarkId",
 			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 		{
@@ -749,7 +756,7 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 			},
 			getMarkById: method[models.Mark]{
 				data: models.Mark{},
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 		{
@@ -774,7 +781,7 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 						Result: false,
 					},
 				},
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 	}
@@ -818,7 +825,7 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 				tt.updateMarkStatus.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getLastMarkStatusHistoryItem.err, tt.getMarkById.err, tt.getChecksByMarkHistoryId.err, tt.updateMarkStatus.err)
 			}
 			suite.marksRepo.AssertExpectations(suite.T())
 			suite.checksRepo.AssertExpectations(suite.T())
@@ -882,7 +889,14 @@ func (suite *MarkStatusUpdaterSuite) TestConfirm() {
 			name: "Err-GetMarkById",
 			getMarkById: method[models.Mark]{
 				data: models.Mark{},
-				err:  errors.New(""),
+				err:  errRepo,
+			},
+		},
+		{
+			name: "Err-GetMarkByIdNotFound",
+			getMarkById: method[models.Mark]{
+				data: models.Mark{},
+				err:  repository.ErrNotFound,
 			},
 		},
 		{
@@ -891,7 +905,7 @@ func (suite *MarkStatusUpdaterSuite) TestConfirm() {
 				data: models.Mark{MarkStatusID: models.UnconfirmedStatus},
 			},
 			updateMarkStatus: method[any]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 	}
@@ -918,7 +932,7 @@ func (suite *MarkStatusUpdaterSuite) TestConfirm() {
 				suite.Equal(tt.want, got)
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getMarkById.err, tt.updateMarkStatus.err, tt.err)
 			}
 			suite.marksRepo.AssertExpectations(suite.T())
 		})
@@ -981,7 +995,14 @@ func (suite *MarkStatusUpdaterSuite) TestReject() {
 			name: "Err-GetMarkById",
 			getMarkById: method[models.Mark]{
 				data: models.Mark{},
-				err:  errors.New(""),
+				err:  errRepo,
+			},
+		},
+		{
+			name: "Err-GetMarkByIdNotFound",
+			getMarkById: method[models.Mark]{
+				data: models.Mark{},
+				err:  repository.ErrNotFound,
 			},
 		},
 		{
@@ -990,7 +1011,7 @@ func (suite *MarkStatusUpdaterSuite) TestReject() {
 				data: models.Mark{MarkStatusID: models.UnconfirmedStatus},
 			},
 			updateMarkStatus: method[any]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 	}
@@ -1017,7 +1038,7 @@ func (suite *MarkStatusUpdaterSuite) TestReject() {
 				suite.Equal(tt.want, got)
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getMarkById.err, tt.updateMarkStatus.err, tt.err)
 			}
 			suite.marksRepo.AssertExpectations(suite.T())
 		})

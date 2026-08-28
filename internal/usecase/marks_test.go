@@ -2,12 +2,12 @@ package usecase_test
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log/slog"
 	"testing"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/stretchr/testify/mock"
@@ -24,7 +24,7 @@ type MarksSuite struct {
 	photosRepo *usecase.MockPhotosRepository
 }
 
-func (suite *MarksSuite) SetupSuite() {
+func (suite *MarksSuite) SetupTest() {
 	suite.log = slogdiscard.NewDiscardLogger()
 	suite.trManager = usecase.NewMockManager(suite.T())
 	suite.marksRepo = usecase.NewMockMarksRepository(suite.T())
@@ -57,7 +57,7 @@ func (suite *MarksSuite) TestGetMarks() {
 			name: "Err",
 			getMarks: method[[]models.Mark]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 	}
@@ -77,7 +77,7 @@ func (suite *MarksSuite) TestGetMarks() {
 			if tt.getMarks.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getMarks.err)
 			}
 			suite.marksRepo.AssertExpectations(suite.T())
 		})
@@ -97,10 +97,17 @@ func (suite *MarksSuite) TestGetMarkById() {
 			},
 		},
 		{
-			name: "Err",
+			name: "ErrRepo",
 			getMarkById: method[models.Mark]{
 				data: models.Mark{},
-				err:  errors.New(""),
+				err:  errRepo,
+			},
+		},
+		{
+			name: "ErrNotFound",
+			getMarkById: method[models.Mark]{
+				data: models.Mark{},
+				err:  repository.ErrNotFound,
 			},
 		},
 	}
@@ -120,7 +127,7 @@ func (suite *MarksSuite) TestGetMarkById() {
 			if tt.getMarkById.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getMarkById.err)
 			}
 			suite.marksRepo.AssertExpectations(suite.T())
 		})
@@ -143,7 +150,7 @@ func (suite *MarksSuite) TestGetMarksByUserId() {
 			name: "Err",
 			getMarksByUserId: method[[]models.Mark]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 	}
@@ -163,7 +170,7 @@ func (suite *MarksSuite) TestGetMarksByUserId() {
 			if tt.getMarksByUserId.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getMarksByUserId.err)
 			}
 			suite.marksRepo.AssertExpectations(suite.T())
 		})
@@ -199,30 +206,30 @@ func (suite *MarksSuite) TestAddMark() {
 		{
 			name: "ErrAddMark",
 			trDo: method[any]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 			addMark: method[int64]{
 				data: int64(0),
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 		{
 			name: "ErrGetLastMarkStatusHistoryItem",
 			trDo: method[any]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 			addMark: method[int64]{
 				data: int64(1),
 				err:  nil,
 			},
 			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 		{
 			name: "ErrAddCheck",
 			trDo: method[any]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 			addMark: method[int64]{
 				data: int64(1),
@@ -233,13 +240,13 @@ func (suite *MarksSuite) TestAddMark() {
 			},
 			addCheck: method[int64]{
 				data: int64(0),
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 		{
 			name: "ErrAddPhotos",
 			trDo: method[any]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 			addMark: method[int64]{
 				data: int64(1),
@@ -253,7 +260,7 @@ func (suite *MarksSuite) TestAddMark() {
 				err:  nil,
 			},
 			addPhotos: method[any]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 	}
@@ -300,7 +307,7 @@ func (suite *MarksSuite) TestAddMark() {
 				tt.addPhotos.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.addMark.err, tt.getLastMarkStatusHistoryItem.err, tt.addCheck.err, tt.addPhotos.err)
 			}
 			suite.marksRepo.AssertExpectations(suite.T())
 			suite.checksRepo.AssertExpectations(suite.T())
@@ -325,7 +332,7 @@ func (suite *MarksSuite) TestGetMarkTypes() {
 			name: "Err",
 			getMarkTypes: method[[]models.MarkType]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 	}
@@ -345,7 +352,7 @@ func (suite *MarksSuite) TestGetMarkTypes() {
 			if tt.getMarkTypes.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getMarkTypes.err)
 			}
 			suite.marksRepo.AssertExpectations(suite.T())
 		})
@@ -368,7 +375,7 @@ func (suite *MarksSuite) TestGetMarkStatuses() {
 			name: "Err",
 			getMarkStatuses: method[[]models.MarkStatus]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 	}
@@ -388,7 +395,7 @@ func (suite *MarksSuite) TestGetMarkStatuses() {
 			if tt.getMarkStatuses.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getMarkStatuses.err)
 			}
 			suite.marksRepo.AssertExpectations(suite.T())
 		})
@@ -439,7 +446,7 @@ func (suite *MarksSuite) TestGetMarkStatusHistoryByMarkId() {
 		{
 			name: "ErrGetMarkStatusHistoryByMarkId",
 			getMarkStatusHistoryByMarkId: method[[]models.MarkStatusHistoryItem]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 		{
@@ -449,7 +456,7 @@ func (suite *MarksSuite) TestGetMarkStatusHistoryByMarkId() {
 			},
 			withChecks: true,
 			getChecksByMarkId: method[[]models.Check]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 		{
@@ -462,7 +469,7 @@ func (suite *MarksSuite) TestGetMarkStatusHistoryByMarkId() {
 				err: nil,
 			},
 			getPhotosByMarkId: method[map[int]map[int][]string]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 	}
@@ -497,7 +504,7 @@ func (suite *MarksSuite) TestGetMarkStatusHistoryByMarkId() {
 				tt.getPhotosByMarkId.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getMarkStatusHistoryByMarkId.err, tt.getChecksByMarkId.err, tt.getPhotosByMarkId.err)
 			}
 			suite.marksRepo.AssertExpectations(suite.T())
 		})

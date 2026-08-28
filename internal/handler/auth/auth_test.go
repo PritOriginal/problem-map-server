@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
+	"github.com/PritOriginal/problem-map-server/internal/handler/handlertest"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/gin-gonic/gin"
@@ -24,7 +24,7 @@ type AuthSuite struct {
 	uc *authrest.MockAuth
 }
 
-func (suite *AuthSuite) SetupSuite() {
+func (suite *AuthSuite) SetupTest() {
 	suite.uc = authrest.NewMockAuth(suite.T())
 
 	log := slogdiscard.NewDiscardLogger()
@@ -135,7 +135,7 @@ func (suite *AuthSuite) TestSignUp() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -182,7 +182,7 @@ func (suite *AuthSuite) TestSignIn() {
 				Password: "password",
 			},
 			wantErrParseReq: false,
-			errSignIn:       repository.ErrNotFound,
+			errSignIn:       usecase.ErrUnauthorized,
 			statusCode:      401,
 		},
 		{
@@ -218,7 +218,7 @@ func (suite *AuthSuite) TestSignIn() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -305,7 +305,7 @@ func (suite *AuthSuite) TestRefreshTokens() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }

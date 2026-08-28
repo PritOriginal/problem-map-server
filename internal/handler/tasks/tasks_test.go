@@ -8,9 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/PritOriginal/problem-map-server/internal/handler/handlertest"
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/repository"
+	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
 	jwt "github.com/appleboy/gin-jwt/v3"
@@ -25,7 +26,7 @@ type TasksSuite struct {
 	uc *tasksrest.MockTasks
 }
 
-func (suite *TasksSuite) SetupSuite() {
+func (suite *TasksSuite) SetupTest() {
 	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
 		Key: []byte("1234"),
 	})
@@ -99,7 +100,7 @@ func (suite *TasksSuite) TestGetTasks() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -130,7 +131,7 @@ func (suite *TasksSuite) TestGetTaskById() {
 			name:           "Err404",
 			id:             "1",
 			wantErrParseId: false,
-			errGetTaskById: repository.ErrNotFound,
+			errGetTaskById: usecase.ErrNotFound,
 			statusCode:     404,
 		},
 		{
@@ -153,7 +154,7 @@ func (suite *TasksSuite) TestGetTaskById() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -220,7 +221,7 @@ func (suite *TasksSuite) TestGetTasksByUserId() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -339,7 +340,7 @@ func (suite *TasksSuite) TestAddTask() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }

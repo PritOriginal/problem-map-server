@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/PritOriginal/problem-map-server/internal/handler/handlertest"
 	maprest "github.com/PritOriginal/problem-map-server/internal/handler/map"
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
@@ -22,7 +23,7 @@ type MapSuite struct {
 	cacher *mwcache.MockCacher
 }
 
-func (suite *MapSuite) SetupSuite() {
+func (suite *MapSuite) SetupTest() {
 	suite.uc = maprest.NewMockMap(suite.T())
 	suite.cacher = mwcache.NewMockCacher(suite.T())
 
@@ -98,7 +99,7 @@ func (suite *MapSuite) TestGetAdminBoundaries() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -179,7 +180,7 @@ func (suite *MapSuite) TestGetAdminBoundariesMarksCount() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -220,7 +221,7 @@ func (suite *MapSuite) TestGetRegions() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -261,7 +262,7 @@ func (suite *MapSuite) TestGetCities() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -302,7 +303,7 @@ func (suite *MapSuite) TestGetDistricts() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
