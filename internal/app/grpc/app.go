@@ -3,8 +3,10 @@ package grpcapp
 import (
 	"context"
 	"fmt"
+	"io"
 	"log/slog"
 	"net"
+	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	mapgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/map"
@@ -18,18 +20,35 @@ import (
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
 	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
+	grpcprom "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/logging"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/recovery"
+	"github.com/prometheus/client_golang/prometheus"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
+)
+
+const (
+	defaultConnectionTimeout = 120 * time.Second
+	gracefulStopTimeout      = 10 * time.Second
 )
 
 type App struct {
 	gRPCServer *grpc.Server
+	health     *health.Server
 	log        *slog.Logger
 	db         *postgres.Postgres
+	closers    []namedCloser
+	metrics    *prometheus.Registry
 	port       int
+}
+
+type namedCloser struct {
+	name string
+	c    io.Closer
 }
 
 func New(log *slog.Logger, cfg *config.Config) *App {
@@ -42,11 +61,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	trManager := manager.Must(trmsqlx.NewDefaultFactory(postgresDB.DB))
 
 	loggingOpts := []logging.Option{
-		logging.WithLogOnEvents(
-			//logging.StartCall, logging.FinishCall,
-			logging.PayloadReceived, logging.PayloadSent,
-		),
-		// Add any other option (check functions starting with logging.With).
+		logging.WithLogOnEvents(logging.StartCall, logging.FinishCall),
 	}
 
 	recoveryOpts := []recovery.Option{
@@ -57,10 +72,32 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		}),
 	}
 
-	gRPCServer := grpc.NewServer(grpc.ChainUnaryInterceptor(
-		recovery.UnaryServerInterceptor(recoveryOpts...),
-		logging.UnaryServerInterceptor(InterceptorLogger(log), loggingOpts...),
-	))
+	registry := prometheus.NewRegistry()
+	srvMetrics := grpcprom.NewServerMetrics(
+		grpcprom.WithServerHandlingTimeHistogram(),
+	)
+	registry.MustRegister(srvMetrics)
+
+	connTimeout := cfg.GRPC.Timeout
+	if connTimeout <= 0 {
+		connTimeout = defaultConnectionTimeout
+	}
+
+	gRPCServer := grpc.NewServer(
+		grpc.ConnectionTimeout(connTimeout),
+		grpc.ChainUnaryInterceptor(
+			srvMetrics.UnaryServerInterceptor(),
+			recovery.UnaryServerInterceptor(recoveryOpts...),
+			logging.UnaryServerInterceptor(InterceptorLogger(log), loggingOpts...),
+		),
+		grpc.ChainStreamInterceptor(
+			srvMetrics.StreamServerInterceptor(),
+			recovery.StreamServerInterceptor(recoveryOpts...),
+			logging.StreamServerInterceptor(InterceptorLogger(log), loggingOpts...),
+		),
+	)
+
+	var closers []namedCloser
 
 	var photoRepo usecase.PhotosRepository
 	switch cfg.PhotoStorage {
@@ -75,7 +112,9 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		log.Info("s3 connected!")
 
 		photoRepo = s3.NewPhotos(s3Client)
+		closers = append(closers, namedCloser{name: "s3", c: s3Client})
 	}
+	closers = append(closers, namedCloser{name: "database", c: postgresDB})
 
 	mapRepo := postgres.NewMap(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	mapUseCase := usecase.NewMap(log, usecase.MapRepositories{
@@ -104,12 +143,26 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	})
 	usersgrpc.Register(gRPCServer, usersUseCase)
 
+	healthServer := health.NewServer()
+	healthpb.RegisterHealthServer(gRPCServer, healthServer)
+	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_SERVING)
+
+	srvMetrics.InitializeMetrics(gRPCServer)
+
 	return &App{
 		gRPCServer: gRPCServer,
+		health:     healthServer,
 		log:        log,
 		db:         postgresDB,
+		closers:    closers,
+		metrics:    registry,
 		port:       cfg.GRPC.Port,
 	}
+}
+
+// MetricsRegistry returns the Prometheus registry holding gRPC server metrics.
+func (a *App) MetricsRegistry() *prometheus.Registry {
+	return a.metrics
 }
 
 // InterceptorLogger adapts slog logger to interceptor logger.
@@ -126,6 +179,7 @@ func (a *App) MustRun() {
 	}
 }
 
+// Run starts the gRPC server and blocks until it stops.
 func (a *App) Run() error {
 	const op = "grpcapp.Run"
 
@@ -143,15 +197,26 @@ func (a *App) Run() error {
 	return nil
 }
 
+// Stop marks the server NOT_SERVING, drains in-flight RPCs with a bounded
+// GracefulStop (falling back to a hard Stop on timeout) and closes clients.
 func (a *App) Stop() {
 	const op = "grpcapp.Stop"
 
-	a.log.With(slog.String("op", op)).
-		Info("stopping gRPC server", slog.Int("port", a.port))
+	log := a.log.With(slog.String("op", op))
+	log.Info("stopping gRPC server", slog.Int("port", a.port))
 
+	a.health.Shutdown()
+
+	forceStop := time.AfterFunc(gracefulStopTimeout, func() {
+		log.Warn("graceful stop timed out, forcing stop")
+		a.gRPCServer.Stop()
+	})
 	a.gRPCServer.GracefulStop()
+	forceStop.Stop()
 
-	if err := a.db.DB.Close(); err != nil {
-		a.log.Error("an error occurred while closing the connection to the database", slogger.Err(err))
+	for _, nc := range a.closers {
+		if err := nc.c.Close(); err != nil {
+			log.Error("an error occurred while closing the client", slog.String("client", nc.name), slogger.Err(err))
+		}
 	}
 }
