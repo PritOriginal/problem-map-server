@@ -54,48 +54,43 @@ func (r *MapRepository) GetAdminBoundariesMarksCount(ctx context.Context, filter
 	const op = "storage.postgres.GetAdminBoundariesMarksCount"
 
 	boundariesCount := []models.AdminBoundaryMarksCount{}
-	var conditions []string
 	var args []any
 
-	query :=
-		`
+	// Conditions on marks live in the LEFT JOIN ... ON clause so that
+	// boundaries without matching marks are kept (with zero counts);
+	// conditions on the boundaries themselves live in WHERE.
+	joinConditions := []string{"ST_Contains(b.geom, m.geom)"}
+	whereConditions := []string{"1=1"}
+
+	if len(filters.AdminLevels) > 0 {
+		args = append(args, pq.Array(filters.AdminLevels))
+		whereConditions = append(whereConditions, fmt.Sprintf("b.admin_level = ANY($%d)", len(args)))
+	}
+	if len(filters.MarkTypeIds) > 0 {
+		args = append(args, pq.Array(filters.MarkTypeIds))
+		joinConditions = append(joinConditions, fmt.Sprintf("m.type_mark_id = ANY($%d)", len(args)))
+	}
+
+	query := fmt.Sprintf(`
 		SELECT
 			b.id AS boundary_id,
 			b.name AS boundary_name,
-			COUNT(m.*) AS total_count,
-			COUNT(*) FILTER (WHERE m.mark_status_id = 1) AS unconfirmed_count,
-			COUNT(*) FILTER (WHERE m.mark_status_id IN (2,4)) AS confirmed_count,
-			COUNT(*) FILTER (WHERE m.mark_status_id = 3) AS under_review_count,
-			COUNT(*) FILTER (WHERE m.mark_status_id = 5) AS closed_count
+			COUNT(m.mark_id) AS total_count,
+			COUNT(m.mark_id) FILTER (WHERE m.mark_status_id = 1) AS unconfirmed_count,
+			COUNT(m.mark_id) FILTER (WHERE m.mark_status_id IN (2,4)) AS confirmed_count,
+			COUNT(m.mark_id) FILTER (WHERE m.mark_status_id = 3) AS under_review_count,
+			COUNT(m.mark_id) FILTER (WHERE m.mark_status_id = 5) AS closed_count
 		FROM
 			admin_boundaries b
 		LEFT JOIN
-			marks m ON ST_Contains(b.geom, m.geom)
-		WHERE 
-			1=1	
+			marks m ON %s
+		WHERE
+			%s
 		GROUP BY
 			b.id, b.name
 		ORDER BY
-			b.id;
-	`
-
-	if len(filters.AdminLevels) > 0 {
-		conditions = append(conditions, "admin_level = ANY($?)")
-		args = append(args, pq.Array(filters.AdminLevels))
-	}
-	if len(filters.MarkTypeIds) > 0 {
-		conditions = append(conditions, "type_mark_id = ANY($?)")
-		args = append(args, pq.Array(filters.MarkTypeIds))
-	}
-
-	whereQuery := ""
-	for i, condition := range conditions {
-		whereQuery += " AND " + condition
-		whereQuery = strings.Replace(whereQuery, "$?", fmt.Sprintf("$%d", len(args)-len(conditions)+i+1), 1)
-	}
-	if whereQuery != "" {
-		query = strings.Replace(query, "1=1", "1=1"+whereQuery, 1)
-	}
+			b.id
+	`, strings.Join(joinConditions, " AND "), strings.Join(whereConditions, " AND "))
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.SelectContext(ctx, &boundariesCount, query, args...); err != nil {
