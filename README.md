@@ -124,7 +124,7 @@ make test-functional-rest
 Для gRPC (`В РАЗРАБОТКЕ`):
 
 ```bash
-make test-functional-rest
+make test-functional-grpc
 ```
 
 > [!NOTE]  
@@ -147,7 +147,7 @@ make migrate-up
 `migrate down`:
 
 ```bash
-make migrate-down
+make migrate-down-1
 ```
 
 `migrate drop`:
