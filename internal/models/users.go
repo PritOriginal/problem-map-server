@@ -4,6 +4,7 @@ import (
 	"time"
 
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
+	"github.com/guregu/null/v6"
 )
 
 // Role is a user role that controls access to moderation endpoints.
@@ -36,13 +37,16 @@ func (u *User) ToProtobufObject() *pb.User {
 }
 
 type Task struct {
-	ID        int            `json:"task_id" db:"task_id"`
-	Name      string         `json:"name" db:"name"`
-	UserID    int            `json:"user_id" db:"user_id"`
-	MarkID    int            `json:"mark_id" db:"mark_id"`
-	StatusID  TaskStatusType `json:"status_id" db:"status_id"`
-	CreatedAt time.Time      `json:"created_at" db:"created_at"`
-	UpdatedAt time.Time      `json:"updated_at" db:"updated_at"`
+	ID       int            `json:"task_id" db:"task_id"`
+	Name     string         `json:"name" db:"name"`
+	UserID   int            `json:"user_id" db:"user_id"`
+	MarkID   int            `json:"mark_id" db:"mark_id"`
+	StatusID TaskStatusType `json:"status_id" db:"status_id"`
+	// DueAt is the deadline set by the tasker; tasks still issued after it
+	// are moved to OverdueStatus by Tasker.ExpireOverdue.
+	DueAt     null.Time `json:"due_at" db:"due_at" swaggertype:"string" format:"date-time"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
 }
 
 func (t *Task) ToProtobufObject() *pb.Task {
@@ -57,9 +61,14 @@ func (t *Task) ToProtobufObject() *pb.Task {
 
 type TaskStatusType int
 
+// Task statuses (task_statuses table, see migrations 000020 and 000029).
 const (
+	// UnfulfilledStatus — «Выдано»: the task is issued and awaits a check.
 	UnfulfilledStatus TaskStatusType = iota + 1
+	// CompletedStatus — «Выполнено»: the user submitted a check for the mark.
 	CompletedStatus
+	// OverdueStatus — «Просрочено»: the task was not completed before due_at.
+	OverdueStatus
 )
 
 type GetTasksFilters struct {

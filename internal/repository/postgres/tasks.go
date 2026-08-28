@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
@@ -125,14 +126,17 @@ func (r *TasksRepository) AddTask(ctx context.Context, task models.Task) (int64,
 	var id int64
 
 	query := `
-			INSERT INTO 
-				tasks (name, user_id, mark_id) 
-			VALUES 
-				($1, $2, $3)
+			INSERT INTO
+				tasks (name, user_id, mark_id, due_at)
+			VALUES
+				($1, $2, $3, $4)
 			RETURNING task_id
 			`
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	if err := tr.GetContext(ctx, &id, query, task.Name, task.UserID, task.MarkID); err != nil {
+	if err := tr.GetContext(ctx, &id, query, task.Name, task.UserID, task.MarkID, task.DueAt); err != nil {
+		if err := wrapUniqueViolation(err); errors.Is(err, repository.ErrExists) {
+			return 0, err
+		}
 		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
@@ -143,9 +147,32 @@ func (r *TasksRepository) UpdateTaskStatus(ctx context.Context, taskId int, task
 	const op = "storage.postgres.UpdateTaskStatus"
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	if _, err := tr.ExecContext(ctx, "UPDATE tasks SET status_id = $1 WHERE task_id = $2", taskStatusId, taskId); err != nil {
+	if _, err := tr.ExecContext(ctx, "UPDATE tasks SET status_id = $1, updated_at = NOW() WHERE task_id = $2", taskStatusId, taskId); err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	return nil
+}
+
+// ExpireOverdueTasks moves every issued task whose due_at is before now to
+// OverdueStatus in a single UPDATE and returns the number of affected rows.
+func (r *TasksRepository) ExpireOverdueTasks(ctx context.Context, now time.Time) (int64, error) {
+	const op = "storage.postgres.ExpireOverdueTasks"
+
+	query := `
+			UPDATE tasks
+			SET status_id = $1, updated_at = NOW()
+			WHERE status_id = $2 AND due_at IS NOT NULL AND due_at < $3
+			`
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	res, err := tr.ExecContext(ctx, query, models.OverdueStatus, models.UnfulfilledStatus, now)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return n, nil
 }
