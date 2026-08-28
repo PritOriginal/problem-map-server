@@ -74,7 +74,7 @@ type MockMap_GetAdminBoundaries_Call struct {
 // GetAdminBoundaries is a helper method to define mock.On call
 //   - ctx context.Context
 //   - filters models.GetAdminBoundaryFilters
-func (_e *MockMap_Expecter) GetAdminBoundaries(ctx interface{}, filters interface{}) *MockMap_GetAdminBoundaries_Call {
+func (_e *MockMap_Expecter) GetAdminBoundaries(ctx any, filters any) *MockMap_GetAdminBoundaries_Call {
 	return &MockMap_GetAdminBoundaries_Call{Call: _e.mock.On("GetAdminBoundaries", ctx, filters)}
 }
 
@@ -142,7 +142,7 @@ type MockMap_GetAdminBoundariesMarksCount_Call struct {
 // GetAdminBoundariesMarksCount is a helper method to define mock.On call
 //   - ctx context.Context
 //   - filters models.GetAdminBoundaryMarksCountFilters
-func (_e *MockMap_Expecter) GetAdminBoundariesMarksCount(ctx interface{}, filters interface{}) *MockMap_GetAdminBoundariesMarksCount_Call {
+func (_e *MockMap_Expecter) GetAdminBoundariesMarksCount(ctx any, filters any) *MockMap_GetAdminBoundariesMarksCount_Call {
 	return &MockMap_GetAdminBoundariesMarksCount_Call{Call: _e.mock.On("GetAdminBoundariesMarksCount", ctx, filters)}
 }
 
@@ -209,7 +209,7 @@ type MockMap_GetCities_Call struct {
 
 // GetCities is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockMap_Expecter) GetCities(ctx interface{}) *MockMap_GetCities_Call {
+func (_e *MockMap_Expecter) GetCities(ctx any) *MockMap_GetCities_Call {
 	return &MockMap_GetCities_Call{Call: _e.mock.On("GetCities", ctx)}
 }
 
@@ -271,7 +271,7 @@ type MockMap_GetDistricts_Call struct {
 
 // GetDistricts is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockMap_Expecter) GetDistricts(ctx interface{}) *MockMap_GetDistricts_Call {
+func (_e *MockMap_Expecter) GetDistricts(ctx any) *MockMap_GetDistricts_Call {
 	return &MockMap_GetDistricts_Call{Call: _e.mock.On("GetDistricts", ctx)}
 }
 
@@ -333,7 +333,7 @@ type MockMap_GetRegions_Call struct {
 
 // GetRegions is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockMap_Expecter) GetRegions(ctx interface{}) *MockMap_GetRegions_Call {
+func (_e *MockMap_Expecter) GetRegions(ctx any) *MockMap_GetRegions_Call {
 	return &MockMap_GetRegions_Call{Call: _e.mock.On("GetRegions", ctx)}
 }
 

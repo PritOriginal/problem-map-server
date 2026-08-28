@@ -74,7 +74,7 @@ type MockMarks_AddMark_Call struct {
 //   - ctx context.Context
 //   - mark models.Mark
 //   - photos []io.Reader
-func (_e *MockMarks_Expecter) AddMark(ctx interface{}, mark interface{}, photos interface{}) *MockMarks_AddMark_Call {
+func (_e *MockMarks_Expecter) AddMark(ctx any, mark any, photos any) *MockMarks_AddMark_Call {
 	return &MockMarks_AddMark_Call{Call: _e.mock.On("AddMark", ctx, mark, photos)}
 }
 
@@ -145,7 +145,7 @@ type MockMarks_GetMarkById_Call struct {
 // GetMarkById is a helper method to define mock.On call
 //   - ctx context.Context
 //   - id int
-func (_e *MockMarks_Expecter) GetMarkById(ctx interface{}, id interface{}) *MockMarks_GetMarkById_Call {
+func (_e *MockMarks_Expecter) GetMarkById(ctx any, id any) *MockMarks_GetMarkById_Call {
 	return &MockMarks_GetMarkById_Call{Call: _e.mock.On("GetMarkById", ctx, id)}
 }
 
@@ -214,7 +214,7 @@ type MockMarks_GetMarkStatusHistoryByMarkId_Call struct {
 //   - ctx context.Context
 //   - markId int
 //   - withChecks bool
-func (_e *MockMarks_Expecter) GetMarkStatusHistoryByMarkId(ctx interface{}, markId interface{}, withChecks interface{}) *MockMarks_GetMarkStatusHistoryByMarkId_Call {
+func (_e *MockMarks_Expecter) GetMarkStatusHistoryByMarkId(ctx any, markId any, withChecks any) *MockMarks_GetMarkStatusHistoryByMarkId_Call {
 	return &MockMarks_GetMarkStatusHistoryByMarkId_Call{Call: _e.mock.On("GetMarkStatusHistoryByMarkId", ctx, markId, withChecks)}
 }
 
@@ -286,7 +286,7 @@ type MockMarks_GetMarkStatuses_Call struct {
 
 // GetMarkStatuses is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockMarks_Expecter) GetMarkStatuses(ctx interface{}) *MockMarks_GetMarkStatuses_Call {
+func (_e *MockMarks_Expecter) GetMarkStatuses(ctx any) *MockMarks_GetMarkStatuses_Call {
 	return &MockMarks_GetMarkStatuses_Call{Call: _e.mock.On("GetMarkStatuses", ctx)}
 }
 
@@ -348,7 +348,7 @@ type MockMarks_GetMarkTypes_Call struct {
 
 // GetMarkTypes is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockMarks_Expecter) GetMarkTypes(ctx interface{}) *MockMarks_GetMarkTypes_Call {
+func (_e *MockMarks_Expecter) GetMarkTypes(ctx any) *MockMarks_GetMarkTypes_Call {
 	return &MockMarks_GetMarkTypes_Call{Call: _e.mock.On("GetMarkTypes", ctx)}
 }
 
@@ -411,7 +411,7 @@ type MockMarks_GetMarks_Call struct {
 // GetMarks is a helper method to define mock.On call
 //   - ctx context.Context
 //   - filters models.GetMarksFilters
-func (_e *MockMarks_Expecter) GetMarks(ctx interface{}, filters interface{}) *MockMarks_GetMarks_Call {
+func (_e *MockMarks_Expecter) GetMarks(ctx any, filters any) *MockMarks_GetMarks_Call {
 	return &MockMarks_GetMarks_Call{Call: _e.mock.On("GetMarks", ctx, filters)}
 }
 
@@ -479,7 +479,7 @@ type MockMarks_GetMarksByUserId_Call struct {
 // GetMarksByUserId is a helper method to define mock.On call
 //   - ctx context.Context
 //   - userId int
-func (_e *MockMarks_Expecter) GetMarksByUserId(ctx interface{}, userId interface{}) *MockMarks_GetMarksByUserId_Call {
+func (_e *MockMarks_Expecter) GetMarksByUserId(ctx any, userId any) *MockMarks_GetMarksByUserId_Call {
 	return &MockMarks_GetMarksByUserId_Call{Call: _e.mock.On("GetMarksByUserId", ctx, userId)}
 }
 
@@ -572,7 +572,7 @@ type MockStatusUpdater_Confirm_Call struct {
 // Confirm is a helper method to define mock.On call
 //   - ctx context.Context
 //   - markId int
-func (_e *MockStatusUpdater_Expecter) Confirm(ctx interface{}, markId interface{}) *MockStatusUpdater_Confirm_Call {
+func (_e *MockStatusUpdater_Expecter) Confirm(ctx any, markId any) *MockStatusUpdater_Confirm_Call {
 	return &MockStatusUpdater_Confirm_Call{Call: _e.mock.On("Confirm", ctx, markId)}
 }
 
@@ -638,7 +638,7 @@ type MockStatusUpdater_Reject_Call struct {
 // Reject is a helper method to define mock.On call
 //   - ctx context.Context
 //   - markId int
-func (_e *MockStatusUpdater_Expecter) Reject(ctx interface{}, markId interface{}) *MockStatusUpdater_Reject_Call {
+func (_e *MockStatusUpdater_Expecter) Reject(ctx any, markId any) *MockStatusUpdater_Reject_Call {
 	return &MockStatusUpdater_Reject_Call{Call: _e.mock.On("Reject", ctx, markId)}
 }
 
