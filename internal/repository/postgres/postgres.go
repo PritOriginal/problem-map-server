@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
@@ -23,13 +24,23 @@ func New(cfg config.DatabaseConfig) (*Postgres, error) {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	pingErr := db.Ping()
-	if pingErr != nil {
+	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	return &Postgres{DB: db}, nil
 }
 
-func (s *Postgres) Stop() error {
+// Ping verifies the database connection is alive.
+func (s *Postgres) Ping(ctx context.Context) error {
+	return s.DB.PingContext(ctx)
+}
+
+// Close closes the underlying connection pool.
+func (s *Postgres) Close() error {
 	return s.DB.Close()
+}
+
+// Stop is an alias of Close kept for backward compatibility.
+func (s *Postgres) Stop() error {
+	return s.Close()
 }

@@ -44,6 +44,19 @@ func New(log *slog.Logger, cfg config.AwsConfig) (*S3, error) {
 	return &clientS3, nil
 }
 
+// Close releases resources held by the S3 client. The AWS SDK v2 client keeps
+// idle HTTP connections in its transport; closing them lets the process exit
+// promptly.
+func (client *S3) Close() error {
+	if client.Client == nil {
+		return nil
+	}
+	if t, ok := client.Client.Options().HTTPClient.(interface{ CloseIdleConnections() }); ok {
+		t.CloseIdleConnections()
+	}
+	return nil
+}
+
 func (client *S3) GetBuckets(ctx context.Context) ([]types.Bucket, error) {
 	const op = "storage.s3.GetBuckets"
 
