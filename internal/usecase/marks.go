@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/avito-tech/go-transaction-manager/trm/v2"
@@ -114,7 +115,9 @@ func (uc *Marks) GetMarksNearby(ctx context.Context, filters models.GetMarksNear
 	if err := filters.Pagination.Validate(); err != nil {
 		return models.Page[models.MarkWithDistance]{}, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
 	}
-	if filters.Lon < -180 || filters.Lon > 180 || filters.Lat < -90 || filters.Lat > 90 {
+	// NaN compares false against every bound, so it has to be rejected explicitly.
+	if math.IsNaN(filters.Lon) || math.IsNaN(filters.Lat) || math.IsNaN(filters.RadiusM) ||
+		filters.Lon < -180 || filters.Lon > 180 || filters.Lat < -90 || filters.Lat > 90 {
 		return models.Page[models.MarkWithDistance]{}, fmt.Errorf("%s: %w: invalid coordinates", op, ErrInvalidArgument)
 	}
 	if filters.RadiusM <= 0 || filters.RadiusM > MaxNearbyRadiusM {

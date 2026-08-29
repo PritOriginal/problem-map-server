@@ -182,6 +182,8 @@ func (suite *MarksSuite) TestGetMarksFilters() {
 		{name: "ErrBBoxNotNumber", query: "?bbox=a,2,3,4", statusCode: http.StatusBadRequest},
 		{name: "ErrBBoxMinGreaterThanMax", query: "?bbox=41.5,52.7,41.4,52.8", statusCode: http.StatusBadRequest},
 		{name: "ErrBBoxOutOfRange", query: "?bbox=-181,52.7,41.4,52.8", statusCode: http.StatusBadRequest},
+		{name: "ErrBBoxNaN", query: "?bbox=NaN,52.7,41.4,52.8", statusCode: http.StatusBadRequest},
+		{name: "ErrBBoxInf", query: "?bbox=41.4,52.7,Inf,52.8", statusCode: http.StatusBadRequest},
 		{name: "ErrLimitTooBig", query: "?limit=501", statusCode: http.StatusBadRequest},
 		{name: "ErrLimitZero", query: "?limit=0", statusCode: http.StatusBadRequest},
 		{name: "ErrOffsetNegative", query: "?offset=-5", statusCode: http.StatusBadRequest},

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"math"
 	"testing"
 	"time"
 
@@ -220,6 +221,16 @@ func (suite *MarksSuite) TestGetMarksNearby() {
 		{
 			name:       "ErrLatitude",
 			filters:    models.GetMarksNearbyFilters{Lon: 41.45, Lat: -91, RadiusM: 100},
+			wantErrArg: true,
+		},
+		{
+			name:       "ErrLongitudeNaN",
+			filters:    models.GetMarksNearbyFilters{Lon: math.NaN(), Lat: 52.72, RadiusM: 100},
+			wantErrArg: true,
+		},
+		{
+			name:       "ErrRadiusNaN",
+			filters:    models.GetMarksNearbyFilters{Lon: 41.45, Lat: 52.72, RadiusM: math.NaN()},
 			wantErrArg: true,
 		},
 		{

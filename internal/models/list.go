@@ -3,6 +3,7 @@ package models
 import (
 	"errors"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -90,7 +91,14 @@ func ParseBBox(s string) (BBox, error) {
 }
 
 // Validate checks coordinate ranges and that min < max on both axes.
+// NaN and Inf are rejected explicitly because they slip through ordinary
+// range comparisons.
 func (b BBox) Validate() error {
+	for _, v := range [...]float64{b.MinLon, b.MinLat, b.MaxLon, b.MaxLat} {
+		if math.IsNaN(v) || math.IsInf(v, 0) {
+			return fmt.Errorf("%w: coordinates must be finite numbers", ErrInvalidBBox)
+		}
+	}
 	if b.MinLon < -180 || b.MinLon > 180 || b.MaxLon < -180 || b.MaxLon > 180 {
 		return fmt.Errorf("%w: longitude must be between -180 and 180", ErrInvalidBBox)
 	}
