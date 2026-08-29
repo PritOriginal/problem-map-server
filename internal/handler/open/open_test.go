@@ -75,7 +75,12 @@ func (suite *OpenSuite) TestGetStats() {
 			if tt.cached {
 				body, err := json.Marshal(responses.Response[models.OpenStats]{Success: true, Payload: stats()})
 				suite.Require().NoError(err)
-				suite.cacher.On("GetBytes", mock.Anything, cacheKey).Once().Return(body, nil)
+				// The middleware stores the tagged entry, not the bare body.
+				saved, err := json.Marshal(map[string]any{
+					"etag": mwcache.ETag(body), "content_type": "application/json; charset=utf-8", "body": body,
+				})
+				suite.Require().NoError(err)
+				suite.cacher.On("GetBytes", mock.Anything, cacheKey).Once().Return(saved, nil)
 			} else {
 				suite.cacher.On("GetBytes", mock.Anything, cacheKey).Once().Return(nil, errors.New("redis: nil"))
 				if tt.statusCode != http.StatusBadRequest || tt.err != nil {
