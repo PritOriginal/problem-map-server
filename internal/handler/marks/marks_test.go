@@ -2,6 +2,7 @@ package marksrest_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"io"
 	"mime/multipart"
@@ -18,6 +19,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
+	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
 	jwt "github.com/appleboy/gin-jwt/v3"
 	"github.com/brianvoe/gofakeit/v7"
@@ -117,12 +119,17 @@ func (suite *MarksSuite) TestGetMarks() {
 			errGetMarks: errors.New(""),
 			statusCode:  500,
 		},
+		{
+			name:        "Err400InvalidArgumentFromUsecase",
+			errGetMarks: usecase.ErrInvalidArgument,
+			statusCode:  http.StatusBadRequest,
+		},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			if !tt.wantErrParseMarkStatusIds && !tt.wantErrParseMarkTypeIds {
-				suite.uc.On("GetMarks", mock.Anything, mock.Anything).Once().
-					Return([]models.Mark{}, tt.errGetMarks)
+				suite.uc.On("ListMarks", mock.Anything, mock.Anything).Once().
+					Return(models.Page[models.Mark]{Items: []models.Mark{}}, tt.errGetMarks)
 			}
 
 			w := httptest.NewRecorder()
@@ -131,6 +138,166 @@ func (suite *MarksSuite) TestGetMarks() {
 			suite.r.ServeHTTP(w, req)
 
 			suite.Equal(tt.statusCode, w.Code)
+		})
+	}
+}
+
+func (suite *MarksSuite) TestGetMarksFilters() {
+	createdFrom := time.Date(2025, 1, 2, 3, 4, 5, 0, time.UTC)
+	createdTo := time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name        string
+		query       string
+		wantFilters models.GetMarksFilters
+		statusCode  int
+	}{
+		{
+			name:  "Defaults",
+			query: "",
+			wantFilters: models.GetMarksFilters{
+				MarkTypeIds:   []int{},
+				MarkStatusIds: []int{},
+				Pagination:    models.Pagination{Limit: models.DefaultLimit},
+			},
+			statusCode: http.StatusOK,
+		},
+		{
+			name:  "AllFilters",
+			query: "?bbox=41.4,52.7,41.5,52.8&limit=50&offset=100&sort=updated_at&order=asc&user_id=7&created_from=2025-01-02T03:04:05Z&created_to=2025-02-01T00:00:00Z&mark_type_ids=1,2",
+			wantFilters: models.GetMarksFilters{
+				MarkTypeIds:   []int{1, 2},
+				MarkStatusIds: []int{},
+				UserID:        7,
+				BBox:          &models.BBox{MinLon: 41.4, MinLat: 52.7, MaxLon: 41.5, MaxLat: 52.8},
+				CreatedFrom:   createdFrom,
+				CreatedTo:     createdTo,
+				Sort:          models.MarksSortUpdatedAt,
+				Order:         models.SortAsc,
+				Pagination:    models.Pagination{Limit: 50, Offset: 100},
+			},
+			statusCode: http.StatusOK,
+		},
+		{name: "ErrBBoxThreeParts", query: "?bbox=1,2,3", statusCode: http.StatusBadRequest},
+		{name: "ErrBBoxNotNumber", query: "?bbox=a,2,3,4", statusCode: http.StatusBadRequest},
+		{name: "ErrBBoxMinGreaterThanMax", query: "?bbox=41.5,52.7,41.4,52.8", statusCode: http.StatusBadRequest},
+		{name: "ErrBBoxOutOfRange", query: "?bbox=-181,52.7,41.4,52.8", statusCode: http.StatusBadRequest},
+		{name: "ErrLimitTooBig", query: "?limit=501", statusCode: http.StatusBadRequest},
+		{name: "ErrLimitZero", query: "?limit=0", statusCode: http.StatusBadRequest},
+		{name: "ErrOffsetNegative", query: "?offset=-5", statusCode: http.StatusBadRequest},
+		{name: "ErrSort", query: "?sort=description", statusCode: http.StatusBadRequest},
+		{name: "ErrOrder", query: "?order=random", statusCode: http.StatusBadRequest},
+		{name: "ErrUserIdNegative", query: "?user_id=-1", statusCode: http.StatusBadRequest},
+		{name: "ErrCreatedFromFormat", query: "?created_from=2025-01-02", statusCode: http.StatusBadRequest},
+		{name: "ErrCreatedToFormat", query: "?created_to=yesterday", statusCode: http.StatusBadRequest},
+		{name: "ErrCreatedRange", query: "?created_from=2025-02-01T00:00:00Z&created_to=2025-01-01T00:00:00Z", statusCode: http.StatusBadRequest},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if tt.statusCode == http.StatusOK {
+				suite.uc.On("ListMarks", mock.Anything, tt.wantFilters).Once().
+					Return(models.Page[models.Mark]{Items: []models.Mark{{ID: 1}}, Total: 321}, nil)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/marks"+tt.query, nil)
+
+			suite.r.ServeHTTP(w, req)
+
+			suite.Equal(tt.statusCode, w.Code)
+			if tt.statusCode == http.StatusOK {
+				var resp responses.Response[marksrest.GetMarksResponse]
+				suite.NoError(json.Unmarshal(w.Body.Bytes(), &resp))
+				suite.Len(resp.Payload.Marks, 1)
+				suite.Equal(&responses.ListMeta{
+					Limit:  tt.wantFilters.Pagination.Limit,
+					Offset: tt.wantFilters.Pagination.Offset,
+					Total:  321,
+				}, resp.Meta)
+			}
+		})
+	}
+}
+
+func (suite *MarksSuite) TestGetMarksNearby() {
+	lon, lat := 41.45, 52.72
+
+	tests := []struct {
+		name        string
+		query       string
+		wantFilters models.GetMarksNearbyFilters
+		errNearby   error
+		statusCode  int
+	}{
+		{
+			name:  "Ok",
+			query: "?lon=41.45&lat=52.72&radius=1500",
+			wantFilters: models.GetMarksNearbyFilters{
+				Lon: lon, Lat: lat, RadiusM: 1500,
+				MarkTypeIds: []int{}, MarkStatusIds: []int{},
+				Pagination: models.Pagination{Limit: models.DefaultLimit},
+			},
+			statusCode: http.StatusOK,
+		},
+		{
+			name:  "OkZeroCoordinates",
+			query: "?lon=0&lat=0&radius=10&limit=5&offset=5&mark_status_ids=1,2",
+			wantFilters: models.GetMarksNearbyFilters{
+				Lon: 0, Lat: 0, RadiusM: 10,
+				MarkTypeIds: []int{}, MarkStatusIds: []int{1, 2},
+				Pagination: models.Pagination{Limit: 5, Offset: 5},
+			},
+			statusCode: http.StatusOK,
+		},
+		{name: "ErrMissingLon", query: "?lat=52.72&radius=1500", statusCode: http.StatusBadRequest},
+		{name: "ErrMissingLat", query: "?lon=41.45&radius=1500", statusCode: http.StatusBadRequest},
+		{name: "ErrMissingRadius", query: "?lon=41.45&lat=52.72", statusCode: http.StatusBadRequest},
+		{name: "ErrRadiusTooBig", query: "?lon=41.45&lat=52.72&radius=50001", statusCode: http.StatusBadRequest},
+		{name: "ErrRadiusNegative", query: "?lon=41.45&lat=52.72&radius=-1", statusCode: http.StatusBadRequest},
+		{name: "ErrLonOutOfRange", query: "?lon=181&lat=52.72&radius=100", statusCode: http.StatusBadRequest},
+		{name: "ErrLatOutOfRange", query: "?lon=41.45&lat=91&radius=100", statusCode: http.StatusBadRequest},
+		{name: "ErrMarkTypeIds", query: "?lon=41.45&lat=52.72&radius=100&mark_type_ids=x", statusCode: http.StatusBadRequest},
+		{name: "ErrLimit", query: "?lon=41.45&lat=52.72&radius=100&limit=1000", statusCode: http.StatusBadRequest},
+		{
+			name:  "Err500",
+			query: "?lon=41.45&lat=52.72&radius=1500",
+			wantFilters: models.GetMarksNearbyFilters{
+				Lon: lon, Lat: lat, RadiusM: 1500,
+				MarkTypeIds: []int{}, MarkStatusIds: []int{},
+				Pagination: models.Pagination{Limit: models.DefaultLimit},
+			},
+			errNearby:  errors.New(""),
+			statusCode: http.StatusInternalServerError,
+		},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if tt.statusCode != http.StatusBadRequest {
+				suite.uc.On("GetMarksNearby", mock.Anything, tt.wantFilters).Once().
+					Return(models.Page[models.MarkWithDistance]{
+						Items: []models.MarkWithDistance{{Mark: models.Mark{ID: 1}, DistanceM: 42.5}},
+						Total: 1,
+					}, tt.errNearby)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/marks/nearby"+tt.query, nil)
+
+			suite.r.ServeHTTP(w, req)
+
+			suite.Equal(tt.statusCode, w.Code)
+			if tt.statusCode == http.StatusOK {
+				var resp responses.Response[map[string][]map[string]any]
+				suite.NoError(json.Unmarshal(w.Body.Bytes(), &resp))
+				suite.Len(resp.Payload["marks"], 1)
+				suite.Equal(42.5, resp.Payload["marks"][0]["distance_m"])
+				suite.Equal(float64(1), resp.Payload["marks"][0]["mark_id"])
+				suite.Equal(&responses.ListMeta{
+					Limit:  tt.wantFilters.Pagination.Limit,
+					Offset: tt.wantFilters.Pagination.Offset,
+					Total:  1,
+				}, resp.Meta)
+			}
 		})
 	}
 }
@@ -218,12 +385,18 @@ func (suite *MarksSuite) TestGetMarksByUserId() {
 			errGetMarksByUserId: nil,
 			statusCode:          400,
 		},
+		{
+			name:           "Err400Limit",
+			id:             "1?limit=501",
+			wantErrParseId: true,
+			statusCode:     400,
+		},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			if !tt.wantErrParseId {
-				suite.uc.On("GetMarksByUserId", mock.Anything, mock.AnythingOfType("int")).Once().
-					Return([]models.Mark{}, tt.errGetMarksByUserId)
+				suite.uc.On("ListMarksByUserId", mock.Anything, mock.AnythingOfType("int"), models.Pagination{Limit: models.DefaultLimit}).Once().
+					Return(models.Page[models.Mark]{Items: []models.Mark{}}, tt.errGetMarksByUserId)
 			}
 
 			w := httptest.NewRecorder()

@@ -177,47 +177,46 @@ func (_c *MockChecks_GetCheckById_Call) RunAndReturn(run func(ctx context.Contex
 	return _c
 }
 
-// GetChecksByMarkId provides a mock function for the type MockChecks
-func (_mock *MockChecks) GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error) {
-	ret := _mock.Called(ctx, markId)
+// ListChecksByMarkId provides a mock function for the type MockChecks
+func (_mock *MockChecks) ListChecksByMarkId(ctx context.Context, markId int, p models.Pagination) (models.Page[models.Check], error) {
+	ret := _mock.Called(ctx, markId, p)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetChecksByMarkId")
+		panic("no return value specified for ListChecksByMarkId")
 	}
 
-	var r0 []models.Check
+	var r0 models.Page[models.Check]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int) ([]models.Check, error)); ok {
-		return returnFunc(ctx, markId)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, models.Pagination) (models.Page[models.Check], error)); ok {
+		return returnFunc(ctx, markId, p)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int) []models.Check); ok {
-		r0 = returnFunc(ctx, markId)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, models.Pagination) models.Page[models.Check]); ok {
+		r0 = returnFunc(ctx, markId, p)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]models.Check)
-		}
+		r0 = ret.Get(0).(models.Page[models.Check])
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
-		r1 = returnFunc(ctx, markId)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, models.Pagination) error); ok {
+		r1 = returnFunc(ctx, markId, p)
 	} else {
 		r1 = ret.Error(1)
 	}
 	return r0, r1
 }
 
-// MockChecks_GetChecksByMarkId_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetChecksByMarkId'
-type MockChecks_GetChecksByMarkId_Call struct {
+// MockChecks_ListChecksByMarkId_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListChecksByMarkId'
+type MockChecks_ListChecksByMarkId_Call struct {
 	*mock.Call
 }
 
-// GetChecksByMarkId is a helper method to define mock.On call
+// ListChecksByMarkId is a helper method to define mock.On call
 //   - ctx context.Context
 //   - markId int
-func (_e *MockChecks_Expecter) GetChecksByMarkId(ctx any, markId any) *MockChecks_GetChecksByMarkId_Call {
-	return &MockChecks_GetChecksByMarkId_Call{Call: _e.mock.On("GetChecksByMarkId", ctx, markId)}
+//   - p models.Pagination
+func (_e *MockChecks_Expecter) ListChecksByMarkId(ctx any, markId any, p any) *MockChecks_ListChecksByMarkId_Call {
+	return &MockChecks_ListChecksByMarkId_Call{Call: _e.mock.On("ListChecksByMarkId", ctx, markId, p)}
 }
 
-func (_c *MockChecks_GetChecksByMarkId_Call) Run(run func(ctx context.Context, markId int)) *MockChecks_GetChecksByMarkId_Call {
+func (_c *MockChecks_ListChecksByMarkId_Call) Run(run func(ctx context.Context, markId int, p models.Pagination)) *MockChecks_ListChecksByMarkId_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -227,65 +226,69 @@ func (_c *MockChecks_GetChecksByMarkId_Call) Run(run func(ctx context.Context, m
 		if args[1] != nil {
 			arg1 = args[1].(int)
 		}
+		var arg2 models.Pagination
+		if args[2] != nil {
+			arg2 = args[2].(models.Pagination)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
 }
 
-func (_c *MockChecks_GetChecksByMarkId_Call) Return(checks []models.Check, err error) *MockChecks_GetChecksByMarkId_Call {
-	_c.Call.Return(checks, err)
+func (_c *MockChecks_ListChecksByMarkId_Call) Return(page models.Page[models.Check], err error) *MockChecks_ListChecksByMarkId_Call {
+	_c.Call.Return(page, err)
 	return _c
 }
 
-func (_c *MockChecks_GetChecksByMarkId_Call) RunAndReturn(run func(ctx context.Context, markId int) ([]models.Check, error)) *MockChecks_GetChecksByMarkId_Call {
+func (_c *MockChecks_ListChecksByMarkId_Call) RunAndReturn(run func(ctx context.Context, markId int, p models.Pagination) (models.Page[models.Check], error)) *MockChecks_ListChecksByMarkId_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// GetChecksByUserId provides a mock function for the type MockChecks
-func (_mock *MockChecks) GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error) {
-	ret := _mock.Called(ctx, userId)
+// ListChecksByUserId provides a mock function for the type MockChecks
+func (_mock *MockChecks) ListChecksByUserId(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Check], error) {
+	ret := _mock.Called(ctx, userId, p)
 
 	if len(ret) == 0 {
-		panic("no return value specified for GetChecksByUserId")
+		panic("no return value specified for ListChecksByUserId")
 	}
 
-	var r0 []models.Check
+	var r0 models.Page[models.Check]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int) ([]models.Check, error)); ok {
-		return returnFunc(ctx, userId)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, models.Pagination) (models.Page[models.Check], error)); ok {
+		return returnFunc(ctx, userId, p)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int) []models.Check); ok {
-		r0 = returnFunc(ctx, userId)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, models.Pagination) models.Page[models.Check]); ok {
+		r0 = returnFunc(ctx, userId, p)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]models.Check)
-		}
+		r0 = ret.Get(0).(models.Page[models.Check])
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
-		r1 = returnFunc(ctx, userId)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, models.Pagination) error); ok {
+		r1 = returnFunc(ctx, userId, p)
 	} else {
 		r1 = ret.Error(1)
 	}
 	return r0, r1
 }
 
-// MockChecks_GetChecksByUserId_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetChecksByUserId'
-type MockChecks_GetChecksByUserId_Call struct {
+// MockChecks_ListChecksByUserId_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListChecksByUserId'
+type MockChecks_ListChecksByUserId_Call struct {
 	*mock.Call
 }
 
-// GetChecksByUserId is a helper method to define mock.On call
+// ListChecksByUserId is a helper method to define mock.On call
 //   - ctx context.Context
 //   - userId int
-func (_e *MockChecks_Expecter) GetChecksByUserId(ctx any, userId any) *MockChecks_GetChecksByUserId_Call {
-	return &MockChecks_GetChecksByUserId_Call{Call: _e.mock.On("GetChecksByUserId", ctx, userId)}
+//   - p models.Pagination
+func (_e *MockChecks_Expecter) ListChecksByUserId(ctx any, userId any, p any) *MockChecks_ListChecksByUserId_Call {
+	return &MockChecks_ListChecksByUserId_Call{Call: _e.mock.On("ListChecksByUserId", ctx, userId, p)}
 }
 
-func (_c *MockChecks_GetChecksByUserId_Call) Run(run func(ctx context.Context, userId int)) *MockChecks_GetChecksByUserId_Call {
+func (_c *MockChecks_ListChecksByUserId_Call) Run(run func(ctx context.Context, userId int, p models.Pagination)) *MockChecks_ListChecksByUserId_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -295,20 +298,25 @@ func (_c *MockChecks_GetChecksByUserId_Call) Run(run func(ctx context.Context, u
 		if args[1] != nil {
 			arg1 = args[1].(int)
 		}
+		var arg2 models.Pagination
+		if args[2] != nil {
+			arg2 = args[2].(models.Pagination)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
 }
 
-func (_c *MockChecks_GetChecksByUserId_Call) Return(checks []models.Check, err error) *MockChecks_GetChecksByUserId_Call {
-	_c.Call.Return(checks, err)
+func (_c *MockChecks_ListChecksByUserId_Call) Return(page models.Page[models.Check], err error) *MockChecks_ListChecksByUserId_Call {
+	_c.Call.Return(page, err)
 	return _c
 }
 
-func (_c *MockChecks_GetChecksByUserId_Call) RunAndReturn(run func(ctx context.Context, userId int) ([]models.Check, error)) *MockChecks_GetChecksByUserId_Call {
+func (_c *MockChecks_ListChecksByUserId_Call) RunAndReturn(run func(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Check], error)) *MockChecks_ListChecksByUserId_Call {
 	_c.Call.Return(run)
 	return _c
 }

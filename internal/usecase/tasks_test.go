@@ -57,7 +57,7 @@ func (suite *TasksSuite) TestGetTasks() {
 		suite.Run(tt.name, func() {
 			func() {
 				suite.tasksRepo.On("GetTasks", mock.Anything, mock.AnythingOfType("models.GetTasksFilters")).Once().
-					Return(tt.getTasks.data, tt.getTasks.err)
+					Return(models.Page[models.Task]{Items: tt.getTasks.data}, tt.getTasks.err)
 				if tt.getTasks.err != nil {
 					return
 				}
@@ -143,7 +143,7 @@ func (suite *TasksSuite) TestGetTasksByUserId() {
 		suite.Run(tt.name, func() {
 			func() {
 				suite.tasksRepo.On("GetTasksByUserId", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("models.GetTasksByUserIdFilters")).Once().
-					Return(tt.getTasksByUserId.data, tt.getTasksByUserId.err)
+					Return(models.Page[models.Task]{Items: tt.getTasksByUserId.data}, tt.getTasksByUserId.err)
 				if tt.getTasksByUserId.err != nil {
 					return
 				}

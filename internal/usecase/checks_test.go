@@ -454,8 +454,8 @@ func (suite *ChecksSuite) TestGetChecksByMarkId() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			func() {
-				suite.checksRepo.On("GetChecksByMarkId", mock.Anything, mock.AnythingOfType("int")).Once().
-					Return(tt.getChecksByMarkId.data, tt.getChecksByMarkId.err)
+				suite.checksRepo.On("GetChecksByMarkId", mock.Anything, mock.AnythingOfType("int"), models.Pagination{Limit: 10}).Once().
+					Return(models.Page[models.Check]{Items: tt.getChecksByMarkId.data, Total: len(tt.getChecksByMarkId.data)}, tt.getChecksByMarkId.err)
 				if tt.getChecksByMarkId.err != nil {
 					return
 				}
@@ -467,7 +467,7 @@ func (suite *ChecksSuite) TestGetChecksByMarkId() {
 				}
 			}()
 
-			_, gotErr := suite.uc.GetChecksByMarkId(context.Background(), 1)
+			_, gotErr := suite.uc.ListChecksByMarkId(context.Background(), 1, models.Pagination{Limit: 10})
 
 			if tt.getChecksByMarkId.err == nil && tt.getPhotosByMarkId.err == nil {
 				suite.NoError(gotErr)
@@ -524,8 +524,8 @@ func (suite *ChecksSuite) TestGetChecksByUserId() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			func() {
-				suite.checksRepo.On("GetChecksByUserId", mock.Anything, mock.AnythingOfType("int")).Once().
-					Return(tt.getChecksByUserId.data, tt.getChecksByUserId.err)
+				suite.checksRepo.On("GetChecksByUserId", mock.Anything, mock.AnythingOfType("int"), models.Pagination{Limit: 10}).Once().
+					Return(models.Page[models.Check]{Items: tt.getChecksByUserId.data, Total: len(tt.getChecksByUserId.data)}, tt.getChecksByUserId.err)
 				if tt.getChecksByUserId.err != nil {
 					return
 				}
@@ -537,7 +537,7 @@ func (suite *ChecksSuite) TestGetChecksByUserId() {
 				}
 			}()
 
-			_, gotErr := suite.uc.GetChecksByUserId(context.Background(), 1)
+			_, gotErr := suite.uc.ListChecksByUserId(context.Background(), 1, models.Pagination{Limit: 10})
 
 			if tt.getChecksByUserId.err == nil && tt.getPhotosByCheckId.err == nil {
 				suite.NoError(gotErr)
@@ -548,6 +548,19 @@ func (suite *ChecksSuite) TestGetChecksByUserId() {
 			suite.photosRepo.AssertExpectations(suite.T())
 		})
 	}
+}
+
+func (suite *ChecksSuite) TestListChecksInvalidPagination() {
+	bad := models.Pagination{Limit: models.MaxLimit + 1}
+
+	_, err := suite.uc.ListChecksByMarkId(context.Background(), 1, bad)
+	suite.ErrorIs(err, usecase.ErrInvalidArgument)
+
+	_, err = suite.uc.ListChecksByUserId(context.Background(), 1, bad)
+	suite.ErrorIs(err, usecase.ErrInvalidArgument)
+
+	suite.checksRepo.AssertNotCalled(suite.T(), "GetChecksByMarkId", mock.Anything, mock.Anything, bad)
+	suite.checksRepo.AssertNotCalled(suite.T(), "GetChecksByUserId", mock.Anything, mock.Anything, bad)
 }
 
 type MarkStatusUpdaterSuite struct {
