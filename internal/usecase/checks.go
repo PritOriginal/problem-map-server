@@ -10,6 +10,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/PritOriginal/problem-map-server/internal/events"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/avito-tech/go-transaction-manager/trm/v2"
@@ -42,6 +43,7 @@ type Checks struct {
 	trManager         trm.Manager
 	repos             ChecksRepositories
 	markStatusUpdater MarkStatusUpdater
+	events            events.Publisher
 }
 
 func NewChecks(log *slog.Logger, trManager trm.Manager, markStatusUpdater MarkStatusUpdater, repos ChecksRepositories) *Checks {
@@ -50,7 +52,18 @@ func NewChecks(log *slog.Logger, trManager trm.Manager, markStatusUpdater MarkSt
 		trManager:         trManager,
 		repos:             repos,
 		markStatusUpdater: markStatusUpdater,
+		events:            events.NoopPublisher{},
 	}
+}
+
+// WithEvents sets the publisher of domain events (check.added and the
+// mark.status_changed produced by the status updater). Without it events
+// are dropped.
+func (uc *Checks) WithEvents(p events.Publisher) *Checks {
+	if p != nil {
+		uc.events = p
+	}
+	return uc
 }
 
 func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.Reader) (int64, error) {
@@ -62,6 +75,12 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 	}
 	check.MarkStatusHistoryItemId = historyItem.ID
 	check.MarkStatusId = historyItem.NewMarkStatusID
+
+	// Events raised inside the transaction (a status change made by the
+	// updater) are queued and published only after a successful commit, so
+	// a rolled back change never produces a notification.
+	var pending events.Pending
+	ctx = events.WithPending(ctx, &pending)
 
 	var checkId int64
 	err = uc.trManager.Do(ctx, func(ctx context.Context) error {
@@ -101,6 +120,9 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 	if err != nil {
 		return 0, mapRepoErr(op, err)
 	}
+
+	events.PublishEvent(ctx, uc.log, uc.events, events.NewCheckAdded(int(checkId), check.MarkID, check.UserID))
+	pending.Flush(ctx, uc.log, uc.events)
 
 	return checkId, nil
 }
@@ -241,15 +263,37 @@ type UpdaterRepositories struct {
 	Checks ChecksRepository
 }
 type Updater struct {
-	log   *slog.Logger
-	repos UpdaterRepositories
+	log    *slog.Logger
+	repos  UpdaterRepositories
+	events events.Publisher
 }
 
 func NewUpdater(log *slog.Logger, repos UpdaterRepositories) *Updater {
 	return &Updater{
-		log:   log,
-		repos: repos,
+		log:    log,
+		repos:  repos,
+		events: events.NoopPublisher{},
 	}
+}
+
+// WithEvents sets the publisher of mark.status_changed events. Without it
+// events are dropped.
+func (u *Updater) WithEvents(p events.Publisher) *Updater {
+	if p != nil {
+		u.events = p
+	}
+	return u
+}
+
+// statusChanged reports a status transition of mark. Inside a transaction
+// (see Checks.AddCheck) the event is queued on the context and published
+// after the commit; otherwise it is published right away.
+func (u *Updater) statusChanged(ctx context.Context, mark models.Mark, newStatus models.MarkStatusType) {
+	ev := events.NewMarkStatusChanged(mark.ID, mark.MarkStatusID, newStatus, mark.UserID)
+	if events.Collect(ctx, ev) {
+		return
+	}
+	events.PublishEvent(ctx, u.log, u.events, ev)
 }
 
 func (u *Updater) Update(ctx context.Context, markId int) error {
@@ -288,12 +332,14 @@ func (u *Updater) Update(ctx context.Context, markId int) error {
 				return mapRepoErr(op, err)
 			}
 			u.log.Debug("change mark status", slog.Int("old", int(mark.MarkStatusID)), slog.Int("new", int(newMarkStatusId)))
+			u.statusChanged(ctx, mark, newMarkStatusId)
 		} else if score <= -3 {
 			newMarkStatusId, err := u.reject(ctx, mark)
 			if err != nil {
 				return mapRepoErr(op, err)
 			}
 			u.log.Debug("change mark status", slog.Int("old", int(mark.MarkStatusID)), slog.Int("new", int(newMarkStatusId)))
+			u.statusChanged(ctx, mark, newMarkStatusId)
 		}
 	}
 	return nil
@@ -307,7 +353,13 @@ func (u *Updater) Confirm(ctx context.Context, markId int) (models.MarkStatusTyp
 		return 0, mapRepoErr(op, err)
 	}
 
-	return u.confirm(ctx, mark)
+	newStatus, err := u.confirm(ctx, mark)
+	if err != nil {
+		return 0, err
+	}
+	u.statusChanged(ctx, mark, newStatus)
+
+	return newStatus, nil
 }
 
 func (u *Updater) confirm(ctx context.Context, mark models.Mark) (models.MarkStatusType, error) {
@@ -342,7 +394,13 @@ func (u *Updater) Reject(ctx context.Context, markId int) (models.MarkStatusType
 		return 0, mapRepoErr(op, err)
 	}
 
-	return u.reject(ctx, mark)
+	newStatus, err := u.reject(ctx, mark)
+	if err != nil {
+		return 0, err
+	}
+	u.statusChanged(ctx, mark, newStatus)
+
+	return newStatus, nil
 }
 
 func (u *Updater) reject(ctx context.Context, mark models.Mark) (models.MarkStatusType, error) {

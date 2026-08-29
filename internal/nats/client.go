@@ -1,6 +1,7 @@
 package nats
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -40,6 +41,43 @@ func New(log *slog.Logger, cfg config.NatsConfig) (*Client, error) {
 	return client, nil
 }
 
+// Publish implements events.Publisher: the payload is JSON-encoded and sent
+// on subject with core NATS (at-most-once) delivery.
+func (c *Client) Publish(_ context.Context, subject string, payload any) error {
+	const op = "nats.Publish"
+
+	if err := c.PublishJSON(subject, payload); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	return nil
+}
+
+// Subscribe delivers every message on subject to handler as raw JSON. The
+// subscription is released by Close.
+func (c *Client) Subscribe(subject string, handler func(ctx context.Context, data []byte) error) (*nats.Subscription, error) {
+	const op = "nats.Subscribe"
+
+	sub, err := c.SubscribeJSON(subject, func(_ *nats.Msg, data []byte) error {
+		return handler(context.Background(), data)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	return sub, nil
+}
+
+// Flush waits until the server acknowledged everything sent so far
+// (including subscriptions).
+func (c *Client) Flush() error {
+	return c.conn.Flush()
+}
+
+// Close drains the connection and implements io.Closer for app.Closers.
+func (c *Client) Close() error {
+	c.conn.Close()
+	return nil
+}
+
 func (c *Client) PublishJSON(subject string, data any) error {
 	jsonData, err := json.Marshal(data)
 	if err != nil {
@@ -68,8 +106,4 @@ func (c *Client) RequestJSON(subject string, request any, timeout time.Duration)
 	}
 
 	return msg.Data, nil
-}
-
-func (c *Client) Close() {
-	c.conn.Close()
 }

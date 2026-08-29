@@ -177,9 +177,20 @@ func (t TaskerConfig) Validate() error {
 	return errors.Join(errs...)
 }
 
+// NatsConfig configures the domain-event broker. An empty URL disables
+// publishing (events.NoopPublisher) for the servers and is a startup error
+// for cmd/notifier, which cannot work without a broker.
 type NatsConfig struct {
-	URL  string `yaml:"url" env:"NATS_URL"`
-	Name string `yaml:"name" env:"NATS_NAME"`
+	URL  string `yaml:"url" env:"NATS_URL" env-default:""`
+	Name string `yaml:"name" env:"NATS_NAME" env-default:"problem-map"`
+}
+
+// Validate checks that the broker URL is set (required by cmd/notifier).
+func (n NatsConfig) Validate() error {
+	if n.URL == "" {
+		return errors.New("nats.url (NATS_URL) must not be empty")
+	}
+	return nil
 }
 
 func MustLoad() *Config {

@@ -43,6 +43,11 @@ aws:
   key:
   secret_key:
   endpoint:
+# Domain-event broker. Leave url empty to disable event publishing
+# (notifications are then not produced); required by cmd/notifier.
+nats:
+  url: # nats://127.0.0.1:4222
+  name: problem-map
 tasker:
   interval: 15m
   task-ttl: 72h

@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/PritOriginal/problem-map-server/internal/app"
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/repository/postgres"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
@@ -93,12 +94,21 @@ func run(ctx context.Context) error {
 		}
 	}()
 
+	publisher, publisherCloser := app.NewPublisher(logger, cfg.Nats)
+	if publisherCloser != nil {
+		defer func() {
+			if err := publisherCloser.Close(); err != nil {
+				logger.Error("an error occurred while closing the nats connection", slogger.Err(err))
+			}
+		}()
+	}
+
 	trManager := manager.Must(trmsqlx.NewDefaultFactory(postgresDB.DB))
 	tasker := usecase.NewTasker(logger, cfg.Tasker, trManager, usecase.TaskerRepositories{
 		Tasks: postgres.NewTasks(postgresDB.DB, trmsqlx.DefaultCtxGetter),
 		Marks: postgres.NewMarks(postgresDB.DB, trmsqlx.DefaultCtxGetter),
 		Users: postgres.NewUsers(postgresDB.DB, trmsqlx.DefaultCtxGetter),
-	})
+	}).WithEvents(publisher)
 
 	if once {
 		return finish(ctx, logger, runPass(ctx, logger, tasker))

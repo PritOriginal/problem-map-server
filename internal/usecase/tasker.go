@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
+	"github.com/PritOriginal/problem-map-server/internal/events"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/avito-tech/go-transaction-manager/trm/v2"
 	"github.com/guregu/null/v6"
@@ -47,6 +48,7 @@ type Tasker struct {
 	cfg       config.TaskerConfig
 	trManager trm.Manager
 	repos     TaskerRepositories
+	events    events.Publisher
 	now       func() time.Time
 }
 
@@ -62,8 +64,18 @@ func NewTasker(log *slog.Logger, cfg config.TaskerConfig, trManager trm.Manager,
 		cfg:       cfg,
 		trManager: trManager,
 		repos:     repos,
+		events:    events.NoopPublisher{},
 		now:       time.Now,
 	}
+}
+
+// WithEvents sets the publisher of task.assigned events. Without it events
+// are dropped.
+func (uc *Tasker) WithEvents(p events.Publisher) *Tasker {
+	if p != nil {
+		uc.events = p
+	}
+	return uc
 }
 
 // marksToVerify lists mark statuses for which verification tasks are issued.
@@ -137,20 +149,29 @@ func (uc *Tasker) Update(ctx context.Context) (TaskerStats, error) {
 
 	// All assignments are written in one transaction so that a failure or a
 	// cancellation (SIGTERM) never leaves a partially written batch.
+	issued := make([]events.TaskAssigned, 0, len(assignments))
 	err = uc.trManager.Do(ctx, func(ctx context.Context) error {
+		issued = issued[:0]
 		for _, a := range assignments {
-			if _, err := uc.repos.Tasks.AddTask(ctx, models.Task{
+			taskId, err := uc.repos.Tasks.AddTask(ctx, models.Task{
 				MarkID: a.markId,
 				UserID: a.userId,
 				DueAt:  dueAt,
-			}); err != nil {
+			})
+			if err != nil {
 				return err
 			}
+			issued = append(issued, events.NewTaskAssigned(int(taskId), a.userId, a.markId, dueAt.Ptr()))
 		}
 		return nil
 	})
 	if err != nil {
 		return TaskerStats{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	// Published after the commit so that a rolled back batch never notifies.
+	for _, ev := range issued {
+		events.PublishEvent(ctx, log, uc.events, ev)
 	}
 
 	// The pass summary is logged by cmd/tasker; this is a trace of the run.

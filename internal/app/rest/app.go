@@ -17,6 +17,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/handler/health"
 	maprest "github.com/PritOriginal/problem-map-server/internal/handler/map"
 	marksrest "github.com/PritOriginal/problem-map-server/internal/handler/marks"
+	notificationsrest "github.com/PritOriginal/problem-map-server/internal/handler/notifications"
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
@@ -40,7 +41,7 @@ type App struct {
 
 func New(log *slog.Logger, cfg *config.Config) *App {
 	// Clients are registered in dependency order; app.Closers closes them in
-	// reverse (s3 -> redis -> database).
+	// reverse (nats -> s3 -> redis -> database).
 	var closers app.Closers
 
 	postgresDB, err := postgres.New(cfg.DB)
@@ -90,6 +91,9 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	photoRepo, photoCloser := app.NewPhotosRepository(log, cfg)
 	closers.Add("s3", photoCloser)
 
+	publisher, publisherCloser := app.NewPublisher(log, cfg.Nats)
+	closers.Add("nats", publisherCloser)
+
 	mapUseCase := usecase.NewMap(log, usecase.MapRepositories{
 		Map: mapRepo,
 	})
@@ -100,7 +104,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	markStatusUpdater := usecase.NewUpdater(log, usecase.UpdaterRepositories{
 		Marks:  marksRepo,
 		Checks: checksRepo,
-	})
+	}).WithEvents(publisher)
 	marksUseCase := usecase.NewMarks(log, trManager, usecase.MarksRepositories{
 		Marks:  marksRepo,
 		Checks: checksRepo,
@@ -119,7 +123,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Checks: checksRepo,
 		Tasks:  tasksRepo,
 		Photos: photoRepo,
-	})
+	}).WithEvents(publisher)
 	checksrest.Register(router, log, authMiddleware, checksUseCase)
 
 	usersRepo := postgres.NewUsers(postgresDB.DB, trmsqlx.DefaultCtxGetter)
@@ -139,8 +143,17 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 	tasksUseCase := usecase.NewTasks(log, usecase.TasksRepositories{
 		Tasks: tasksRepo,
-	})
+	}).WithEvents(publisher)
 	tasksrest.Register(router, log, authMiddleware, tasksUseCase)
+
+	notificationsRepo := postgres.NewNotifications(postgresDB.DB, trmsqlx.DefaultCtxGetter)
+	// The REST server only stores manual data and reads notifications; push
+	// delivery happens in cmd/notifier, hence no PushSender here.
+	notificationsUseCase := usecase.NewNotifications(log, nil, usecase.NotificationsRepositories{
+		Notifications: notificationsRepo,
+		Devices:       notificationsRepo,
+	})
+	notificationsrest.Register(router, log, authMiddleware, notificationsUseCase)
 
 	server := &http.Server{
 		Addr:         cfg.REST.Host + ":" + strconv.Itoa(cfg.REST.Port),

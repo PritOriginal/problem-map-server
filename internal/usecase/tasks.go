@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
+	"github.com/PritOriginal/problem-map-server/internal/events"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 )
 
@@ -18,8 +19,18 @@ type TasksRepository interface {
 }
 
 type Tasks struct {
-	log   *slog.Logger
-	repos TasksRepositories
+	log    *slog.Logger
+	repos  TasksRepositories
+	events events.Publisher
+}
+
+// WithEvents sets the publisher of task.assigned events for tasks created
+// manually via AddTask. Without it events are dropped.
+func (uc *Tasks) WithEvents(p events.Publisher) *Tasks {
+	if p != nil {
+		uc.events = p
+	}
+	return uc
 }
 
 type TasksRepositories struct {
@@ -27,7 +38,7 @@ type TasksRepositories struct {
 }
 
 func NewTasks(log *slog.Logger, repos TasksRepositories) *Tasks {
-	return &Tasks{log: log, repos: repos}
+	return &Tasks{log: log, repos: repos, events: events.NoopPublisher{}}
 }
 
 // ListTasks returns a page of tasks with the total count.
@@ -106,6 +117,8 @@ func (uc *Tasks) AddTask(ctx context.Context, task models.Task) (int64, error) {
 	if err != nil {
 		return id, mapRepoErr(op, err)
 	}
+
+	events.PublishEvent(ctx, uc.log, uc.events, events.NewTaskAssigned(int(id), task.UserID, task.MarkID, task.DueAt.Ptr()))
 
 	return id, nil
 }
