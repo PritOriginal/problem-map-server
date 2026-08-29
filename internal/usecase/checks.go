@@ -10,10 +10,15 @@ import (
 	"slices"
 	"time"
 
+	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/avito-tech/go-transaction-manager/trm/v2"
+	"github.com/guregu/null/v6"
 )
+
+// checksPerDayWindow is the rolling window of the daily check limit.
+const checksPerDayWindow = 24 * time.Hour
 
 type ChecksRepository interface {
 	AddCheck(ctx context.Context, check models.Check) (int64, error)
@@ -24,6 +29,7 @@ type ChecksRepository interface {
 	GetChecksByUserIdAndMarkId(ctx context.Context, userId int, markId int) ([]models.Check, error)
 	GetChecksByUserIdAndMarkIdSince(ctx context.Context, userId int, markId int, dateTime time.Time) ([]models.Check, error)
 	GetUserMarkCheck(ctx context.Context, userId int, markStatusHistoryId int) (models.Check, error)
+	CountChecksByUserIdSince(ctx context.Context, userId int, since time.Time) (int, error)
 }
 
 type MarkStatusUpdater interface {
@@ -35,26 +41,42 @@ type ChecksRepositories struct {
 	Checks ChecksRepository
 	Tasks  TasksRepository
 	Photos PhotosRepository
+	Users  UsersRepository
 }
 
 type Checks struct {
 	log               *slog.Logger
+	cfg               config.RatingConfig
 	trManager         trm.Manager
 	repos             ChecksRepositories
 	markStatusUpdater MarkStatusUpdater
 }
 
-func NewChecks(log *slog.Logger, trManager trm.Manager, markStatusUpdater MarkStatusUpdater, repos ChecksRepositories) *Checks {
+func NewChecks(log *slog.Logger, cfg config.RatingConfig, trManager trm.Manager, markStatusUpdater MarkStatusUpdater, repos ChecksRepositories) *Checks {
 	return &Checks{
 		log:               log,
+		cfg:               cfg,
 		trManager:         trManager,
 		repos:             repos,
 		markStatusUpdater: markStatusUpdater,
 	}
 }
 
+// AddCheck records a user's vote on the mark's current voting stage.
+//
+// Anti-fraud rules: the author may not check their own mark (ErrForbidden),
+// a user may submit at most cfg.MaxChecksPerDay checks per rolling 24 hours
+// (ErrTooManyRequests), and only one check per voting stage (ErrConflict).
 func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.Reader) (int64, error) {
 	const op = "usecase.Checks.AddCheck"
+
+	mark, err := uc.repos.Marks.GetMarkById(ctx, check.MarkID)
+	if err != nil {
+		return 0, mapRepoErr(op, err)
+	}
+	if mark.UserID == check.UserID {
+		return 0, fmt.Errorf("%s: %w: own mark", op, ErrForbidden)
+	}
 
 	historyItem, err := uc.repos.Marks.GetLastMarkStatusHistoryItem(ctx, check.MarkID)
 	if err != nil {
@@ -65,6 +87,10 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 
 	var checkId int64
 	err = uc.trManager.Do(ctx, func(ctx context.Context) error {
+		if err := uc.checkDailyLimit(ctx, check.UserID); err != nil {
+			return err
+		}
+
 		hasPossibilityAdd, err := uc.checkPossibilityAddCheck(ctx, check.UserID, check.MarkStatusHistoryItemId)
 		if err != nil {
 			return err
@@ -91,7 +117,17 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 		task, err := uc.repos.Tasks.GetTaskByUserIdAndMarkId(ctx, check.UserID, check.MarkID, models.UnfulfilledStatus)
 		switch {
 		case err == nil:
-			return uc.repos.Tasks.UpdateTaskStatus(ctx, task.ID, models.CompletedStatus)
+			if err := uc.repos.Tasks.UpdateTaskStatus(ctx, task.ID, models.CompletedStatus); err != nil {
+				return err
+			}
+			_, err = uc.repos.Users.AddRatingEvent(ctx, models.RatingEvent{
+				UserID:  check.UserID,
+				Delta:   uc.cfg.TaskCompleted,
+				Reason:  models.RatingReasonTaskCompleted,
+				MarkID:  null.IntFrom(int64(check.MarkID)),
+				CheckID: null.IntFrom(checkId),
+			})
+			return err
 		case errors.Is(err, repository.ErrNotFound):
 			return nil
 		default:
@@ -103,6 +139,19 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 	}
 
 	return checkId, nil
+}
+
+// checkDailyLimit returns ErrTooManyRequests when the user has already
+// submitted cfg.MaxChecksPerDay checks in the last 24 hours.
+func (uc *Checks) checkDailyLimit(ctx context.Context, userId int) error {
+	n, err := uc.repos.Checks.CountChecksByUserIdSince(ctx, userId, time.Now().Add(-checksPerDayWindow))
+	if err != nil {
+		return err
+	}
+	if n >= uc.cfg.MaxChecksPerDay {
+		return fmt.Errorf("%w: %d checks per day", ErrTooManyRequests, uc.cfg.MaxChecksPerDay)
+	}
+	return nil
 }
 
 func (uc *Checks) checkPossibilityAddCheck(ctx context.Context, userId int, historyId int) (bool, error) {
@@ -239,19 +288,33 @@ func (uc *Checks) ListChecksByUserId(ctx context.Context, userId int, p models.P
 type UpdaterRepositories struct {
 	Marks  MarksRepository
 	Checks ChecksRepository
-}
-type Updater struct {
-	log   *slog.Logger
-	repos UpdaterRepositories
+	Users  UsersRepository
 }
 
-func NewUpdater(log *slog.Logger, repos UpdaterRepositories) *Updater {
+// Updater moves a mark through its status graph and awards rating for the
+// resolved voting stage: checkers whose vote matched the outcome get
+// cfg.CheckCorrect, the others cfg.CheckWrong; the author gets
+// cfg.MarkConfirmed / cfg.MarkRefuted on the first decision about the mark
+// (Unconfirmed -> Confirmed / Refuted).
+type Updater struct {
+	log       *slog.Logger
+	cfg       config.RatingConfig
+	trManager trm.Manager
+	repos     UpdaterRepositories
+}
+
+func NewUpdater(log *slog.Logger, cfg config.RatingConfig, trManager trm.Manager, repos UpdaterRepositories) *Updater {
 	return &Updater{
-		log:   log,
-		repos: repos,
+		log:       log,
+		cfg:       cfg,
+		trManager: trManager,
+		repos:     repos,
 	}
 }
 
+// Update resolves the current voting stage when the vote score reaches ±3.
+// It is called inside the AddCheck transaction, so the status change and
+// the rating events are committed together with the check.
 func (u *Updater) Update(ctx context.Context, markId int) error {
 	const op = "usecase.Updater.Update"
 
@@ -283,13 +346,13 @@ func (u *Updater) Update(ctx context.Context, markId int) error {
 		u.log.Debug("score", slog.Int("val", score))
 
 		if score >= 3 {
-			newMarkStatusId, err := u.confirm(ctx, mark)
+			newMarkStatusId, err := u.confirm(ctx, mark, checks)
 			if err != nil {
 				return mapRepoErr(op, err)
 			}
 			u.log.Debug("change mark status", slog.Int("old", int(mark.MarkStatusID)), slog.Int("new", int(newMarkStatusId)))
 		} else if score <= -3 {
-			newMarkStatusId, err := u.reject(ctx, mark)
+			newMarkStatusId, err := u.reject(ctx, mark, checks)
 			if err != nil {
 				return mapRepoErr(op, err)
 			}
@@ -299,18 +362,53 @@ func (u *Updater) Update(ctx context.Context, markId int) error {
 	return nil
 }
 
+// Confirm is the moderator's decision: the current stage resolves as
+// confirmed regardless of the score. Runs in its own transaction.
 func (u *Updater) Confirm(ctx context.Context, markId int) (models.MarkStatusType, error) {
 	const op = "usecase.Map.Confirm"
 
-	mark, err := u.repos.Marks.GetMarkById(ctx, markId)
+	return u.decide(ctx, op, markId, u.confirm)
+}
+
+// Reject is the moderator's decision: the current stage resolves as
+// rejected regardless of the score. Runs in its own transaction.
+func (u *Updater) Reject(ctx context.Context, markId int) (models.MarkStatusType, error) {
+	const op = "usecase.Map.Reject"
+
+	return u.decide(ctx, op, markId, u.reject)
+}
+
+func (u *Updater) decide(ctx context.Context, op string, markId int,
+	transition func(context.Context, models.Mark, []models.Check) (models.MarkStatusType, error),
+) (models.MarkStatusType, error) {
+	var newStatus models.MarkStatusType
+	err := u.trManager.Do(ctx, func(ctx context.Context) error {
+		mark, err := u.repos.Marks.GetMarkById(ctx, markId)
+		if err != nil {
+			return err
+		}
+
+		historyItem, err := u.repos.Marks.GetLastMarkStatusHistoryItem(ctx, markId)
+		if err != nil {
+			return err
+		}
+
+		checks, err := u.repos.Checks.GetChecksByMarkHistoryId(ctx, historyItem.ID)
+		if err != nil {
+			return err
+		}
+
+		newStatus, err = transition(ctx, mark, checks)
+		return err
+	})
 	if err != nil {
 		return 0, mapRepoErr(op, err)
 	}
 
-	return u.confirm(ctx, mark)
+	return newStatus, nil
 }
 
-func (u *Updater) confirm(ctx context.Context, mark models.Mark) (models.MarkStatusType, error) {
+func (u *Updater) confirm(ctx context.Context, mark models.Mark, checks []models.Check) (models.MarkStatusType, error) {
 	const op = "usecase.Map.confirm"
 
 	var newStatus models.MarkStatusType
@@ -326,26 +424,14 @@ func (u *Updater) confirm(ctx context.Context, mark models.Mark) (models.MarkSta
 		return 0, ErrConflict
 	}
 
-	if err := u.repos.Marks.UpdateMarkStatus(ctx, mark.ID, newStatus); err != nil {
+	if err := u.transition(ctx, mark, newStatus, checks, true); err != nil {
 		return 0, mapRepoErr(op, err)
 	}
 
 	return newStatus, nil
-
 }
 
-func (u *Updater) Reject(ctx context.Context, markId int) (models.MarkStatusType, error) {
-	const op = "usecase.Map.Reject"
-
-	mark, err := u.repos.Marks.GetMarkById(ctx, markId)
-	if err != nil {
-		return 0, mapRepoErr(op, err)
-	}
-
-	return u.reject(ctx, mark)
-}
-
-func (u *Updater) reject(ctx context.Context, mark models.Mark) (models.MarkStatusType, error) {
+func (u *Updater) reject(ctx context.Context, mark models.Mark, checks []models.Check) (models.MarkStatusType, error) {
 	const op = "usecase.Map.reject"
 
 	var newStatus models.MarkStatusType
@@ -361,9 +447,53 @@ func (u *Updater) reject(ctx context.Context, mark models.Mark) (models.MarkStat
 		return 0, ErrConflict
 	}
 
-	if err := u.repos.Marks.UpdateMarkStatus(ctx, mark.ID, newStatus); err != nil {
+	if err := u.transition(ctx, mark, newStatus, checks, false); err != nil {
 		return 0, mapRepoErr(op, err)
 	}
 
 	return newStatus, nil
+}
+
+// transition writes the new status and awards rating for the resolved
+// stage. confirmed is the outcome the checks are compared against.
+func (u *Updater) transition(ctx context.Context, mark models.Mark, newStatus models.MarkStatusType, checks []models.Check, confirmed bool) error {
+	if err := u.repos.Marks.UpdateMarkStatus(ctx, mark.ID, newStatus); err != nil {
+		return err
+	}
+
+	markId := null.IntFrom(int64(mark.ID))
+
+	for _, check := range checks {
+		event := models.RatingEvent{
+			UserID:  check.UserID,
+			Delta:   u.cfg.CheckWrong,
+			Reason:  models.RatingReasonCheckWrong,
+			MarkID:  markId,
+			CheckID: null.IntFrom(int64(check.ID)),
+		}
+		if check.Result == confirmed {
+			event.Delta = u.cfg.CheckCorrect
+			event.Reason = models.RatingReasonCheckCorrect
+		}
+		if _, err := u.repos.Users.AddRatingEvent(ctx, event); err != nil {
+			return err
+		}
+	}
+
+	// The author is rated once, on the first decision about the mark.
+	if mark.MarkStatusID != models.UnconfirmedStatus {
+		return nil
+	}
+	event := models.RatingEvent{
+		UserID: mark.UserID,
+		Delta:  u.cfg.MarkRefuted,
+		Reason: models.RatingReasonMarkRefuted,
+		MarkID: markId,
+	}
+	if confirmed {
+		event.Delta = u.cfg.MarkConfirmed
+		event.Reason = models.RatingReasonMarkConfirmed
+	}
+	_, err := u.repos.Users.AddRatingEvent(ctx, event)
+	return err
 }

@@ -97,9 +97,11 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 	marksRepo := postgres.NewMarks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	checksRepo := postgres.NewChecks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
-	markStatusUpdater := usecase.NewUpdater(log, usecase.UpdaterRepositories{
+	usersRepo := postgres.NewUsers(postgresDB.DB, trmsqlx.DefaultCtxGetter)
+	markStatusUpdater := usecase.NewUpdater(log, cfg.Rating, trManager, usecase.UpdaterRepositories{
 		Marks:  marksRepo,
 		Checks: checksRepo,
+		Users:  usersRepo,
 	})
 	marksUseCase := usecase.NewMarks(log, trManager, usecase.MarksRepositories{
 		Marks:  marksRepo,
@@ -114,15 +116,15 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	})
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
-	checksUseCase := usecase.NewChecks(log, trManager, markStatusUpdater, usecase.ChecksRepositories{
+	checksUseCase := usecase.NewChecks(log, cfg.Rating, trManager, markStatusUpdater, usecase.ChecksRepositories{
 		Marks:  marksRepo,
 		Checks: checksRepo,
 		Tasks:  tasksRepo,
 		Photos: photoRepo,
+		Users:  usersRepo,
 	})
 	checksrest.Register(router, log, authMiddleware, checksUseCase)
 
-	usersRepo := postgres.NewUsers(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	usersUseCase := usecase.NewUsers(log, usecase.UsersRepositories{
 		Users: usersRepo,
 	})
