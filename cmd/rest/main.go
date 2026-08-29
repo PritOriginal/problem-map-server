@@ -19,6 +19,11 @@ import (
 //	@name						Authorization
 //	@description				JWT access token: "Bearer {token}"
 
+//	@securityDefinitions.apikey	ApiKeyAuth
+//	@in							header
+//	@name						X-Api-Key
+//	@description				Open-data API key "pm_live_…" (POST /api-keys); also accepted as "Authorization: ApiKey {key}". Optional on public GET routes: with a key the per-key quota applies and X-RateLimit-* headers are returned
+
 //	@tag.name			auth
 //	@tag.description	Authorization and authentication
 
@@ -39,6 +44,12 @@ import (
 
 //	@tag.name			notifications
 //	@tag.description	User notifications and push devices
+
+//	@tag.name			api-keys
+//	@tag.description	API keys of the open-data endpoints
+
+//	@tag.name			open
+//	@tag.description	Open data: public aggregates
 
 func main() {
 	os.Exit(run())

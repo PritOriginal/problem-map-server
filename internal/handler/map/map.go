@@ -38,10 +38,12 @@ type handler struct {
 	uc  Map
 }
 
-func Register(r *gin.Engine, log *slog.Logger, uc Map, cacher mwcache.Cacher) {
+// Register mounts /map; middlewares (e.g. the optional API key) are applied
+// to the whole group.
+func Register(r *gin.Engine, log *slog.Logger, uc Map, cacher mwcache.Cacher, middlewares ...gin.HandlerFunc) {
 	handler := &handler{log: log, uc: uc}
 
-	mapRoute := r.Group("/map")
+	mapRoute := r.Group("/map", middlewares...)
 	{
 		mapRoute.GET("admin-boundaries/marks/count", handler.GetAdminBoundariesMarksCount())
 		// The response is a bare GeoJSON document, not the JSON envelope,
@@ -69,6 +71,8 @@ func Register(r *gin.Engine, log *slog.Logger, uc Map, cacher mwcache.Cacher) {
 //	@Summary		List administrative boundaries
 //	@Description	admin boundaries
 //	@Tags			map
+//	@Security		ApiKeyAuth
+//	@Security		BearerAuth
 //	@Accept			json
 //	@Produce		json
 //	@Param			admin_levels	query		[]number	false	"filter by admin level"
@@ -105,6 +109,8 @@ func (h *handler) GetAdminBoundaries() gin.HandlerFunc {
 //	@Summary		Administrative boundary as GeoJSON
 //	@Description	one boundary with its MultiPolygon geometry as a GeoJSON Feature (`application/geo+json`): `properties` carry `name` and `admin_level`
 //	@Tags			map
+//	@Security		ApiKeyAuth
+//	@Security		BearerAuth
 //	@Produce		application/geo+json
 //	@Param			id	path		int	true	"boundary id (the path is /map/admin-boundaries/{id}.geojson)"
 //	@Success		200	{object}	maprest.AdminBoundaryFeature
@@ -144,6 +150,8 @@ func (h *handler) GetAdminBoundaryGeoJSON() gin.HandlerFunc {
 //	@Summary		The count of markers of all administrative boundaries
 //	@Description	the count of markers of all administrative boundaries
 //	@Tags			map
+//	@Security		ApiKeyAuth
+//	@Security		BearerAuth
 //	@Accept			json
 //	@Produce		json
 //	@Param			admin_levels	query		[]number	false	"filter by admin level"
@@ -187,6 +195,8 @@ func (h *handler) GetAdminBoundariesMarksCount() gin.HandlerFunc {
 //	@Description	GeoJSON FeatureCollection of hexagons (EPSG:3857 grid, returned in WGS84) with the number of marks in each; empty cells are omitted. At most 5000 cells: a finer grid is rejected with 400, increase cell_m. Cached for 60 seconds per query.
 //	@Tags			map
 //	@Produce		json
+//	@Security		ApiKeyAuth
+//	@Security		BearerAuth
 //	@Param			bbox			query		string		true	"minLon,minLat,maxLon,maxLat"
 //	@Param			cell_m			query		number		false	"hexagon size (center-to-vertex) in ground meters (10..100000)"	default(250)
 //	@Param			mark_type_ids	query		[]number	false	"filter by mark type"
@@ -229,6 +239,8 @@ func (h *handler) GetHeatmap() gin.HandlerFunc {
 //	@Summary		List regions
 //	@Description	get regions
 //	@Tags			map
+//	@Security		ApiKeyAuth
+//	@Security		BearerAuth
 //	@Accept			json
 //	@Produce		json
 //	@Success		200	{object}	responses.Response[maprest.GetRegionsResponse]
@@ -255,6 +267,8 @@ func (h *handler) GetRegions() gin.HandlerFunc {
 //	@Summary		List cities
 //	@Description	get cities
 //	@Tags			map
+//	@Security		ApiKeyAuth
+//	@Security		BearerAuth
 //	@Accept			json
 //	@Produce		json
 //	@Success		200	{object}	responses.Response[maprest.GetCitiesResponse]
@@ -281,6 +295,8 @@ func (h *handler) GetCities() gin.HandlerFunc {
 //	@Summary		List districts
 //	@Description	get districts
 //	@Tags			map
+//	@Security		ApiKeyAuth
+//	@Security		BearerAuth
 //	@Accept			json
 //	@Produce		json
 //	@Success		200	{object}	responses.Response[maprest.GetDistrictsResponse]

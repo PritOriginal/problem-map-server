@@ -277,3 +277,82 @@ func (r *AnalyticsRepository) GetTopTypes(ctx context.Context, filters models.To
 	}
 	return types, nil
 }
+
+type openStatsRow struct {
+	Total           int        `db:"total"`
+	ResolvedLast30d int        `db:"resolved_last_30d"`
+	AvgCloseHours   null.Float `db:"avg_close_hours"`
+}
+
+// GetOpenStats summarises the marks (optionally inside an admin boundary)
+// for the public statistics endpoint.
+func (r *AnalyticsRepository) GetOpenStats(ctx context.Context, boundaryID int) (models.OpenStats, error) {
+	const op = "storage.postgres.GetOpenStats"
+
+	var args []any
+	where := strings.Join(markConds(&args, boundaryID, 0, models.DateRange{}), " AND ")
+
+	query := fmt.Sprintf(`
+		WITH fm AS (
+			SELECT m.mark_id, m.type_mark_id, m.mark_status_id, m.created_at
+			FROM marks m
+			WHERE %[1]s
+		),
+		durations AS (
+			SELECT
+				COALESCE(MIN(h.changed_at) FILTER (WHERE h.new_mark_status_id = %[2]d), fm.created_at) AS unconfirmed_at,
+				MIN(h.changed_at) FILTER (WHERE h.new_mark_status_id = %[3]d) AS closed_at
+			FROM fm
+			LEFT JOIN mark_status_history h ON h.mark_id = fm.mark_id
+			GROUP BY fm.mark_id, fm.created_at
+		)
+		SELECT
+			(SELECT COUNT(*) FROM fm) AS total,
+			(SELECT COUNT(*) FROM durations WHERE closed_at >= NOW() - INTERVAL '30 days') AS resolved_last_30d,
+			AVG(EXTRACT(EPOCH FROM (closed_at - unconfirmed_at)) / 3600) AS avg_close_hours
+		FROM durations
+	`, where, models.UnconfirmedStatus, models.ClosedStatus)
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+
+	var row openStatsRow
+	if err := tr.GetContext(ctx, &row, query, args...); err != nil {
+		return models.OpenStats{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	var statuses []statusCountRow
+	byStatusQuery := fmt.Sprintf(`
+		SELECT m.mark_status_id, COUNT(*) AS count
+		FROM marks m
+		WHERE %s
+		GROUP BY m.mark_status_id
+	`, where)
+	if err := tr.SelectContext(ctx, &statuses, byStatusQuery, args...); err != nil {
+		return models.OpenStats{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	byType := []models.TypeCount{}
+	byTypeQuery := fmt.Sprintf(`
+		SELECT t.code, COUNT(*)::int AS count
+		FROM marks m
+		JOIN types_marks t ON t.type_mark_id = m.type_mark_id
+		WHERE %s
+		GROUP BY t.code
+		ORDER BY count DESC, t.code
+	`, where)
+	if err := tr.SelectContext(ctx, &byType, byTypeQuery, args...); err != nil {
+		return models.OpenStats{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	stats := models.OpenStats{
+		MarksTotal:      row.Total,
+		ByStatus:        make(map[int]int, len(statuses)),
+		ByType:          byType,
+		ResolvedLast30d: row.ResolvedLast30d,
+		AvgCloseHours:   row.AvgCloseHours,
+	}
+	for _, s := range statuses {
+		stats.ByStatus[s.StatusID] = s.Count
+	}
+	return stats, nil
+}

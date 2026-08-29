@@ -13,6 +13,7 @@ type AnalyticsRepository interface {
 	GetKPI(ctx context.Context, filters models.AnalyticsFilters) (models.KPI, error)
 	GetTimeseries(ctx context.Context, filters models.TimeseriesFilters) ([]models.TimeseriesPoint, error)
 	GetTopTypes(ctx context.Context, filters models.TopTypesFilters) ([]models.TopType, error)
+	GetOpenStats(ctx context.Context, boundaryID int) (models.OpenStats, error)
 }
 
 type Analytics struct {
@@ -98,4 +99,20 @@ func (uc *Analytics) GetTopTypes(ctx context.Context, filters models.TopTypesFil
 		return nil, mapRepoErr(op, err)
 	}
 	return types, nil
+}
+
+// GetOpenStats returns the public summary of the marks, optionally limited
+// to an admin boundary (0 means everywhere).
+func (uc *Analytics) GetOpenStats(ctx context.Context, boundaryID int) (models.OpenStats, error) {
+	const op = "usecase.Analytics.GetOpenStats"
+
+	if boundaryID < 0 {
+		return models.OpenStats{}, fmt.Errorf("%s: %w: boundary_id must be positive", op, ErrInvalidArgument)
+	}
+
+	stats, err := uc.repos.Analytics.GetOpenStats(ctx, boundaryID)
+	if err != nil {
+		return models.OpenStats{}, mapRepoErr(op, err)
+	}
+	return stats, nil
 }

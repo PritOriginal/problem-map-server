@@ -1,4 +1,32 @@
 definitions:
+  github_com_PritOriginal_problem-map-server_internal_models.APIKey:
+    properties:
+      active:
+        type: boolean
+      api_key_id:
+        type: integer
+      created_at:
+        type: string
+      expires_at:
+        format: date-time
+        type: string
+      last_used_at:
+        format: date-time
+        type: string
+      name:
+        type: string
+      owner_user_id:
+        type: integer
+      prefix:
+        type: string
+      rate_limit_per_min:
+        type: integer
+      scopes:
+        description: Scopes lists the APIKeyScope values granted to the key.
+        items:
+          type: string
+        type: array
+    type: object
   github_com_PritOriginal_problem-map-server_internal_models.AdminBoundary:
     properties:
       admin_level:
@@ -336,6 +364,29 @@ definitions:
     - NotificationMarkAssigned
     - NotificationMarkSLABreached
     - NotificationWebhookDisabled
+  github_com_PritOriginal_problem-map-server_internal_models.OpenStats:
+    properties:
+      avg_close_hours:
+        description: |-
+          AvgCloseHours is the mean unconfirmed -> closed time; null when no
+          mark was closed.
+        type: number
+      by_status:
+        additionalProperties:
+          type: integer
+        description: ByStatus counts marks per mark_status_id.
+        type: object
+      by_type:
+        description: ByType counts marks per mark type code, most frequent first.
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.TypeCount'
+        type: array
+      marks_total:
+        type: integer
+      resolved_last_30d:
+        description: ResolvedLast30d counts marks closed during the last 30 days.
+        type: integer
+    type: object
   github_com_PritOriginal_problem-map-server_internal_models.Organization:
     properties:
       created_at:
@@ -536,6 +587,13 @@ definitions:
       share:
         type: number
     type: object
+  github_com_PritOriginal_problem-map-server_internal_models.TypeCount:
+    properties:
+      code:
+        type: string
+      count:
+        type: integer
+    type: object
   github_com_PritOriginal_problem-map-server_internal_models.User:
     properties:
       home_point:
@@ -668,6 +726,17 @@ definitions:
       success:
         type: boolean
     type: object
+  ? github_com_PritOriginal_problem-map-server_pkg_responses.Response-github_com_PritOriginal_problem-map-server_internal_models_OpenStats
+  : properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.OpenStats'
+      success:
+        type: boolean
+    type: object
   ? github_com_PritOriginal_problem-map-server_pkg_responses.Response-github_com_PritOriginal_problem-map-server_internal_usecase_HealthReport
   : properties:
       error:
@@ -698,6 +767,39 @@ definitions:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_analytics.GetTopTypesResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_apikeys_CreateAPIKeyResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_apikeys.CreateAPIKeyResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_apikeys_DeleteAPIKeyResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_apikeys.DeleteAPIKeyResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_apikeys_GetAPIKeysResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_apikeys.GetAPIKeysResponse'
       success:
         type: boolean
     type: object
@@ -1362,6 +1464,42 @@ definitions:
       types:
         items:
           $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.TopType'
+        type: array
+    type: object
+  internal_handler_apikeys.CreateAPIKeyRequest:
+    properties:
+      expires_at:
+        description: |-
+          ExpiresAt (RFC3339) makes the key stop working after that moment;
+          omitted means no expiry.
+        example: "2027-01-01T00:00:00Z"
+        type: string
+      name:
+        description: Name tells the keys apart in the list.
+        example: city dashboard
+        maxLength: 64
+        type: string
+    required:
+    - name
+    type: object
+  internal_handler_apikeys.CreateAPIKeyResponse:
+    properties:
+      api_key:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.APIKey'
+      key:
+        example: pm_live_0123456789abcdef0123456789abcdef
+        type: string
+    type: object
+  internal_handler_apikeys.DeleteAPIKeyResponse:
+    properties:
+      api_key_id:
+        type: integer
+    type: object
+  internal_handler_apikeys.GetAPIKeysResponse:
+    properties:
+      api_keys:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.APIKey'
         type: array
     type: object
   internal_handler_auth.LogoutRequest:
@@ -2051,6 +2189,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
       summary: KPI summary
       tags:
       - analytics
@@ -2100,6 +2241,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
       summary: Marks time series
       tags:
       - analytics
@@ -2140,9 +2284,125 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
       summary: Top mark types
       tags:
       - analytics
+  /api-keys:
+    get:
+      description: keys owned by the current user (hashes are never returned); an
+        admin may pass `all=true` to list every key
+      parameters:
+      - description: list every key (admin only)
+        in: query
+        name: all
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_apikeys_GetAPIKeysResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: all=true by a non-admin
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: List API keys
+      tags:
+      - api-keys
+    post:
+      consumes:
+      - application/json
+      description: issue a read-only key `pm_live_…` for the open-data endpoints.
+        The key is returned **once** in `payload.key`; only its hash is stored. Scope
+        `read`, 600 requests per minute
+      parameters:
+      - description: key
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_apikeys.CreateAPIKeyRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_apikeys_CreateAPIKeyResponse'
+        "400":
+          description: empty name or expires_at not in the future
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Create API key
+      tags:
+      - api-keys
+  /api-keys/{id}:
+    delete:
+      description: deactivate the key; the owner or an admin. Requests with the key
+        are answered 401 from now on (another instance may accept it for up to a minute
+        from its cache)
+      parameters:
+      - description: api key id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_apikeys_DeleteAPIKeyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Revoke API key
+      tags:
+      - api-keys
   /auth/logout:
     post:
       consumes:
@@ -2528,6 +2788,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
       summary: List administrative boundaries
       tags:
       - map
@@ -2560,6 +2823,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
       summary: Administrative boundary as GeoJSON
       tags:
       - map
@@ -2613,6 +2879,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
       summary: The count of markers of all administrative boundaries
       tags:
       - map
@@ -2632,6 +2901,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
       summary: List cities
       tags:
       - map
@@ -2651,6 +2923,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
       summary: List districts
       tags:
       - map
@@ -2700,6 +2975,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
       summary: Marks heatmap
       tags:
       - map
@@ -2719,6 +2997,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
       summary: List regions
       tags:
       - map
@@ -2729,6 +3010,10 @@ paths:
       description: get markers page; pagination info is returned in the top-level
         `meta` field ({limit, offset, total})
       parameters:
+      - description: 'batch: comma-separated mark ids, at most 100'
+        in: query
+        name: ids
+        type: string
       - description: filter by mark types, comma-separated ids
         in: query
         name: mark_type_ids
@@ -2790,10 +3075,21 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: invalid, revoked or expired API key
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "429":
+          description: API key quota exhausted
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "500":
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
       summary: List markers
       tags:
       - marks
@@ -2940,6 +3236,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
       summary: Get mark by id
       tags:
       - marks
@@ -3354,6 +3653,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
       summary: List mark statuses
       tags:
       - marks
@@ -3433,6 +3735,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
       summary: Export markers
       tags:
       - marks
@@ -3490,6 +3795,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
       summary: List nearby markers
       tags:
       - marks
@@ -3535,6 +3843,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
       summary: Find similar markers
       tags:
       - marks
@@ -3565,6 +3876,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
       summary: List mark statuses
       tags:
       - marks
@@ -3595,6 +3909,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
       summary: List mark types
       tags:
       - marks
@@ -3632,6 +3949,9 @@ paths:
           description: Internal Server Error
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
       summary: List markers by user id
       tags:
       - marks
@@ -3761,6 +4081,45 @@ paths:
       summary: Count my unread notifications
       tags:
       - notifications
+  /open/stats:
+    get:
+      description: 'public summary of the marks, optionally inside an admin boundary:
+        totals, per-status and per-type counts, marks closed during the last 30 days
+        and the mean closing time in hours. Cached for 5 minutes'
+      parameters:
+      - description: only marks inside this admin boundary
+        in: query
+        name: boundary_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-github_com_PritOriginal_problem-map-server_internal_models_OpenStats'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: invalid, revoked or expired API key
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "429":
+          description: API key quota exhausted
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - ApiKeyAuth: []
+        BearerAuth: []
+      summary: Open statistics
+      tags:
+      - open
   /organizations:
     get:
       description: public list of city services (id and name)
@@ -5041,6 +5400,13 @@ paths:
       tags:
       - webhooks
 securityDefinitions:
+  ApiKeyAuth:
+    description: 'Open-data API key "pm_live_…" (POST /api-keys); also accepted as
+      "Authorization: ApiKey {key}". Optional on public GET routes: with a key the
+      per-key quota applies and X-RateLimit-* headers are returned'
+    in: header
+    name: X-Api-Key
+    type: apiKey
   BearerAuth:
     description: 'JWT access token: "Bearer {token}"'
     in: header
@@ -5062,3 +5428,7 @@ tags:
   name: users
 - description: User notifications and push devices
   name: notifications
+- description: API keys of the open-data endpoints
+  name: api-keys
+- description: 'Open data: public aggregates'
+  name: open

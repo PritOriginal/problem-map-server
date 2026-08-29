@@ -10,6 +10,7 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/handler/listquery"
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/apikey"
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
@@ -56,8 +57,13 @@ type Params struct {
 	StatusUpdater  StatusUpdater
 	// Exporter serves GET /marks/export; the route is not registered when nil.
 	Exporter Exporter
-	// ExportRateLimit is the per-IP limiter of GET /marks/export (optional).
+	// ExportRateLimit is the per-IP limiter of GET /marks/export (optional);
+	// requests authenticated with an API key carry their own limit and
+	// bypass it.
 	ExportRateLimit gin.HandlerFunc
+	// APIKey is the optional API key middleware (apikey.Optional) applied
+	// to the whole /marks group.
+	APIKey gin.HandlerFunc
 }
 
 func Register(r *gin.Engine, log *slog.Logger, params Params) {
@@ -71,6 +77,9 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 	// The viewer is recorded for every marks route so that is_following is
 	// filled in for authenticated readers; anonymous requests still pass.
 	marks := r.Group("/marks", middleware.OptionalAuth(params.AuthMiddleware))
+	if params.APIKey != nil {
+		marks.Use(params.APIKey)
+	}
 	{
 		marks.GET("", handler.GetMarks())
 		marks.GET("nearby", handler.GetMarksNearby())
@@ -78,7 +87,7 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 		if params.Exporter != nil {
 			export := marks.Group("")
 			if params.ExportRateLimit != nil {
-				export.Use(params.ExportRateLimit)
+				export.Use(apikey.SkipWithKey(params.ExportRateLimit))
 			}
 			export.GET("export", handler.ExportMarks())
 		}
@@ -144,6 +153,9 @@ func viewerContext(c *gin.Context, userId int) context.Context {
 //	@Tags			marks
 //	@Accept			json
 //	@Produce		json
+//	@Security		ApiKeyAuth
+//	@Security		BearerAuth
+//	@Param			ids				query		string	false	"batch: comma-separated mark ids, at most 100"
 //	@Param			mark_type_ids	query		string	false	"filter by mark types, comma-separated ids"
 //	@Param			mark_status_ids	query		string	false	"filter by mark statuses, comma-separated ids"
 //	@Param			user_id			query		int		false	"filter by author"
@@ -156,6 +168,8 @@ func viewerContext(c *gin.Context, userId int) context.Context {
 //	@Param			offset			query		int		false	"page offset"		default(0)
 //	@Success		200				{object}	responses.Response[marksrest.GetMarksResponse]
 //	@Failure		400				{object}	responses.Response[any]
+//	@Failure		401				{object}	responses.Response[any]	"invalid, revoked or expired API key"
+//	@Failure		429				{object}	responses.Response[any]	"API key quota exhausted"
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/marks [get]
 func (h *handler) GetMarks() gin.HandlerFunc {
@@ -188,6 +202,8 @@ func (h *handler) GetMarks() gin.HandlerFunc {
 //	@Summary		List nearby markers
 //	@Description	get markers within `radius` meters of (lon, lat) ordered by distance; each item carries `distance_m`; pagination info is in the top-level `meta` field
 //	@Tags			marks
+//	@Security		ApiKeyAuth
+//	@Security		BearerAuth
 //	@Produce		json
 //	@Param			lon				query		number	true	"longitude"
 //	@Param			lat				query		number	true	"latitude"
@@ -230,6 +246,8 @@ func (h *handler) GetMarksNearby() gin.HandlerFunc {
 //	@Summary		Get mark by id
 //	@Description	get mark by id
 //	@Tags			marks
+//	@Security		ApiKeyAuth
+//	@Security		BearerAuth
 //	@Accept			json
 //	@Produce		json
 //	@Param			id	path		int	true	"mark id"
@@ -265,6 +283,8 @@ func (h *handler) GetMarkById() gin.HandlerFunc {
 //	@Summary		List markers by user id
 //	@Description	get markers by user id
 //	@Tags			marks
+//	@Security		ApiKeyAuth
+//	@Security		BearerAuth
 //	@Produce		json
 //	@Param			id		path		int	true	"user id"
 //	@Param			limit	query		int	false	"page size, 1..500"	default(100)
@@ -393,6 +413,8 @@ func (h *handler) AddMark() gin.HandlerFunc {
 //	@Summary		Find similar markers
 //	@Description	get active markers (not closed/refuted) of `mark_type_id` within `radius` meters of (lon, lat), nearest first, with `distance_m`; the same search POST /marks runs before creating a mark. Use it to preview duplicates on the client
 //	@Tags			marks
+//	@Security		ApiKeyAuth
+//	@Security		BearerAuth
 //	@Produce		json
 //	@Param			lon				query		number	true	"longitude"
 //	@Param			lat				query		number	true	"latitude"
@@ -631,6 +653,8 @@ func (h *handler) GetFollowedMarks() gin.HandlerFunc {
 //	@Summary		List mark types
 //	@Description	get mark types; `name` is localised by the Accept-Language header (ru, en; default ru), `code` is a stable identifier. `mark_type_id` duplicates `id` and is deprecated
 //	@Tags			marks
+//	@Security		ApiKeyAuth
+//	@Security		BearerAuth
 //	@Accept			json
 //	@Produce		json
 //	@Param			Accept-Language	header		string	false	"response language"	Enums(ru, en)	default(ru)
@@ -660,6 +684,8 @@ func (h *handler) GetMarkTypes() gin.HandlerFunc {
 //	@Summary		List mark statuses
 //	@Description	get mark statuses; `name` is localised by the Accept-Language header (ru, en; default ru), `code` is a stable identifier. `mark_status_id` duplicates `id` and is deprecated
 //	@Tags			marks
+//	@Security		ApiKeyAuth
+//	@Security		BearerAuth
 //	@Accept			json
 //	@Produce		json
 //	@Param			Accept-Language	header		string	false	"response language"	Enums(ru, en)	default(ru)
@@ -689,6 +715,8 @@ func (h *handler) GetMarkStatuses() gin.HandlerFunc {
 //	@Summary		List mark statuses
 //	@Description	displays the entire list of status changes history for a specific marker by markId
 //	@Tags			marks
+//	@Security		ApiKeyAuth
+//	@Security		BearerAuth
 //	@Accept			json
 //	@Produce		json
 //	@Param			id			path		int		true	"mark id"

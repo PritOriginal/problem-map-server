@@ -311,3 +311,54 @@ func (s *PostgresSuite) TestAnalytics_GetTopTypes() {
 		})
 	}
 }
+
+func (s *PostgresSuite) TestAnalytics_GetOpenStats() {
+	// Close mark 2 (type 2) seven days ago: it counts as resolved during the
+	// last 30 days and gives the closing duration (created 10 days ago,
+	// closed 7 days ago -> 72 h).
+	s.Require().NoError(s.marks.UpdateMarkStatus(s.ctx, fxMarkInside, models.ClosedStatus))
+	_, err := s.db.ExecContext(s.ctx, `UPDATE mark_status_history SET changed_at = $1::timestamptz - INTERVAL '7 days'
+		WHERE mark_id = $2 AND new_mark_status_id = $3`, s.seedNow, fxMarkInside, models.ClosedStatus)
+	s.Require().NoError(err)
+
+	tests := []struct {
+		name       string
+		boundaryID int
+		want       models.OpenStats
+	}{
+		{
+			name: "everywhere",
+			want: models.OpenStats{
+				MarksTotal:      3,
+				ByStatus:        map[int]int{int(models.UnconfirmedStatus): 1, int(models.UnderReviewStatus): 1, int(models.ClosedStatus): 1},
+				ByType:          []models.TypeCount{{Code: "garbage", Count: 2}, {Code: "green_zones", Count: 1}},
+				ResolvedLast30d: 1,
+				AvgCloseHours:   nullFloat(72),
+			},
+		},
+		{
+			name:       "boundary",
+			boundaryID: fxBoundaryMain,
+			want: models.OpenStats{
+				MarksTotal:      2,
+				ByStatus:        map[int]int{int(models.UnconfirmedStatus): 1, int(models.ClosedStatus): 1},
+				ByType:          []models.TypeCount{{Code: "garbage", Count: 1}, {Code: "green_zones", Count: 1}},
+				ResolvedLast30d: 1,
+				AvgCloseHours:   nullFloat(72),
+			},
+		},
+		{
+			name:       "empty boundary",
+			boundaryID: fxBoundaryVoid,
+			want:       models.OpenStats{ByStatus: map[int]int{}, ByType: []models.TypeCount{}},
+		},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			got, err := s.analytics.GetOpenStats(s.ctx, tt.boundaryID)
+			s.Require().NoError(err)
+			s.Equal(tt.want, got)
+		})
+	}
+}

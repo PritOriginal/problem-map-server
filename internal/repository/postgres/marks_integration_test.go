@@ -28,6 +28,8 @@ func (s *PostgresSuite) TestMarks_GetMarks() {
 		{name: "by type", filters: models.GetMarksFilters{MarkTypeIds: []int{1}}, wantIDs: []int{fxMarkNear, fxMarkFar}},
 		{name: "by type and status", filters: models.GetMarksFilters{MarkTypeIds: []int{1}, MarkStatusIds: []int{int(models.UnderReviewStatus)}}, wantIDs: []int{fxMarkFar}},
 		{name: "no match", filters: models.GetMarksFilters{MarkStatusIds: []int{int(models.ClosedStatus)}}, wantIDs: []int{}},
+		{name: "by ids", filters: models.GetMarksFilters{IDs: []int{fxMarkFar, fxMarkNear, 404}}, wantIDs: []int{fxMarkNear, fxMarkFar}},
+		{name: "by ids and status", filters: models.GetMarksFilters{IDs: []int{fxMarkNear, fxMarkInside}, MarkStatusIds: []int{int(models.ConfirmedStatus)}}, wantIDs: []int{fxMarkInside}},
 	}
 
 	for _, tt := range tests {

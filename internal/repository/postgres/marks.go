@@ -137,6 +137,9 @@ func marksListQuery(ctx context.Context, filters models.GetMarksFilters) *listQu
 		Paginate(filters.Pagination)
 	q.ColumnArgs(models.ViewerFromContext(ctx))
 
+	if len(filters.IDs) > 0 {
+		q.Where("mark_id IN (?)", filters.IDs)
+	}
 	if len(filters.MarkStatusIds) > 0 {
 		q.Where("mark_status_id IN (?)", filters.MarkStatusIds)
 	}
