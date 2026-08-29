@@ -71,8 +71,10 @@ func OptionalAuth(mw *jwt.GinJWTMiddleware) gin.HandlerFunc {
 			return
 		}
 
+		// GetClaimsFromJWT verifies the signature and the exp/nbf claims;
+		// a missing exp is rejected as the strict middleware does.
 		claims, err := mw.GetClaimsFromJWT(c)
-		if err != nil {
+		if err != nil || claims["exp"] == nil {
 			c.Next()
 			return
 		}

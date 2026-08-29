@@ -819,6 +819,8 @@ func (suite *MarksSuite) TestViewerIsRecorded() {
 		{name: "Anonymous", wantViewer: 0},
 		{name: "Authenticated", auth: suite.bearer(models.RoleUser), wantViewer: 1},
 		{name: "BadTokenIsAnonymous", auth: "Bearer not-a-token", wantViewer: 0},
+		{name: "ExpiredTokenIsAnonymous", auth: suite.expiredBearer(), wantViewer: 0},
+		{name: "WrongKeyIsAnonymous", auth: suite.bearerWithKey("wrong"), wantViewer: 0},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
@@ -836,6 +838,66 @@ func (suite *MarksSuite) TestViewerIsRecorded() {
 
 			handlertest.AssertResponse(suite.T(), w, http.StatusOK)
 		})
+	}
+}
+
+// expiredBearer returns an Authorization header with a token that expired
+// a minute ago.
+func (suite *MarksSuite) expiredBearer() string {
+	accessToken, err := token.CreateToken(-1*time.Minute, 1, string(models.RoleModerator), "1234")
+	suite.Require().NoError(err)
+	return "Bearer " + accessToken
+}
+
+// bearerWithKey returns an Authorization header signed with a foreign key.
+func (suite *MarksSuite) bearerWithKey(key string) string {
+	accessToken, err := token.CreateToken(1*time.Minute, 1, string(models.RoleModerator), key)
+	suite.Require().NoError(err)
+	return "Bearer " + accessToken
+}
+
+// TestProtectedRoutesRequireValidJWT makes sure OptionalAuth on the /marks
+// group does not weaken the routes guarded by the strict middleware: a
+// missing, malformed, expired or foreign-signed token yields 401 and the
+// usecase is never called (the mocks fail on unexpected calls).
+func (suite *MarksSuite) TestProtectedRoutesRequireValidJWT() {
+	routes := []struct {
+		method string
+		path   string
+	}{
+		{"POST", "/marks"},
+		{"PATCH", "/marks/1"},
+		{"DELETE", "/marks/1"},
+		{"POST", "/marks/1/follow"},
+		{"DELETE", "/marks/1/follow"},
+		{"POST", "/marks/1/confirm"},
+		{"POST", "/marks/1/reject"},
+		{"GET", "/users/me/following"},
+	}
+	auths := []struct {
+		name string
+		auth string
+	}{
+		{name: "NoToken"},
+		{name: "Malformed", auth: "Bearer not-a-token"},
+		{name: "Expired", auth: suite.expiredBearer()},
+		{name: "WrongKey", auth: suite.bearerWithKey("wrong")},
+	}
+	for _, rt := range routes {
+		for _, a := range auths {
+			suite.Run(rt.method+" "+rt.path+"/"+a.name, func() {
+				w := httptest.NewRecorder()
+				req := httptest.NewRequest(rt.method, rt.path, strings.NewReader(`{"description":"x"}`))
+				req.Header.Set("Content-Type", "application/json")
+				if a.auth != "" {
+					req.Header.Set("Authorization", a.auth)
+				}
+
+				suite.r.ServeHTTP(w, req)
+
+				handlertest.AssertResponse(suite.T(), w, http.StatusUnauthorized)
+			})
+		}
 	}
 }
 
