@@ -396,7 +396,10 @@ func (u *Updater) Update(ctx context.Context, markId int) error {
 	}
 
 	if mark.MarkStatusID == models.UnconfirmedStatus || mark.MarkStatusID == models.UnderReviewStatus {
-		threshold := u.settings.Get(ctx).VoteThreshold
+		// Read once so that the threshold and the deltas of one resolution
+		// come from the same settings snapshot.
+		settings := u.settings.Get(ctx)
+		threshold := settings.VoteThreshold
 		score := 0
 		for _, check := range checks {
 			if check.Result {
@@ -409,14 +412,14 @@ func (u *Updater) Update(ctx context.Context, markId int) error {
 		u.log.Debug("score", slog.Int("val", score))
 
 		if score >= threshold {
-			newMarkStatusId, err := u.confirm(ctx, mark, checks)
+			newMarkStatusId, err := u.confirm(ctx, mark, checks, settings.Rating)
 			if err != nil {
 				return mapRepoErr(op, err)
 			}
 			u.log.Debug("change mark status", slog.Int("old", int(mark.MarkStatusID)), slog.Int("new", int(newMarkStatusId)))
 			u.statusChanged(ctx, mark, newMarkStatusId)
 		} else if score <= -threshold {
-			newMarkStatusId, err := u.reject(ctx, mark, checks)
+			newMarkStatusId, err := u.reject(ctx, mark, checks, settings.Rating)
 			if err != nil {
 				return mapRepoErr(op, err)
 			}
@@ -444,8 +447,10 @@ func (u *Updater) Reject(ctx context.Context, markId int) (models.MarkStatusType
 }
 
 func (u *Updater) decide(ctx context.Context, op string, markId int,
-	transition func(context.Context, models.Mark, []models.Check) (models.MarkStatusType, error),
+	transition func(context.Context, models.Mark, []models.Check, RatingSettings) (models.MarkStatusType, error),
 ) (models.MarkStatusType, error) {
+	rating := u.settings.Get(ctx).Rating
+
 	// Events raised inside the transaction (the assignment of a confirmed
 	// mark) are published only after the commit.
 	var pending events.Pending
@@ -467,7 +472,7 @@ func (u *Updater) decide(ctx context.Context, op string, markId int,
 			return err
 		}
 
-		newStatus, err = transition(ctx, mark, checks)
+		newStatus, err = transition(ctx, mark, checks, rating)
 		return err
 	})
 	if err != nil {
@@ -502,7 +507,7 @@ func (u *Updater) loadStage(ctx context.Context, markId int) (models.Mark, []mod
 	return mark, checks, nil
 }
 
-func (u *Updater) confirm(ctx context.Context, mark models.Mark, checks []models.Check) (models.MarkStatusType, error) {
+func (u *Updater) confirm(ctx context.Context, mark models.Mark, checks []models.Check, rating RatingSettings) (models.MarkStatusType, error) {
 	const op = "usecase.Map.confirm"
 
 	var newStatus models.MarkStatusType
@@ -518,14 +523,14 @@ func (u *Updater) confirm(ctx context.Context, mark models.Mark, checks []models
 		return 0, ErrConflict
 	}
 
-	if err := u.transition(ctx, mark, newStatus, checks, true); err != nil {
+	if err := u.transition(ctx, mark, newStatus, checks, true, rating); err != nil {
 		return 0, mapRepoErr(op, err)
 	}
 
 	return newStatus, nil
 }
 
-func (u *Updater) reject(ctx context.Context, mark models.Mark, checks []models.Check) (models.MarkStatusType, error) {
+func (u *Updater) reject(ctx context.Context, mark models.Mark, checks []models.Check, rating RatingSettings) (models.MarkStatusType, error) {
 	const op = "usecase.Map.reject"
 
 	var newStatus models.MarkStatusType
@@ -541,7 +546,7 @@ func (u *Updater) reject(ctx context.Context, mark models.Mark, checks []models.
 		return 0, ErrConflict
 	}
 
-	if err := u.transition(ctx, mark, newStatus, checks, false); err != nil {
+	if err := u.transition(ctx, mark, newStatus, checks, false, rating); err != nil {
 		return 0, mapRepoErr(op, err)
 	}
 
@@ -549,8 +554,9 @@ func (u *Updater) reject(ctx context.Context, mark models.Mark, checks []models.
 }
 
 // transition writes the new status and awards rating for the resolved
-// stage. confirmed is the outcome the checks are compared against.
-func (u *Updater) transition(ctx context.Context, mark models.Mark, newStatus models.MarkStatusType, checks []models.Check, confirmed bool) error {
+// stage with the given deltas. confirmed is the outcome the checks are
+// compared against.
+func (u *Updater) transition(ctx context.Context, mark models.Mark, newStatus models.MarkStatusType, checks []models.Check, confirmed bool, rating RatingSettings) error {
 	if err := u.repos.Marks.UpdateMarkStatus(ctx, mark.ID, newStatus); err != nil {
 		return err
 	}
@@ -563,7 +569,6 @@ func (u *Updater) transition(ctx context.Context, mark models.Mark, newStatus mo
 	}
 
 	markId := null.IntFrom(int64(mark.ID))
-	rating := u.settings.Get(ctx).Rating
 
 	// Rating rows are updated in user order so that two stages resolving
 	// at once lock the users' rows in the same sequence and cannot deadlock.

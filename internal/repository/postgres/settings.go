@@ -37,7 +37,8 @@ func (r *SettingsRepository) GetSetting(ctx context.Context, key string) (models
 }
 
 // SetSetting writes value under key (insert or update) and records who did
-// it; updatedBy is stored as NULL when invalid.
+// it; updatedBy is stored as NULL when invalid. Writing the stored value
+// again is a no-op (no updated_at/updated_by change, no history row).
 func (r *SettingsRepository) SetSetting(ctx context.Context, key string, value json.RawMessage, updatedBy null.Int) error {
 	const op = "storage.postgres.SetSetting"
 
@@ -46,7 +47,8 @@ func (r *SettingsRepository) SetSetting(ctx context.Context, key string, value j
 		ON CONFLICT (key) DO UPDATE SET
 			value = EXCLUDED.value,
 			updated_by = EXCLUDED.updated_by,
-			updated_at = NOW()`
+			updated_at = NOW()
+		WHERE settings.value IS DISTINCT FROM EXCLUDED.value`
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if _, err := tr.ExecContext(ctx, query, key, []byte(value), updatedBy); err != nil {
