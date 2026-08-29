@@ -65,6 +65,21 @@ type KPI struct {
 	// OpenOlderThan30d counts marks neither closed nor refuted that were
 	// created more than 30 days ago.
 	OpenOlderThan30d int `json:"open_older_than_30d"`
+	// SLABreachShare is the share of marks assigned to an organization whose
+	// SLA deadline has passed while they are still confirmed or in progress
+	// (0 when no mark is assigned).
+	SLABreachShare float64 `json:"sla_breach_share"`
+	// ByOrganization lists the assigned marks per organization.
+	ByOrganization []OrganizationKPI `json:"by_organization"`
+}
+
+// OrganizationKPI is the load of one organization: marks assigned to it
+// (Total) and those past their SLA deadline (Overdue).
+type OrganizationKPI struct {
+	OrganizationID int    `json:"organization_id" db:"organization_id"`
+	Name           string `json:"name" db:"name"`
+	Total          int    `json:"total" db:"total"`
+	Overdue        int    `json:"overdue" db:"overdue"`
 }
 
 // TimeseriesStep is the bucket size of a time series.

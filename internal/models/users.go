@@ -14,6 +14,8 @@ const (
 	RoleUser      Role = "user"
 	RoleModerator Role = "moderator"
 	RoleAdmin     Role = "admin"
+	// RoleService is a member of an organization (city service).
+	RoleService Role = "service"
 )
 
 // ParseRole converts a raw role claim to a Role. Tokens without the role
@@ -29,7 +31,7 @@ func ParseRole(raw string) Role {
 // Valid reports whether r is one of the known roles.
 func (r Role) Valid() bool {
 	switch r {
-	case RoleUser, RoleModerator, RoleAdmin:
+	case RoleUser, RoleModerator, RoleAdmin, RoleService:
 		return true
 	default:
 		return false

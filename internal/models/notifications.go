@@ -14,6 +14,8 @@ const (
 	NotificationMarkStatusChanged NotificationType = "mark.status_changed"
 	NotificationTaskAssigned      NotificationType = "task.assigned"
 	NotificationCheckAdded        NotificationType = "check.added"
+	NotificationMarkAssigned      NotificationType = "mark.assigned"
+	NotificationMarkSLABreached   NotificationType = "mark.sla_breached"
 )
 
 // Notification is an in-app message addressed to one user. EventID makes
