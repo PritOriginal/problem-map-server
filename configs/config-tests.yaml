@@ -6,6 +6,10 @@ rest:
     read: 15s
     write: 10s
     idle: 5s
+  # Functional tests sign up/in many times per run; the default 10/min blocks them.
+  rate_limit:
+    requests: 1000
+    window: 1m
 grpc:
   port: 44044
   timeout: 5s

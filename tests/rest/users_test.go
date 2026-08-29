@@ -20,10 +20,11 @@ import (
 type UsersSuite struct {
 	suite.Suite
 	Cfg *config.Config
+	fx  *fixtures
 }
 
 func (st *UsersSuite) SetupSuite() {
-	st.Cfg = config.MustLoadPath("../../configs/config.yaml")
+	st.Cfg, st.fx = loadFixtures(st.T())
 }
 
 func TestUsersSuite(t *testing.T) {
@@ -35,6 +36,12 @@ func (st *UsersSuite) TestGetUsers() {
 
 	st.Equal(response.Success, true)
 	st.NotNil(response.Payload.Users)
+
+	ids := make([]int, 0, len(response.Payload.Users))
+	for _, u := range response.Payload.Users {
+		ids = append(ids, u.Id)
+	}
+	st.Contains(ids, st.fx.user.ID, "fixture user must be listed")
 }
 
 func getUsers(t *testing.T, cfg *config.RESTConfig, expectedStatusCode int) responses.Response[usersrest.GetUsersResponse] {
@@ -44,7 +51,7 @@ func getUsers(t *testing.T, cfg *config.RESTConfig, expectedStatusCode int) resp
 		path: "/users",
 	}))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	require.Equal(t, expectedStatusCode, resp.StatusCode)
 
@@ -68,7 +75,7 @@ func currentUserId(t *testing.T, cfg *config.RESTConfig, accessToken string) int
 
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 
@@ -80,8 +87,6 @@ func currentUserId(t *testing.T, cfg *config.RESTConfig, accessToken string) int
 }
 
 func (st *UsersSuite) TestGetUserById() {
-	responseGetUsers := getUsers(st.T(), &st.Cfg.REST, http.StatusOK)
-
 	tests := []struct {
 		name           string
 		id             string
@@ -91,7 +96,7 @@ func (st *UsersSuite) TestGetUserById() {
 	}{
 		{
 			name:       "Ok200",
-			id:         strconv.Itoa(responseGetUsers.Payload.Users[0].Id),
+			id:         strconv.Itoa(st.fx.user.ID),
 			statusCode: http.StatusOK,
 		},
 		{
@@ -114,7 +119,7 @@ func (st *UsersSuite) TestGetUserById() {
 				path: fmt.Sprintf("/users/%s", tt.id),
 			}))
 			st.NoError(err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			st.Equal(tt.statusCode, resp.StatusCode)
 
@@ -124,7 +129,9 @@ func (st *UsersSuite) TestGetUserById() {
 
 			if tt.statusCode < 300 {
 				st.Equal(response.Success, true)
-				st.NotNil(response.Payload.User)
+				st.Require().NotNil(response.Payload.User)
+				st.Equal(st.fx.user.ID, response.Payload.User.Id)
+				st.Equal(st.fx.user.Username, response.Payload.User.Name)
 			} else {
 				st.Equal(response.Success, false)
 			}
