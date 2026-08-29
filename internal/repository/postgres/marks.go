@@ -26,13 +26,15 @@ func NewMarks(db *sqlx.DB, c *trmsqlx.CtxGetter) *MarksRepository {
 // markColumns lists the mark columns plus the follower aggregates. The
 // placeholder is the viewer id (see models.ViewerFromContext); it must be
 // bound through listQuery.ColumnArgs or numbered explicitly in raw queries.
-const markColumns = "marks.mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, marks.user_id, marks.created_at, marks.updated_at, " +
+var markColumns = "marks.mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, marks.user_id, marks.created_at, marks.updated_at, " +
 	"marks.organization_id, marks.sla_due_at, " + overdueColumn + ", " +
 	followerColumns
 
 // overdueColumn computes is_overdue: the SLA deadline has passed while the
-// mark is still waiting for the organization (see models.SLAStatuses).
-const overdueColumn = "(marks.sla_due_at IS NOT NULL AND marks.sla_due_at < NOW() AND marks.mark_status_id IN (2, 7)) AS is_overdue"
+// mark is still waiting for the organization (see models.SLAStatuses). It
+// is the single definition used by every mark SELECT.
+var overdueColumn = fmt.Sprintf("(marks.sla_due_at IS NOT NULL AND marks.sla_due_at < NOW() AND marks.mark_status_id IN (%d, %d)) AS is_overdue",
+	models.ConfirmedStatus, models.InProgressStatus)
 
 const followerColumns = "(SELECT COUNT(*) FROM mark_followers f WHERE f.mark_id = marks.mark_id)::int AS followers_count, " +
 	"EXISTS(SELECT 1 FROM mark_followers f WHERE f.mark_id = marks.mark_id AND f.user_id = ?) AS is_following"
