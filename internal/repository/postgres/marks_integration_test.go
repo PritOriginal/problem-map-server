@@ -245,7 +245,7 @@ func (s *PostgresSuite) TestMarks_GetMarkTypes() {
 func (s *PostgresSuite) TestMarks_GetMarkStatuses() {
 	statuses, err := s.marks.GetMarkStatuses(s.ctx)
 	s.Require().NoError(err)
-	s.Require().Len(statuses, 6)
+	s.Require().Len(statuses, 7)
 
 	byID := make(map[int]models.MarkStatus, len(statuses))
 	for i, st := range statuses {
