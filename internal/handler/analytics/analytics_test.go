@@ -50,9 +50,11 @@ func (suite *AnalyticsSuite) TestGetKPI() {
 		{name: "Ok200Filters", query: "?boundary_id=1&mark_type_id=2&from=2026-01-01T00:00:00Z&to=2026-02-01T00:00:00Z", wantCall: true, statusCode: http.StatusOK},
 		{name: "Err400NegativeBoundary", query: "?boundary_id=-1", statusCode: http.StatusBadRequest},
 		{name: "Err400BoundaryNotANumber", query: "?boundary_id=a", statusCode: http.StatusBadRequest},
+		{name: "Ok200DateOnly", query: "?from=2026-01-01&to=2026-01-31", wantCall: true, statusCode: http.StatusOK},
 		{name: "Err400BadFrom", query: "?from=yesterday", statusCode: http.StatusBadRequest},
-		{name: "Err400BadTo", query: "?to=2026-01-01", statusCode: http.StatusBadRequest},
+		{name: "Err400BadTo", query: "?to=2026-01-01T00:00:00", statusCode: http.StatusBadRequest},
 		{name: "Err400Usecase", query: "?from=2026-02-01T00:00:00Z&to=2026-01-01T00:00:00Z", wantCall: true, errGetKPI: errInvalid, statusCode: http.StatusBadRequest},
+		{name: "Err400UsecaseDateOnly", query: "?from=2026-02-01&to=2026-01-01", wantCall: true, errGetKPI: errInvalid, statusCode: http.StatusBadRequest},
 		{name: "Err500", query: "", wantCall: true, errGetKPI: errors.New("db"), statusCode: http.StatusInternalServerError},
 	}
 	for _, tt := range tests {

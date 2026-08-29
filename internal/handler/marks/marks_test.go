@@ -214,10 +214,25 @@ func (suite *MarksSuite) TestGetMarksFilters() {
 		{name: "ErrSort", query: "?sort=description", statusCode: http.StatusBadRequest},
 		{name: "ErrOrder", query: "?order=random", statusCode: http.StatusBadRequest},
 		{name: "ErrUserIdNegative", query: "?user_id=-1", statusCode: http.StatusBadRequest},
-		{name: "ErrCreatedFromFormat", query: "?created_from=2025-01-02", statusCode: http.StatusBadRequest},
+		{
+			name:  "DateOnly",
+			query: "?created_from=2025-01-02&created_to=2025-02-01&updated_since=2025-01-10",
+			wantFilters: models.GetMarksFilters{
+				IDs:           []int{},
+				MarkTypeIds:   []int{},
+				MarkStatusIds: []int{},
+				CreatedFrom:   time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC),
+				CreatedTo:     time.Date(2025, 2, 1, 23, 59, 59, 999999999, time.UTC),
+				UpdatedSince:  time.Date(2025, 1, 10, 0, 0, 0, 0, time.UTC),
+				Pagination:    models.Pagination{Limit: models.DefaultLimit},
+			},
+			statusCode: http.StatusOK,
+		},
+		{name: "ErrCreatedFromFormat", query: "?created_from=2025-01-02T03:04:05", statusCode: http.StatusBadRequest},
 		{name: "ErrCreatedToFormat", query: "?created_to=yesterday", statusCode: http.StatusBadRequest},
 		{name: "ErrCreatedRange", query: "?created_from=2025-02-01T00:00:00Z&created_to=2025-01-01T00:00:00Z", statusCode: http.StatusBadRequest},
-		{name: "ErrUpdatedSinceFormat", query: "?updated_since=2025-01-10", statusCode: http.StatusBadRequest},
+		{name: "ErrCreatedRangeDateOnly", query: "?created_from=2025-02-01&created_to=2025-01-01", statusCode: http.StatusBadRequest},
+		{name: "ErrUpdatedSinceFormat", query: "?updated_since=10.01.2025", statusCode: http.StatusBadRequest},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
@@ -272,6 +287,13 @@ func (suite *MarksSuite) TestGetMarkChanges() {
 			name:        "Ok200EmptyArraysNotNull",
 			query:       "?since=2025-03-01T12:00:00Z&limit=10&offset=20",
 			wantFilters: models.MarkChangesFilters{Since: since, Pagination: models.Pagination{Limit: 10, Offset: 20}},
+			changes:     models.MarkChanges{ServerTime: serverTime},
+			statusCode:  http.StatusOK,
+		},
+		{
+			name:        "Ok200SinceDateOnly",
+			query:       "?since=2025-03-01",
+			wantFilters: models.MarkChangesFilters{Since: since.Truncate(24 * time.Hour), Pagination: models.Pagination{Limit: models.DefaultLimit}},
 			changes:     models.MarkChanges{ServerTime: serverTime},
 			statusCode:  http.StatusOK,
 		},

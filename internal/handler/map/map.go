@@ -180,8 +180,8 @@ func (h *handler) GetAdminBoundaryGeoJSON() gin.HandlerFunc {
 //	@Param			admin_levels	query		[]number	false	"filter by admin level"
 //	@Param			mark_type_ids	query		[]number	false	"filter by mark type"
 //	@Param			mark_status_ids	query		[]number	false	"filter by mark status"
-//	@Param			from			query		string		false	"marks created at or after (RFC3339)"
-//	@Param			to				query		string		false	"marks created at or before (RFC3339)"
+//	@Param			from			query		string		false	"marks created at or after (RFC3339 or YYYY-MM-DD, taken as 00:00:00 UTC)"
+//	@Param			to				query		string		false	"marks created at or before (RFC3339 or YYYY-MM-DD, taken as the end of that day in UTC)"
 //	@Success		200				{object}	responses.Response[maprest.GetAdminBoundariesMarksCountResponse]
 //	@Failure		400				{object}	responses.Response[any]
 //	@Failure		500				{object}	responses.Response[any]

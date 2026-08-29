@@ -46,8 +46,8 @@ func Register(r *gin.Engine, log *slog.Logger, uc Analytics, middlewares ...gin.
 //	@Security		BearerAuth
 //	@Param			boundary_id		query		int		false	"only marks inside this admin boundary"
 //	@Param			mark_type_id	query		int		false	"only marks of this type"
-//	@Param			from			query		string	false	"marks created at or after (RFC3339)"
-//	@Param			to				query		string	false	"marks created at or before (RFC3339)"
+//	@Param			from			query		string	false	"marks created at or after (RFC3339 or YYYY-MM-DD, taken as 00:00:00 UTC)"
+//	@Param			to				query		string	false	"marks created at or before (RFC3339 or YYYY-MM-DD, taken as the end of that day in UTC)"
 //	@Success		200				{object}	responses.Response[models.KPI]
 //	@Failure		400				{object}	responses.Response[any]
 //	@Failure		500				{object}	responses.Response[any]
@@ -86,8 +86,8 @@ func (h *handler) GetKPI() gin.HandlerFunc {
 //	@Security		BearerAuth
 //	@Param			boundary_id		query		int		false	"only marks inside this admin boundary"
 //	@Param			mark_type_id	query		int		false	"only marks of this type"
-//	@Param			from			query		string	false	"start of the range (RFC3339)"
-//	@Param			to				query		string	false	"end of the range (RFC3339)"
+//	@Param			from			query		string	false	"start of the range (RFC3339 or YYYY-MM-DD, taken as 00:00:00 UTC)"
+//	@Param			to				query		string	false	"end of the range (RFC3339 or YYYY-MM-DD, taken as the end of that day in UTC)"
 //	@Param			step			query		string	false	"bucket size"	Enums(day, week, month)	default(day)
 //	@Success		200				{object}	responses.Response[analyticsrest.GetTimeseriesResponse]
 //	@Failure		400				{object}	responses.Response[any]
@@ -126,8 +126,8 @@ func (h *handler) GetTimeseries() gin.HandlerFunc {
 //	@Security		ApiKeyAuth
 //	@Security		BearerAuth
 //	@Param			boundary_id	query		int		false	"only marks inside this admin boundary"
-//	@Param			from		query		string	false	"marks created at or after (RFC3339)"
-//	@Param			to			query		string	false	"marks created at or before (RFC3339)"
+//	@Param			from		query		string	false	"marks created at or after (RFC3339 or YYYY-MM-DD, taken as 00:00:00 UTC)"
+//	@Param			to			query		string	false	"marks created at or before (RFC3339 or YYYY-MM-DD, taken as the end of that day in UTC)"
 //	@Param			limit		query		int		false	"number of rows (1..100)"	default(10)
 //	@Success		200			{object}	responses.Response[analyticsrest.GetTopTypesResponse]
 //	@Failure		400			{object}	responses.Response[any]

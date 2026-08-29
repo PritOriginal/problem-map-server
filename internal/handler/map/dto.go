@@ -2,8 +2,8 @@ package maprest
 
 import (
 	"fmt"
-	"time"
 
+	"github.com/PritOriginal/problem-map-server/internal/handler/listquery"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 )
@@ -21,7 +21,7 @@ type GetAdminBoundariesMarksCountRequest struct {
 	AdminLevels   string `form:"admin_levels"`
 	MarkTypeIds   string `form:"mark_type_ids"`
 	MarkStatusIds string `form:"mark_status_ids"`
-	// From / To are RFC3339 timestamps bounding marks' creation.
+	// From / To (RFC3339 or YYYY-MM-DD) bound marks' creation.
 	From string `form:"from"`
 	To   string `form:"to"`
 }
@@ -41,7 +41,7 @@ func (r GetAdminBoundariesMarksCountRequest) Filters() (models.GetAdminBoundaryM
 	if err != nil {
 		return models.GetAdminBoundaryMarksCountFilters{}, fmt.Errorf("failed parse mark status ids")
 	}
-	dates, err := parseDateRange(r.From, r.To)
+	dates, err := listquery.ParseDateRange(r.From, r.To)
 	if err != nil {
 		return models.GetAdminBoundaryMarksCountFilters{}, err
 	}
@@ -51,23 +51,6 @@ func (r GetAdminBoundariesMarksCountRequest) Filters() (models.GetAdminBoundaryM
 		MarkStatusIds: markStatusIds,
 		DateRange:     dates,
 	}, nil
-}
-
-// parseDateRange parses optional RFC3339 bounds.
-func parseDateRange(from, to string) (models.DateRange, error) {
-	var r models.DateRange
-	var err error
-	if from != "" {
-		if r.From, err = time.Parse(time.RFC3339, from); err != nil {
-			return models.DateRange{}, fmt.Errorf("from must be RFC3339")
-		}
-	}
-	if to != "" {
-		if r.To, err = time.Parse(time.RFC3339, to); err != nil {
-			return models.DateRange{}, fmt.Errorf("to must be RFC3339")
-		}
-	}
-	return r, nil
 }
 
 type GetAdminBoundariesMarksCountResponse struct {

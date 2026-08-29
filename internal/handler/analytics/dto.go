@@ -1,42 +1,22 @@
 package analyticsrest
 
 import (
-	"fmt"
-	"time"
-
+	"github.com/PritOriginal/problem-map-server/internal/handler/listquery"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 )
-
-// parseDateRange parses optional RFC3339 bounds. Returned errors are safe to
-// show to the client.
-func parseDateRange(from, to string) (models.DateRange, error) {
-	var r models.DateRange
-	var err error
-	if from != "" {
-		if r.From, err = time.Parse(time.RFC3339, from); err != nil {
-			return models.DateRange{}, fmt.Errorf("from must be RFC3339")
-		}
-	}
-	if to != "" {
-		if r.To, err = time.Parse(time.RFC3339, to); err != nil {
-			return models.DateRange{}, fmt.Errorf("to must be RFC3339")
-		}
-	}
-	return r, nil
-}
 
 // GetKPIRequest is bound from the query string of GET /analytics/kpi.
 type GetKPIRequest struct {
 	BoundaryID int `form:"boundary_id" binding:"omitempty,min=1"`
 	MarkTypeID int `form:"mark_type_id" binding:"omitempty,min=1"`
-	// From / To are RFC3339 timestamps bounding marks' creation.
+	// From / To (RFC3339 or YYYY-MM-DD) bound marks' creation.
 	From string `form:"from"`
 	To   string `form:"to"`
 }
 
 // Filters converts the request to domain filters.
 func (r GetKPIRequest) Filters() (models.AnalyticsFilters, error) {
-	dates, err := parseDateRange(r.From, r.To)
+	dates, err := listquery.ParseDateRange(r.From, r.To)
 	if err != nil {
 		return models.AnalyticsFilters{}, err
 	}
@@ -68,7 +48,7 @@ func (r GetTimeseriesRequest) Filters() (models.TimeseriesFilters, error) {
 // GetTopTypesRequest is bound from the query string of GET /analytics/top-types.
 type GetTopTypesRequest struct {
 	BoundaryID int `form:"boundary_id" binding:"omitempty,min=1"`
-	// From / To are RFC3339 timestamps bounding marks' creation.
+	// From / To (RFC3339 or YYYY-MM-DD) bound marks' creation.
 	From  string `form:"from"`
 	To    string `form:"to"`
 	Limit int    `form:"limit" binding:"omitempty,min=1,max=100"`
@@ -76,7 +56,7 @@ type GetTopTypesRequest struct {
 
 // Filters converts the request to domain filters.
 func (r GetTopTypesRequest) Filters() (models.TopTypesFilters, error) {
-	dates, err := parseDateRange(r.From, r.To)
+	dates, err := listquery.ParseDateRange(r.From, r.To)
 	if err != nil {
 		return models.TopTypesFilters{}, err
 	}

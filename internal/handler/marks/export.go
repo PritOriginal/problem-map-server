@@ -63,8 +63,8 @@ type ExportMarksRequest struct {
 //	@Param			mark_status_ids	query		string					false	"filter by mark statuses, comma-separated ids"
 //	@Param			user_id			query		int						false	"filter by author"
 //	@Param			bbox			query		string					false	"bounding box minLon,minLat,maxLon,maxLat (WGS84)"
-//	@Param			created_from	query		string					false	"created_at >= (RFC3339)"
-//	@Param			created_to		query		string					false	"created_at <= (RFC3339)"
+//	@Param			created_from	query		string					false	"created_at >= (RFC3339 or YYYY-MM-DD, taken as 00:00:00 UTC)"
+//	@Param			created_to		query		string					false	"created_at <= (RFC3339 or YYYY-MM-DD, taken as the end of that day in UTC)"
 //	@Param			sort			query		string					false	"sort column"	Enums(created_at, updated_at)	default(created_at)
 //	@Param			order			query		string					false	"sort order"	Enums(asc, desc)				default(desc)
 //	@Success		200				{string}	string					"the file; Content-Disposition: attachment"

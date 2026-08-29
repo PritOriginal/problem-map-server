@@ -71,7 +71,19 @@ func (suite *MapSuite) TestGetAdminBoundariesMarksCount_Filters() {
 			statusCode:  http.StatusOK,
 		},
 		{name: "Err400StatusIds", query: "?mark_status_ids=a", statusCode: http.StatusBadRequest},
-		{name: "Err400From", query: "?from=2026-01-01", statusCode: http.StatusBadRequest},
+		{
+			name:  "Ok200DateOnly",
+			query: "?from=2026-01-01&to=2026-01-31",
+			wantFilters: &models.GetAdminBoundaryMarksCountFilters{
+				AdminLevels: []int{}, MarkTypeIds: []int{}, MarkStatusIds: []int{},
+				DateRange: models.DateRange{
+					From: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC),
+					To:   time.Date(2026, 1, 31, 23, 59, 59, 999999999, time.UTC),
+				},
+			},
+			statusCode: http.StatusOK,
+		},
+		{name: "Err400From", query: "?from=2026-01-01T00:00:00", statusCode: http.StatusBadRequest},
 		{name: "Err400To", query: "?to=x", statusCode: http.StatusBadRequest},
 		{
 			name:        "Err400Usecase",

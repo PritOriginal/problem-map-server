@@ -187,9 +187,9 @@ func viewerContext(c *gin.Context, userId int) context.Context {
 //	@Param			mark_status_ids	query		string	false	"filter by mark statuses, comma-separated ids"
 //	@Param			user_id			query		int		false	"filter by author"
 //	@Param			bbox			query		string	false	"bounding box minLon,minLat,maxLon,maxLat (WGS84)"
-//	@Param			created_from	query		string	false	"created_at >= (RFC3339)"
-//	@Param			created_to		query		string	false	"created_at <= (RFC3339)"
-//	@Param			updated_since	query		string	false	"updated_at > (RFC3339); for incremental sync combine with sort=updated_at&order=asc"
+//	@Param			created_from	query		string	false	"created_at >= (RFC3339 or YYYY-MM-DD, taken as 00:00:00 UTC)"
+//	@Param			created_to		query		string	false	"created_at <= (RFC3339 or YYYY-MM-DD, taken as the end of that day in UTC)"
+//	@Param			updated_since	query		string	false	"updated_at > (RFC3339 or YYYY-MM-DD); for incremental sync combine with sort=updated_at&order=asc"
 //	@Param			sort			query		string	false	"sort column"		Enums(created_at, updated_at)	default(created_at)
 //	@Param			order			query		string	false	"sort order"		Enums(asc, desc)				default(desc)
 //	@Param			limit			query		int		false	"page size, 1..500"	default(100)
@@ -275,7 +275,7 @@ func (h *handler) GetMarksNearby() gin.HandlerFunc {
 //	@Description	marks updated after `since` (oldest change first; page with limit/offset, total in `meta`), ids of marks deleted after `since` (paged by the same limit/offset, total in `deleted_total`) and ids of marks hidden by moderation after it (paged the same way, total in `hidden_total`); a client drops its copies of the deleted and hidden marks. A hidden mark still shows up in `marks` for its author and for moderators (with `hidden: true`). Store `server_time` and pass it as the next `since`; with several server instances subtract a safety margin (`server_time - 1s`) to cover clock skew between them. `since` in the future is rejected with 400
 //	@Tags			marks
 //	@Produce		json
-//	@Param			since	query		string	true	"RFC3339 instant of the previous sync"
+//	@Param			since	query		string	true	"instant of the previous sync (RFC3339 or YYYY-MM-DD)"
 //	@Param			limit	query		int		false	"page size of `marks`, 1..500"	default(100)
 //	@Param			offset	query		int		false	"page offset of `marks`"		default(0)
 //	@Success		200		{object}	responses.Response[marksrest.GetMarkChangesResponse]

@@ -1,7 +1,6 @@
 package syncrest
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/handler/listquery"
@@ -14,11 +13,11 @@ type GetUserSyncRequest struct {
 	Since string `form:"since" binding:"required"`
 }
 
-// Filters parses since (RFC3339). Returned errors are safe to show.
+// Filters parses since (RFC3339 or YYYY-MM-DD). Returned errors are safe to show.
 func (r GetUserSyncRequest) Filters() (models.UserSyncFilters, error) {
-	since, err := time.Parse(time.RFC3339, r.Since)
+	since, err := listquery.ParseTime("since", r.Since)
 	if err != nil {
-		return models.UserSyncFilters{}, fmt.Errorf("since must be RFC3339")
+		return models.UserSyncFilters{}, err
 	}
 	filters := models.UserSyncFilters{Since: since, Pagination: r.Model()}
 	if err := filters.Validate(); err != nil {

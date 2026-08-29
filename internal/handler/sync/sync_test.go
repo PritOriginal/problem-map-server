@@ -96,7 +96,15 @@ func (suite *SyncSuite) TestGetUserSync() {
 		},
 		{name: "Err401", query: "?since=2025-03-01T12:00:00Z", auth: false, statusCode: http.StatusUnauthorized},
 		{name: "Err400MissingSince", query: "", auth: true, statusCode: http.StatusBadRequest},
-		{name: "Err400SinceFormat", query: "?since=2025-03-01", auth: true, statusCode: http.StatusBadRequest},
+		{
+			name:        "Ok200SinceDateOnly",
+			query:       "?since=2025-03-01",
+			auth:        true,
+			wantFilters: models.UserSyncFilters{Since: since.Truncate(24 * time.Hour), Pagination: models.Pagination{Limit: models.DefaultLimit}},
+			sync:        models.UserSync{ServerTime: serverTime},
+			statusCode:  http.StatusOK,
+		},
+		{name: "Err400SinceFormat", query: "?since=2025-03-01T12:00:00", auth: true, statusCode: http.StatusBadRequest},
 		{name: "Err400SinceInFuture", query: "?since=2999-01-01T00:00:00Z", auth: true, statusCode: http.StatusBadRequest},
 		{name: "Err400Limit", query: "?since=2025-03-01T12:00:00Z&limit=501", auth: true, statusCode: http.StatusBadRequest},
 		{

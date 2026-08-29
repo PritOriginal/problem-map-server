@@ -26,7 +26,7 @@ type GetMarksRequest struct {
 	BBox  string `form:"bbox"`
 	Sort  string `form:"sort" binding:"omitempty,oneof=created_at updated_at"`
 	Order string `form:"order" binding:"omitempty,oneof=asc desc"`
-	// CreatedFrom / CreatedTo / UpdatedSince are RFC3339 timestamps.
+	// CreatedFrom / CreatedTo / UpdatedSince are timestamps (RFC3339 or YYYY-MM-DD).
 	CreatedFrom  string `form:"created_from"`
 	CreatedTo    string `form:"created_to"`
 	UpdatedSince string `form:"updated_since"`
@@ -65,20 +65,14 @@ func (r GetMarksRequest) Filters() (models.GetMarksFilters, error) {
 		}
 		filters.BBox = &bbox
 	}
-	if r.CreatedFrom != "" {
-		if filters.CreatedFrom, err = time.Parse(time.RFC3339, r.CreatedFrom); err != nil {
-			return models.GetMarksFilters{}, fmt.Errorf("created_from must be RFC3339")
-		}
+	if filters.CreatedFrom, err = listquery.ParseTime("created_from", r.CreatedFrom); err != nil {
+		return models.GetMarksFilters{}, err
 	}
-	if r.CreatedTo != "" {
-		if filters.CreatedTo, err = time.Parse(time.RFC3339, r.CreatedTo); err != nil {
-			return models.GetMarksFilters{}, fmt.Errorf("created_to must be RFC3339")
-		}
+	if filters.CreatedTo, err = listquery.ParseTimeEnd("created_to", r.CreatedTo); err != nil {
+		return models.GetMarksFilters{}, err
 	}
-	if r.UpdatedSince != "" {
-		if filters.UpdatedSince, err = time.Parse(time.RFC3339, r.UpdatedSince); err != nil {
-			return models.GetMarksFilters{}, fmt.Errorf("updated_since must be RFC3339")
-		}
+	if filters.UpdatedSince, err = listquery.ParseTime("updated_since", r.UpdatedSince); err != nil {
+		return models.GetMarksFilters{}, err
 	}
 	if err := filters.Validate(); err != nil {
 		return models.GetMarksFilters{}, err
@@ -97,11 +91,11 @@ type GetMarkChangesRequest struct {
 	Since string `form:"since" binding:"required"`
 }
 
-// Filters parses since (RFC3339). Returned errors are safe to show.
+// Filters parses since (RFC3339 or YYYY-MM-DD). Returned errors are safe to show.
 func (r GetMarkChangesRequest) Filters() (models.MarkChangesFilters, error) {
-	since, err := time.Parse(time.RFC3339, r.Since)
+	since, err := listquery.ParseTime("since", r.Since)
 	if err != nil {
-		return models.MarkChangesFilters{}, fmt.Errorf("since must be RFC3339")
+		return models.MarkChangesFilters{}, err
 	}
 	filters := models.MarkChangesFilters{Since: since, Pagination: r.Model()}
 	if err := filters.Validate(); err != nil {

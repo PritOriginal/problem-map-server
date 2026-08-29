@@ -3260,11 +3260,13 @@ paths:
         in: query
         name: mark_type_id
         type: integer
-      - description: marks created at or after (RFC3339)
+      - description: marks created at or after (RFC3339 or YYYY-MM-DD, taken as 00:00:00
+          UTC)
         in: query
         name: from
         type: string
-      - description: marks created at or before (RFC3339)
+      - description: marks created at or before (RFC3339 or YYYY-MM-DD, taken as the
+          end of that day in UTC)
         in: query
         name: to
         type: string
@@ -3303,11 +3305,13 @@ paths:
         in: query
         name: mark_type_id
         type: integer
-      - description: start of the range (RFC3339)
+      - description: start of the range (RFC3339 or YYYY-MM-DD, taken as 00:00:00
+          UTC)
         in: query
         name: from
         type: string
-      - description: end of the range (RFC3339)
+      - description: end of the range (RFC3339 or YYYY-MM-DD, taken as the end of
+          that day in UTC)
         in: query
         name: to
         type: string
@@ -3350,11 +3354,13 @@ paths:
         in: query
         name: boundary_id
         type: integer
-      - description: marks created at or after (RFC3339)
+      - description: marks created at or after (RFC3339 or YYYY-MM-DD, taken as 00:00:00
+          UTC)
         in: query
         name: from
         type: string
-      - description: marks created at or before (RFC3339)
+      - description: marks created at or before (RFC3339 or YYYY-MM-DD, taken as the
+          end of that day in UTC)
         in: query
         name: to
         type: string
@@ -4138,11 +4144,13 @@ paths:
           type: number
         name: mark_status_ids
         type: array
-      - description: marks created at or after (RFC3339)
+      - description: marks created at or after (RFC3339 or YYYY-MM-DD, taken as 00:00:00
+          UTC)
         in: query
         name: from
         type: string
-      - description: marks created at or before (RFC3339)
+      - description: marks created at or before (RFC3339 or YYYY-MM-DD, taken as the
+          end of that day in UTC)
         in: query
         name: to
         type: string
@@ -4312,15 +4320,17 @@ paths:
         in: query
         name: bbox
         type: string
-      - description: created_at >= (RFC3339)
+      - description: created_at >= (RFC3339 or YYYY-MM-DD, taken as 00:00:00 UTC)
         in: query
         name: created_from
         type: string
-      - description: created_at <= (RFC3339)
+      - description: created_at <= (RFC3339 or YYYY-MM-DD, taken as the end of that
+          day in UTC)
         in: query
         name: created_to
         type: string
-      - description: updated_at > (RFC3339); for incremental sync combine with sort=updated_at&order=asc
+      - description: updated_at > (RFC3339 or YYYY-MM-DD); for incremental sync combine
+          with sort=updated_at&order=asc
         in: query
         name: updated_since
         type: string
@@ -5179,7 +5189,7 @@ paths:
         - 1s`) to cover clock skew between them. `since` in the future is rejected
         with 400'
       parameters:
-      - description: RFC3339 instant of the previous sync
+      - description: instant of the previous sync (RFC3339 or YYYY-MM-DD)
         in: query
         name: since
         required: true
@@ -5244,11 +5254,12 @@ paths:
         in: query
         name: bbox
         type: string
-      - description: created_at >= (RFC3339)
+      - description: created_at >= (RFC3339 or YYYY-MM-DD, taken as 00:00:00 UTC)
         in: query
         name: created_from
         type: string
-      - description: created_at <= (RFC3339)
+      - description: created_at <= (RFC3339 or YYYY-MM-DD, taken as the end of that
+          day in UTC)
         in: query
         name: created_to
         type: string
@@ -7038,7 +7049,7 @@ paths:
         with several server instances subtract a safety margin (`server_time - 1s`)
         to cover clock skew between them. `since` in the future is rejected with 400'
       parameters:
-      - description: RFC3339 instant of the previous sync
+      - description: instant of the previous sync (RFC3339 or YYYY-MM-DD)
         in: query
         name: since
         required: true

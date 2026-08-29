@@ -40,7 +40,7 @@ func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddlew
 //	@Tags			users
 //	@Produce		json
 //	@Security		BearerAuth
-//	@Param			since	query		string	true	"RFC3339 instant of the previous sync"
+//	@Param			since	query		string	true	"instant of the previous sync (RFC3339 or YYYY-MM-DD)"
 //	@Param			limit	query		int		false	"page size of each collection, 1..500"	default(100)
 //	@Param			offset	query		int		false	"page offset of each collection"		default(0)
 //	@Success		200		{object}	responses.Response[syncrest.GetUserSyncResponse]

@@ -410,13 +410,13 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "marks created at or after (RFC3339)",
+                        "description": "marks created at or after (RFC3339 or YYYY-MM-DD, taken as 00:00:00 UTC)",
                         "name": "from",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "marks created at or before (RFC3339)",
+                        "description": "marks created at or before (RFC3339 or YYYY-MM-DD, taken as the end of that day in UTC)",
                         "name": "to",
                         "in": "query"
                     }
@@ -476,13 +476,13 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "start of the range (RFC3339)",
+                        "description": "start of the range (RFC3339 or YYYY-MM-DD, taken as 00:00:00 UTC)",
                         "name": "from",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "end of the range (RFC3339)",
+                        "description": "end of the range (RFC3339 or YYYY-MM-DD, taken as the end of that day in UTC)",
                         "name": "to",
                         "in": "query"
                     },
@@ -548,13 +548,13 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "marks created at or after (RFC3339)",
+                        "description": "marks created at or after (RFC3339 or YYYY-MM-DD, taken as 00:00:00 UTC)",
                         "name": "from",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "marks created at or before (RFC3339)",
+                        "description": "marks created at or before (RFC3339 or YYYY-MM-DD, taken as the end of that day in UTC)",
                         "name": "to",
                         "in": "query"
                     },
@@ -1653,13 +1653,13 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "marks created at or after (RFC3339)",
+                        "description": "marks created at or after (RFC3339 or YYYY-MM-DD, taken as 00:00:00 UTC)",
                         "name": "from",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "marks created at or before (RFC3339)",
+                        "description": "marks created at or before (RFC3339 or YYYY-MM-DD, taken as the end of that day in UTC)",
                         "name": "to",
                         "in": "query"
                     }
@@ -2001,19 +2001,19 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "created_at \u003e= (RFC3339)",
+                        "description": "created_at \u003e= (RFC3339 or YYYY-MM-DD, taken as 00:00:00 UTC)",
                         "name": "created_from",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "created_at \u003c= (RFC3339)",
+                        "description": "created_at \u003c= (RFC3339 or YYYY-MM-DD, taken as the end of that day in UTC)",
                         "name": "created_to",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "updated_at \u003e (RFC3339); for incremental sync combine with sort=updated_at\u0026order=asc",
+                        "description": "updated_at \u003e (RFC3339 or YYYY-MM-DD); for incremental sync combine with sort=updated_at\u0026order=asc",
                         "name": "updated_since",
                         "in": "query"
                     },
@@ -2208,7 +2208,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "RFC3339 instant of the previous sync",
+                        "description": "instant of the previous sync (RFC3339 or YYYY-MM-DD)",
                         "name": "since",
                         "in": "query",
                         "required": true
@@ -2307,13 +2307,13 @@ const docTemplate = `{
                     },
                     {
                         "type": "string",
-                        "description": "created_at \u003e= (RFC3339)",
+                        "description": "created_at \u003e= (RFC3339 or YYYY-MM-DD, taken as 00:00:00 UTC)",
                         "name": "created_from",
                         "in": "query"
                     },
                     {
                         "type": "string",
-                        "description": "created_at \u003c= (RFC3339)",
+                        "description": "created_at \u003c= (RFC3339 or YYYY-MM-DD, taken as the end of that day in UTC)",
                         "name": "created_to",
                         "in": "query"
                     },
@@ -5768,7 +5768,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "RFC3339 instant of the previous sync",
+                        "description": "instant of the previous sync (RFC3339 or YYYY-MM-DD)",
                         "name": "since",
                         "in": "query",
                         "required": true
