@@ -169,14 +169,13 @@ func (r *UsersRepository) GetRatingEvents(ctx context.Context, userId int, p mod
 	return page, nil
 }
 
-// GetLeaderboard returns users ordered by rating (highest first).
+// GetLeaderboard returns users ordered by rating (highest first). Only the
+// public identity is selected: the leaderboard never needs login, home
+// point or role, so they cannot leak from here.
 func (r *UsersRepository) GetLeaderboard(ctx context.Context, p models.Pagination) (models.Page[models.User], error) {
 	const op = "storage.postgres.GetLeaderboard"
 
-	q := newListQuery(
-		"user_id, name, login, ST_AsEWKB(home_point) as home_point, rating, role",
-		"users",
-	).
+	q := newListQuery("user_id, name, COALESCE(rating, 0) AS rating", "users").
 		OrderBy("rating DESC, user_id ASC").
 		Paginate(p)
 

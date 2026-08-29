@@ -326,22 +326,12 @@ func NewUpdater(log *slog.Logger, cfg config.RatingConfig, trManager trm.Manager
 func (u *Updater) Update(ctx context.Context, markId int) error {
 	const op = "usecase.Updater.Update"
 
-	mark, err := u.repos.Marks.GetMarkById(ctx, markId)
-	if err != nil {
-		return mapRepoErr(op, err)
-	}
-
-	historyItem, err := u.repos.Marks.GetLastMarkStatusHistoryItem(ctx, markId)
+	mark, checks, err := u.loadStage(ctx, markId)
 	if err != nil {
 		return mapRepoErr(op, err)
 	}
 
 	if mark.MarkStatusID == models.UnconfirmedStatus || mark.MarkStatusID == models.UnderReviewStatus {
-		checks, err := u.repos.Checks.GetChecksByMarkHistoryId(ctx, historyItem.ID)
-		if err != nil {
-			return mapRepoErr(op, err)
-		}
-
 		score := 0
 		for _, check := range checks {
 			if check.Result {
@@ -397,17 +387,7 @@ func (u *Updater) decide(ctx context.Context, op string, markId int,
 			return err
 		}
 
-		mark, err := u.repos.Marks.GetMarkById(ctx, markId)
-		if err != nil {
-			return err
-		}
-
-		historyItem, err := u.repos.Marks.GetLastMarkStatusHistoryItem(ctx, markId)
-		if err != nil {
-			return err
-		}
-
-		checks, err := u.repos.Checks.GetChecksByMarkHistoryId(ctx, historyItem.ID)
+		mark, checks, err := u.loadStage(ctx, markId)
 		if err != nil {
 			return err
 		}
@@ -420,6 +400,27 @@ func (u *Updater) decide(ctx context.Context, op string, markId int,
 	}
 
 	return newStatus, nil
+}
+
+// loadStage reads the mark and the checks of its current voting stage
+// (the ones attached to the latest status history item).
+func (u *Updater) loadStage(ctx context.Context, markId int) (models.Mark, []models.Check, error) {
+	mark, err := u.repos.Marks.GetMarkById(ctx, markId)
+	if err != nil {
+		return models.Mark{}, nil, err
+	}
+
+	historyItem, err := u.repos.Marks.GetLastMarkStatusHistoryItem(ctx, markId)
+	if err != nil {
+		return models.Mark{}, nil, err
+	}
+
+	checks, err := u.repos.Checks.GetChecksByMarkHistoryId(ctx, historyItem.ID)
+	if err != nil {
+		return models.Mark{}, nil, err
+	}
+
+	return mark, checks, nil
 }
 
 func (u *Updater) confirm(ctx context.Context, mark models.Mark, checks []models.Check) (models.MarkStatusType, error) {
