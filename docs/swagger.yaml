@@ -65,6 +65,16 @@ definitions:
       region_id:
         type: integer
     type: object
+  github_com_PritOriginal_problem-map-server_internal_models.DevicePlatform:
+    enum:
+    - android
+    - ios
+    - web
+    type: string
+    x-enum-varnames:
+    - PlatformAndroid
+    - PlatformIOS
+    - PlatformWeb
   github_com_PritOriginal_problem-map-server_internal_models.District:
     properties:
       city_id:
@@ -182,6 +192,38 @@ definitions:
       type:
         type: string
     type: object
+  github_com_PritOriginal_problem-map-server_internal_models.Notification:
+    properties:
+      body:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      mark_id:
+        type: integer
+      read_at:
+        format: date-time
+        type: string
+      task_id:
+        type: integer
+      title:
+        type: string
+      type:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.NotificationType'
+      user_id:
+        type: integer
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.NotificationType:
+    enum:
+    - mark.status_changed
+    - task.assigned
+    - check.added
+    type: string
+    x-enum-varnames:
+    - NotificationMarkStatusChanged
+    - NotificationTaskAssigned
+    - NotificationCheckAdded
   github_com_PritOriginal_problem-map-server_internal_models.PointJSON:
     properties:
       coordinates:
@@ -271,6 +313,19 @@ definitions:
         type: integer
       username:
         type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.UserDevice:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      platform:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.DevicePlatform'
+      token:
+        type: string
+      user_id:
+        type: integer
     type: object
   github_com_PritOriginal_problem-map-server_internal_usecase.HealthReport:
     additionalProperties:
@@ -553,6 +608,50 @@ definitions:
       success:
         type: boolean
     type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_notifications_GetNotificationsResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_notifications.GetNotificationsResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_notifications_MarkAllReadResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_notifications.MarkAllReadResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_notifications_RegisterDeviceResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_notifications.RegisterDeviceResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_notifications_UnreadCountResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_notifications.UnreadCountResponse'
+      success:
+        type: boolean
+    type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_AddTaskResponse:
     properties:
       error:
@@ -823,6 +922,45 @@ definitions:
     properties:
       new_mark_staus_id:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
+    type: object
+  internal_handler_notifications.GetNotificationsResponse:
+    properties:
+      notifications:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Notification'
+        type: array
+    type: object
+  internal_handler_notifications.MarkAllReadResponse:
+    properties:
+      updated:
+        description: Updated is the number of notifications marked as read.
+        type: integer
+    type: object
+  internal_handler_notifications.RegisterDeviceRequest:
+    properties:
+      platform:
+        allOf:
+        - $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.DevicePlatform'
+        enum:
+        - android
+        - ios
+        - web
+      token:
+        maxLength: 4096
+        type: string
+    required:
+    - platform
+    - token
+    type: object
+  internal_handler_notifications.RegisterDeviceResponse:
+    properties:
+      device:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.UserDevice'
+    type: object
+  internal_handler_notifications.UnreadCountResponse:
+    properties:
+      count:
+        type: integer
     type: object
   internal_handler_tasks.AddTaskRequest:
     properties:
@@ -1721,6 +1859,132 @@ paths:
       summary: List markers by user id
       tags:
       - marks
+  /notifications:
+    get:
+      description: get notifications of the authenticated user, newest first; pagination
+        info is returned in the top-level `meta` field ({limit, offset, total})
+      parameters:
+      - description: only unread notifications
+        in: query
+        name: unread
+        type: boolean
+      - default: 100
+        description: page size, 1..500
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: page offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_notifications_GetNotificationsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: List my notifications
+      tags:
+      - notifications
+  /notifications/{id}/read:
+    patch:
+      description: mark the notification of the authenticated user as read (idempotent)
+      parameters:
+      - description: notification id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Mark notification as read
+      tags:
+      - notifications
+  /notifications/read-all:
+    patch:
+      description: mark every unread notification of the authenticated user as read
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_notifications_MarkAllReadResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Mark all notifications as read
+      tags:
+      - notifications
+  /notifications/unread-count:
+    get:
+      description: get the number of unread notifications of the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_notifications_UnreadCountResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Count my unread notifications
+      tags:
+      - notifications
   /readyz:
     get:
       description: Pings every infrastructure dependency and reports their status.
@@ -1980,6 +2244,76 @@ paths:
       summary: Get current user
       tags:
       - users
+  /users/me/devices:
+    post:
+      consumes:
+      - application/json
+      description: register (upsert) a push token of the authenticated user; a token
+        already registered is moved to this user
+      parameters:
+      - description: device
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_notifications.RegisterDeviceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_notifications_RegisterDeviceResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Register push device
+      tags:
+      - notifications
+  /users/me/devices/{token}:
+    delete:
+      description: remove the push token of the authenticated user
+      parameters:
+      - description: push token
+        in: path
+        name: token
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Delete push device
+      tags:
+      - notifications
 securityDefinitions:
   BearerAuth:
     description: 'JWT access token: "Bearer {token}"'
@@ -2000,3 +2334,5 @@ tags:
   name: tasks
 - description: Operations with users
   name: users
+- description: User notifications and push devices
+  name: notifications

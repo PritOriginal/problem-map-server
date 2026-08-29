@@ -37,6 +37,9 @@ import (
 //	@tag.name			users
 //	@tag.description	Operations with users
 
+//	@tag.name			notifications
+//	@tag.description	User notifications and push devices
+
 func main() {
 	os.Exit(run())
 }
