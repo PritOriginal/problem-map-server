@@ -106,6 +106,78 @@ func (_c *MockChecksRepository_AddCheck_Call) RunAndReturn(run func(ctx context.
 	return _c
 }
 
+// CountChecksByUserIdSince provides a mock function for the type MockChecksRepository
+func (_mock *MockChecksRepository) CountChecksByUserIdSince(ctx context.Context, userId int, since time.Time) (int, error) {
+	ret := _mock.Called(ctx, userId, since)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CountChecksByUserIdSince")
+	}
+
+	var r0 int
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, time.Time) (int, error)); ok {
+		return returnFunc(ctx, userId, since)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, time.Time) int); ok {
+		r0 = returnFunc(ctx, userId, since)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, time.Time) error); ok {
+		r1 = returnFunc(ctx, userId, since)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockChecksRepository_CountChecksByUserIdSince_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountChecksByUserIdSince'
+type MockChecksRepository_CountChecksByUserIdSince_Call struct {
+	*mock.Call
+}
+
+// CountChecksByUserIdSince is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userId int
+//   - since time.Time
+func (_e *MockChecksRepository_Expecter) CountChecksByUserIdSince(ctx any, userId any, since any) *MockChecksRepository_CountChecksByUserIdSince_Call {
+	return &MockChecksRepository_CountChecksByUserIdSince_Call{Call: _e.mock.On("CountChecksByUserIdSince", ctx, userId, since)}
+}
+
+func (_c *MockChecksRepository_CountChecksByUserIdSince_Call) Run(run func(ctx context.Context, userId int, since time.Time)) *MockChecksRepository_CountChecksByUserIdSince_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 time.Time
+		if args[2] != nil {
+			arg2 = args[2].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockChecksRepository_CountChecksByUserIdSince_Call) Return(n int, err error) *MockChecksRepository_CountChecksByUserIdSince_Call {
+	_c.Call.Return(n, err)
+	return _c
+}
+
+func (_c *MockChecksRepository_CountChecksByUserIdSince_Call) RunAndReturn(run func(ctx context.Context, userId int, since time.Time) (int, error)) *MockChecksRepository_CountChecksByUserIdSince_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetCheckById provides a mock function for the type MockChecksRepository
 func (_mock *MockChecksRepository) GetCheckById(ctx context.Context, id int) (models.Check, error) {
 	ret := _mock.Called(ctx, id)
@@ -2210,6 +2282,63 @@ func (_c *MockMarksRepository_GetSimilarMarks_Call) RunAndReturn(run func(ctx co
 	return _c
 }
 
+// LockMark provides a mock function for the type MockMarksRepository
+func (_mock *MockMarksRepository) LockMark(ctx context.Context, markId int) error {
+	ret := _mock.Called(ctx, markId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LockMark")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) error); ok {
+		r0 = returnFunc(ctx, markId)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockMarksRepository_LockMark_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LockMark'
+type MockMarksRepository_LockMark_Call struct {
+	*mock.Call
+}
+
+// LockMark is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markId int
+func (_e *MockMarksRepository_Expecter) LockMark(ctx any, markId any) *MockMarksRepository_LockMark_Call {
+	return &MockMarksRepository_LockMark_Call{Call: _e.mock.On("LockMark", ctx, markId)}
+}
+
+func (_c *MockMarksRepository_LockMark_Call) Run(run func(ctx context.Context, markId int)) *MockMarksRepository_LockMark_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarksRepository_LockMark_Call) Return(err error) *MockMarksRepository_LockMark_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockMarksRepository_LockMark_Call) RunAndReturn(run func(ctx context.Context, markId int) error) *MockMarksRepository_LockMark_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UnfollowMark provides a mock function for the type MockMarksRepository
 func (_mock *MockMarksRepository) UnfollowMark(ctx context.Context, userId int, markId int) error {
 	ret := _mock.Called(ctx, userId, markId)
@@ -4109,6 +4238,72 @@ func (_m *MockUsersRepository) EXPECT() *MockUsersRepository_Expecter {
 	return &MockUsersRepository_Expecter{mock: &_m.Mock}
 }
 
+// AddRatingEvent provides a mock function for the type MockUsersRepository
+func (_mock *MockUsersRepository) AddRatingEvent(ctx context.Context, event models.RatingEvent) (int64, error) {
+	ret := _mock.Called(ctx, event)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AddRatingEvent")
+	}
+
+	var r0 int64
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.RatingEvent) (int64, error)); ok {
+		return returnFunc(ctx, event)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.RatingEvent) int64); ok {
+		r0 = returnFunc(ctx, event)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.RatingEvent) error); ok {
+		r1 = returnFunc(ctx, event)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockUsersRepository_AddRatingEvent_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddRatingEvent'
+type MockUsersRepository_AddRatingEvent_Call struct {
+	*mock.Call
+}
+
+// AddRatingEvent is a helper method to define mock.On call
+//   - ctx context.Context
+//   - event models.RatingEvent
+func (_e *MockUsersRepository_Expecter) AddRatingEvent(ctx any, event any) *MockUsersRepository_AddRatingEvent_Call {
+	return &MockUsersRepository_AddRatingEvent_Call{Call: _e.mock.On("AddRatingEvent", ctx, event)}
+}
+
+func (_c *MockUsersRepository_AddRatingEvent_Call) Run(run func(ctx context.Context, event models.RatingEvent)) *MockUsersRepository_AddRatingEvent_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 models.RatingEvent
+		if args[1] != nil {
+			arg1 = args[1].(models.RatingEvent)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUsersRepository_AddRatingEvent_Call) Return(n int64, err error) *MockUsersRepository_AddRatingEvent_Call {
+	_c.Call.Return(n, err)
+	return _c
+}
+
+func (_c *MockUsersRepository_AddRatingEvent_Call) RunAndReturn(run func(ctx context.Context, event models.RatingEvent) (int64, error)) *MockUsersRepository_AddRatingEvent_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // AddUser provides a mock function for the type MockUsersRepository
 func (_mock *MockUsersRepository) AddUser(ctx context.Context, user models.User) (int64, error) {
 	ret := _mock.Called(ctx, user)
@@ -4241,6 +4436,144 @@ func (_c *MockUsersRepository_CountByRole_Call) RunAndReturn(run func(ctx contex
 	return _c
 }
 
+// GetLeaderboard provides a mock function for the type MockUsersRepository
+func (_mock *MockUsersRepository) GetLeaderboard(ctx context.Context, p models.Pagination) (models.Page[models.User], error) {
+	ret := _mock.Called(ctx, p)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetLeaderboard")
+	}
+
+	var r0 models.Page[models.User]
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Pagination) (models.Page[models.User], error)); ok {
+		return returnFunc(ctx, p)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Pagination) models.Page[models.User]); ok {
+		r0 = returnFunc(ctx, p)
+	} else {
+		r0 = ret.Get(0).(models.Page[models.User])
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.Pagination) error); ok {
+		r1 = returnFunc(ctx, p)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockUsersRepository_GetLeaderboard_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetLeaderboard'
+type MockUsersRepository_GetLeaderboard_Call struct {
+	*mock.Call
+}
+
+// GetLeaderboard is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p models.Pagination
+func (_e *MockUsersRepository_Expecter) GetLeaderboard(ctx any, p any) *MockUsersRepository_GetLeaderboard_Call {
+	return &MockUsersRepository_GetLeaderboard_Call{Call: _e.mock.On("GetLeaderboard", ctx, p)}
+}
+
+func (_c *MockUsersRepository_GetLeaderboard_Call) Run(run func(ctx context.Context, p models.Pagination)) *MockUsersRepository_GetLeaderboard_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 models.Pagination
+		if args[1] != nil {
+			arg1 = args[1].(models.Pagination)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUsersRepository_GetLeaderboard_Call) Return(page models.Page[models.User], err error) *MockUsersRepository_GetLeaderboard_Call {
+	_c.Call.Return(page, err)
+	return _c
+}
+
+func (_c *MockUsersRepository_GetLeaderboard_Call) RunAndReturn(run func(ctx context.Context, p models.Pagination) (models.Page[models.User], error)) *MockUsersRepository_GetLeaderboard_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetRatingEvents provides a mock function for the type MockUsersRepository
+func (_mock *MockUsersRepository) GetRatingEvents(ctx context.Context, userId int, p models.Pagination) (models.Page[models.RatingEvent], error) {
+	ret := _mock.Called(ctx, userId, p)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetRatingEvents")
+	}
+
+	var r0 models.Page[models.RatingEvent]
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, models.Pagination) (models.Page[models.RatingEvent], error)); ok {
+		return returnFunc(ctx, userId, p)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, models.Pagination) models.Page[models.RatingEvent]); ok {
+		r0 = returnFunc(ctx, userId, p)
+	} else {
+		r0 = ret.Get(0).(models.Page[models.RatingEvent])
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, models.Pagination) error); ok {
+		r1 = returnFunc(ctx, userId, p)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockUsersRepository_GetRatingEvents_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetRatingEvents'
+type MockUsersRepository_GetRatingEvents_Call struct {
+	*mock.Call
+}
+
+// GetRatingEvents is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userId int
+//   - p models.Pagination
+func (_e *MockUsersRepository_Expecter) GetRatingEvents(ctx any, userId any, p any) *MockUsersRepository_GetRatingEvents_Call {
+	return &MockUsersRepository_GetRatingEvents_Call{Call: _e.mock.On("GetRatingEvents", ctx, userId, p)}
+}
+
+func (_c *MockUsersRepository_GetRatingEvents_Call) Run(run func(ctx context.Context, userId int, p models.Pagination)) *MockUsersRepository_GetRatingEvents_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 models.Pagination
+		if args[2] != nil {
+			arg2 = args[2].(models.Pagination)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUsersRepository_GetRatingEvents_Call) Return(page models.Page[models.RatingEvent], err error) *MockUsersRepository_GetRatingEvents_Call {
+	_c.Call.Return(page, err)
+	return _c
+}
+
+func (_c *MockUsersRepository_GetRatingEvents_Call) RunAndReturn(run func(ctx context.Context, userId int, p models.Pagination) (models.Page[models.RatingEvent], error)) *MockUsersRepository_GetRatingEvents_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetUserById provides a mock function for the type MockUsersRepository
 func (_mock *MockUsersRepository) GetUserById(ctx context.Context, id int) (models.User, error) {
 	ret := _mock.Called(ctx, id)
@@ -4369,6 +4702,72 @@ func (_c *MockUsersRepository_GetUserByLogin_Call) Return(user models.User, err 
 }
 
 func (_c *MockUsersRepository_GetUserByLogin_Call) RunAndReturn(run func(ctx context.Context, username string) (models.User, error)) *MockUsersRepository_GetUserByLogin_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetUserStats provides a mock function for the type MockUsersRepository
+func (_mock *MockUsersRepository) GetUserStats(ctx context.Context, userId int) (models.UserStats, error) {
+	ret := _mock.Called(ctx, userId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetUserStats")
+	}
+
+	var r0 models.UserStats
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) (models.UserStats, error)); ok {
+		return returnFunc(ctx, userId)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) models.UserStats); ok {
+		r0 = returnFunc(ctx, userId)
+	} else {
+		r0 = ret.Get(0).(models.UserStats)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = returnFunc(ctx, userId)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockUsersRepository_GetUserStats_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetUserStats'
+type MockUsersRepository_GetUserStats_Call struct {
+	*mock.Call
+}
+
+// GetUserStats is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userId int
+func (_e *MockUsersRepository_Expecter) GetUserStats(ctx any, userId any) *MockUsersRepository_GetUserStats_Call {
+	return &MockUsersRepository_GetUserStats_Call{Call: _e.mock.On("GetUserStats", ctx, userId)}
+}
+
+func (_c *MockUsersRepository_GetUserStats_Call) Run(run func(ctx context.Context, userId int)) *MockUsersRepository_GetUserStats_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUsersRepository_GetUserStats_Call) Return(userStats models.UserStats, err error) *MockUsersRepository_GetUserStats_Call {
+	_c.Call.Return(userStats, err)
+	return _c
+}
+
+func (_c *MockUsersRepository_GetUserStats_Call) RunAndReturn(run func(ctx context.Context, userId int) (models.UserStats, error)) *MockUsersRepository_GetUserStats_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -56,6 +56,7 @@ func (suite *ConfigSuite) TestValidate() {
 			TargetProbability: 0.5, MaxRadiusMeters: 100,
 		}
 		c.Marks = config.MarksConfig{DedupRadiusM: 50}
+		c.Rating = config.RatingConfig{CheckCorrect: 2, CheckWrong: -1, MarkConfirmed: 3, MarkRefuted: -2, TaskCompleted: 1, MaxChecksPerDay: 50}
 		return c
 	}
 
@@ -65,6 +66,7 @@ func (suite *ConfigSuite) TestValidate() {
 		wantErr string
 	}{
 		{name: "Valid", mutate: func(*config.Config) {}},
+		{name: "zero checks per day", mutate: func(c *config.Config) { c.Rating.MaxChecksPerDay = 0 }, wantErr: "RATING_MAX_CHECKS_PER_DAY"},
 		{name: "ShortAccessKey", mutate: func(c *config.Config) { c.Auth.JWT.Access.Key = "qwer" }, wantErr: "JWT_ACCESS_TOKEN_KEY"},
 		{name: "EmptyRefreshKey", mutate: func(c *config.Config) { c.Auth.JWT.Refresh.Key = "" }, wantErr: "JWT_REFRESH_TOKEN_KEY"},
 		{name: "EmptyDBPasswordAllowed", mutate: func(c *config.Config) { c.DB.Password = "" }},

@@ -3,6 +3,9 @@
 package postgres_test
 
 import (
+	"context"
+	"time"
+
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/twpayne/go-geom"
@@ -79,6 +82,73 @@ func (s *PostgresSuite) TestMarks_GetMarkById() {
 			s.InDelta(tt.want.Geom.Ewkb.X(), got.Geom.Ewkb.X(), 1e-6)
 			s.InDelta(tt.want.Geom.Ewkb.Y(), got.Geom.Ewkb.Y(), 1e-6)
 		})
+	}
+}
+
+func (s *PostgresSuite) TestMarks_LockMark() {
+	tests := []struct {
+		name    string
+		markId  int
+		wantErr error
+	}{
+		{name: "existing mark", markId: fxMarkNear},
+		{name: "unknown mark", markId: 999, wantErr: repository.ErrNotFound},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			err := s.trm.Do(s.ctx, func(ctx context.Context) error {
+				return s.marks.LockMark(ctx, tt.markId)
+			})
+			if tt.wantErr != nil {
+				s.ErrorIs(err, tt.wantErr)
+				return
+			}
+			s.NoError(err)
+		})
+	}
+}
+
+// TestMarks_LockMark_Serialises: a second transaction cannot take the mark
+// lock until the first one commits.
+func (s *PostgresSuite) TestMarks_LockMark_Serialises() {
+	locked := make(chan struct{})
+	release := make(chan struct{})
+	secondDone := make(chan time.Time, 1)
+
+	go func() {
+		_ = s.trm.Do(s.ctx, func(ctx context.Context) error {
+			if err := s.marks.LockMark(ctx, fxMarkNear); err != nil {
+				return err
+			}
+			close(locked)
+			<-release
+			return nil
+		})
+	}()
+
+	<-locked
+	go func() {
+		_ = s.trm.Do(s.ctx, func(ctx context.Context) error {
+			err := s.marks.LockMark(ctx, fxMarkNear)
+			secondDone <- time.Now()
+			return err
+		})
+	}()
+
+	select {
+	case <-secondDone:
+		s.Fail("second transaction acquired the lock while the first held it")
+	case <-time.After(300 * time.Millisecond):
+	}
+	released := time.Now()
+	close(release)
+
+	select {
+	case got := <-secondDone:
+		s.False(got.Before(released), "lock acquired only after the first transaction ended")
+	case <-time.After(5 * time.Second):
+		s.Fail("second transaction never acquired the lock")
 	}
 }
 

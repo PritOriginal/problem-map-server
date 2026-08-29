@@ -242,6 +242,33 @@ func (s *PostgresSuite) TestChecks_GetChecksByUserIdAndMarkIdSince() {
 	}
 }
 
+// TestChecks_CountChecksByUserIdSince: the boundary is passed in a non-UTC
+// zone on purpose — the query casts it to timestamptz, so the client's
+// offset must not shift the 24h anti-fraud window.
+func (s *PostgresSuite) TestChecks_CountChecksByUserIdSince() {
+	now := time.Now().In(time.FixedZone("UTC+3", 3*60*60))
+	tests := []struct {
+		name   string
+		userID int
+		since  time.Time
+		want   int
+	}{
+		{name: "both of Bob's checks in the last day", userID: fxUserBob, since: now.Add(-24 * time.Hour), want: 2},
+		{name: "only the 1h-old check in the last 90 minutes", userID: fxUserBob, since: now.Add(-90 * time.Minute), want: 1},
+		{name: "nothing in the last 30 minutes", userID: fxUserBob, since: now.Add(-30 * time.Minute), want: 0},
+		{name: "Alice's 3h-old check is outside a 2h window", userID: fxUserAlice, since: now.Add(-2 * time.Hour), want: 0},
+		{name: "unknown user", userID: 999, since: now.Add(-24 * time.Hour), want: 0},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			n, err := s.checks.CountChecksByUserIdSince(s.ctx, tt.userID, tt.since)
+			s.Require().NoError(err)
+			s.Equal(tt.want, n)
+		})
+	}
+}
+
 // TestChecks_GetUserMarkCheck covers the recursive CTE that walks the status
 // history chain through parent statuses: a check left on the "unconfirmed"
 // row must be found when asking about the child "confirmed" row.

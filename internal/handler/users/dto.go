@@ -49,3 +49,31 @@ type ChangePasswordRequest struct {
 type SetRoleRequest struct {
 	Role models.Role `json:"role" binding:"required,oneof=user moderator admin" enums:"user,moderator,admin"`
 }
+
+// GetUserStatsResponse contains the activity summary of a user.
+type GetUserStatsResponse struct {
+	Stats models.UserStats `json:"stats"`
+}
+
+// LeaderboardEntry is a leaderboard row: the public identity and rating.
+type LeaderboardEntry struct {
+	Id     int    `json:"user_id"`
+	Name   string `json:"username"`
+	Rating int    `json:"rating"`
+}
+
+func NewLeaderboardEntries(users []models.User) []LeaderboardEntry {
+	result := make([]LeaderboardEntry, 0, len(users))
+	for _, user := range users {
+		result = append(result, LeaderboardEntry{Id: user.Id, Name: user.Name, Rating: user.Rating})
+	}
+	return result
+}
+
+type GetLeaderboardResponse struct {
+	Leaderboard []LeaderboardEntry `json:"leaderboard"`
+}
+
+type GetRatingEventsResponse struct {
+	Events []models.RatingEvent `json:"events"`
+}

@@ -135,7 +135,7 @@ func (s *PostgresSuite) migrateUp(dsn string) {
 func (s *PostgresSuite) truncate() {
 	_, err := s.db.ExecContext(s.ctx, `
 		TRUNCATE TABLE
-			checks, tasks, mark_status_history, mark_followers, marks, users, admin_boundaries, types_marks,
+			rating_events, checks, tasks, mark_status_history, mark_followers, marks, users, admin_boundaries, types_marks,
 			districts, cities, regions
 		RESTART IDENTITY CASCADE
 	`)

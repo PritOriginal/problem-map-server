@@ -374,6 +374,26 @@ func (r *MarksRepository) GetMarkStatuses(ctx context.Context) ([]models.MarkSta
 	return statuses, nil
 }
 
+// LockMark takes a row lock on the mark until the surrounding transaction
+// ends, serialising the vote counting and stage resolution of the mark.
+func (r *MarksRepository) LockMark(ctx context.Context, markId int) error {
+	const op = "storage.postgres.LockMark"
+
+	var id int
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.GetContext(ctx, &id, "SELECT mark_id FROM marks WHERE mark_id = $1 FOR UPDATE", markId); err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return repository.ErrNotFound
+		default:
+			return fmt.Errorf("%s: %w", op, err)
+		}
+	}
+
+	return nil
+}
+
 func (r *MarksRepository) UpdateMarkStatus(ctx context.Context, markId int, markStatusId models.MarkStatusType) error {
 	const op = "storage.postgres.UpdateMarkStatus"
 

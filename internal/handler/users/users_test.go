@@ -283,9 +283,9 @@ func (suite *UsersSuite) TestGetUsersPagination() {
 	}
 }
 
-// bearer returns an Authorization header value for user 1 with the role.
-func (suite *UsersSuite) bearer(role models.Role) string {
-	accessToken, err := token.CreateToken(time.Minute, 1, string(role), "1234")
+// bearer returns an Authorization header value for the given user and role.
+func (suite *UsersSuite) bearer(userId int, role models.Role) string {
+	accessToken, err := token.CreateToken(1*time.Minute, userId, string(role), "1234")
 	suite.Require().NoError(err)
 	return "Bearer " + accessToken
 }
@@ -327,7 +327,75 @@ func (suite *UsersSuite) TestChangePassword() {
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPost, "/users/me/password", buf)
 			if !tt.noToken {
-				req.Header.Set("Authorization", suite.bearer(models.RoleUser))
+				req.Header.Set("Authorization", suite.bearer(1, models.RoleUser))
+			}
+
+			suite.r.ServeHTTP(w, req)
+
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+		})
+	}
+}
+
+func testStats() models.UserStats {
+	return models.UserStats{Rating: 7, MarksTotal: 3, MarksConfirmed: 2, MarksRefuted: 1, ChecksTotal: 5, ChecksCorrect: 4, TasksCompleted: 2}
+}
+
+func (suite *UsersSuite) TestGetUserStats() {
+	tests := []struct {
+		name       string
+		id         string
+		errStats   error
+		statusCode int
+	}{
+		{name: "Ok200", id: "1", statusCode: 200},
+		{name: "Err400", id: "a", statusCode: 400},
+		{name: "Err404", id: "1", errStats: usecase.ErrNotFound, statusCode: 404},
+		{name: "Err500", id: "1", errStats: errors.New(""), statusCode: 500},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if tt.statusCode != 400 {
+				suite.uc.On("GetUserStats", mock.Anything, 1).Once().Return(testStats(), tt.errStats)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/users/"+tt.id+"/stats", nil)
+
+			suite.r.ServeHTTP(w, req)
+
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+
+			if tt.statusCode == 200 {
+				var resp responses.Response[usersrest.GetUserStatsResponse]
+				suite.NoError(json.Unmarshal(w.Body.Bytes(), &resp))
+				suite.Equal(testStats(), resp.Payload.Stats)
+			}
+		})
+	}
+}
+
+func (suite *UsersSuite) TestGetMyStats() {
+	tests := []struct {
+		name       string
+		noToken    bool
+		errStats   error
+		statusCode int
+	}{
+		{name: "Ok200", statusCode: 200},
+		{name: "Err401", noToken: true, statusCode: 401},
+		{name: "Err500", errStats: errors.New(""), statusCode: 500},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if !tt.noToken {
+				suite.uc.On("GetUserStats", mock.Anything, 1).Once().Return(testStats(), tt.errStats)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/users/me/stats", nil)
+			if !tt.noToken {
+				req.Header.Set("Authorization", suite.bearer(1, models.RoleUser))
 			}
 
 			suite.r.ServeHTTP(w, req)
@@ -382,12 +450,100 @@ func (suite *UsersSuite) TestSetRole() {
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest(http.MethodPatch, "/users/"+tt.id+"/role", buf)
 			if !tt.noToken {
-				req.Header.Set("Authorization", suite.bearer(tt.role))
+				req.Header.Set("Authorization", suite.bearer(1, tt.role))
 			}
 
 			suite.r.ServeHTTP(w, req)
 
 			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+		})
+	}
+}
+
+func (suite *UsersSuite) TestGetLeaderboard() {
+	tests := []struct {
+		name       string
+		query      string
+		pagination models.Pagination
+		errList    error
+		statusCode int
+	}{
+		{name: "Ok200", pagination: models.Pagination{Limit: models.DefaultLimit}, statusCode: 200},
+		{name: "OkPaginated", query: "?limit=5&offset=10", pagination: models.Pagination{Limit: 5, Offset: 10}, statusCode: 200},
+		{name: "Err400", query: "?limit=0", statusCode: 400},
+		{name: "Err500", pagination: models.Pagination{Limit: models.DefaultLimit}, errList: errors.New(""), statusCode: 500},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if tt.statusCode != 400 {
+				suite.uc.On("ListLeaderboard", mock.Anything, tt.pagination).Once().
+					Return(models.Page[models.User]{Items: []models.User{testUser()}, Total: 1}, tt.errList)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/leaderboard"+tt.query, nil)
+
+			suite.r.ServeHTTP(w, req)
+
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+
+			if tt.statusCode == 200 {
+				var resp responses.Response[map[string][]map[string]any]
+				suite.NoError(json.Unmarshal(w.Body.Bytes(), &resp))
+				suite.Require().Len(resp.Payload["leaderboard"], 1)
+				entry := resp.Payload["leaderboard"][0]
+				suite.Equal(float64(1), entry["user_id"])
+				suite.Equal("name", entry["username"])
+				suite.Equal(float64(3), entry["rating"])
+				suite.NotContains(entry, "login")
+				suite.NotContains(entry, "home_point")
+				suite.NotContains(entry, "role")
+				suite.Equal(&responses.ListMeta{Limit: tt.pagination.Limit, Offset: tt.pagination.Offset, Total: 1}, resp.Meta)
+			}
+		})
+	}
+}
+
+func (suite *UsersSuite) TestGetRatingEvents() {
+	tests := []struct {
+		name       string
+		id         string
+		noToken    bool
+		requester  usecase.Requester
+		errList    error
+		statusCode int
+	}{
+		{name: "Ok200Owner", id: "1", requester: usecase.Requester{ID: 1, Role: models.RoleUser}, statusCode: 200},
+		{name: "Ok200Moderator", id: "1", requester: usecase.Requester{ID: 2, Role: models.RoleModerator}, statusCode: 200},
+		{name: "Err400", id: "a", requester: usecase.Requester{ID: 1, Role: models.RoleUser}, statusCode: 400},
+		{name: "Err401", id: "1", noToken: true, statusCode: 401},
+		{name: "Err403", id: "1", requester: usecase.Requester{ID: 2, Role: models.RoleUser}, errList: usecase.ErrForbidden, statusCode: 403},
+		{name: "Err500", id: "1", requester: usecase.Requester{ID: 1, Role: models.RoleUser}, errList: errors.New(""), statusCode: 500},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if !tt.noToken && tt.statusCode != 400 {
+				suite.uc.On("ListRatingEvents", mock.Anything, tt.requester, 1, models.Pagination{Limit: models.DefaultLimit}).Once().
+					Return(models.Page[models.RatingEvent]{Items: []models.RatingEvent{{ID: 1, UserID: 1, Delta: 2, Reason: models.RatingReasonCheckCorrect}}, Total: 1}, tt.errList)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/users/"+tt.id+"/rating-events", nil)
+			if !tt.noToken {
+				req.Header.Set("Authorization", suite.bearer(tt.requester.ID, tt.requester.Role))
+			}
+
+			suite.r.ServeHTTP(w, req)
+
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+
+			if tt.statusCode == 200 {
+				var resp responses.Response[usersrest.GetRatingEventsResponse]
+				suite.NoError(json.Unmarshal(w.Body.Bytes(), &resp))
+				suite.Require().Len(resp.Payload.Events, 1)
+				suite.Equal(models.RatingReasonCheckCorrect, resp.Payload.Events[0].Reason)
+				suite.Equal(&responses.ListMeta{Limit: models.DefaultLimit, Offset: 0, Total: 1}, resp.Meta)
+			}
 		})
 	}
 }

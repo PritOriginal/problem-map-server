@@ -59,6 +59,12 @@ func (suite *ResponsesSuite) TestFromError() {
 			message:    responses.MsgForbidden,
 		},
 		{
+			name:       "TooManyRequests429",
+			err:        usecase.ErrTooManyRequests,
+			statusCode: http.StatusTooManyRequests,
+			message:    responses.MsgTooManyReq,
+		},
+		{
 			name:       "InvalidPhoto400",
 			err:        fmt.Errorf("%w: too big", handlers.ErrInvalidPhoto),
 			statusCode: http.StatusBadRequest,

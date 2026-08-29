@@ -8,6 +8,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/handler/listquery"
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
@@ -20,6 +21,9 @@ type Users interface {
 	ListUsers(ctx context.Context, p models.Pagination) (models.Page[models.User], error)
 	ChangePassword(ctx context.Context, id int, oldPassword, newPassword string) error
 	SetRole(ctx context.Context, actorID, id int, role models.Role) error
+	GetUserStats(ctx context.Context, id int) (models.UserStats, error)
+	ListLeaderboard(ctx context.Context, p models.Pagination) (models.Page[models.User], error)
+	ListRatingEvents(ctx context.Context, requester usecase.Requester, userId int, p models.Pagination) (models.Page[models.RatingEvent], error)
 }
 
 type handler struct {
@@ -30,6 +34,8 @@ type handler struct {
 func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddleware, uc Users) {
 	handler := &handler{log: log, uc: uc}
 
+	r.GET("/leaderboard", handler.GetLeaderboard())
+
 	users := r.Group("/users")
 	{
 		users.GET("", handler.GetUsers())
@@ -38,8 +44,154 @@ func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddlew
 			auth.GET("me", handler.GetMe())
 			auth.POST("me/password", handler.ChangePassword())
 			auth.PATCH(":id/role", middleware.RequireRole(models.RoleAdmin), handler.SetRole())
+			auth.GET("me/stats", handler.GetMyStats())
+			auth.GET(":id/rating-events", handler.GetRatingEvents())
 		}
 		users.GET(":id", handler.GetUserById())
+		users.GET(":id/stats", handler.GetUserStats())
+	}
+}
+
+// GetUserStats returns the activity summary of a user
+//
+//	@Summary		Get user stats
+//	@Description	get rating and activity counters of a user
+//	@Tags			users
+//	@Produce		json
+//	@Param			id	path		int	true	"user id"
+//	@Success		200	{object}	responses.Response[usersrest.GetUserStatsResponse]
+//	@Failure		400	{object}	responses.Response[any]
+//	@Failure		404	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
+//	@Router			/users/{id}/stats [get]
+func (h *handler) GetUserStats() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "usersrest.GetUserStats"
+
+		id, err := handlers.ParamInt(c, "id")
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		h.respondStats(c, op, id)
+	}
+}
+
+// GetMyStats returns the activity summary of the authenticated user
+//
+//	@Summary		Get current user stats
+//	@Description	get rating and activity counters of the authenticated user
+//	@Tags			users
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		200	{object}	responses.Response[usersrest.GetUserStatsResponse]
+//	@Failure		401	{object}	responses.Response[any]
+//	@Failure		404	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
+//	@Router			/users/me/stats [get]
+func (h *handler) GetMyStats() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "usersrest.GetMyStats"
+
+		id, err := middleware.UserIDFromClaims(c)
+		if err != nil {
+			h.log.Debug("invalid token", logger.Err(err))
+			responses.Unauthorized(c, "invalid token")
+			return
+		}
+
+		h.respondStats(c, op, id)
+	}
+}
+
+func (h *handler) respondStats(c *gin.Context, op string, id int) {
+	stats, err := h.uc.GetUserStats(c.Request.Context(), id)
+	if err != nil {
+		responses.FromError(c, h.log, op, err)
+		return
+	}
+
+	responses.OK(c, GetUserStatsResponse{Stats: stats})
+}
+
+// GetLeaderboard lists users by rating
+//
+//	@Summary		Leaderboard
+//	@Description	get users ordered by rating (highest first); pagination info is returned in the top-level `meta` field ({limit, offset, total})
+//	@Tags			users
+//	@Produce		json
+//	@Param			limit	query		int	false	"page size, 1..500"	default(100)
+//	@Param			offset	query		int	false	"page offset"		default(0)
+//	@Success		200		{object}	responses.Response[usersrest.GetLeaderboardResponse]
+//	@Failure		400		{object}	responses.Response[any]
+//	@Failure		500		{object}	responses.Response[any]
+//	@Router			/leaderboard [get]
+func (h *handler) GetLeaderboard() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "usersrest.GetLeaderboard"
+
+		p, ok := listquery.BindPagination(c, h.log)
+		if !ok {
+			return
+		}
+
+		page, err := h.uc.ListLeaderboard(c.Request.Context(), p)
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		listquery.OK(c, GetLeaderboardResponse{Leaderboard: NewLeaderboardEntries(page.Items)}, p, page.Total)
+	}
+}
+
+// GetRatingEvents lists the rating history of a user
+//
+//	@Summary		Get rating events
+//	@Description	get the rating history of a user, newest first; available to the owner and moderators. Pagination info is returned in the top-level `meta` field ({limit, offset, total})
+//	@Tags			users
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		int	true	"user id"
+//	@Param			limit	query		int	false	"page size, 1..500"	default(100)
+//	@Param			offset	query		int	false	"page offset"		default(0)
+//	@Success		200		{object}	responses.Response[usersrest.GetRatingEventsResponse]
+//	@Failure		400		{object}	responses.Response[any]
+//	@Failure		401		{object}	responses.Response[any]
+//	@Failure		403		{object}	responses.Response[any]
+//	@Failure		500		{object}	responses.Response[any]
+//	@Router			/users/{id}/rating-events [get]
+func (h *handler) GetRatingEvents() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "usersrest.GetRatingEvents"
+
+		id, err := handlers.ParamInt(c, "id")
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		requesterId, err := middleware.UserIDFromClaims(c)
+		if err != nil {
+			h.log.Debug("invalid token", logger.Err(err))
+			responses.Unauthorized(c, "invalid token")
+			return
+		}
+		requester := usecase.Requester{ID: requesterId, Role: middleware.RoleFromClaims(c)}
+
+		p, ok := listquery.BindPagination(c, h.log)
+		if !ok {
+			return
+		}
+
+		page, err := h.uc.ListRatingEvents(c.Request.Context(), requester, id, p)
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		listquery.OK(c, GetRatingEventsResponse{Events: page.Items}, p, page.Total)
 	}
 }
 

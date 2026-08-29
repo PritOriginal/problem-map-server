@@ -17,6 +17,9 @@ var (
 	// ErrInvalidArgument is returned when request filters or pagination are
 	// out of range; handlers map it to 400.
 	ErrInvalidArgument = errors.New("invalid argument")
+	// ErrTooManyRequests is returned when a per-user quota (e.g. checks per
+	// day) is exhausted; handlers map it to 429.
+	ErrTooManyRequests = errors.New("too many requests")
 )
 
 // mapRepoErr translates repository errors into usecase errors so that callers

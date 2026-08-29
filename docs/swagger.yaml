@@ -221,6 +221,37 @@ definitions:
       type:
         type: string
     type: object
+  github_com_PritOriginal_problem-map-server_internal_models.RatingEvent:
+    properties:
+      check_id:
+        type: integer
+      created_at:
+        type: string
+      delta:
+        type: integer
+      id:
+        type: integer
+      mark_id:
+        type: integer
+      reason:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.RatingReason'
+      user_id:
+        type: integer
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.RatingReason:
+    enum:
+    - check_correct
+    - check_wrong
+    - mark_confirmed
+    - mark_refuted
+    - task_completed
+    type: string
+    x-enum-varnames:
+    - RatingReasonCheckCorrect
+    - RatingReasonCheckWrong
+    - RatingReasonMarkConfirmed
+    - RatingReasonMarkRefuted
+    - RatingReasonTaskCompleted
   github_com_PritOriginal_problem-map-server_internal_models.Region:
     properties:
       geom:
@@ -287,6 +318,23 @@ definitions:
         type: integer
       username:
         type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.UserStats:
+    properties:
+      checks_correct:
+        type: integer
+      checks_total:
+        type: integer
+      marks_confirmed:
+        type: integer
+      marks_refuted:
+        type: integer
+      marks_total:
+        type: integer
+      rating:
+        type: integer
+      tasks_completed:
+        type: integer
     type: object
   github_com_PritOriginal_problem-map-server_internal_usecase.HealthReport:
     additionalProperties:
@@ -679,6 +727,17 @@ definitions:
       success:
         type: boolean
     type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetLeaderboardResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_users.GetLeaderboardResponse'
+      success:
+        type: boolean
+    type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetMeResponse:
     properties:
       error:
@@ -690,6 +749,17 @@ definitions:
       success:
         type: boolean
     type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetRatingEventsResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_users.GetRatingEventsResponse'
+      success:
+        type: boolean
+    type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetUserByIdResponse:
     properties:
       error:
@@ -698,6 +768,17 @@ definitions:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_users.GetUserByIdResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetUserStatsResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_users.GetUserStatsResponse'
       success:
         type: boolean
     type: object
@@ -1011,15 +1092,34 @@ definitions:
     - new_password
     - old_password
     type: object
+  internal_handler_users.GetLeaderboardResponse:
+    properties:
+      leaderboard:
+        items:
+          $ref: '#/definitions/internal_handler_users.LeaderboardEntry'
+        type: array
+    type: object
   internal_handler_users.GetMeResponse:
     properties:
       user:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.User'
     type: object
+  internal_handler_users.GetRatingEventsResponse:
+    properties:
+      events:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.RatingEvent'
+        type: array
+    type: object
   internal_handler_users.GetUserByIdResponse:
     properties:
       user:
         $ref: '#/definitions/internal_handler_users.PublicUser'
+    type: object
+  internal_handler_users.GetUserStatsResponse:
+    properties:
+      stats:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.UserStats'
     type: object
   internal_handler_users.GetUsersResponse:
     properties:
@@ -1027,6 +1127,15 @@ definitions:
         items:
           $ref: '#/definitions/internal_handler_users.PublicUser'
         type: array
+    type: object
+  internal_handler_users.LeaderboardEntry:
+    properties:
+      rating:
+        type: integer
+      user_id:
+        type: integer
+      username:
+        type: string
     type: object
   internal_handler_users.PublicUser:
     properties:
@@ -1239,7 +1348,9 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: add check
+      description: add check; the mark's author may not check their own mark (403),
+        one check per voting stage (409), at most `rating.max-checks-per-day` checks
+        per rolling 24 hours (429)
       produces:
       - application/json
       responses:
@@ -1255,12 +1366,20 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "404":
           description: Not Found
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "409":
           description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "429":
+          description: Too Many Requests
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "500":
@@ -1390,6 +1509,39 @@ paths:
       summary: Liveness probe
       tags:
       - health
+  /leaderboard:
+    get:
+      description: get users ordered by rating (highest first); pagination info is
+        returned in the top-level `meta` field ({limit, offset, total})
+      parameters:
+      - default: 100
+        description: page size, 1..500
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: page offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetLeaderboardResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: Leaderboard
+      tags:
+      - users
   /map/admin-boundaries:
     get:
       consumes:
@@ -2400,6 +2552,55 @@ paths:
       summary: Get user by id
       tags:
       - users
+  /users/{id}/rating-events:
+    get:
+      description: get the rating history of a user, newest first; available to the
+        owner and moderators. Pagination info is returned in the top-level `meta`
+        field ({limit, offset, total})
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - default: 100
+        description: page size, 1..500
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: page offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetRatingEventsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Get rating events
+      tags:
+      - users
   /users/{id}/role:
     patch:
       consumes:
@@ -2446,6 +2647,37 @@ paths:
       security:
       - BearerAuth: []
       summary: Set user role
+      tags:
+      - users
+  /users/{id}/stats:
+    get:
+      description: get rating and activity counters of a user
+      parameters:
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetUserStatsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: Get user stats
       tags:
       - users
   /users/me:
@@ -2551,6 +2783,33 @@ paths:
       security:
       - BearerAuth: []
       summary: Change password
+      tags:
+      - users
+  /users/me/stats:
+    get:
+      description: get rating and activity counters of the authenticated user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetUserStatsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Get current user stats
       tags:
       - users
 securityDefinitions:
