@@ -146,6 +146,27 @@ definitions:
       name:
         type: string
     type: object
+  github_com_PritOriginal_problem-map-server_internal_models.MarkWithDistance:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      distance_m:
+        type: number
+      geom:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON'
+      mark_id:
+        type: integer
+      mark_status_id:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
+      mark_type_id:
+        type: integer
+      updated_at:
+        type: string
+      user_id:
+        type: integer
+    type: object
   github_com_PritOriginal_problem-map-server_internal_models.MultiPolygonJSON:
     properties:
       coordinates:
@@ -252,10 +273,21 @@ definitions:
       message:
         type: string
     type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta:
+    properties:
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
+    type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.Response-any:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload: {}
       success:
         type: boolean
@@ -264,6 +296,8 @@ definitions:
   : properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.HealthReport'
       success:
@@ -273,6 +307,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_auth.RefreshTokensResponse'
       success:
@@ -282,6 +318,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_auth.SignInResponse'
       success:
@@ -291,6 +329,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_auth.SignUpResponse'
       success:
@@ -300,6 +340,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_checks.AddCheckResponse'
       success:
@@ -309,6 +351,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_checks.GetCheckByIdResponse'
       success:
@@ -318,6 +362,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_checks.GetChecksByMarkIdResponse'
       success:
@@ -327,6 +373,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_checks.GetChecksByUserIdResponse'
       success:
@@ -336,6 +384,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_map.GetAdminBoundariesMarksCountResponse'
       success:
@@ -345,6 +395,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_map.GetAdminBoundariesResponse'
       success:
@@ -354,6 +406,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_map.GetCitiesResponse'
       success:
@@ -363,6 +417,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_map.GetDistrictsResponse'
       success:
@@ -372,6 +428,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_map.GetRegionsResponse'
       success:
@@ -381,6 +439,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_marks.AddMarkResponse'
       success:
@@ -390,6 +450,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_marks.ConfirmResponse'
       success:
@@ -399,6 +461,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_marks.GetMarkByIdResponse'
       success:
@@ -408,6 +472,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_marks.GetMarkStatusHistoryByMarkIdResponse'
       success:
@@ -417,6 +483,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_marks.GetMarkStatusesResponse'
       success:
@@ -426,6 +494,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_marks.GetMarkTypesResponse'
       success:
@@ -435,8 +505,21 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_marks.GetMarksByUserIdResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarksNearbyResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_marks.GetMarksNearbyResponse'
       success:
         type: boolean
     type: object
@@ -444,6 +527,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_marks.GetMarksResponse'
       success:
@@ -453,6 +538,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_marks.RejectResponse'
       success:
@@ -462,6 +549,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_tasks.AddTaskResponse'
       success:
@@ -471,6 +560,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_tasks.GetTaskByIdResponse'
       success:
@@ -480,6 +571,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_tasks.GetTasksByUserIdResponse'
       success:
@@ -489,6 +582,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_tasks.GetTasksResponse'
       success:
@@ -498,6 +593,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_users.GetMeResponse'
       success:
@@ -507,6 +604,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_users.GetUserByIdResponse'
       success:
@@ -516,6 +615,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_users.GetUsersResponse'
       success:
@@ -525,6 +626,8 @@ definitions:
     properties:
       error:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/map_string_string'
       success:
@@ -692,6 +795,13 @@ definitions:
       marks:
         items:
           $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark'
+        type: array
+    type: object
+  internal_handler_marks.GetMarksNearbyResponse:
+    properties:
+      marks:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkWithDistance'
         type: array
     type: object
   internal_handler_marks.GetMarksResponse:
@@ -964,6 +1074,16 @@ paths:
         name: id
         required: true
         type: integer
+      - default: 100
+        description: page size, 1..500
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: page offset
+        in: query
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:
@@ -990,6 +1110,16 @@ paths:
         in: path
         name: id
         required: true
+        type: integer
+      - default: 100
+        description: page size, 1..500
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: page offset
+        in: query
+        name: offset
         type: integer
       produces:
       - application/json
@@ -1152,22 +1282,59 @@ paths:
     get:
       consumes:
       - application/json
-      description: get markers
+      description: get markers page; pagination info is returned in the top-level
+        `meta` field ({limit, offset, total})
       parameters:
-      - collectionFormat: csv
-        description: filter by mark types
+      - description: filter by mark types, comma-separated ids
         in: query
-        items:
-          type: number
         name: mark_type_ids
-        type: array
-      - collectionFormat: csv
-        description: filter by mark statuses
+        type: string
+      - description: filter by mark statuses, comma-separated ids
         in: query
-        items:
-          type: number
         name: mark_status_ids
-        type: array
+        type: string
+      - description: filter by author
+        in: query
+        name: user_id
+        type: integer
+      - description: bounding box minLon,minLat,maxLon,maxLat (WGS84)
+        in: query
+        name: bbox
+        type: string
+      - description: created_at >= (RFC3339)
+        in: query
+        name: created_from
+        type: string
+      - description: created_at <= (RFC3339)
+        in: query
+        name: created_to
+        type: string
+      - default: created_at
+        description: sort column
+        enum:
+        - created_at
+        - updated_at
+        in: query
+        name: sort
+        type: string
+      - default: desc
+        description: sort order
+        enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
+      - default: 100
+        description: page size, 1..500
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: page offset
+        in: query
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:
@@ -1177,10 +1344,6 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarksResponse'
         "400":
           description: Bad Request
-          schema:
-            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
-        "401":
-          description: Unauthorized
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "500":
@@ -1371,6 +1534,63 @@ paths:
       summary: List mark statuses
       tags:
       - marks
+  /marks/nearby:
+    get:
+      description: get markers within `radius` meters of (lon, lat) ordered by distance;
+        each item carries `distance_m`; pagination info is in the top-level `meta`
+        field
+      parameters:
+      - description: longitude
+        in: query
+        name: lon
+        required: true
+        type: number
+      - description: latitude
+        in: query
+        name: lat
+        required: true
+        type: number
+      - description: radius in meters, at most 50000
+        in: query
+        name: radius
+        required: true
+        type: number
+      - description: filter by mark types, comma-separated ids
+        in: query
+        name: mark_type_ids
+        type: string
+      - description: filter by mark statuses, comma-separated ids
+        in: query
+        name: mark_status_ids
+        type: string
+      - default: 100
+        description: page size, 1..500
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: page offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarksNearbyResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: List nearby markers
+      tags:
+      - marks
   /marks/statuses:
     get:
       consumes:
@@ -1418,6 +1638,16 @@ paths:
         name: id
         required: true
         type: integer
+      - default: 100
+        description: page size, 1..500
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: page offset
+        in: query
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:
@@ -1456,7 +1686,23 @@ paths:
       - health
   /tasks:
     get:
-      description: get tasks
+      description: get tasks page; pagination info is returned in the top-level `meta`
+        field ({limit, offset, total})
+      parameters:
+      - description: filter by statuses, comma-separated ids
+        in: query
+        name: statuses
+        type: string
+      - default: 100
+        description: page size, 1..500
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: page offset
+        in: query
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:
@@ -1464,6 +1710,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_GetTasksResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "500":
           description: Internal Server Error
           schema:
@@ -1551,6 +1801,20 @@ paths:
         name: id
         required: true
         type: integer
+      - description: filter by statuses, comma-separated ids
+        in: query
+        name: statuses
+        type: string
+      - default: 100
+        description: page size, 1..500
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: page offset
+        in: query
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:
@@ -1571,7 +1835,19 @@ paths:
       - tasks
   /users:
     get:
-      description: get public profiles of all users
+      description: get public profiles of users; pagination info is returned in the
+        top-level `meta` field ({limit, offset, total})
+      parameters:
+      - default: 100
+        description: page size, 1..500
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: page offset
+        in: query
+        name: offset
+        type: integer
       produces:
       - application/json
       responses:
@@ -1579,6 +1855,10 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetUsersResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "500":
           description: Internal Server Error
           schema:

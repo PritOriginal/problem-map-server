@@ -6,9 +6,11 @@ import (
 	"log/slog"
 	"strconv"
 
+	"github.com/PritOriginal/problem-map-server/internal/handler/listquery"
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
+	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	jwt "github.com/appleboy/gin-jwt/v3"
@@ -17,7 +19,7 @@ import (
 
 type Users interface {
 	GetUserById(ctx context.Context, id int) (models.User, error)
-	GetUsers(ctx context.Context) ([]models.User, error)
+	ListUsers(ctx context.Context, p models.Pagination) (models.Page[models.User], error)
 }
 
 type handler struct {
@@ -117,26 +119,42 @@ func (h *handler) GetMe() gin.HandlerFunc {
 	}
 }
 
-// GetUsers lists all existing users
+// GetUsers lists users, paginated
 //
 //	@Summary		List users
-//	@Description	get public profiles of all users
+//	@Description	get public profiles of users; pagination info is returned in the top-level `meta` field ({limit, offset, total})
 //	@Tags			users
 //	@Produce		json
-//	@Success		200	{object}	responses.Response[usersrest.GetUsersResponse]
-//	@Failure		500	{object}	responses.Response[any]
+//	@Param			limit	query		int	false	"page size, 1..500"	default(100)
+//	@Param			offset	query		int	false	"page offset"		default(0)
+//	@Success		200		{object}	responses.Response[usersrest.GetUsersResponse]
+//	@Failure		400		{object}	responses.Response[any]
+//	@Failure		500		{object}	responses.Response[any]
 //	@Router			/users [get]
 func (h *handler) GetUsers() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		users, err := h.uc.GetUsers(c.Request.Context())
+		var query listquery.Pagination
+		if err := c.ShouldBindQuery(&query); err != nil {
+			h.log.Debug("failed parse query params", logger.Err(err))
+			responses.BadRequest(c, "invalid query params")
+			return
+		}
+		p := query.Model()
+
+		page, err := h.uc.ListUsers(c.Request.Context(), p)
 		if err != nil {
+			if errors.Is(err, usecase.ErrInvalidArgument) {
+				h.log.Debug("invalid pagination", logger.Err(err))
+				responses.BadRequest(c, "invalid query params")
+				return
+			}
 			h.log.Error("error get users", logger.Err(err))
 			responses.Internal(c, "error get users")
 			return
 		}
 
-		responses.OK(c, GetUsersResponse{
-			Users: NewPublicUsers(users),
-		})
+		responses.OKList(c, GetUsersResponse{
+			Users: NewPublicUsers(page.Items),
+		}, listquery.Meta(p, page.Total))
 	}
 }

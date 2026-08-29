@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strconv"
 
+	"github.com/PritOriginal/problem-map-server/internal/handler/listquery"
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
@@ -21,8 +22,8 @@ import (
 type Checks interface {
 	AddCheck(ctx context.Context, check models.Check, photos []io.Reader) (int64, error)
 	GetCheckById(ctx context.Context, id int) (models.Check, error)
-	GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error)
-	GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error)
+	ListChecksByMarkId(ctx context.Context, markId int, p models.Pagination) (models.Page[models.Check], error)
+	ListChecksByUserId(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Check], error)
 }
 
 type handler struct {
@@ -90,10 +91,12 @@ func (h *handler) GetCheckById() gin.HandlerFunc {
 //	@Description	get check by mark id
 //	@Tags			checks
 //	@Produce		json
-//	@Param			id	path		int	true	"mark id"
-//	@Success		200	{object}	responses.Response[checksrest.GetChecksByMarkIdResponse]
-//	@Failure		400	{object}	responses.Response[any]
-//	@Failure		500	{object}	responses.Response[any]
+//	@Param			id		path		int	true	"mark id"
+//	@Param			limit	query		int	false	"page size, 1..500"	default(100)
+//	@Param			offset	query		int	false	"page offset"		default(0)
+//	@Success		200		{object}	responses.Response[checksrest.GetChecksByMarkIdResponse]
+//	@Failure		400		{object}	responses.Response[any]
+//	@Failure		500		{object}	responses.Response[any]
 //	@Router			/checks/mark/{id} [get]
 func (h *handler) GetChecksByMarkId() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -104,16 +107,29 @@ func (h *handler) GetChecksByMarkId() gin.HandlerFunc {
 			return
 		}
 
-		checks, err := h.uc.GetChecksByMarkId(c.Request.Context(), markId)
+		var query listquery.Pagination
+		if err := c.ShouldBindQuery(&query); err != nil {
+			h.log.Debug("failed parse query params", logger.Err(err))
+			responses.BadRequest(c, "invalid query params")
+			return
+		}
+		p := query.Model()
+
+		page, err := h.uc.ListChecksByMarkId(c.Request.Context(), markId, p)
 		if err != nil {
+			if errors.Is(err, usecase.ErrInvalidArgument) {
+				h.log.Debug("invalid pagination", logger.Err(err))
+				responses.BadRequest(c, "invalid query params")
+				return
+			}
 			h.log.Error("error get checks by mark id", logger.Err(err))
 			responses.Internal(c, "error get checks by mark id")
 			return
 		}
 
-		responses.OK(c, GetChecksByMarkIdResponse{
-			Checks: checks,
-		})
+		responses.OKList(c, GetChecksByMarkIdResponse{
+			Checks: page.Items,
+		}, listquery.Meta(p, page.Total))
 	}
 }
 
@@ -157,10 +173,12 @@ func (h *handler) GetChecksByMarkId() gin.HandlerFunc {
 //	@Description	get checks by user id
 //	@Tags			checks
 //	@Produce		json
-//	@Param			id	path		int	true	"user id"
-//	@Success		200	{object}	responses.Response[checksrest.GetChecksByUserIdResponse]
-//	@Failure		400	{object}	responses.Response[any]
-//	@Failure		500	{object}	responses.Response[any]
+//	@Param			id		path		int	true	"user id"
+//	@Param			limit	query		int	false	"page size, 1..500"	default(100)
+//	@Param			offset	query		int	false	"page offset"		default(0)
+//	@Success		200		{object}	responses.Response[checksrest.GetChecksByUserIdResponse]
+//	@Failure		400		{object}	responses.Response[any]
+//	@Failure		500		{object}	responses.Response[any]
 //	@Router			/checks/user/{id} [get]
 func (h *handler) GetChecksByUserId() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -171,16 +189,29 @@ func (h *handler) GetChecksByUserId() gin.HandlerFunc {
 			return
 		}
 
-		checks, err := h.uc.GetChecksByUserId(c.Request.Context(), userId)
+		var query listquery.Pagination
+		if err := c.ShouldBindQuery(&query); err != nil {
+			h.log.Debug("failed parse query params", logger.Err(err))
+			responses.BadRequest(c, "invalid query params")
+			return
+		}
+		p := query.Model()
+
+		page, err := h.uc.ListChecksByUserId(c.Request.Context(), userId, p)
 		if err != nil {
+			if errors.Is(err, usecase.ErrInvalidArgument) {
+				h.log.Debug("invalid pagination", logger.Err(err))
+				responses.BadRequest(c, "invalid query params")
+				return
+			}
 			h.log.Error("error get checks by user id", logger.Err(err))
 			responses.Internal(c, "error get checks by user id")
 			return
 		}
 
-		responses.OK(c, GetChecksByUserIdResponse{
-			Checks: checks,
-		})
+		responses.OKList(c, GetChecksByUserIdResponse{
+			Checks: page.Items,
+		}, listquery.Meta(p, page.Total))
 	}
 }
 

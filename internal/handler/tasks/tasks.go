@@ -6,9 +6,11 @@ import (
 	"log/slog"
 	"strconv"
 
+	"github.com/PritOriginal/problem-map-server/internal/handler/listquery"
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
+	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
@@ -17,9 +19,9 @@ import (
 )
 
 type Tasks interface {
-	GetTasks(ctx context.Context, filters models.GetTasksFilters) ([]models.Task, error)
+	ListTasks(ctx context.Context, filters models.GetTasksFilters) (models.Page[models.Task], error)
 	GetTaskById(ctx context.Context, id int) (models.Task, error)
-	GetTasksByUserId(ctx context.Context, userId int, filters models.GetTasksByUserIdFilters) ([]models.Task, error)
+	ListTasksByUserId(ctx context.Context, userId int, filters models.GetTasksByUserIdFilters) (models.Page[models.Task], error)
 	AddTask(ctx context.Context, task models.Task) (int64, error)
 }
 
@@ -44,37 +46,53 @@ func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddlew
 	}
 }
 
-// GetTasks lists all existing tasks
+// GetTasks lists tasks, paginated
 //
 //	@Summary		List tasks
-//	@Description	get tasks
+//	@Description	get tasks page; pagination info is returned in the top-level `meta` field ({limit, offset, total})
 //	@Tags			tasks
 //	@Produce		json
-//	@Success		200	{object}	responses.Response[tasksrest.GetTasksResponse]
-//	@Failure		500	{object}	responses.Response[any]
+//	@Param			statuses	query		string	false	"filter by statuses, comma-separated ids"
+//	@Param			limit		query		int		false	"page size, 1..500"	default(100)
+//	@Param			offset		query		int		false	"page offset"		default(0)
+//	@Success		200			{object}	responses.Response[tasksrest.GetTasksResponse]
+//	@Failure		400			{object}	responses.Response[any]
+//	@Failure		500			{object}	responses.Response[any]
 //	@Router			/tasks [get]
 func (h *handler) GetTasks() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		statusesStr := c.Query("statuses")
-		statuses, err := handlers.ParseIntArray(statusesStr)
+		var req GetTasksRequest
+		if err := c.ShouldBindQuery(&req); err != nil {
+			h.log.Debug("failed parse query params", logger.Err(err))
+			responses.BadRequest(c, "invalid query params")
+			return
+		}
+		statuses, err := handlers.ParseIntArray(req.Statuses)
 		if err != nil {
 			h.log.Debug("failed parse statuses", logger.Err(err))
 			responses.BadRequest(c, "failed parse statuses")
 			return
 		}
+		p := req.Model()
 
-		tasks, err := h.uc.GetTasks(c.Request.Context(), models.GetTasksFilters{
-			Statuses: statuses,
+		page, err := h.uc.ListTasks(c.Request.Context(), models.GetTasksFilters{
+			Statuses:   statuses,
+			Pagination: p,
 		})
 		if err != nil {
+			if errors.Is(err, usecase.ErrInvalidArgument) {
+				h.log.Debug("invalid pagination", logger.Err(err))
+				responses.BadRequest(c, "invalid query params")
+				return
+			}
 			h.log.Error("error get tasks", logger.Err(err))
 			responses.Internal(c, "error get tasks")
 			return
 		}
 
-		responses.OK(c, GetTasksResponse{
-			Tasks: tasks,
-		})
+		responses.OKList(c, GetTasksResponse{
+			Tasks: page.Items,
+		}, listquery.Meta(p, page.Total))
 	}
 }
 
@@ -123,10 +141,13 @@ func (h *handler) GetTaskById() gin.HandlerFunc {
 //	@Description	get tasks by user id
 //	@Tags			tasks
 //	@Produce		json
-//	@Param			id	path		int	true	"user id"
-//	@Success		200	{object}	responses.Response[tasksrest.GetTasksByUserIdResponse]
-//	@Failure		400	{object}	responses.Response[any]
-//	@Failure		500	{object}	responses.Response[any]
+//	@Param			id			path		int		true	"user id"
+//	@Param			statuses	query		string	false	"filter by statuses, comma-separated ids"
+//	@Param			limit		query		int		false	"page size, 1..500"	default(100)
+//	@Param			offset		query		int		false	"page offset"		default(0)
+//	@Success		200			{object}	responses.Response[tasksrest.GetTasksByUserIdResponse]
+//	@Failure		400			{object}	responses.Response[any]
+//	@Failure		500			{object}	responses.Response[any]
 //	@Router			/tasks/user/{id} [get]
 func (h *handler) GetTasksByUserId() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -137,26 +158,38 @@ func (h *handler) GetTasksByUserId() gin.HandlerFunc {
 			return
 		}
 
-		statusesStr := c.Query("statuses")
-		statuses, err := handlers.ParseIntArray(statusesStr)
+		var req GetTasksRequest
+		if err := c.ShouldBindQuery(&req); err != nil {
+			h.log.Debug("failed parse query params", logger.Err(err))
+			responses.BadRequest(c, "invalid query params")
+			return
+		}
+		statuses, err := handlers.ParseIntArray(req.Statuses)
 		if err != nil {
 			h.log.Debug("failed parse statuses", logger.Err(err))
 			responses.BadRequest(c, "failed parse statuses")
 			return
 		}
+		p := req.Model()
 
-		tasks, err := h.uc.GetTasksByUserId(c.Request.Context(), userId, models.GetTasksByUserIdFilters{
-			Statuses: statuses,
+		page, err := h.uc.ListTasksByUserId(c.Request.Context(), userId, models.GetTasksByUserIdFilters{
+			Statuses:   statuses,
+			Pagination: p,
 		})
 		if err != nil {
+			if errors.Is(err, usecase.ErrInvalidArgument) {
+				h.log.Debug("invalid pagination", logger.Err(err))
+				responses.BadRequest(c, "invalid query params")
+				return
+			}
 			h.log.Error("error get tasks by user id", slog.Int("user_id", userId), logger.Err(err))
 			responses.Internal(c, "error get tasks by user id")
 			return
 		}
 
-		responses.OK(c, GetTasksByUserIdResponse{
-			Tasks: tasks,
-		})
+		responses.OKList(c, GetTasksByUserIdResponse{
+			Tasks: page.Items,
+		}, listquery.Meta(p, page.Total))
 	}
 }
 

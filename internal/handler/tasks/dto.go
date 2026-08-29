@@ -1,6 +1,17 @@
 package tasksrest
 
-import "github.com/PritOriginal/problem-map-server/internal/models"
+import (
+	"github.com/PritOriginal/problem-map-server/internal/handler/listquery"
+	"github.com/PritOriginal/problem-map-server/internal/models"
+)
+
+// GetTasksRequest is bound from the query string of GET /tasks and
+// GET /tasks/user/{id}.
+type GetTasksRequest struct {
+	listquery.Pagination
+	// Statuses is a comma-separated list of status ids.
+	Statuses string `form:"statuses"`
+}
 
 type GetTasksResponse struct {
 	Tasks []models.Task `json:"tasks"`

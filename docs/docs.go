@@ -234,6 +234,20 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "page size, 1..500",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "page offset",
+                        "name": "offset",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -275,6 +289,20 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "page size, 1..500",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "page offset",
+                        "name": "offset",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -559,7 +587,7 @@ const docTemplate = `{
         },
         "/marks": {
             "get": {
-                "description": "get markers",
+                "description": "get markers page; pagination info is returned in the top-level ` + "`" + `meta` + "`" + ` field ({limit, offset, total})",
                 "consumes": [
                     "application/json"
                 ],
@@ -572,23 +600,75 @@ const docTemplate = `{
                 "summary": "List markers",
                 "parameters": [
                     {
-                        "type": "array",
-                        "items": {
-                            "type": "number"
-                        },
-                        "collectionFormat": "csv",
-                        "description": "filter by mark types",
+                        "type": "string",
+                        "description": "filter by mark types, comma-separated ids",
                         "name": "mark_type_ids",
                         "in": "query"
                     },
                     {
-                        "type": "array",
-                        "items": {
-                            "type": "number"
-                        },
-                        "collectionFormat": "csv",
-                        "description": "filter by mark statuses",
+                        "type": "string",
+                        "description": "filter by mark statuses, comma-separated ids",
                         "name": "mark_status_ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "filter by author",
+                        "name": "user_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "bounding box minLon,minLat,maxLon,maxLat (WGS84)",
+                        "name": "bbox",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "created_at \u003e= (RFC3339)",
+                        "name": "created_from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "created_at \u003c= (RFC3339)",
+                        "name": "created_to",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "created_at",
+                            "updated_at"
+                        ],
+                        "type": "string",
+                        "default": "created_at",
+                        "description": "sort column",
+                        "name": "sort",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "default": "desc",
+                        "description": "sort order",
+                        "name": "order",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "page size, 1..500",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "page offset",
+                        "name": "offset",
                         "in": "query"
                     }
                 ],
@@ -601,12 +681,6 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
@@ -651,6 +725,87 @@ const docTemplate = `{
                     },
                     "401": {
                         "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
+        "/marks/nearby": {
+            "get": {
+                "description": "get markers within ` + "`" + `radius` + "`" + ` meters of (lon, lat) ordered by distance; each item carries ` + "`" + `distance_m` + "`" + `; pagination info is in the top-level ` + "`" + `meta` + "`" + ` field",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "marks"
+                ],
+                "summary": "List nearby markers",
+                "parameters": [
+                    {
+                        "type": "number",
+                        "description": "longitude",
+                        "name": "lon",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "number",
+                        "description": "latitude",
+                        "name": "lat",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "number",
+                        "description": "radius in meters, at most 50000",
+                        "name": "radius",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "filter by mark types, comma-separated ids",
+                        "name": "mark_type_ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "filter by mark statuses, comma-separated ids",
+                        "name": "mark_status_ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "page size, 1..500",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "page offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarksNearbyResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
@@ -739,6 +894,20 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "page size, 1..500",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "page offset",
+                        "name": "offset",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1025,7 +1194,7 @@ const docTemplate = `{
         },
         "/tasks": {
             "get": {
-                "description": "get tasks",
+                "description": "get tasks page; pagination info is returned in the top-level ` + "`" + `meta` + "`" + ` field ({limit, offset, total})",
                 "produces": [
                     "application/json"
                 ],
@@ -1033,11 +1202,39 @@ const docTemplate = `{
                     "tasks"
                 ],
                 "summary": "List tasks",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "filter by statuses, comma-separated ids",
+                        "name": "statuses",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "page size, 1..500",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "page offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_GetTasksResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
@@ -1127,6 +1324,26 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "filter by statuses, comma-separated ids",
+                        "name": "statuses",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "page size, 1..500",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "page offset",
+                        "name": "offset",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -1200,7 +1417,7 @@ const docTemplate = `{
         },
         "/users": {
             "get": {
-                "description": "get public profiles of all users",
+                "description": "get public profiles of users; pagination info is returned in the top-level ` + "`" + `meta` + "`" + ` field ({limit, offset, total})",
                 "produces": [
                     "application/json"
                 ],
@@ -1208,11 +1425,33 @@ const docTemplate = `{
                     "users"
                 ],
                 "summary": "List users",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "page size, 1..500",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "page offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetUsersResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
@@ -1536,6 +1775,38 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_PritOriginal_problem-map-server_internal_models.MarkWithDistance": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "distance_m": {
+                    "type": "number"
+                },
+                "geom": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON"
+                },
+                "mark_id": {
+                    "type": "integer"
+                },
+                "mark_status_id": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType"
+                },
+                "mark_type_id": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "github_com_PritOriginal_problem-map-server_internal_models.MultiPolygonJSON": {
             "type": "object",
             "properties": {
@@ -1695,11 +1966,28 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer"
+                },
+                "offset": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "github_com_PritOriginal_problem-map-server_pkg_responses.Response-any": {
             "type": "object",
             "properties": {
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
                 },
                 "payload": {},
                 "success": {
@@ -1712,6 +2000,9 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
                 },
                 "payload": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.HealthReport"
@@ -1727,6 +2018,9 @@ const docTemplate = `{
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_auth.RefreshTokensResponse"
                 },
@@ -1740,6 +2034,9 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_auth.SignInResponse"
@@ -1755,6 +2052,9 @@ const docTemplate = `{
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_auth.SignUpResponse"
                 },
@@ -1768,6 +2068,9 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_checks.AddCheckResponse"
@@ -1783,6 +2086,9 @@ const docTemplate = `{
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_checks.GetCheckByIdResponse"
                 },
@@ -1796,6 +2102,9 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_checks.GetChecksByMarkIdResponse"
@@ -1811,6 +2120,9 @@ const docTemplate = `{
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_checks.GetChecksByUserIdResponse"
                 },
@@ -1824,6 +2136,9 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_map.GetAdminBoundariesMarksCountResponse"
@@ -1839,6 +2154,9 @@ const docTemplate = `{
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_map.GetAdminBoundariesResponse"
                 },
@@ -1852,6 +2170,9 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_map.GetCitiesResponse"
@@ -1867,6 +2188,9 @@ const docTemplate = `{
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_map.GetDistrictsResponse"
                 },
@@ -1880,6 +2204,9 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_map.GetRegionsResponse"
@@ -1895,6 +2222,9 @@ const docTemplate = `{
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.AddMarkResponse"
                 },
@@ -1908,6 +2238,9 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.ConfirmResponse"
@@ -1923,6 +2256,9 @@ const docTemplate = `{
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.GetMarkByIdResponse"
                 },
@@ -1936,6 +2272,9 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.GetMarkStatusHistoryByMarkIdResponse"
@@ -1951,6 +2290,9 @@ const docTemplate = `{
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.GetMarkStatusesResponse"
                 },
@@ -1964,6 +2306,9 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.GetMarkTypesResponse"
@@ -1979,8 +2324,28 @@ const docTemplate = `{
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.GetMarksByUserIdResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarksNearbyResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_marks.GetMarksNearbyResponse"
                 },
                 "success": {
                     "type": "boolean"
@@ -1992,6 +2357,9 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.GetMarksResponse"
@@ -2007,6 +2375,9 @@ const docTemplate = `{
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_marks.RejectResponse"
                 },
@@ -2020,6 +2391,9 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_tasks.AddTaskResponse"
@@ -2035,6 +2409,9 @@ const docTemplate = `{
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_tasks.GetTaskByIdResponse"
                 },
@@ -2048,6 +2425,9 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_tasks.GetTasksByUserIdResponse"
@@ -2063,6 +2443,9 @@ const docTemplate = `{
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_tasks.GetTasksResponse"
                 },
@@ -2076,6 +2459,9 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_users.GetMeResponse"
@@ -2091,6 +2477,9 @@ const docTemplate = `{
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_users.GetUserByIdResponse"
                 },
@@ -2105,6 +2494,9 @@ const docTemplate = `{
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
                 },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_users.GetUsersResponse"
                 },
@@ -2118,6 +2510,9 @@ const docTemplate = `{
             "properties": {
                 "error": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
                 },
                 "payload": {
                     "$ref": "#/definitions/map_string_string"
@@ -2373,6 +2768,17 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark"
+                    }
+                }
+            }
+        },
+        "internal_handler_marks.GetMarksNearbyResponse": {
+            "type": "object",
+            "properties": {
+                "marks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkWithDistance"
                     }
                 }
             }
