@@ -218,13 +218,13 @@ func (st *ChecksSuite) TestAddCheck() {
 			statusCode: 400,
 		},
 		{
-			name: "Err400NotFoundMark",
+			name: "Err404NotFoundMark",
 			req: checksrest.AddCheckRequest{
 				MarkID:  math.MaxInt32,
 				Result:  true,
 				Comment: "",
 			},
-			statusCode: 400,
+			statusCode: 404,
 		},
 		{
 			name: "Err409Conflict",
