@@ -7,14 +7,23 @@ package notifier
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
+	"strconv"
 	"sync"
+	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/app"
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/events"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
+	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/nats"
+	"github.com/PritOriginal/problem-map-server/internal/push"
+	"github.com/PritOriginal/problem-map-server/internal/push/apns"
+	"github.com/PritOriginal/problem-map-server/internal/push/fcm"
 	"github.com/PritOriginal/problem-map-server/internal/repository/postgres"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
@@ -46,6 +55,9 @@ type App struct {
 	nats    *nats.Client
 	closers app.Closers
 	router  *Router
+	// metricsServer serves the Prometheus registry over HTTP; nil when
+	// notifier.metrics-port is 0.
+	metricsServer *http.Server
 
 	stopOnce sync.Once
 	done     chan struct{}
@@ -75,23 +87,60 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	notificationsRepo := postgres.NewNotifications(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	marksRepo := postgres.NewMarks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 
-	// Extension point: replace NewLogPushSender with a real provider
-	// (FCM/APNs) implementing usecase.PushSender.
-	notificationsUseCase := usecase.NewNotifications(log, usecase.NewLogPushSender(log), usecase.NotificationsRepositories{
+	m := metrics.New()
+	pushMetrics := push.NewMetrics(m.Registry())
+
+	notificationsUseCase := usecase.NewNotifications(log, newPushSender(log, cfg.Push), usecase.NotificationsRepositories{
 		Notifications: notificationsRepo,
 		Devices:       notificationsRepo,
-	})
+	}, usecase.WithPushMetrics(pushMetrics), usecase.WithPushTimeout(cfg.Push.SendTimeout))
 	notifier := usecase.NewNotifier(log, notificationsUseCase, usecase.NotifierRepositories{
 		Marks: marksRepo,
 	})
 
-	return &App{
-		log:     log,
-		nats:    natsClient,
-		closers: closers,
-		router:  NewRouter(log, notifier),
-		done:    make(chan struct{}),
+	var metricsServer *http.Server
+	if cfg.Notifier.MetricsPort > 0 {
+		metricsServer = m.Server(":" + strconv.Itoa(cfg.Notifier.MetricsPort))
 	}
+
+	return &App{
+		log:           log,
+		nats:          natsClient,
+		closers:       closers,
+		router:        NewRouter(log, notifier),
+		metricsServer: metricsServer,
+		done:          make(chan struct{}),
+	}
+}
+
+// newPushSender wires the providers configured in cfg: FCM for android and
+// web, the APNs stub for ios. Without any credentials every push is only
+// logged (push.LogSender).
+func newPushSender(log *slog.Logger, cfg config.PushConfig) usecase.PushSender {
+	if !cfg.FCM.Enabled() && !cfg.APNs.Enabled() {
+		log.Warn("push credentials are not configured: notifications are only logged, not delivered")
+		return push.NewLogSender(log)
+	}
+
+	senders := make(map[models.DevicePlatform]push.Sender, 3)
+	if cfg.FCM.Enabled() {
+		fcmSender, err := fcm.New(log, cfg.FCM)
+		if err != nil {
+			log.Error("failed to init FCM sender", slogger.Err(err))
+			panic(err)
+		}
+		senders[models.PlatformAndroid] = fcmSender
+		senders[models.PlatformWeb] = fcmSender
+		log.Info("FCM push sender enabled")
+	} else {
+		log.Warn("FCM is not configured: android and web pushes are only logged")
+	}
+	if cfg.APNs.Enabled() {
+		senders[models.PlatformIOS] = apns.New(log, cfg.APNs)
+		log.Warn("APNs push sender is a stub: ios pushes are only logged")
+	}
+
+	return push.NewMulti(push.NewLogSender(log), senders)
 }
 
 // Run subscribes to the event subjects and blocks until Stop is called.
@@ -103,6 +152,16 @@ func (a *App) Run() error {
 	}
 	a.log.Info("notifier started", slog.Any("subjects", a.router.Subjects()))
 
+	// A failure of the metrics server is logged but does not stop the worker.
+	if a.metricsServer != nil {
+		go func() {
+			a.log.Info("notifier metrics server started", slog.String("address", a.metricsServer.Addr))
+			if err := a.metricsServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				a.log.Error("notifier metrics server failed", slogger.Err(err))
+			}
+		}()
+	}
+
 	select {
 	case <-a.done:
 		return nil
@@ -113,7 +172,11 @@ func (a *App) Run() error {
 	}
 }
 
-// Stop unblocks Run and closes the clients (NATS, then PostgreSQL).
+// metricsShutdownTimeout bounds the graceful shutdown of the metrics server.
+const metricsShutdownTimeout = 5 * time.Second
+
+// Stop unblocks Run, shuts the metrics server down and closes the clients
+// (NATS, then PostgreSQL).
 func (a *App) Stop() {
 	const op = "notifier.Stop"
 
@@ -121,6 +184,15 @@ func (a *App) Stop() {
 	log.Info("stopping notifier")
 
 	a.stopOnce.Do(func() { close(a.done) })
+
+	if a.metricsServer != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), metricsShutdownTimeout)
+		defer cancel()
+		if err := a.metricsServer.Shutdown(ctx); err != nil {
+			log.Error("an error occurred while stopping the metrics server", slogger.Err(err))
+		}
+	}
+
 	a.closers.Close(log)
 }
 
