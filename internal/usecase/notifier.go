@@ -2,11 +2,15 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
+	"slices"
 
 	"github.com/PritOriginal/problem-map-server/internal/events"
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/guregu/null/v6"
 )
 
@@ -15,9 +19,16 @@ type NotificationCreator interface {
 	Create(ctx context.Context, n models.Notification) (id int64, created bool, err error)
 }
 
-// NotifierMarksRepository resolves the mark an event refers to.
+// NotifierMarksRepository resolves the mark an event refers to and its
+// followers.
 type NotifierMarksRepository interface {
 	GetMarkById(ctx context.Context, id int) (models.Mark, error)
+	GetFollowerIDs(ctx context.Context, markId int) ([]int, error)
+}
+
+// NotifierCommentsRepository resolves the comment a reply answers.
+type NotifierCommentsRepository interface {
+	GetCommentById(ctx context.Context, id int) (models.Comment, error)
 }
 
 // NotifierOrganizationsRepository resolves the members of an organization.
@@ -28,6 +39,9 @@ type NotifierOrganizationsRepository interface {
 type NotifierRepositories struct {
 	Marks         NotifierMarksRepository
 	Organizations NotifierOrganizationsRepository
+	// Comments is optional: without it the author of the parent comment of
+	// a reply is not notified.
+	Comments NotifierCommentsRepository
 }
 
 // Notifier turns domain events into notifications for their addressees.
@@ -173,6 +187,80 @@ func (uc *Notifier) HandleMarkSLABreached(ctx context.Context, ev events.MarkSLA
 		Title:  "Просрочен срок по метке",
 		Body:   fmt.Sprintf("Срок решения метки #%d истёк %s", ev.MarkID, ev.SLADueAt.Local().Format("02.01.2006 15:04")),
 	})
+}
+
+// HandleCommentAdded notifies the author of the mark, the author of the
+// parent comment (for a reply) and the followers of the mark, each once
+// and never the commenter themselves.
+func (uc *Notifier) HandleCommentAdded(ctx context.Context, ev events.CommentAdded) error {
+	const op = "usecase.Notifier.HandleCommentAdded"
+
+	authorID := ev.AuthorID
+	if authorID == 0 {
+		mark, err := uc.repos.Marks.GetMarkById(ctx, ev.MarkID)
+		if err != nil {
+			return mapRepoErr(op, err)
+		}
+		authorID = mark.UserID
+	}
+
+	parentAuthorID := 0
+	if ev.ParentID != nil && uc.repos.Comments != nil {
+		parent, err := uc.repos.Comments.GetCommentById(ctx, *ev.ParentID)
+		switch {
+		case errors.Is(err, repository.ErrNotFound):
+			uc.log.Warn("parent comment not found, its author is not notified",
+				slog.String("op", op), slog.Int("comment_id", *ev.ParentID))
+		case err != nil:
+			return mapRepoErr(op, err)
+		default:
+			parentAuthorID = parent.UserID
+		}
+	}
+
+	followers, err := uc.repos.Marks.GetFollowerIDs(ctx, ev.MarkID)
+	if err != nil {
+		return mapRepoErr(op, err)
+	}
+
+	// The most specific text wins: the parent author is told about the
+	// reply, the mark author about their mark, everybody else follows it.
+	// Ids are visited in a fixed order so that a redelivery repeats the same
+	// sequence of idempotent creates.
+	bodies := make(map[int]string, len(followers)+2)
+	add := func(userID int, body string) {
+		if userID == 0 || userID == ev.UserID {
+			return
+		}
+		if _, ok := bodies[userID]; !ok {
+			bodies[userID] = body
+		}
+	}
+	add(parentAuthorID, fmt.Sprintf("Ответ на ваш комментарий к метке #%d", ev.MarkID))
+	add(authorID, fmt.Sprintf("Новый комментарий к вашей метке #%d", ev.MarkID))
+	for _, id := range followers {
+		add(id, fmt.Sprintf("Новый комментарий к метке #%d", ev.MarkID))
+	}
+	if len(bodies) == 0 {
+		uc.log.Debug("nobody to notify about the comment", slog.Int("mark_id", ev.MarkID), slog.Int("comment_id", ev.CommentID))
+		return nil
+	}
+
+	for _, userID := range slices.Sorted(maps.Keys(bodies)) {
+		_, _, err := uc.notifications.Create(ctx, models.Notification{
+			UserID:  userID,
+			EventID: ev.EventID,
+			Type:    models.NotificationCommentAdded,
+			MarkID:  null.IntFrom(int64(ev.MarkID)),
+			Title:   "Новый комментарий",
+			Body:    bodies[userID],
+		})
+		if err != nil {
+			return fmt.Errorf("%s: %w", op, err)
+		}
+	}
+
+	return nil
 }
 
 // notifyMembers creates the notification for every member of the

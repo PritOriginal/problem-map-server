@@ -31,6 +31,7 @@ type Config struct {
 	Notifier        NotifierConfig   `yaml:"notifier"`
 	Tasker          TaskerConfig     `yaml:"tasker"`
 	Marks           MarksConfig      `yaml:"marks"`
+	Comments        CommentsConfig   `yaml:"comments"`
 	Rating          RatingConfig     `yaml:"rating"`
 	Push            PushConfig       `yaml:"push"`
 	Export          ExportConfig     `yaml:"export"`
@@ -192,6 +193,26 @@ func (m MarksConfig) Validate() error {
 		return errors.New("marks.dedup-radius-m (MARKS_DEDUP_RADIUS_M) must be in (0, 50000]")
 	}
 	return nil
+}
+
+// CommentsConfig tunes the comments on marks.
+type CommentsConfig struct {
+	// EditWindow is how long after creation the author may edit a comment.
+	EditWindow time.Duration `yaml:"edit-window" env:"COMMENTS_EDIT_WINDOW" env-default:"15m"`
+	// MaxPerDay caps the comments a user may post in a rolling 24 hours.
+	MaxPerDay int `yaml:"max-per-day" env:"COMMENTS_MAX_PER_DAY" env-default:"100"`
+}
+
+// Validate checks that the comment limits are sane.
+func (c CommentsConfig) Validate() error {
+	var errs []error
+	if c.EditWindow <= 0 {
+		errs = append(errs, errors.New("comments.edit-window (COMMENTS_EDIT_WINDOW) must be positive"))
+	}
+	if c.MaxPerDay <= 0 {
+		errs = append(errs, errors.New("comments.max-per-day (COMMENTS_MAX_PER_DAY) must be positive"))
+	}
+	return errors.Join(errs...)
 }
 
 type PhotoStorageType string
@@ -545,7 +566,7 @@ const MinJWTKeyLength = 32
 
 // Validate checks that security-sensitive settings are present and sane.
 func (c *Config) Validate() error {
-	if err := errors.Join(c.Auth.Validate(), c.DB.Validate(), c.Tasker.Validate(), c.Marks.Validate(), c.Rating.Validate(), c.Push.Validate(), c.Nats.ValidateDelivery(), c.Export.Validate(), c.Webhooks.Validate()); err != nil {
+	if err := errors.Join(c.Auth.Validate(), c.DB.Validate(), c.Tasker.Validate(), c.Marks.Validate(), c.Comments.Validate(), c.Rating.Validate(), c.Push.Validate(), c.Nats.ValidateDelivery(), c.Export.Validate(), c.Webhooks.Validate()); err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 	return nil

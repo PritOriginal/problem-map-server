@@ -118,6 +118,9 @@ type Mark struct {
 	// IsOverdue reports whether SLADueAt has passed while the mark is still
 	// confirmed or in progress (computed on read).
 	IsOverdue bool `json:"is_overdue" db:"is_overdue"`
+	// CommentsCount is the number of comments on the mark that are not
+	// deleted.
+	CommentsCount int `json:"comments_count" db:"comments_count"`
 }
 
 // MarkUpdate lists the mark fields a client may change; nil means "keep".

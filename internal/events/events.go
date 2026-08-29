@@ -27,6 +27,10 @@ const (
 	SubjectCheckAdded        = "check.added"
 	SubjectMarkAssigned      = "mark.assigned"
 	SubjectMarkSLABreached   = "mark.sla_breached"
+	// SubjectCommentAdded lives under mark.> so that the event flows through
+	// the existing events stream and webhook subscriptions without a new
+	// subject filter.
+	SubjectCommentAdded = "mark.comment_added"
 )
 
 // Publisher sends a domain event to the broker. Implementations must be
@@ -181,6 +185,33 @@ func NewMarkSLABreached(markID, organizationID int, slaDueAt time.Time) MarkSLAB
 		MarkID:         markID,
 		OrganizationID: organizationID,
 		SLADueAt:       slaDueAt,
+	}
+}
+
+// CommentAdded is published after a user posted a comment on a mark.
+type CommentAdded struct {
+	Header
+	CommentID int `json:"comment_id"`
+	MarkID    int `json:"mark_id"`
+	// UserID is the author of the comment.
+	UserID int `json:"user_id"`
+	// ParentID is the comment replied to; nil for a top-level comment.
+	ParentID *int `json:"parent_id,omitempty"`
+	// AuthorID is the user who created the mark.
+	AuthorID int `json:"author_id"`
+}
+
+func (CommentAdded) Subject() string { return SubjectCommentAdded }
+
+// NewCommentAdded builds the event with a fresh EventID.
+func NewCommentAdded(commentID, markID, userID int, parentID *int, authorID int) CommentAdded {
+	return CommentAdded{
+		Header:    newHeader(),
+		CommentID: commentID,
+		MarkID:    markID,
+		UserID:    userID,
+		ParentID:  parentID,
+		AuthorID:  authorID,
 	}
 }
 

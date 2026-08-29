@@ -28,7 +28,10 @@ func NewMarks(db *sqlx.DB, c *trmsqlx.CtxGetter) *MarksRepository {
 // bound through listQuery.ColumnArgs or numbered explicitly in raw queries.
 var markColumns = "marks.mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, marks.user_id, marks.created_at, marks.updated_at, " +
 	"marks.organization_id, marks.sla_due_at, " + overdueColumn + ", " +
-	followerColumns
+	commentsCountColumn + ", " + followerColumns
+
+// commentsCountColumn counts the comments of the mark that are not deleted.
+const commentsCountColumn = "(SELECT COUNT(*) FROM mark_comments mc WHERE mc.mark_id = marks.mark_id AND mc.deleted_at IS NULL)::int AS comments_count"
 
 // overdueColumn computes is_overdue: the SLA deadline has passed while the
 // mark is still waiting for the organization (see models.SLAStatuses). It

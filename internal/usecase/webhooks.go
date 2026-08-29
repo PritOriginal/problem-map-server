@@ -86,7 +86,7 @@ func NewWebhooks(log *slog.Logger, deps WebhooksDeps, repos WebhooksRepositories
 
 // KnownWebhookEvents lists the subjects a webhook may subscribe to.
 func KnownWebhookEvents() []string {
-	return []string{events.SubjectMarkStatusChanged, events.SubjectTaskAssigned, events.SubjectCheckAdded}
+	return []string{events.SubjectMarkStatusChanged, events.SubjectTaskAssigned, events.SubjectCheckAdded, events.SubjectCommentAdded}
 }
 
 // webhookSecretBytes is the entropy of a generated secret (hex-encoded to

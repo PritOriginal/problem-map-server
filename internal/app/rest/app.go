@@ -16,6 +16,7 @@ import (
 	apikeysrest "github.com/PritOriginal/problem-map-server/internal/handler/apikeys"
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
 	checksrest "github.com/PritOriginal/problem-map-server/internal/handler/checks"
+	commentsrest "github.com/PritOriginal/problem-map-server/internal/handler/comments"
 	"github.com/PritOriginal/problem-map-server/internal/handler/health"
 	maprest "github.com/PritOriginal/problem-map-server/internal/handler/map"
 	marksrest "github.com/PritOriginal/problem-map-server/internal/handler/marks"
@@ -171,6 +172,12 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		}),
 		APIKey: apiKeyMiddleware,
 	})
+
+	commentsUseCase := usecase.NewComments(log, cfg.Comments, usecase.CommentsRepositories{
+		Comments: postgres.NewComments(postgresDB.DB, trmsqlx.DefaultCtxGetter),
+		Marks:    marksRepo,
+	}).WithEvents(publisher)
+	commentsrest.Register(router, log, authMiddleware, commentsUseCase)
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	checksUseCase := usecase.NewChecks(log, cfg.Rating, trManager, markStatusUpdater, usecase.ChecksRepositories{

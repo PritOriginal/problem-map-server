@@ -1,6 +1,7 @@
 // Package notifier is the worker that turns domain events (NATS) into
 // notifications: it consumes mark.status_changed, task.assigned,
-// check.added, mark.assigned and mark.sla_breached from the JetStream
+// check.added, mark.assigned, mark.sla_breached and mark.comment_added
+// from the JetStream
 // stream, stores a notification per addressee and hands it to the
 // PushSender. Every event is acknowledged only after it was handled, so a
 // crash or a database outage never loses a notification; a poison event
@@ -47,6 +48,7 @@ type Handlers interface {
 	HandleCheckAdded(ctx context.Context, ev events.CheckAdded) error
 	HandleMarkAssigned(ctx context.Context, ev events.MarkAssigned) error
 	HandleMarkSLABreached(ctx context.Context, ev events.MarkSLABreached) error
+	HandleCommentAdded(ctx context.Context, ev events.CommentAdded) error
 }
 
 // App is the notifier worker: Run consumes and blocks until Stop.
@@ -108,6 +110,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	notifier := usecase.NewNotifier(log, notificationsUseCase, usecase.NotifierRepositories{
 		Marks:         marksRepo,
 		Organizations: postgres.NewOrganizations(postgresDB.DB, trmsqlx.DefaultCtxGetter),
+		Comments:      postgres.NewComments(postgresDB.DB, trmsqlx.DefaultCtxGetter),
 	})
 
 	webhookSender, webhookURLs := app.NewWebhookSender(log, cfg.Webhooks)
@@ -314,7 +317,7 @@ func NewRouter(log *slog.Logger, handlers Handlers) *Router {
 func (r *Router) Subjects() []string {
 	return []string{
 		events.SubjectMarkStatusChanged, events.SubjectTaskAssigned, events.SubjectCheckAdded,
-		events.SubjectMarkAssigned, events.SubjectMarkSLABreached,
+		events.SubjectMarkAssigned, events.SubjectMarkSLABreached, events.SubjectCommentAdded,
 	}
 }
 
@@ -335,6 +338,8 @@ func (r *Router) Handle(ctx context.Context, subject string, data []byte) error 
 		return handle(ctx, subject, data, r.handlers.HandleMarkAssigned)
 	case events.SubjectMarkSLABreached:
 		return handle(ctx, subject, data, r.handlers.HandleMarkSLABreached)
+	case events.SubjectCommentAdded:
+		return handle(ctx, subject, data, r.handlers.HandleCommentAdded)
 	default:
 		return fmt.Errorf("%w: unknown subject %q", nats.ErrNoRetry, subject)
 	}

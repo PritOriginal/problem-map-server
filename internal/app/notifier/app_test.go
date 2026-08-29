@@ -21,6 +21,7 @@ type recordingHandlers struct {
 	checkAdded    []events.CheckAdded
 	assigned      []events.MarkAssigned
 	slaBreached   []events.MarkSLABreached
+	commentAdded  []events.CommentAdded
 	err           error
 }
 
@@ -41,6 +42,11 @@ func (h *recordingHandlers) HandleMarkStatusChanged(_ context.Context, ev events
 
 func (h *recordingHandlers) HandleTaskAssigned(_ context.Context, ev events.TaskAssigned) error {
 	h.taskAssigned = append(h.taskAssigned, ev)
+	return h.err
+}
+
+func (h *recordingHandlers) HandleCommentAdded(_ context.Context, ev events.CommentAdded) error {
+	h.commentAdded = append(h.commentAdded, ev)
 	return h.err
 }
 
@@ -164,6 +170,6 @@ func (suite *RouterSuite) TestSubjects() {
 	router := notifier.NewRouter(slogdiscard.NewDiscardLogger(), &recordingHandlers{})
 	suite.ElementsMatch([]string{
 		events.SubjectMarkStatusChanged, events.SubjectTaskAssigned, events.SubjectCheckAdded,
-		events.SubjectMarkAssigned, events.SubjectMarkSLABreached,
+		events.SubjectMarkAssigned, events.SubjectMarkSLABreached, events.SubjectCommentAdded,
 	}, router.Subjects())
 }
