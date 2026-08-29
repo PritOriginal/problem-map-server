@@ -4,6 +4,7 @@ package postgres_test
 
 import (
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"math"
 )
 
 func (s *PostgresSuite) TestMap_GetAdminBoundaries() {
@@ -241,6 +242,28 @@ func (s *PostgresSuite) TestMap_GetHeatmap() {
 			}
 			s.Equal(tt.wantTotal, total)
 		})
+	}
+}
+
+// TestMap_GetHeatmap_CellIsGroundMeters checks that cell_m is a ground size:
+// at 52.7 N a flat-top hexagon of 250 m (center-to-vertex) spans ~500 m
+// east-west and ~433 m north-south on the ground, not 500 EPSG:3857 units
+// (which would be ~300 m here).
+func (s *PostgresSuite) TestMap_GetHeatmap_CellIsGroundMeters() {
+	bbox := models.BBox{MinLon: 41.39, MinLat: 52.69, MaxLon: 41.42, MaxLat: 52.71}
+	cells, err := s.maps.GetHeatmap(s.ctx, models.HeatmapFilters{BBox: bbox, CellM: 250})
+	s.Require().NoError(err)
+	// Marks 1 and 2 are ~850 m apart, so they land in different cells.
+	s.Require().Len(cells, 2)
+
+	const metersPerDegree = 111_319.49
+	for _, cell := range cells {
+		bounds := cell.Geom.Ewkb.Bounds()
+		midLat := (bounds.Min(1) + bounds.Max(1)) / 2
+		widthM := (bounds.Max(0) - bounds.Min(0)) * metersPerDegree * math.Cos(midLat*math.Pi/180)
+		heightM := (bounds.Max(1) - bounds.Min(1)) * metersPerDegree
+		s.InDelta(2*250, widthM, 25)
+		s.InDelta(math.Sqrt(3)*250, heightM, 25)
 	}
 }
 

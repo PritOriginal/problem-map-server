@@ -2,6 +2,7 @@ package models_test
 
 import (
 	"errors"
+	"math"
 	"testing"
 	"time"
 
@@ -87,6 +88,22 @@ func (suite *ModelsSuite) TestHeatmapFilters_Validate() {
 	}
 }
 
+func (suite *ModelsSuite) TestHeatmapFilters_CellSize3857() {
+	// At the equator EPSG:3857 is metric; at 52.7 N distances are stretched
+	// by 1/cos(52.7) ~ 1.65, so 250 ground meters are ~412.6 projected units.
+	equator := models.BBox{MinLon: 0, MinLat: -1, MaxLon: 1, MaxLat: 1}
+	suite.InDelta(250, models.HeatmapFilters{BBox: equator, CellM: 250}.CellSize3857(), 1e-9)
+
+	tambov := models.BBox{MinLon: 41.39, MinLat: 52.69, MaxLon: 41.42, MaxLat: 52.71}
+	suite.InDelta(412.6, models.HeatmapFilters{BBox: tambov, CellM: 250}.CellSize3857(), 0.5)
+
+	// Beyond the projection's limit the latitude is clamped, not infinite.
+	polar := models.BBox{MinLon: 0, MinLat: 89, MaxLon: 1, MaxLat: 90}
+	size := models.HeatmapFilters{BBox: polar, CellM: 250}.CellSize3857()
+	suite.False(math.IsInf(size, 0))
+	suite.Greater(size, 250.0)
+}
+
 func (suite *ModelsSuite) TestHeatmapFilters_EstimateCells() {
 	// A 1.5 km x 1.7 km square in EPSG:3857 at the equator (where the
 	// projection is metric): hexagons of size 100 m tile it in columns every
@@ -98,6 +115,11 @@ func (suite *ModelsSuite) TestHeatmapFilters_EstimateCells() {
 	// Doubling the cell size divides the estimate by about four.
 	coarse := models.HeatmapFilters{BBox: bbox, CellM: 200}.EstimateCells()
 	suite.Less(coarse, got/2)
+
+	// The same ground extent at 60 N (where cos = 0.5) is projected twice as
+	// large, but so are the cells, so the estimate is unchanged.
+	north := models.BBox{MinLon: 0, MinLat: 60, MaxLon: 1500.0 / (111_319.49 * 0.5), MaxLat: 60 + 1700.0/111_319.49}
+	suite.InDelta(got, models.HeatmapFilters{BBox: north, CellM: 100}.EstimateCells(), 24)
 }
 
 func (suite *ModelsSuite) TestTopTypesFilters_Validate() {

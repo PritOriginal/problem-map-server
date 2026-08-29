@@ -140,7 +140,7 @@ func (h *handler) GetAdminBoundariesMarksCount() gin.HandlerFunc {
 //	@Tags			map
 //	@Produce		json
 //	@Param			bbox			query		string		true	"minLon,minLat,maxLon,maxLat"
-//	@Param			cell_m			query		number		false	"hexagon size in meters (10..100000)"	default(250)
+//	@Param			cell_m			query		number		false	"hexagon size (center-to-vertex) in ground meters (10..100000)"	default(250)
 //	@Param			mark_type_ids	query		[]number	false	"filter by mark type"
 //	@Param			mark_status_ids	query		[]number	false	"filter by mark status"
 //	@Success		200				{object}	responses.Response[maprest.HeatmapResponse]

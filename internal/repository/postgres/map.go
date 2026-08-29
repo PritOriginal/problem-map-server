@@ -105,14 +105,15 @@ func (r *MapRepository) GetAdminBoundariesMarksCount(ctx context.Context, filter
 }
 
 // GetHeatmap bins the marks inside the bbox into a hexagonal grid built in
-// EPSG:3857 (ST_HexagonGrid, PostGIS >= 3.1) and returns the non-empty cells
+// EPSG:3857 (ST_HexagonGrid, PostGIS >= 3.1) with cells of CellM ground
+// meters (see HeatmapFilters.CellSize3857) and returns the non-empty cells
 // back in WGS84. Points are assigned by ST_Contains so a mark on an edge is
 // never counted twice.
 func (r *MapRepository) GetHeatmap(ctx context.Context, filters models.HeatmapFilters) ([]models.HeatmapCell, error) {
 	const op = "storage.postgres.GetHeatmap"
 
 	b := filters.BBox
-	args := []any{b.MinLon, b.MinLat, b.MaxLon, b.MaxLat, filters.CellM}
+	args := []any{b.MinLon, b.MinLat, b.MaxLon, b.MaxLat, filters.CellSize3857()}
 	conds := []string{"ST_Intersects(m.geom, ST_MakeEnvelope($1, $2, $3, $4, 4326))"}
 
 	if len(filters.MarkTypeIds) > 0 {

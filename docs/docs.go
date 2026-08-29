@@ -798,7 +798,7 @@ const docTemplate = `{
                     {
                         "type": "number",
                         "default": 250,
-                        "description": "hexagon size in meters (10..100000)",
+                        "description": "hexagon size (center-to-vertex) in ground meters (10..100000)",
                         "name": "cell_m",
                         "in": "query"
                     },

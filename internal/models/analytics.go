@@ -185,7 +185,8 @@ const (
 var ErrTooManyHeatmapCells = errors.New("too many heatmap cells, increase cell_m")
 
 // HeatmapFilters selects the marks binned into a hexagonal grid. CellM is the
-// hexagon size in meters (center-to-vertex, EPSG:3857).
+// hexagon size (center-to-vertex) in ground meters; the grid itself is built
+// in EPSG:3857, see CellSize3857.
 type HeatmapFilters struct {
 	BBox          BBox
 	CellM         float64
@@ -207,25 +208,38 @@ func (f HeatmapFilters) Validate() error {
 	return nil
 }
 
+// CellSize3857 converts CellM (ground meters) into the hexagon size in
+// EPSG:3857 units. Web Mercator stretches distances by 1/cos(lat), so the
+// size is scaled at the latitude of the bbox center; the scale is treated
+// as constant across the bbox.
+func (f HeatmapFilters) CellSize3857() float64 {
+	lat := (f.BBox.MinLat + f.BBox.MaxLat) / 2
+	lat = math.Max(-webMercatorMaxLat, math.Min(webMercatorMaxLat, lat))
+	return f.CellM / math.Cos(lat*math.Pi/180)
+}
+
 // EstimateCells approximates how many hexagons of CellM cover the bbox in
-// EPSG:3857: the grid has a column every 1.5*size meters and a row every
-// sqrt(3)*size meters, plus one partial column and row along the edges.
+// EPSG:3857: the grid has a column every 1.5*size units and a row every
+// sqrt(3)*size units, plus one partial column and row along the edges.
 func (f HeatmapFilters) EstimateCells() int {
 	minX, minY := webMercator(f.BBox.MinLon, f.BBox.MinLat)
 	maxX, maxY := webMercator(f.BBox.MaxLon, f.BBox.MaxLat)
 	width, height := maxX-minX, maxY-minY
+	size := f.CellSize3857()
 
-	cols := math.Ceil(width/(1.5*f.CellM)) + 1
-	rows := math.Ceil(height/(math.Sqrt(3)*f.CellM)) + 1
+	cols := math.Ceil(width/(1.5*size)) + 1
+	rows := math.Ceil(height/(math.Sqrt(3)*size)) + 1
 	return int(cols * rows)
 }
+
+// webMercatorMaxLat is the latitude limit of EPSG:3857.
+const webMercatorMaxLat = 85.05112878
 
 // webMercator projects a WGS84 coordinate to EPSG:3857 meters; latitudes are
 // clamped to the projection's valid range.
 func webMercator(lon, lat float64) (x, y float64) {
 	const earthRadius = 6378137.0
-	const maxLat = 85.05112878
-	lat = math.Max(-maxLat, math.Min(maxLat, lat))
+	lat = math.Max(-webMercatorMaxLat, math.Min(webMercatorMaxLat, lat))
 	x = earthRadius * lon * math.Pi / 180
 	y = earthRadius * math.Log(math.Tan(math.Pi/4+lat*math.Pi/360))
 	return x, y

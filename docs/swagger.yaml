@@ -1569,7 +1569,7 @@ paths:
         required: true
         type: string
       - default: 250
-        description: hexagon size in meters (10..100000)
+        description: hexagon size (center-to-vertex) in ground meters (10..100000)
         in: query
         name: cell_m
         type: number
