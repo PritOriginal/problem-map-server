@@ -5,13 +5,11 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
 	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 )
 
 type TasksRepository struct {
@@ -26,29 +24,26 @@ func NewTasks(conn *sqlx.DB, c *trmsqlx.CtxGetter) *TasksRepository {
 	}
 }
 
-func (r *TasksRepository) GetTasks(ctx context.Context, filters models.GetTasksFilters) ([]models.Task, error) {
+const taskColumns = "task_id, name, user_id, mark_id, status_id, created_at, updated_at"
+
+func (r *TasksRepository) GetTasks(ctx context.Context, filters models.GetTasksFilters) (models.Page[models.Task], error) {
 	const op = "storage.postgres.GetTasks"
 
-	tasks := []models.Task{}
-
-	var conditions []string
-	var args []any
-	query := "SELECT * FROM tasks WHERE 1=1"
+	q := newListQuery(taskColumns, "tasks").
+		OrderBy("created_at DESC, task_id DESC").
+		Paginate(filters.Pagination)
 
 	if len(filters.Statuses) > 0 {
-		conditions = append(conditions, "status_id = ANY($?)")
-		args = append(args, pq.Array(filters.Statuses))
-	}
-	for i, condition := range conditions {
-		query += " AND " + condition
-		query = strings.Replace(query, "$?", fmt.Sprintf("$%d", len(args)-len(conditions)+i+1), 1)
-	}
-	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	if err := tr.SelectContext(ctx, &tasks, query, args...); err != nil {
-		return tasks, fmt.Errorf("%s: %w", op, err)
+		q.Where("status_id IN (?)", filters.Statuses)
 	}
 
-	return tasks, nil
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	page, err := selectPage[models.Task](ctx, tr, q)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return page, nil
 }
 
 func (r *TasksRepository) GetTaskById(ctx context.Context, id int) (models.Task, error) {
@@ -70,34 +65,25 @@ func (r *TasksRepository) GetTaskById(ctx context.Context, id int) (models.Task,
 	return task, nil
 }
 
-func (r *TasksRepository) GetTasksByUserId(ctx context.Context, userId int, filters models.GetTasksByUserIdFilters) ([]models.Task, error) {
+func (r *TasksRepository) GetTasksByUserId(ctx context.Context, userId int, filters models.GetTasksByUserIdFilters) (models.Page[models.Task], error) {
 	const op = "storage.postgres.GetTasksByUserId"
 
-	tasks := []models.Task{}
-
-	var conditions []string
-	var args []any
-	query := "SELECT * FROM tasks WHERE 1=1"
-
-	conditions = append(conditions, "user_id = $?")
-	args = append(args, userId)
+	q := newListQuery(taskColumns, "tasks").
+		Where("user_id = ?", userId).
+		OrderBy("created_at DESC, task_id DESC").
+		Paginate(filters.Pagination)
 
 	if len(filters.Statuses) > 0 {
-		conditions = append(conditions, "status_id = ANY($?)")
-		args = append(args, pq.Array(filters.Statuses))
-	}
-	for i, condition := range conditions {
-		query += " AND " + condition
-		query = strings.Replace(query, "$?", fmt.Sprintf("$%d", len(args)-len(conditions)+i+1), 1)
+		q.Where("status_id IN (?)", filters.Statuses)
 	}
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	err := tr.SelectContext(ctx, &tasks, query, args...)
+	page, err := selectPage[models.Task](ctx, tr, q)
 	if err != nil {
-		return tasks, fmt.Errorf("%s: %w", op, err)
+		return page, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return tasks, nil
+	return page, nil
 }
 
 func (r *TasksRepository) GetTaskByUserIdAndMarkId(ctx context.Context, userId int, markId int) (models.Task, error) {
