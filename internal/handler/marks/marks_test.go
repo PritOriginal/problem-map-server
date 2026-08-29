@@ -318,7 +318,12 @@ func (suite *MarksSuite) TestAddMark() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			if !tt.wantErrParseReq {
-				suite.uc.On("AddMark", mock.Anything, mock.Anything, mock.Anything).Once().
+				suite.uc.On("AddMark", mock.Anything, mock.MatchedBy(func(m models.Mark) bool {
+					// X must be longitude, Y must be latitude (GeoJSON/PostGIS order)
+					return m.Geom != nil &&
+						m.Geom.Ewkb.X() == tt.req.Longitude &&
+						m.Geom.Ewkb.Y() == tt.req.Latitude
+				}), mock.Anything).Once().
 					Return(int64(1), tt.errAddCheck)
 			}
 

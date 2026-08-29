@@ -29,6 +29,8 @@
 
 А именно для пакетов [ewkb](https://github.com/twpayne/go-geom) и [geojson](github.com/twpayne/go-geom/encoding/geojson).
 
+**Порядок координат в API.** Все геометрии хранятся в WGS84 (SRID 4326) в порядке GeoJSON/PostGIS: `X = longitude` (долгота), `Y = latitude` (широта). В `POST /marks` поля формы `longitude` и `latitude` передаются раздельно и в точку кладутся как `Point(longitude, latitude)`; клиенты не должны менять их местами. Для Тамбова: `longitude ≈ 41.4`, `latitude ≈ 52.7`.
+
 ### Стек
 
 - [`Gin`](https://github.com/gin-gonic/gin) - Веб-фреймворк

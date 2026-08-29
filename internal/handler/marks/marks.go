@@ -207,15 +207,20 @@ func (h *handler) GetMarksByUserId() gin.HandlerFunc {
 // AddMark add mark
 //
 //	@Summary		Add mark
-//	@Description	add mark
+//	@Description	add mark. Coordinates are WGS84: `longitude` is X, `latitude` is Y (GeoJSON/PostGIS order)
 //	@Tags			marks
 //	@Accept			mpfd
 //	@Produce		json
 //	@Security		BearerAuth
-//	@Success		201	{object}	responses.Response[marksrest.AddMarkResponse]
-//	@Failure		400	{object}	responses.Response[any]
-//	@Failure		401	{object}	responses.Response[any]
-//	@Failure		500	{object}	responses.Response[any]
+//	@Param			photos			formData	file	true	"Photos of the problem"
+//	@Param			longitude		formData	number	true	"Longitude in degrees (X), WGS84"	example(41.44)
+//	@Param			latitude		formData	number	true	"Latitude in degrees (Y), WGS84"	example(52.72)
+//	@Param			mark_type_id	formData	int		true	"Mark type id"
+//	@Param			description		formData	string	false	"Description (max 256 chars)"
+//	@Success		201				{object}	responses.Response[marksrest.AddMarkResponse]
+//	@Failure		400				{object}	responses.Response[any]
+//	@Failure		401				{object}	responses.Response[any]
+//	@Failure		500				{object}	responses.Response[any]
 //	@Router			/marks [post]
 func (h *handler) AddMark() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -246,7 +251,7 @@ func (h *handler) AddMark() gin.HandlerFunc {
 		}
 
 		newMark := models.Mark{
-			Geom:        models.NewPoint(geom.Coord{req.Latitude, req.Longitude}),
+			Geom:        models.NewPoint(geom.Coord{req.Longitude, req.Latitude}),
 			MarkTypeID:  req.MarkTypeID,
 			UserID:      userId,
 			Description: req.Description,
