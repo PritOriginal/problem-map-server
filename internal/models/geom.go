@@ -27,6 +27,16 @@ func NewPoint(coords geom.Coord) *Point {
 	}
 }
 
+// NewPointLonLat builds a WGS84 point from a longitude/latitude pair after
+// ValidateLonLat, so an out-of-range or NaN coordinate never reaches the
+// database.
+func NewPointLonLat(lon, lat float64) (*Point, error) {
+	if err := ValidateLonLat(lon, lat); err != nil {
+		return nil, err
+	}
+	return NewPoint(geom.Coord{lon, lat}), nil
+}
+
 func (p *Point) Scan(src interface{}) error {
 	return p.Ewkb.Scan(src)
 }

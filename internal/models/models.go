@@ -91,6 +91,10 @@ func (d *District) ToProtobufObject() *pb.District {
 	}
 }
 
+// MaxMarkDescriptionLen is the maximum length (in runes) of a mark
+// description accepted by REST (binding max=256) and gRPC.
+const MaxMarkDescriptionLen = 256
+
 type Mark struct {
 	ID           int            `json:"mark_id" db:"mark_id"`
 	Description  string         `json:"description" db:"description"`

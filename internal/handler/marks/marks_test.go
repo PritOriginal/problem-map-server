@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -26,7 +27,9 @@ import (
 	jwt "github.com/appleboy/gin-jwt/v3"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	mock "github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -1214,5 +1217,19 @@ func (suite *MarksSuite) TestReject() {
 
 			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
+	}
+}
+
+// The binding tag cannot reference a constant, so keep the REST limit in
+// sync with models.MaxMarkDescriptionLen (shared with gRPC) explicitly.
+func TestDescriptionLimitMatchesModels(t *testing.T) {
+	want := fmt.Sprintf("max=%d", models.MaxMarkDescriptionLen)
+	for _, typ := range []reflect.Type{
+		reflect.TypeOf(marksrest.AddMarkRequest{}),
+		reflect.TypeOf(marksrest.UpdateMarkRequest{}),
+	} {
+		f, ok := typ.FieldByName("Description")
+		require.True(t, ok, typ.Name())
+		assert.Contains(t, f.Tag.Get("binding"), want, typ.Name())
 	}
 }

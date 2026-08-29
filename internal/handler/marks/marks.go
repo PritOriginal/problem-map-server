@@ -18,7 +18,6 @@ import (
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	jwt "github.com/appleboy/gin-jwt/v3"
 	"github.com/gin-gonic/gin"
-	"github.com/twpayne/go-geom"
 )
 
 type Marks interface {
@@ -336,8 +335,15 @@ func (h *handler) AddMark() gin.HandlerFunc {
 			return
 		}
 
+		point, err := models.NewPointLonLat(req.Longitude, req.Latitude)
+		if err != nil {
+			h.log.Debug("invalid coordinates", logger.Err(err))
+			responses.BadRequest(c, err.Error())
+			return
+		}
+
 		newMark := models.Mark{
-			Geom:        models.NewPoint(geom.Coord{req.Longitude, req.Latitude}),
+			Geom:        point,
 			MarkTypeID:  req.MarkTypeID,
 			UserID:      userId,
 			Description: req.Description,

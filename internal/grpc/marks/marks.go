@@ -5,7 +5,6 @@ import (
 	"errors"
 	"io"
 	"log/slog"
-	"math"
 	"strconv"
 	"unicode/utf8"
 
@@ -16,7 +15,6 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
-	"github.com/twpayne/go-geom"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -24,9 +22,6 @@ import (
 	"google.golang.org/protobuf/protoadapt"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
-
-// maxDescriptionLen mirrors the REST AddMarkRequest binding (max=256).
-const maxDescriptionLen = 256
 
 type Marks interface {
 	GetMarks(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error)
@@ -130,8 +125,12 @@ func (s *server) AddMark(ctx context.Context, in *pb.AddMarkRequest) (*pb.AddMar
 	}
 
 	coords := in.GetPoint().GetCoordinates()
+	point, err := models.NewPointLonLat(coords.GetLongitude(), coords.GetLatitude())
+	if err != nil {
+		return nil, grpcerr.InvalidArgument(err.Error())
+	}
 	newMark := models.Mark{
-		Geom:        models.NewPoint(geom.Coord{coords.GetLongitude(), coords.GetLatitude()}),
+		Geom:        point,
 		MarkTypeID:  int(in.GetMarkTypeId()),
 		UserID:      claims.UserID,
 		Description: in.GetDescription(),
@@ -180,17 +179,13 @@ func validateAddMark(in *pb.AddMarkRequest) error {
 	if coords == nil {
 		return grpcerr.InvalidArgument("point is required")
 	}
-	// NaN passes plain range comparisons, so it is rejected explicitly.
-	if lon := coords.GetLongitude(); math.IsNaN(lon) || lon < -180 || lon > 180 {
-		return grpcerr.InvalidArgument("longitude must be in [-180, 180]")
-	}
-	if lat := coords.GetLatitude(); math.IsNaN(lat) || lat < -90 || lat > 90 {
-		return grpcerr.InvalidArgument("latitude must be in [-90, 90]")
+	if err := models.ValidateLonLat(coords.GetLongitude(), coords.GetLatitude()); err != nil {
+		return grpcerr.InvalidArgument(err.Error())
 	}
 	if in.GetMarkTypeId() <= 0 {
 		return grpcerr.InvalidArgument("mark_type_id must be positive")
 	}
-	if utf8.RuneCountInString(in.GetDescription()) > maxDescriptionLen {
+	if utf8.RuneCountInString(in.GetDescription()) > models.MaxMarkDescriptionLen {
 		return grpcerr.InvalidArgument("description is too long")
 	}
 

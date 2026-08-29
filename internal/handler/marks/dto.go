@@ -135,9 +135,11 @@ type AddMarkRequest struct {
 	// Longitude in degrees (WGS84), stored as X. Example: 41.44 for Tambov.
 	Longitude float64 `form:"longitude" binding:"required,longitude" example:"41.44"`
 	// Latitude in degrees (WGS84), stored as Y. Example: 52.72 for Tambov.
-	Latitude    float64 `form:"latitude" binding:"required,latitude" example:"52.72"`
-	MarkTypeID  int     `form:"mark_type_id" binding:"required"`
-	Description string  `form:"description" binding:"max=256"`
+	Latitude   float64 `form:"latitude" binding:"required,latitude" example:"52.72"`
+	MarkTypeID int     `form:"mark_type_id" binding:"required"`
+	// Description is limited to models.MaxMarkDescriptionLen runes (the
+	// binding tag cannot reference the constant; a test keeps them in sync).
+	Description string `form:"description" binding:"max=256"`
 }
 
 type AddMarkResponse struct {
