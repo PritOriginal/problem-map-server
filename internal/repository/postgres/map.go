@@ -105,10 +105,15 @@ func (r *MapRepository) GetAdminBoundariesMarksCount(ctx context.Context, filter
 }
 
 // GetHeatmap bins the marks inside the bbox into a hexagonal grid built in
-// EPSG:3857 (ST_HexagonGrid, PostGIS >= 3.1) with cells of CellM ground
-// meters (see HeatmapFilters.CellSize3857) and returns the non-empty cells
-// back in WGS84. Points are assigned by ST_Contains so a mark on an edge is
-// never counted twice.
+// EPSG:3857 (ST_HexagonGrid / ST_Hexagon, PostGIS >= 3.1) with cells of CellM
+// ground meters (see HeatmapFilters.CellSize3857) and returns the non-empty
+// cells back in WGS84.
+//
+// Each mark looks up its own cell in the few hexagons around it (the grid is
+// anchored at the SRS origin, so cell indices are global), which is O(marks)
+// instead of the O(marks x cells) join of the whole grid against the points.
+// A mark on an edge is assigned to the lowest (i, j) of the touching cells,
+// so it is counted exactly once.
 func (r *MapRepository) GetHeatmap(ctx context.Context, filters models.HeatmapFilters) ([]models.HeatmapCell, error) {
 	const op = "storage.postgres.GetHeatmap"
 
@@ -126,22 +131,28 @@ func (r *MapRepository) GetHeatmap(ctx context.Context, filters models.HeatmapFi
 	}
 
 	query := fmt.Sprintf(`
-		WITH bounds AS (
-			SELECT ST_Transform(ST_MakeEnvelope($1, $2, $3, $4, 4326), 3857) AS geom
-		),
-		pts AS (
+		WITH pts AS (
 			SELECT ST_Transform(m.geom, 3857) AS geom
 			FROM marks m
 			WHERE %s
+		),
+		cells AS (
+			SELECT hex.i, hex.j, COUNT(*) AS count
+			FROM pts
+			CROSS JOIN LATERAL (
+				SELECT g.i, g.j
+				FROM ST_HexagonGrid($5, ST_Expand(pts.geom, $5)) AS g
+				WHERE ST_Intersects(g.geom, pts.geom)
+				ORDER BY g.i, g.j
+				LIMIT 1
+			) AS hex
+			GROUP BY hex.i, hex.j
 		)
 		SELECT
-			ST_AsEWKB(ST_Transform(hex.geom, 4326)) AS geom,
-			COUNT(pts.geom) AS count
-		FROM bounds
-		CROSS JOIN ST_HexagonGrid($5, bounds.geom) AS hex
-		JOIN pts ON ST_Contains(hex.geom, pts.geom)
-		GROUP BY hex.i, hex.j, hex.geom
-		ORDER BY hex.i, hex.j
+			ST_AsEWKB(ST_Transform(ST_SetSRID(ST_Hexagon($5, i, j), 3857), 4326)) AS geom,
+			count
+		FROM cells
+		ORDER BY i, j
 	`, strings.Join(conds, " AND "))
 
 	cells := []models.HeatmapCell{}
