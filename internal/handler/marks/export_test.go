@@ -62,6 +62,7 @@ func exportMarks() []models.Mark {
 	return []models.Mark{
 		{ID: 1, Description: "Свалка, \"у дома\"", Geom: models.NewPoint(geom.Coord{41.44, 52.72}), MarkTypeID: 1, MarkStatusID: models.ConfirmedStatus, UserID: 7, FollowersCount: 2, CreatedAt: at, UpdatedAt: at.Add(time.Hour)},
 		{ID: 2, Description: "multi\nline", Geom: models.NewPoint(geom.Coord{41.5, 52.8}), MarkTypeID: 2, MarkStatusID: models.UnconfirmedStatus, UserID: 8, CreatedAt: at, UpdatedAt: at},
+		{ID: 3, Description: "=HYPERLINK(\"https://evil\")", Geom: models.NewPoint(geom.Coord{-41.5, 52.8}), MarkTypeID: 2, MarkStatusID: models.UnconfirmedStatus, UserID: 8, CreatedAt: at, UpdatedAt: at},
 	}
 }
 
@@ -102,7 +103,7 @@ func (suite *ExportSuite) TestExportGeoJSON() {
 	}
 	suite.Require().NoError(json.Unmarshal(w.Body.Bytes(), &fc), w.Body.String())
 	suite.Equal("FeatureCollection", fc.Type)
-	suite.Require().Len(fc.Features, 2)
+	suite.Require().Len(fc.Features, 3)
 	suite.Equal("Feature", fc.Features[0].Type)
 	suite.Equal(1, fc.Features[0].ID)
 	suite.Equal(1, fc.Features[0].Properties.MarkID)
@@ -111,7 +112,7 @@ func (suite *ExportSuite) TestExportGeoJSON() {
 	suite.InDelta(41.44, fc.Features[0].Geometry.Ewkb.X(), 1e-9)
 	suite.InDelta(52.72, fc.Features[0].Geometry.Ewkb.Y(), 1e-9)
 	// Every feature sits on its own line (json.Encoder), the file stays valid JSON.
-	suite.Equal(3, strings.Count(w.Body.String(), "\n"))
+	suite.Equal(4, strings.Count(w.Body.String(), "\n"))
 }
 
 func (suite *ExportSuite) TestExportGeoJSONEmpty() {
@@ -139,10 +140,12 @@ func (suite *ExportSuite) TestExportCSV() {
 
 	records, err := csv.NewReader(strings.NewReader(strings.TrimPrefix(body, "\xEF\xBB\xBF"))).ReadAll()
 	suite.Require().NoError(err)
-	suite.Require().Len(records, 3)
+	suite.Require().Len(records, 4)
 	suite.Equal(marksrest.CSVHeader, records[0])
 	suite.Equal([]string{"1", "41.44", "52.72", "Свалка, \"у дома\"", "1", "2", "7", "2", "2026-08-29T10:00:00Z", "2026-08-29T11:00:00Z"}, records[1])
 	suite.Equal("multi\nline", records[2][3], "newlines are quoted, not split")
+	suite.Equal("'=HYPERLINK(\"https://evil\")", records[3][3], "formula triggers are neutralised")
+	suite.Equal("-41.5", records[3][1], "numbers are never escaped")
 }
 
 func (suite *ExportSuite) TestExportErrors() {

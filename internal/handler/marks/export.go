@@ -36,6 +36,12 @@ const (
 // exportFlushEvery is the number of rows between flushes to the client.
 const exportFlushEvery = 500
 
+// exportWriteWindow is how long one chunk of the export may take to reach
+// the client: the write deadline is pushed by this much on every flush, so
+// a large export is not cut by the server's global write timeout while a
+// stalled client still is.
+const exportWriteWindow = 30 * time.Second
+
 // ExportMarksRequest is bound from the query string of GET /marks/export:
 // the GET /marks filters plus the format. Pagination is accepted but ignored.
 type ExportMarksRequest struct {
@@ -46,7 +52,7 @@ type ExportMarksRequest struct {
 // ExportMarks streams the markers matching the filters as a file
 //
 //	@Summary		Export markers
-//	@Description	stream every marker matching the same filters as GET /marks (no pagination) as GeoJSON FeatureCollection or CSV (UTF-8 with BOM). At most `export.max-rows` (50 000 by default) rows: a wider selection is rejected with 400 "narrow the filters". Rate limited per IP (2 per minute by default)
+//	@Description	stream every marker matching the same filters as GET /marks (no pagination) as GeoJSON FeatureCollection or CSV (UTF-8 with BOM; a description starting with =, +, -, @ is prefixed with an apostrophe against formula injection). At most `export.max-rows` (50 000 by default) rows: a wider selection is rejected with 400 "narrow the filters". Rate limited per IP (2 per minute by default)
 //	@Tags			marks
 //	@Produce		application/geo+json
 //	@Produce		text/csv
@@ -141,15 +147,44 @@ func writeExportHeaders(w gin.ResponseWriter, contentType, filename string) {
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Content-Disposition", `attachment; filename="`+filename+`"`)
 	w.Header().Set("Cache-Control", "no-store")
+	extendWriteDeadline(w)
 	w.WriteHeader(http.StatusOK)
+}
+
+// extendWriteDeadline moves the response write deadline exportWriteWindow
+// into the future. Writers that do not support deadlines (tests) are left
+// alone.
+func extendWriteDeadline(w gin.ResponseWriter) {
+	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(exportWriteWindow))
+}
+
+// flush sends the buffered part of the export to the client and extends
+// the write deadline for the next chunk.
+func flush(w gin.ResponseWriter) {
+	w.Flush()
+	extendWriteDeadline(w)
 }
 
 // flushEvery flushes w to the client every exportFlushEvery rows so a large
 // export streams instead of buffering in the server.
 func flushEvery(w gin.ResponseWriter, rows int) {
 	if rows%exportFlushEvery == 0 {
-		w.Flush()
+		flush(w)
 	}
+}
+
+// csvCell neutralises spreadsheet formula injection: a cell starting with
+// a formula trigger (=, +, -, @) or a control character is prefixed with an
+// apostrophe so Excel/LibreOffice show it as text instead of evaluating it.
+func csvCell(s string) string {
+	if s == "" {
+		return s
+	}
+	switch s[0] {
+	case '=', '+', '-', '@', '\t', '\r', '\n':
+		return "'" + s
+	}
+	return s
 }
 
 // GeoJSONFeature is one mark of the GeoJSON export.
@@ -225,7 +260,7 @@ func (e *geoJSONExporter) End() error {
 	if _, err := io.WriteString(e.w, "]}\n"); err != nil {
 		return err
 	}
-	e.w.Flush()
+	flush(e.w)
 	return nil
 }
 
@@ -262,7 +297,7 @@ func (e *csvExporter) Write(m models.Mark) error {
 		strconv.Itoa(m.ID),
 		lon,
 		lat,
-		m.Description,
+		csvCell(m.Description),
 		strconv.Itoa(m.MarkTypeID),
 		strconv.Itoa(int(m.MarkStatusID)),
 		strconv.Itoa(m.UserID),
@@ -278,7 +313,7 @@ func (e *csvExporter) Write(m models.Mark) error {
 		if err := e.csv.Error(); err != nil {
 			return err
 		}
-		e.w.Flush()
+		flush(e.w)
 	}
 	return nil
 }
@@ -288,7 +323,7 @@ func (e *csvExporter) End() error {
 	if err := e.csv.Error(); err != nil {
 		return fmt.Errorf("flush csv: %w", err)
 	}
-	e.w.Flush()
+	flush(e.w)
 	return nil
 }
 
