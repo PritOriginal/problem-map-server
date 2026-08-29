@@ -25,8 +25,13 @@ import (
 // Subscriber is the part of the NATS client the worker uses; it is an
 // interface so the dispatch logic can be tested without a broker.
 type Subscriber interface {
-	Subscribe(subject string, handler func(ctx context.Context, data []byte) error) (*natsgo.Subscription, error)
+	QueueSubscribe(subject, queue string, handler nats.Handler) (*natsgo.Subscription, error)
 }
+
+// QueueGroup is the NATS queue group of the worker: every event is handled
+// by exactly one running notifier instance, so the worker scales out
+// without duplicating notifications.
+const QueueGroup = "notifier"
 
 // Handlers are the event handlers the worker dispatches to.
 type Handlers interface {
@@ -98,8 +103,14 @@ func (a *App) Run() error {
 	}
 	a.log.Info("notifier started", slog.Any("subjects", a.router.Subjects()))
 
-	<-a.done
-	return nil
+	select {
+	case <-a.done:
+		return nil
+	case <-a.nats.Closed():
+		// The connection is gone for good (not a reconnect): the worker
+		// cannot receive events any more, so it exits instead of idling.
+		return fmt.Errorf("%s: nats connection closed", op)
+	}
 }
 
 // Stop unblocks Run and closes the clients (NATS, then PostgreSQL).
@@ -128,11 +139,10 @@ func (r *Router) Subjects() []string {
 	return []string{events.SubjectMarkStatusChanged, events.SubjectTaskAssigned, events.SubjectCheckAdded}
 }
 
-// Subscribe registers Handle for every subject on sub.
+// Subscribe registers Handle for every subject on sub within QueueGroup.
 func (r *Router) Subscribe(sub Subscriber) error {
 	for _, subject := range r.Subjects() {
-		subject := subject
-		if _, err := sub.Subscribe(subject, func(ctx context.Context, data []byte) error {
+		if _, err := sub.QueueSubscribe(subject, QueueGroup, func(ctx context.Context, data []byte) error {
 			return r.Handle(ctx, subject, data)
 		}); err != nil {
 			return fmt.Errorf("subscribe %s: %w", subject, err)
@@ -142,8 +152,8 @@ func (r *Router) Subscribe(sub Subscriber) error {
 }
 
 // Handle decodes data as the event of subject and runs its handler. An
-// unknown subject or an undecodable payload is an error (and is logged by
-// the subscription), never a panic.
+// unknown subject, an undecodable payload or a payload of a newer schema
+// version is an error (and is logged by the subscription), never a panic.
 func (r *Router) Handle(ctx context.Context, subject string, data []byte) error {
 	switch subject {
 	case events.SubjectMarkStatusChanged:
@@ -157,9 +167,17 @@ func (r *Router) Handle(ctx context.Context, subject string, data []byte) error 
 	}
 }
 
-func handle[T any](ctx context.Context, subject string, data []byte, fn func(context.Context, T) error) error {
+// versioned is implemented by every event via the embedded events.Header.
+type versioned interface {
+	CheckVersion() error
+}
+
+func handle[T versioned](ctx context.Context, subject string, data []byte, fn func(context.Context, T) error) error {
 	var ev T
 	if err := json.Unmarshal(data, &ev); err != nil {
+		return fmt.Errorf("decode %s: %w", subject, err)
+	}
+	if err := ev.CheckVersion(); err != nil {
 		return fmt.Errorf("decode %s: %w", subject, err)
 	}
 	if err := fn(ctx, ev); err != nil {

@@ -167,7 +167,11 @@ func (uc *Notifications) MarkAllRead(ctx context.Context, userId int) (int64, er
 	return n, nil
 }
 
-// RegisterDevice upserts a push token for the user.
+// RegisterDevice upserts a push token for the user. A token is bound to a
+// physical device, so one already registered by another account (a
+// re-login on the same device) is moved to the caller: the caller proves
+// possession of the token, and the previous owner simply stops receiving
+// pushes on that device. UserID must come from the verified claims.
 func (uc *Notifications) RegisterDevice(ctx context.Context, device models.UserDevice) (models.UserDevice, error) {
 	const op = "usecase.Notifications.RegisterDevice"
 

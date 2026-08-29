@@ -58,7 +58,9 @@ func (suite *RouterSuite) TestHandle() {
 		raw        []byte
 		handlerErr error
 		wantErr    error
-		check      func(h *recordingHandlers)
+		// rawOK marks a raw payload that must be handled without error.
+		rawOK bool
+		check func(h *recordingHandlers)
 	}{
 		{
 			name: "MarkStatusChanged", subject: events.SubjectMarkStatusChanged, payload: statusEv,
@@ -81,6 +83,18 @@ func (suite *RouterSuite) TestHandle() {
 			check: func(h *recordingHandlers) { suite.Empty(h.checkAdded) },
 		},
 		{
+			name: "NewerSchemaVersion", subject: events.SubjectCheckAdded,
+			raw:     []byte(`{"v":99,"event_id":"e1","check_id":1,"mark_id":5,"user_id":2}`),
+			wantErr: events.ErrUnsupportedVersion,
+			check:   func(h *recordingHandlers) { suite.Empty(h.checkAdded) },
+		},
+		{
+			name: "MissingVersionIsAccepted", subject: events.SubjectCheckAdded,
+			raw:   []byte(`{"event_id":"e1","check_id":1,"mark_id":5,"user_id":2}`),
+			rawOK: true,
+			check: func(h *recordingHandlers) { suite.Len(h.checkAdded, 1) },
+		},
+		{
 			name: "UnknownSubject", subject: "mark.deleted", raw: []byte("{}"),
 		},
 	}
@@ -101,7 +115,7 @@ func (suite *RouterSuite) TestHandle() {
 			switch {
 			case tt.wantErr != nil:
 				suite.ErrorIs(err, tt.wantErr)
-			case tt.payload == nil:
+			case tt.payload == nil && !tt.rawOK:
 				suite.Error(err)
 			default:
 				suite.NoError(err)
