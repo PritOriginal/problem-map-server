@@ -67,6 +67,7 @@ type PostgresSuite struct {
 	notifications *postgres.NotificationsRepository
 	organizations *postgres.OrganizationsRepository
 	webhooks      *postgres.WebhooksRepository
+	achievements  *postgres.AchievementsRepository
 
 	// seedNow anchors the backdated timestamps of the fixtures (UTC, whole
 	// seconds) so tests can compute expected periods and durations exactly.
@@ -117,6 +118,7 @@ func (s *PostgresSuite) SetupSuite() {
 	s.webhooks = postgres.NewWebhooks(db, getter)
 	s.analytics = postgres.NewAnalytics(db, getter)
 	s.organizations = postgres.NewOrganizations(db, getter)
+	s.achievements = postgres.NewAchievements(db, getter)
 }
 
 func (s *PostgresSuite) TearDownSuite() {
@@ -150,7 +152,7 @@ func (s *PostgresSuite) truncate() {
 	_, err := s.db.ExecContext(s.ctx, `
 		TRUNCATE TABLE
 			organization_responsibilities, organization_members, organizations,
-			webhook_deliveries, webhooks, notifications, user_devices,
+			webhook_deliveries, webhooks, notifications, user_devices, user_badges,
 			rating_events, checks, tasks, mark_status_history, mark_followers, marks, users, admin_boundaries, types_marks,
 			districts, cities, regions
 		RESTART IDENTITY CASCADE
@@ -260,8 +262,8 @@ func (s *PostgresSuite) daysAgo(days int) time.Time {
 }
 
 // ids collects the identifiers of items in order.
-func ids[T any](items []T, id func(T) int) []int {
-	out := make([]int, 0, len(items))
+func ids[T any, K comparable](items []T, id func(T) K) []K {
+	out := make([]K, 0, len(items))
 	for _, it := range items {
 		out = append(out, id(it))
 	}

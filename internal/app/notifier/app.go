@@ -1,8 +1,9 @@
 // Package notifier is the worker that turns domain events (NATS) into
 // notifications: it consumes mark.status_changed, task.assigned,
-// check.added, mark.assigned and mark.sla_breached from the JetStream
-// stream, stores a notification per addressee and hands it to the
-// PushSender. Every event is acknowledged only after it was handled, so a
+// check.added, task.completed, mark.assigned and mark.sla_breached from
+// the JetStream stream, stores a notification per addressee and hands it
+// to the PushSender; the events also re-evaluate the badges of the user
+// they concern. Every event is acknowledged only after it was handled, so a
 // crash or a database outage never loses a notification; a poison event
 // ends up in the dead-letter stream. A second durable consumer
 // (WebhookRouter) delivers every mark.>, task.> and check.> event to the
@@ -45,6 +46,7 @@ type Handlers interface {
 	HandleMarkStatusChanged(ctx context.Context, ev events.MarkStatusChanged) error
 	HandleTaskAssigned(ctx context.Context, ev events.TaskAssigned) error
 	HandleCheckAdded(ctx context.Context, ev events.CheckAdded) error
+	HandleTaskCompleted(ctx context.Context, ev events.TaskCompleted) error
 	HandleMarkAssigned(ctx context.Context, ev events.MarkAssigned) error
 	HandleMarkSLABreached(ctx context.Context, ev events.MarkSLABreached) error
 }
@@ -105,10 +107,15 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Notifications: notificationsRepo,
 		Devices:       notificationsRepo,
 	}, usecase.WithPushMetrics(pushMetrics), usecase.WithPushTimeout(cfg.Push.SendTimeout))
+	// badge.earned is published back through the same connection.
+	achievementsUseCase := usecase.NewAchievements(log, usecase.AchievementsRepositories{
+		Achievements: postgres.NewAchievements(postgresDB.DB, trmsqlx.DefaultCtxGetter),
+		Users:        postgres.NewUsers(postgresDB.DB, trmsqlx.DefaultCtxGetter),
+	}).WithEvents(natsClient)
 	notifier := usecase.NewNotifier(log, notificationsUseCase, usecase.NotifierRepositories{
 		Marks:         marksRepo,
 		Organizations: postgres.NewOrganizations(postgresDB.DB, trmsqlx.DefaultCtxGetter),
-	})
+	}).WithAchievements(achievementsUseCase)
 
 	webhookSender, webhookURLs := app.NewWebhookSender(log, cfg.Webhooks)
 	webhooksUseCase := usecase.NewWebhooks(log, usecase.WebhooksDeps{
@@ -306,7 +313,7 @@ func NewRouter(log *slog.Logger, handlers Handlers) *Router {
 func (r *Router) Subjects() []string {
 	return []string{
 		events.SubjectMarkStatusChanged, events.SubjectTaskAssigned, events.SubjectCheckAdded,
-		events.SubjectMarkAssigned, events.SubjectMarkSLABreached,
+		events.SubjectMarkAssigned, events.SubjectMarkSLABreached, events.SubjectTaskCompleted,
 	}
 }
 
@@ -323,6 +330,8 @@ func (r *Router) Handle(ctx context.Context, subject string, data []byte) error 
 		return handle(ctx, subject, data, r.handlers.HandleTaskAssigned)
 	case events.SubjectCheckAdded:
 		return handle(ctx, subject, data, r.handlers.HandleCheckAdded)
+	case events.SubjectTaskCompleted:
+		return handle(ctx, subject, data, r.handlers.HandleTaskCompleted)
 	case events.SubjectMarkAssigned:
 		return handle(ctx, subject, data, r.handlers.HandleMarkAssigned)
 	case events.SubjectMarkSLABreached:

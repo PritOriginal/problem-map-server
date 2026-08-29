@@ -297,19 +297,24 @@ func (suite *UsersSuite) TestSetRole_WithoutStores() {
 }
 
 func (suite *UsersSuite) TestListLeaderboard() {
-	page := models.Page[models.User]{Items: []models.User{{Id: 2, Rating: 10}, {Id: 1, Rating: 3}}, Total: 2}
+	page := models.Page[models.LeaderboardEntry]{Items: []models.LeaderboardEntry{{UserID: 2, Rating: 10, BadgesCount: 1}, {UserID: 1, Rating: 3}}, Total: 2}
+	filters := models.LeaderboardFilters{BoundaryID: 4, Period: models.LeaderboardWeek}
 
-	suite.usersRepo.On("GetLeaderboard", mock.Anything, models.Pagination{Limit: 10}).Once().Return(page, nil)
-	got, err := suite.uc.ListLeaderboard(context.Background(), models.Pagination{Limit: 10})
+	suite.usersRepo.On("GetLeaderboard", mock.Anything, filters, models.Pagination{Limit: 10}).Once().Return(page, nil)
+	got, err := suite.uc.ListLeaderboard(context.Background(), filters, models.Pagination{Limit: 10})
 	suite.NoError(err)
 	suite.Equal(page, got)
 
-	suite.usersRepo.On("GetLeaderboard", mock.Anything, models.Pagination{Limit: 10}).Once().Return(models.Page[models.User]{}, errRepo)
-	_, err = suite.uc.ListLeaderboard(context.Background(), models.Pagination{Limit: 10})
+	suite.usersRepo.On("GetLeaderboard", mock.Anything, filters, models.Pagination{Limit: 10}).Once().Return(models.Page[models.LeaderboardEntry]{}, errRepo)
+	_, err = suite.uc.ListLeaderboard(context.Background(), filters, models.Pagination{Limit: 10})
 	suite.ErrorIs(err, errRepo)
 
-	_, err = suite.uc.ListLeaderboard(context.Background(), models.Pagination{Limit: models.MaxLimit + 1})
+	_, err = suite.uc.ListLeaderboard(context.Background(), filters, models.Pagination{Limit: models.MaxLimit + 1})
 	suite.ErrorIs(err, usecase.ErrInvalidArgument)
+
+	_, err = suite.uc.ListLeaderboard(context.Background(), models.LeaderboardFilters{Period: "year"}, models.Pagination{Limit: 10})
+	suite.ErrorIs(err, usecase.ErrInvalidArgument)
+	suite.ErrorIs(err, models.ErrInvalidPeriod)
 }
 
 func (suite *UsersSuite) TestListRatingEvents() {

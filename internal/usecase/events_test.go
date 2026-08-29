@@ -234,6 +234,50 @@ func (suite *EventsSuite) TestAddCheckPublishesAfterCommit() {
 	}
 }
 
+func (suite *EventsSuite) TestAddCheckPublishesTaskCompleted() {
+	tests := []struct {
+		name      string
+		task      models.Task
+		taskErr   error
+		wantEvent bool
+	}{
+		{name: "IssuedTaskClosed", task: models.Task{ID: 9, UserID: 2, MarkID: 5}, wantEvent: true},
+		{name: "NoIssuedTask", taskErr: repository.ErrNotFound},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			uc, m := suite.newChecks()
+			check := models.Check{MarkID: 5, UserID: 2}
+
+			m.marks.On("GetLastMarkStatusHistoryItem", mock.Anything, 5).
+				Return(models.MarkStatusHistoryItem{ID: 8, NewMarkStatusID: models.UnconfirmedStatus}, nil)
+			m.trm.On("Do", mock.Anything, mock.Anything).Once().Return(runTx(nil))
+			m.marks.On("LockMark", mock.Anything, 5).Once().Return(nil)
+			m.marks.On("GetMarkById", mock.Anything, 5).Twice().
+				Return(models.Mark{ID: 5, UserID: 3, MarkStatusID: models.UnconfirmedStatus}, nil)
+			m.checks.On("CountChecksByUserIdSince", mock.Anything, 2, mock.Anything).Once().Return(0, nil)
+			m.checks.On("GetUserMarkCheck", mock.Anything, 2, 8).Once().Return(models.Check{}, repository.ErrNotFound)
+			m.checks.On("AddCheck", mock.Anything, mock.Anything).Once().Return(int64(77), nil)
+			m.photos.On("AddPhotos", mock.Anything, 5, 77, mock.Anything).Once().Return(nil)
+			// One check does not resolve the stage: no status change.
+			m.checks.On("GetChecksByMarkHistoryId", mock.Anything, 8).Once().Return([]models.Check{{Result: true}}, nil)
+			m.tasks.On("GetTaskByUserIdAndMarkId", mock.Anything, 2, 5, models.UnfulfilledStatus).Once().Return(tt.task, tt.taskErr)
+			if tt.wantEvent {
+				m.tasks.On("UpdateTaskStatus", mock.Anything, 9, models.CompletedStatus).Once().Return(nil)
+				m.users.On("AddRatingEvent", mock.Anything, mock.Anything).Once().Return(int64(1), nil)
+				suite.publisher.On("Publish", mock.Anything, events.SubjectTaskCompleted, mock.MatchedBy(func(ev events.TaskCompleted) bool {
+					return ev.TaskID == 9 && ev.UserID == 2 && ev.MarkID == 5 && ev.CheckID == 77 && ev.EventID != ""
+				})).Once().Return(nil)
+			}
+			suite.publisher.On("Publish", mock.Anything, events.SubjectCheckAdded, mock.Anything).Once().Return(nil)
+
+			_, err := uc.AddCheck(context.Background(), check, nil)
+			suite.NoError(err)
+		})
+	}
+}
+
 func (suite *EventsSuite) TestTasksAddTaskPublishes() {
 	tasks := usecase.NewMockTasksRepository(suite.T())
 	uc := usecase.NewTasks(slogdiscard.NewDiscardLogger(), usecase.TasksRepositories{Tasks: tasks}).WithEvents(suite.publisher)
