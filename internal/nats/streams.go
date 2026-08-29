@@ -2,6 +2,7 @@ package nats
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
@@ -78,9 +79,22 @@ func ensureStreams(ctx context.Context, js jetstream.JetStream) error {
 		},
 	}
 	for _, cfg := range streams {
-		if _, err := js.CreateOrUpdateStream(ctx, cfg); err != nil {
+		if err := ensureStream(ctx, js, cfg); err != nil {
 			return fmt.Errorf("ensure stream %s: %w", cfg.Name, err)
 		}
 	}
 	return nil
+}
+
+// ensureStream is CreateOrUpdateStream made safe against a concurrent
+// start: when two processes (REST and the notifier) both find the stream
+// missing and race to create it, the loser gets
+// ErrStreamNameAlreadyInUse (the configs differ, e.g. across a rolling
+// upgrade) and simply updates the stream the winner created.
+func ensureStream(ctx context.Context, js jetstream.JetStream, cfg jetstream.StreamConfig) error {
+	_, err := js.CreateOrUpdateStream(ctx, cfg)
+	if errors.Is(err, jetstream.ErrStreamNameAlreadyInUse) {
+		_, err = js.UpdateStream(ctx, cfg)
+	}
+	return err
 }

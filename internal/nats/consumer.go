@@ -28,9 +28,10 @@ type MsgHandler func(ctx context.Context, subject string, data []byte) error
 // Defaults of ConsumerConfig.
 const (
 	DefaultMaxDeliver = 5
-	// defaultAckWait leaves the handler its full timeout plus a margin for
-	// the ack to travel before the server redelivers.
-	defaultAckWait = handlerTimeout + 10*time.Second
+	// defaultAckWait leaves the handler its full timeout, the dead-letter
+	// publish its own (publishTimeout) and a margin for the ack to travel
+	// before the server redelivers.
+	defaultAckWait = handlerTimeout + publishTimeout + 5*time.Second
 )
 
 // DefaultBackoff is the delay before the n-th redelivery (the last value
@@ -247,7 +248,7 @@ func (c *Consumer) handle(msg jetstream.Msg) {
 		c.metrics.recordConsumed(subject, ResultAck)
 
 	case errors.Is(err, ErrNoRetry), c.cfg.exhausted(delivered):
-		c.deadLetter(ctx, log, msg, delivered, err)
+		c.deadLetter(log, msg, delivered, err)
 
 	default:
 		delay := c.cfg.backoff(delivered)
@@ -262,9 +263,13 @@ func (c *Consumer) handle(msg jetstream.Msg) {
 // deadLetter copies msg into StreamDLQ and terminates it. When the copy
 // fails the message is left to the server (nak): it comes back if
 // deliveries remain and is otherwise logged in full so an operator can
-// replay it by hand.
-func (c *Consumer) deadLetter(ctx context.Context, log *slog.Logger, msg jetstream.Msg, delivered uint64, cause error) {
+// replay it by hand. The publish gets its own deadline: the handler's
+// context is usually already expired when the handler timed out.
+func (c *Consumer) deadLetter(log *slog.Logger, msg jetstream.Msg, delivered uint64, cause error) {
 	subject := msg.Subject()
+
+	ctx, cancel := context.WithTimeout(context.Background(), publishTimeout)
+	defer cancel()
 
 	dlqMsg := &nats.Msg{
 		Subject: DLQSubjectPrefix + subject,
