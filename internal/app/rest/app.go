@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"path"
 	"strconv"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/handler"
 	achievementsrest "github.com/PritOriginal/problem-map-server/internal/handler/achievements"
+	adminrest "github.com/PritOriginal/problem-map-server/internal/handler/admin"
 	analyticsrest "github.com/PritOriginal/problem-map-server/internal/handler/analytics"
 	apikeysrest "github.com/PritOriginal/problem-map-server/internal/handler/apikeys"
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
@@ -29,6 +31,7 @@ import (
 	webhooksrest "github.com/PritOriginal/problem-map-server/internal/handler/webhooks"
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/apikey"
+	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/ratelimit"
 	"github.com/PritOriginal/problem-map-server/internal/repository/postgres"
@@ -97,6 +100,12 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	})
 	health.Register(router, log, healthUseCase)
 
+	// Runtime settings: the database overrides the config defaults; the
+	// usecases below read them through the provider (cached, see
+	// usecase.SettingsCacheTTL).
+	settingsUseCase := usecase.NewSettings(log, usecase.RuntimeSettingsFromConfig(cfg),
+		postgres.NewSettings(postgresDB.DB, trmsqlx.DefaultCtxGetter))
+
 	mapRepo := postgres.NewMap(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 
 	photoRepo, photoCloser := app.NewPhotosRepository(log, cfg)
@@ -152,12 +161,12 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Marks:  marksRepo,
 		Checks: checksRepo,
 		Users:  usersRepo,
-	}).WithEvents(publisher).WithAssigner(organizationsUseCase)
+	}).WithEvents(publisher).WithAssigner(organizationsUseCase).WithSettings(settingsUseCase)
 	marksUseCase := usecase.NewMarks(log, cfg.Marks, trManager, usecase.MarksRepositories{
 		Marks:  marksRepo,
 		Checks: checksRepo,
 		Photos: photoRepo,
-	})
+	}).WithSettings(settingsUseCase)
 	exportUseCase := usecase.NewExport(log, cfg.Export, usecase.ExportRepositories{
 		Marks: marksRepo,
 	})
@@ -188,8 +197,17 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Photos:        photoRepo,
 		Users:         usersRepo,
 		Organizations: organizationsRepo,
-	}).WithEvents(publisher)
+	}).WithEvents(publisher).WithSettings(settingsUseCase)
 	checksrest.Register(router, log, authMiddleware, checksUseCase)
+
+	// Changing the dictionary drops its cached responses (any language).
+	markTypesUseCase := usecase.NewMarkTypes(log, trManager, marksRepo).
+		WithCache(redisClient, mwcache.Prefix(http.MethodGet, path.Join(marksrest.Path, marksrest.TypesPath)))
+	adminrest.Register(router, log, adminrest.Params{
+		AuthMiddleware: authMiddleware,
+		Settings:       settingsUseCase,
+		MarkTypes:      markTypesUseCase,
+	})
 
 	usersUseCase := usecase.NewUsers(log, usecase.UsersRepositories{
 		Users:         usersRepo,

@@ -15,6 +15,368 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/admin/mark-types": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "all mark types, inactive ones included, with name_ru/name_en, sorted by sort_order and name",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "List mark types (admin)",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ru (default) or en",
+                        "name": "Accept-Language",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_MarkTypesResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "adds a mark type with its Russian and optional English name; 409 when the code is taken",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Create mark type",
+                "parameters": [
+                    {
+                        "description": "mark type",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler_admin.CreateMarkTypeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_MarkTypeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/mark-types/{id}": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "changes the given fields of a mark type (names, icon, color, SLA, active, sort_order); omitted fields stay unchanged. Deactivating a type is allowed even when it has marks: they keep the type, it only disappears from GET /marks/types (POST /marks does not check it). 409 when the new code is taken",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Update mark type",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "mark type id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "fields to change",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler_admin.UpdateMarkTypeRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_MarkTypeResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/settings": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "current values of the admin-editable settings (database, or the config defaults until the first PUT)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Get runtime settings",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_SettingsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "stores the settings document after range validation (omitted fields keep their current values); the change is applied within 30 s on every instance",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Update runtime settings",
+                "parameters": [
+                    {
+                        "description": "settings",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler_admin.UpdateSettingsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_SettingsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
+        "/admin/settings/history": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "latest changes of the runtime settings, newest first",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "admin"
+                ],
+                "summary": "Settings change history",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "page size (1..100)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_SettingsHistoryResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
         "/analytics/kpi": {
             "get": {
                 "description": "Totals, per-status counts, confirmation/closing durations (hours, from the status history), refuted share and stale open marks. All filters are optional.",
@@ -446,40 +808,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/badges": {
-            "get": {
-                "description": "get every badge that can be earned; names and descriptions are localised by ` + "`" + `Accept-Language` + "`" + `",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "achievements"
-                ],
-                "summary": "Badge catalogue",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "ru (default) or en",
-                        "name": "Accept-Language",
-                        "in": "header"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_achievements_GetBadgesResponse"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
-                        }
-                    }
-                }
-            }
-        },
         "/checks": {
             "post": {
                 "security": [
@@ -729,7 +1057,7 @@ const docTemplate = `{
         },
         "/leaderboard": {
             "get": {
-                "description": "get users ordered by rating (highest first) with their level and number of badges. With ` + "`" + `boundary_id` + "`" + ` the rating is the sum of the rating events whose mark lies inside the admin boundary, with ` + "`" + `period` + "`" + ` the sum of the events of the last 7 (` + "`" + `week` + "`" + `) or 30 (` + "`" + `month` + "`" + `) days; with any filter only users with such events are listed. The level name is localised by ` + "`" + `Accept-Language` + "`" + `. Pagination info is returned in the top-level ` + "`" + `meta` + "`" + ` field ({limit, offset, total})",
+                "description": "get users ordered by rating (highest first); pagination info is returned in the top-level ` + "`" + `meta` + "`" + ` field ({limit, offset, total})",
                 "produces": [
                     "application/json"
                 ],
@@ -738,30 +1066,6 @@ const docTemplate = `{
                 ],
                 "summary": "Leaderboard",
                 "parameters": [
-                    {
-                        "type": "string",
-                        "description": "ru (default) or en",
-                        "name": "Accept-Language",
-                        "in": "header"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "admin boundary id (see GET /map/boundaries)",
-                        "name": "boundary_id",
-                        "in": "query"
-                    },
-                    {
-                        "enum": [
-                            "all",
-                            "month",
-                            "week"
-                        ],
-                        "type": "string",
-                        "default": "all",
-                        "description": "rating events period",
-                        "name": "period",
-                        "in": "query"
-                    },
                     {
                         "type": "integer",
                         "default": 100,
@@ -3946,57 +4250,6 @@ const docTemplate = `{
                 }
             }
         },
-        "/users/me/profile": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "get the profile of the authenticated user: rating, level, earned badges and activity counters",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "achievements"
-                ],
-                "summary": "Get current user profile",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "ru (default) or en",
-                        "name": "Accept-Language",
-                        "in": "header"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_achievements_GetProfileResponse"
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
-                        }
-                    }
-                }
-            }
-        },
         "/users/me/stats": {
             "get": {
                 "security": [
@@ -4064,59 +4317,6 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetUserByIdResponse"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
-                        }
-                    }
-                }
-            }
-        },
-        "/users/{id}/profile": {
-            "get": {
-                "description": "get the public profile of a user: rating, level, earned badges and activity counters; level and badge texts are localised by ` + "`" + `Accept-Language` + "`" + `",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "achievements"
-                ],
-                "summary": "Get user profile",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "ru (default) or en",
-                        "name": "Accept-Language",
-                        "in": "header"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "user id",
-                        "name": "id",
-                        "in": "path",
-                        "required": true
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_achievements_GetProfileResponse"
                         }
                     },
                     "400": {
@@ -4749,48 +4949,6 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_internal_models.Badge": {
-            "type": "object",
-            "properties": {
-                "code": {
-                    "type": "string"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "icon": {
-                    "type": "string"
-                },
-                "metric": {
-                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.BadgeMetric"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "threshold": {
-                    "type": "integer"
-                }
-            }
-        },
-        "github_com_PritOriginal_problem-map-server_internal_models.BadgeMetric": {
-            "type": "string",
-            "enum": [
-                "marks_total",
-                "marks_confirmed",
-                "checks_correct",
-                "check_streak_days",
-                "tasks_completed",
-                "marks_closed"
-            ],
-            "x-enum-varnames": [
-                "MetricMarksTotal",
-                "MetricMarksConfirmed",
-                "MetricChecksCorrect",
-                "MetricCheckStreakDays",
-                "MetricTasksCompleted",
-                "MetricMarksClosed"
-            ]
-        },
         "github_com_PritOriginal_problem-map-server_internal_models.Check": {
             "type": "object",
             "properties": {
@@ -4924,21 +5082,6 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_internal_models.Level": {
-            "type": "object",
-            "properties": {
-                "name": {
-                    "type": "string"
-                },
-                "next_threshold": {
-                    "description": "NextThreshold is the rating that starts the next level; nil at the\nlast level.",
-                    "type": "integer"
-                },
-                "number": {
-                    "type": "integer"
-                }
-            }
-        },
         "github_com_PritOriginal_problem-map-server_internal_models.Mark": {
             "type": "object",
             "properties": {
@@ -5063,7 +5206,19 @@ const docTemplate = `{
         "github_com_PritOriginal_problem-map-server_internal_models.MarkType": {
             "type": "object",
             "properties": {
+                "active": {
+                    "description": "Active reports whether new marks of the type may be created; inactive\ntypes are hidden from the public dictionary.",
+                    "type": "boolean"
+                },
                 "code": {
+                    "type": "string"
+                },
+                "color": {
+                    "description": "Color is a hex colour like \"#ff8800\" (optional).",
+                    "type": "string"
+                },
+                "icon": {
+                    "description": "Icon is a client-side icon identifier (optional).",
                     "type": "string"
                 },
                 "id": {
@@ -5076,8 +5231,19 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "name_en": {
+                    "type": "string"
+                },
+                "name_ru": {
+                    "description": "NameRU and NameEN are the stored translations; only the admin\nendpoints fill them in (the public dictionary carries Name in the\nrequested language).",
+                    "type": "string"
+                },
                 "sla_hours": {
                     "description": "SLAHours is the time an organization has to resolve a mark of the type.",
+                    "type": "integer"
+                },
+                "sort_order": {
+                    "description": "SortOrder orders the dictionary (ascending, then by name).",
                     "type": "integer"
                 }
             }
@@ -5199,8 +5365,7 @@ const docTemplate = `{
                 "check.added",
                 "mark.assigned",
                 "mark.sla_breached",
-                "webhook.disabled",
-                "badge_earned"
+                "webhook.disabled"
             ],
             "x-enum-varnames": [
                 "NotificationMarkStatusChanged",
@@ -5208,8 +5373,7 @@ const docTemplate = `{
                 "NotificationCheckAdded",
                 "NotificationMarkAssigned",
                 "NotificationMarkSLABreached",
-                "NotificationWebhookDisabled",
-                "NotificationBadgeEarned"
+                "NotificationWebhookDisabled"
             ]
         },
         "github_com_PritOriginal_problem-map-server_internal_models.Organization": {
@@ -5410,6 +5574,30 @@ const docTemplate = `{
                 "RoleService"
             ]
         },
+        "github_com_PritOriginal_problem-map-server_internal_models.SettingChange": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "key": {
+                    "type": "string"
+                },
+                "new": {
+                    "type": "object"
+                },
+                "old": {
+                    "description": "Old is nil for the first write of the key.",
+                    "type": "object"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "updated_by": {
+                    "type": "integer"
+                }
+            }
+        },
         "github_com_PritOriginal_problem-map-server_internal_models.Task": {
             "type": "object",
             "properties": {
@@ -5508,10 +5696,6 @@ const docTemplate = `{
         "github_com_PritOriginal_problem-map-server_internal_models.User": {
             "type": "object",
             "properties": {
-                "created_at": {
-                    "description": "CreatedAt is the sign-up time (users.created_at).",
-                    "type": "string"
-                },
                 "home_point": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON"
                 },
@@ -5652,6 +5836,48 @@ const docTemplate = `{
                 "type": "string"
             }
         },
+        "github_com_PritOriginal_problem-map-server_internal_usecase.RatingSettings": {
+            "type": "object",
+            "properties": {
+                "check_correct": {
+                    "type": "integer"
+                },
+                "check_wrong": {
+                    "type": "integer"
+                },
+                "mark_confirmed": {
+                    "type": "integer"
+                },
+                "mark_refuted": {
+                    "type": "integer"
+                },
+                "task_completed": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_internal_usecase.TaskerSettings": {
+            "type": "object",
+            "properties": {
+                "max_radius_meters": {
+                    "type": "integer"
+                },
+                "max_tasks_per_user": {
+                    "type": "integer"
+                },
+                "required_checks": {
+                    "type": "integer"
+                },
+                "target_probability": {
+                    "type": "number"
+                },
+                "task_ttl": {
+                    "description": "TaskTTL is how long an issued task stays valid (a duration string\nsuch as \"72h\").",
+                    "type": "string",
+                    "example": "72h"
+                }
+            }
+        },
         "github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo": {
             "type": "object",
             "properties": {
@@ -5723,7 +5949,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_achievements_GetBadgesResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_MarkTypeResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -5733,14 +5959,14 @@ const docTemplate = `{
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
                 },
                 "payload": {
-                    "$ref": "#/definitions/internal_handler_achievements.GetBadgesResponse"
+                    "$ref": "#/definitions/internal_handler_admin.MarkTypeResponse"
                 },
                 "success": {
                     "type": "boolean"
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_achievements_GetProfileResponse": {
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_MarkTypesResponse": {
             "type": "object",
             "properties": {
                 "error": {
@@ -5750,7 +5976,41 @@ const docTemplate = `{
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
                 },
                 "payload": {
-                    "$ref": "#/definitions/internal_handler_achievements.GetProfileResponse"
+                    "$ref": "#/definitions/internal_handler_admin.MarkTypesResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_SettingsHistoryResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_admin.SettingsHistoryResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_SettingsResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_admin.SettingsResponse"
                 },
                 "success": {
                     "type": "boolean"
@@ -6794,90 +7054,186 @@ const docTemplate = `{
                 }
             }
         },
-        "internal_handler_achievements.GetBadgesResponse": {
+        "internal_handler_admin.CreateMarkTypeRequest": {
             "type": "object",
-            "properties": {
-                "badges": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Badge"
-                    }
-                }
-            }
-        },
-        "internal_handler_achievements.GetProfileResponse": {
-            "type": "object",
-            "properties": {
-                "profile": {
-                    "$ref": "#/definitions/internal_handler_achievements.Profile"
-                }
-            }
-        },
-        "internal_handler_achievements.Profile": {
-            "type": "object",
-            "properties": {
-                "badges": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/internal_handler_achievements.ProfileBadge"
-                    }
-                },
-                "level": {
-                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Level"
-                },
-                "member_since": {
-                    "type": "string"
-                },
-                "rating": {
-                    "type": "integer"
-                },
-                "stats": {
-                    "$ref": "#/definitions/internal_handler_achievements.ProfileStats"
-                },
-                "user_id": {
-                    "type": "integer"
-                },
-                "username": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_handler_achievements.ProfileBadge": {
-            "type": "object",
+            "required": [
+                "code",
+                "name_ru",
+                "sla_hours"
+            ],
             "properties": {
                 "code": {
-                    "type": "string"
+                    "type": "string",
+                    "maxLength": 40
                 },
-                "description": {
-                    "type": "string"
-                },
-                "earned_at": {
+                "color": {
+                    "description": "Color is a hex colour like \"#ff8800\".",
                     "type": "string"
                 },
                 "icon": {
-                    "type": "string"
+                    "description": "Icon is a client-side icon identifier.",
+                    "type": "string",
+                    "maxLength": 64
                 },
-                "name": {
-                    "type": "string"
+                "name_en": {
+                    "type": "string",
+                    "maxLength": 40
+                },
+                "name_ru": {
+                    "type": "string",
+                    "maxLength": 40
+                },
+                "sla_hours": {
+                    "type": "integer",
+                    "minimum": 1
                 }
             }
         },
-        "internal_handler_achievements.ProfileStats": {
+        "internal_handler_admin.MarkTypeResponse": {
             "type": "object",
             "properties": {
-                "checks_correct": {
+                "active": {
+                    "description": "Active reports whether new marks of the type may be created; inactive\ntypes are hidden from the public dictionary.",
+                    "type": "boolean"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "color": {
+                    "description": "Color is a hex colour like \"#ff8800\" (optional).",
+                    "type": "string"
+                },
+                "icon": {
+                    "description": "Icon is a client-side icon identifier (optional).",
+                    "type": "string"
+                },
+                "id": {
                     "type": "integer"
                 },
-                "checks_total": {
+                "mark_type_id": {
+                    "description": "LegacyID mirrors ID under the key older clients read; it is filled\nby MarshalJSON. Deprecated: use ID (` + "`" + `id` + "`" + `).",
                     "type": "integer"
                 },
-                "marks_confirmed": {
+                "name": {
+                    "type": "string"
+                },
+                "name_en": {
+                    "type": "string"
+                },
+                "name_ru": {
+                    "description": "NameRU and NameEN are the stored translations; only the admin\nendpoints fill them in (the public dictionary carries Name in the\nrequested language).",
+                    "type": "string"
+                },
+                "sla_hours": {
+                    "description": "SLAHours is the time an organization has to resolve a mark of the type.",
                     "type": "integer"
                 },
-                "marks_total": {
+                "sort_order": {
+                    "description": "SortOrder orders the dictionary (ascending, then by name).",
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_handler_admin.MarkTypesResponse": {
+            "type": "object",
+            "properties": {
+                "mark_types": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkType"
+                    }
+                }
+            }
+        },
+        "internal_handler_admin.SettingsHistoryResponse": {
+            "type": "object",
+            "properties": {
+                "changes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.SettingChange"
+                    }
+                }
+            }
+        },
+        "internal_handler_admin.SettingsResponse": {
+            "type": "object",
+            "properties": {
+                "dedup_radius_m": {
+                    "description": "DedupRadiusM is the radius (meters) within which an active mark of the\nsame type is treated as a duplicate on POST /marks.",
                     "type": "integer"
                 },
-                "tasks_completed": {
+                "max_checks_per_day": {
+                    "description": "MaxChecksPerDay caps the checks a user may submit in a rolling 24 hours.",
+                    "type": "integer"
+                },
+                "rating": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.RatingSettings"
+                },
+                "tasker": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.TaskerSettings"
+                },
+                "vote_threshold": {
+                    "description": "VoteThreshold is the vote score (confirming minus refuting checks) at\nwhich a voting stage resolves (see Updater.Update).",
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_handler_admin.UpdateMarkTypeRequest": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean"
+                },
+                "code": {
+                    "type": "string",
+                    "maxLength": 40
+                },
+                "color": {
+                    "type": "string",
+                    "maxLength": 7
+                },
+                "icon": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "name_en": {
+                    "type": "string",
+                    "maxLength": 40
+                },
+                "name_ru": {
+                    "type": "string",
+                    "maxLength": 40
+                },
+                "sla_hours": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "sort_order": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
+        "internal_handler_admin.UpdateSettingsRequest": {
+            "type": "object",
+            "properties": {
+                "dedup_radius_m": {
+                    "description": "DedupRadiusM is the radius (meters) within which an active mark of the\nsame type is treated as a duplicate on POST /marks.",
+                    "type": "integer"
+                },
+                "max_checks_per_day": {
+                    "description": "MaxChecksPerDay caps the checks a user may submit in a rolling 24 hours.",
+                    "type": "integer"
+                },
+                "rating": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.RatingSettings"
+                },
+                "tasker": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.TaskerSettings"
+                },
+                "vote_threshold": {
+                    "description": "VoteThreshold is the vote score (confirming minus refuting checks) at\nwhich a voting stage resolves (see Updater.Update).",
                     "type": "integer"
                 }
             }
@@ -7700,12 +8056,6 @@ const docTemplate = `{
         "internal_handler_users.LeaderboardEntry": {
             "type": "object",
             "properties": {
-                "badges_count": {
-                    "type": "integer"
-                },
-                "level": {
-                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Level"
-                },
                 "rating": {
                     "type": "integer"
                 },
@@ -7927,6 +8277,10 @@ const docTemplate = `{
         {
             "description": "User notifications and push devices",
             "name": "notifications"
+        },
+        {
+            "description": "Runtime settings and dictionaries (admin only)",
+            "name": "admin"
         }
     ]
 }`

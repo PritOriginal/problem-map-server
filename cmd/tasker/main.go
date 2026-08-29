@@ -104,11 +104,13 @@ func run(ctx context.Context) error {
 	}
 
 	trManager := manager.Must(trmsqlx.NewDefaultFactory(postgresDB.DB))
+	settings := usecase.NewSettings(logger, usecase.RuntimeSettingsFromConfig(cfg),
+		postgres.NewSettings(postgresDB.DB, trmsqlx.DefaultCtxGetter))
 	tasker := usecase.NewTasker(logger, cfg.Tasker, trManager, usecase.TaskerRepositories{
 		Tasks: postgres.NewTasks(postgresDB.DB, trmsqlx.DefaultCtxGetter),
 		Marks: postgres.NewMarks(postgresDB.DB, trmsqlx.DefaultCtxGetter),
 		Users: postgres.NewUsers(postgresDB.DB, trmsqlx.DefaultCtxGetter),
-	}).WithEvents(publisher)
+	}).WithEvents(publisher).WithSettings(settings)
 	sla := usecase.NewSLA(logger, usecase.SLARepositories{
 		Marks: postgres.NewOrganizations(postgresDB.DB, trmsqlx.DefaultCtxGetter),
 	}).WithEvents(publisher)

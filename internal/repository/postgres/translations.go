@@ -1,6 +1,11 @@
 package postgres
 
-import "fmt"
+import (
+	"context"
+	"fmt"
+
+	"github.com/PritOriginal/problem-map-server/internal/models"
+)
 
 // Dictionary names are stored in the translations table keyed by entity and
 // row id. The helpers below build the SQL fragments shared by the dictionary
@@ -18,4 +23,18 @@ func translationJoins(entity, idCol string) string {
 // the fallback language, then the raw column.
 func translatedName(rawCol string) string {
 	return fmt.Sprintf("COALESCE(tr.name, fb.name, %s) AS name", rawCol)
+}
+
+// SetTranslation stores (or replaces) the name of an entity row in lang.
+func (r *MarksRepository) SetTranslation(ctx context.Context, entity string, entityId int, lang models.Lang, name string) error {
+	const op = "storage.postgres.SetTranslation"
+
+	query := `INSERT INTO translations (entity, entity_id, lang, name) VALUES ($1, $2, $3, $4)
+		ON CONFLICT (entity, entity_id, lang) DO UPDATE SET name = EXCLUDED.name`
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if _, err := tr.ExecContext(ctx, query, entity, entityId, lang, name); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	return nil
 }

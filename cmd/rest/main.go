@@ -51,6 +51,9 @@ import (
 //	@tag.name			open
 //	@tag.description	Open data: public aggregates
 
+//	@tag.name			admin
+//	@tag.description	Runtime settings and dictionaries (admin only)
+
 func main() {
 	os.Exit(run())
 }

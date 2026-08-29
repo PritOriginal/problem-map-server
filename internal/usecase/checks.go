@@ -61,22 +61,35 @@ type ChecksRepositories struct {
 
 type Checks struct {
 	log               *slog.Logger
-	cfg               config.RatingConfig
+	settings          SettingsProvider
 	trManager         trm.Manager
 	repos             ChecksRepositories
 	markStatusUpdater MarkStatusUpdater
 	events            events.Publisher
 }
 
+// NewChecks creates the checks service; cfg provides the rating defaults
+// until WithSettings installs the runtime settings.
 func NewChecks(log *slog.Logger, cfg config.RatingConfig, trManager trm.Manager, markStatusUpdater MarkStatusUpdater, repos ChecksRepositories) *Checks {
+	defaults := DefaultRuntimeSettings()
+	defaults.ApplyRatingConfig(cfg)
 	return &Checks{
 		log:               log,
-		cfg:               cfg,
+		settings:          StaticSettings(defaults),
 		trManager:         trManager,
 		repos:             repos,
 		markStatusUpdater: markStatusUpdater,
 		events:            events.NoopPublisher{},
 	}
+}
+
+// WithSettings sets the source of the runtime settings (daily check limit,
+// rating deltas). Without it the config defaults apply.
+func (uc *Checks) WithSettings(p SettingsProvider) *Checks {
+	if p != nil {
+		uc.settings = p
+	}
+	return uc
 }
 
 // WithEvents sets the publisher of domain events (check.added,
@@ -95,7 +108,7 @@ func (uc *Checks) WithEvents(p events.Publisher) *Checks {
 // neither may a member of the organization the mark is assigned to (the
 // service reports its work through Organizations.Resolve and must not vote
 // on, or earn rating for, the review of that work), a user may submit at
-// most cfg.MaxChecksPerDay checks per rolling 24 hours (ErrTooManyRequests),
+// most MaxChecksPerDay checks per rolling 24 hours (ErrTooManyRequests),
 // and only one check per voting stage (ErrConflict).
 func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.Reader) (int64, error) {
 	const op = "usecase.Checks.AddCheck"
@@ -178,7 +191,7 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 			}
 			_, err = uc.repos.Users.AddRatingEvent(ctx, models.RatingEvent{
 				UserID:  check.UserID,
-				Delta:   uc.cfg.TaskCompleted,
+				Delta:   uc.settings.Get(ctx).Rating.TaskCompleted,
 				Reason:  models.RatingReasonTaskCompleted,
 				MarkID:  null.IntFrom(int64(check.MarkID)),
 				CheckID: null.IntFrom(checkId),
@@ -208,14 +221,15 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 }
 
 // checkDailyLimit returns ErrTooManyRequests when the user has already
-// submitted cfg.MaxChecksPerDay checks in the last 24 hours.
+// submitted MaxChecksPerDay (runtime settings) checks in the last 24 hours.
 func (uc *Checks) checkDailyLimit(ctx context.Context, userId int) error {
 	n, err := uc.repos.Checks.CountChecksByUserIdSince(ctx, userId, time.Now().Add(-checksPerDayWindow))
 	if err != nil {
 		return err
 	}
-	if n >= uc.cfg.MaxChecksPerDay {
-		return fmt.Errorf("%w: %d checks per day", ErrTooManyRequests, uc.cfg.MaxChecksPerDay)
+	limit := uc.settings.Get(ctx).MaxChecksPerDay
+	if n >= limit {
+		return fmt.Errorf("%w: %d checks per day", ErrTooManyRequests, limit)
 	}
 	return nil
 }
@@ -315,26 +329,40 @@ type UpdaterRepositories struct {
 
 // Updater moves a mark through its status graph and awards rating for the
 // resolved voting stage: checkers whose vote matched the outcome get
-// cfg.CheckCorrect, the others cfg.CheckWrong; the author gets
-// cfg.MarkConfirmed / cfg.MarkRefuted on the first decision about the mark
-// (Unconfirmed -> Confirmed / Refuted).
+// Rating.CheckCorrect, the others Rating.CheckWrong; the author gets
+// Rating.MarkConfirmed / Rating.MarkRefuted on the first decision about the
+// mark (Unconfirmed -> Confirmed / Refuted). The deltas and the vote
+// threshold come from the runtime settings (see RuntimeSettings).
 type Updater struct {
 	log       *slog.Logger
-	cfg       config.RatingConfig
+	settings  SettingsProvider
 	trManager trm.Manager
 	repos     UpdaterRepositories
 	events    events.Publisher
 	assigner  MarkAssigner
 }
 
+// NewUpdater creates the status updater; cfg provides the rating defaults
+// until WithSettings installs the runtime settings.
 func NewUpdater(log *slog.Logger, cfg config.RatingConfig, trManager trm.Manager, repos UpdaterRepositories) *Updater {
+	defaults := DefaultRuntimeSettings()
+	defaults.ApplyRatingConfig(cfg)
 	return &Updater{
 		log:       log,
-		cfg:       cfg,
+		settings:  StaticSettings(defaults),
 		trManager: trManager,
 		repos:     repos,
 		events:    events.NoopPublisher{},
 	}
+}
+
+// WithSettings sets the source of the runtime settings (vote threshold,
+// rating deltas). Without it the config defaults apply.
+func (u *Updater) WithSettings(p SettingsProvider) *Updater {
+	if p != nil {
+		u.settings = p
+	}
+	return u
 }
 
 // WithEvents sets the publisher of mark.status_changed events. Without it
@@ -366,9 +394,10 @@ func (u *Updater) statusChanged(ctx context.Context, mark models.Mark, newStatus
 	events.PublishEvent(ctx, u.log, u.events, ev)
 }
 
-// Update resolves the current voting stage when the vote score reaches ±3.
-// It is called inside the AddCheck transaction, so the status change and
-// the rating events are committed together with the check.
+// Update resolves the current voting stage when the vote score reaches
+// ±VoteThreshold (runtime settings, 3 by default). It is called inside the
+// AddCheck transaction, so the status change and the rating events are
+// committed together with the check.
 func (u *Updater) Update(ctx context.Context, markId int) error {
 	const op = "usecase.Updater.Update"
 
@@ -378,6 +407,10 @@ func (u *Updater) Update(ctx context.Context, markId int) error {
 	}
 
 	if mark.MarkStatusID == models.UnconfirmedStatus || mark.MarkStatusID == models.UnderReviewStatus {
+		// Read once so that the threshold and the deltas of one resolution
+		// come from the same settings snapshot.
+		settings := u.settings.Get(ctx)
+		threshold := settings.VoteThreshold
 		score := 0
 		for _, check := range checks {
 			if check.Result {
@@ -389,15 +422,15 @@ func (u *Updater) Update(ctx context.Context, markId int) error {
 
 		u.log.Debug("score", slog.Int("val", score))
 
-		if score >= 3 {
-			newMarkStatusId, err := u.confirm(ctx, mark, checks)
+		if score >= threshold {
+			newMarkStatusId, err := u.confirm(ctx, mark, checks, settings.Rating)
 			if err != nil {
 				return mapRepoErr(op, err)
 			}
 			u.log.Debug("change mark status", slog.Int("old", int(mark.MarkStatusID)), slog.Int("new", int(newMarkStatusId)))
 			u.statusChanged(ctx, mark, newMarkStatusId)
-		} else if score <= -3 {
-			newMarkStatusId, err := u.reject(ctx, mark, checks)
+		} else if score <= -threshold {
+			newMarkStatusId, err := u.reject(ctx, mark, checks, settings.Rating)
 			if err != nil {
 				return mapRepoErr(op, err)
 			}
@@ -425,8 +458,10 @@ func (u *Updater) Reject(ctx context.Context, markId int) (models.MarkStatusType
 }
 
 func (u *Updater) decide(ctx context.Context, op string, markId int,
-	transition func(context.Context, models.Mark, []models.Check) (models.MarkStatusType, error),
+	transition func(context.Context, models.Mark, []models.Check, RatingSettings) (models.MarkStatusType, error),
 ) (models.MarkStatusType, error) {
+	rating := u.settings.Get(ctx).Rating
+
 	// Events raised inside the transaction (the assignment of a confirmed
 	// mark) are published only after the commit.
 	var pending events.Pending
@@ -448,7 +483,7 @@ func (u *Updater) decide(ctx context.Context, op string, markId int,
 			return err
 		}
 
-		newStatus, err = transition(ctx, mark, checks)
+		newStatus, err = transition(ctx, mark, checks, rating)
 		return err
 	})
 	if err != nil {
@@ -483,7 +518,7 @@ func (u *Updater) loadStage(ctx context.Context, markId int) (models.Mark, []mod
 	return mark, checks, nil
 }
 
-func (u *Updater) confirm(ctx context.Context, mark models.Mark, checks []models.Check) (models.MarkStatusType, error) {
+func (u *Updater) confirm(ctx context.Context, mark models.Mark, checks []models.Check, rating RatingSettings) (models.MarkStatusType, error) {
 	const op = "usecase.Map.confirm"
 
 	var newStatus models.MarkStatusType
@@ -499,14 +534,14 @@ func (u *Updater) confirm(ctx context.Context, mark models.Mark, checks []models
 		return 0, ErrConflict
 	}
 
-	if err := u.transition(ctx, mark, newStatus, checks, true); err != nil {
+	if err := u.transition(ctx, mark, newStatus, checks, true, rating); err != nil {
 		return 0, mapRepoErr(op, err)
 	}
 
 	return newStatus, nil
 }
 
-func (u *Updater) reject(ctx context.Context, mark models.Mark, checks []models.Check) (models.MarkStatusType, error) {
+func (u *Updater) reject(ctx context.Context, mark models.Mark, checks []models.Check, rating RatingSettings) (models.MarkStatusType, error) {
 	const op = "usecase.Map.reject"
 
 	var newStatus models.MarkStatusType
@@ -522,7 +557,7 @@ func (u *Updater) reject(ctx context.Context, mark models.Mark, checks []models.
 		return 0, ErrConflict
 	}
 
-	if err := u.transition(ctx, mark, newStatus, checks, false); err != nil {
+	if err := u.transition(ctx, mark, newStatus, checks, false, rating); err != nil {
 		return 0, mapRepoErr(op, err)
 	}
 
@@ -530,8 +565,9 @@ func (u *Updater) reject(ctx context.Context, mark models.Mark, checks []models.
 }
 
 // transition writes the new status and awards rating for the resolved
-// stage. confirmed is the outcome the checks are compared against.
-func (u *Updater) transition(ctx context.Context, mark models.Mark, newStatus models.MarkStatusType, checks []models.Check, confirmed bool) error {
+// stage with the given deltas. confirmed is the outcome the checks are
+// compared against.
+func (u *Updater) transition(ctx context.Context, mark models.Mark, newStatus models.MarkStatusType, checks []models.Check, confirmed bool, rating RatingSettings) error {
 	if err := u.repos.Marks.UpdateMarkStatus(ctx, mark.ID, newStatus); err != nil {
 		return err
 	}
@@ -554,13 +590,13 @@ func (u *Updater) transition(ctx context.Context, mark models.Mark, newStatus mo
 	for _, check := range checks {
 		event := models.RatingEvent{
 			UserID:  check.UserID,
-			Delta:   u.cfg.CheckWrong,
+			Delta:   rating.CheckWrong,
 			Reason:  models.RatingReasonCheckWrong,
 			MarkID:  markId,
 			CheckID: null.IntFrom(int64(check.ID)),
 		}
 		if check.Result == confirmed {
-			event.Delta = u.cfg.CheckCorrect
+			event.Delta = rating.CheckCorrect
 			event.Reason = models.RatingReasonCheckCorrect
 		}
 		if _, err := u.repos.Users.AddRatingEvent(ctx, event); err != nil {
@@ -574,12 +610,12 @@ func (u *Updater) transition(ctx context.Context, mark models.Mark, newStatus mo
 	}
 	event := models.RatingEvent{
 		UserID: mark.UserID,
-		Delta:  u.cfg.MarkRefuted,
+		Delta:  rating.MarkRefuted,
 		Reason: models.RatingReasonMarkRefuted,
 		MarkID: markId,
 	}
 	if confirmed {
-		event.Delta = u.cfg.MarkConfirmed
+		event.Delta = rating.MarkConfirmed
 		event.Reason = models.RatingReasonMarkConfirmed
 	}
 	_, err := u.repos.Users.AddRatingEvent(ctx, event)

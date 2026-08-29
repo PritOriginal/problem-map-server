@@ -28,6 +28,7 @@ import (
 	jwt "github.com/appleboy/gin-jwt/v3"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/gin-gonic/gin"
+	"github.com/guregu/null/v6"
 	"github.com/stretchr/testify/assert"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -936,17 +937,17 @@ func (suite *MarksSuite) TestGetMarkTypes() {
 		{
 			name:       "Ok200DefaultRU",
 			wantLang:   models.LangRU,
-			types:      []models.MarkType{{ID: 1, Code: "garbage", Name: "Мусор", SLAHours: 72}},
+			types:      []models.MarkType{{ID: 1, Code: "garbage", Name: "Мусор", SLAHours: 72, Active: true}},
 			statusCode: 200,
-			wantBody:   `{"mark_types":[{"id":1,"mark_type_id":1,"code":"garbage","name":"Мусор","sla_hours":72}]}`,
+			wantBody:   `{"mark_types":[{"id":1,"mark_type_id":1,"code":"garbage","name":"Мусор","sla_hours":72,"icon":null,"color":null,"active":true,"sort_order":0}]}`,
 		},
 		{
 			name:           "Ok200EN",
 			acceptLanguage: "en-US,en;q=0.8,ru;q=0.5",
 			wantLang:       models.LangEN,
-			types:          []models.MarkType{{ID: 1, Code: "garbage", Name: "Garbage", SLAHours: 72}},
+			types:          []models.MarkType{{ID: 1, Code: "garbage", Name: "Garbage", SLAHours: 72, Icon: null.StringFrom("trash"), Color: null.StringFrom("#ff8800"), Active: true, SortOrder: 2}},
 			statusCode:     200,
-			wantBody:       `{"mark_types":[{"id":1,"mark_type_id":1,"code":"garbage","name":"Garbage","sla_hours":72}]}`,
+			wantBody:       `{"mark_types":[{"id":1,"mark_type_id":1,"code":"garbage","name":"Garbage","sla_hours":72,"icon":"trash","color":"#ff8800","active":true,"sort_order":2}]}`,
 		},
 		{
 			name:           "Ok200UnsupportedFallsBackToRU",
