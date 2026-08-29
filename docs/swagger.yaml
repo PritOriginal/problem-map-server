@@ -2858,8 +2858,9 @@ paths:
   /marks/export:
     get:
       description: 'stream every marker matching the same filters as GET /marks (no
-        pagination) as GeoJSON FeatureCollection or CSV (UTF-8 with BOM). At most
-        `export.max-rows` (50 000 by default) rows: a wider selection is rejected
+        pagination) as GeoJSON FeatureCollection or CSV (UTF-8 with BOM; a description
+        starting with =, +, -, @ is prefixed with an apostrophe against formula injection).
+        At most `export.max-rows` (50 000 by default) rows: a wider selection is rejected
         with 400 "narrow the filters". Rate limited per IP (2 per minute by default)'
       parameters:
       - description: file format
@@ -3830,7 +3831,8 @@ paths:
       - application/json
       description: 'subscribe an https endpoint to domain events. The response carries
         the signing `secret` once; deliveries are signed with `X-Signature: sha256=<hex
-        HMAC-SHA256(secret, body)>`. Private/loopback targets are rejected'
+        HMAC-SHA256(secret, "<X-Timestamp>." + body)>` (check the timestamp age to
+        reject replays). Private/loopback targets are rejected'
       parameters:
       - description: webhook
         in: body

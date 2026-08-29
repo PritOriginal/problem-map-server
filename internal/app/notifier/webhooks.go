@@ -25,7 +25,12 @@ var WebhookSubjects = []string{"mark.>", "task.>", "check.>"}
 type Dispatcher interface {
 	Dispatch(ctx context.Context, subject, eventID string, data json.RawMessage) error
 	RetryDue(ctx context.Context, limit int) (int, error)
+	// PruneDeliveries removes old delivery rows (retention).
+	PruneDeliveries(ctx context.Context) (int64, error)
 }
+
+// PruneInterval is how often the delivery log is pruned of old rows.
+const PruneInterval = time.Hour
 
 // WebhookRouter forwards raw events to the Dispatcher without decoding
 // them into typed events: the payload is passed through as is.
@@ -73,18 +78,35 @@ func (r *WebhookRouter) Handle(ctx context.Context, subject string, data []byte)
 	return nil
 }
 
-// RetryLoop attempts due deliveries every interval until ctx is done.
+// RetryLoop attempts due deliveries every interval and prunes the delivery
+// log every PruneInterval until ctx is done.
 func (r *WebhookRouter) RetryLoop(ctx context.Context, interval time.Duration, batch int) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
+	pruner := time.NewTicker(PruneInterval)
+	defer pruner.Stop()
 
+	r.prune(ctx)
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
 			r.retry(ctx, batch)
+		case <-pruner.C:
+			r.prune(ctx)
 		}
+	}
+}
+
+func (r *WebhookRouter) prune(ctx context.Context) {
+	n, err := r.dispatcher.PruneDeliveries(ctx)
+	if err != nil {
+		r.log.Warn("failed to prune webhook deliveries", slogger.Err(err))
+		return
+	}
+	if n > 0 {
+		r.log.Info("old webhook deliveries pruned", slog.Int64("deleted", n))
 	}
 }
 

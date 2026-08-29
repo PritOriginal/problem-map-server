@@ -77,11 +77,13 @@ func (suite *SenderSuite) TestSendOK() {
 	suite.Equal("application/json", got.headers.Get("Content-Type"))
 	suite.Equal("42", got.headers.Get(webhooks.HeaderWebhookID))
 	suite.Equal("e1", got.headers.Get(webhooks.HeaderEventID))
-	suite.Equal(webhooks.Sign("s3cr3t", body), got.headers.Get(webhooks.HeaderSignature))
-	suite.True(webhooks.VerifySignature("s3cr3t", got.body, got.headers.Get(webhooks.HeaderSignature)))
-	ts, err := strconv.ParseInt(got.headers.Get(webhooks.HeaderTimestamp), 10, 64)
+	timestamp := got.headers.Get(webhooks.HeaderTimestamp)
+	ts, err := strconv.ParseInt(timestamp, 10, 64)
 	suite.Require().NoError(err)
 	suite.InDelta(time.Now().Unix(), ts, 5)
+	suite.Equal(webhooks.Sign("s3cr3t", timestamp, body), got.headers.Get(webhooks.HeaderSignature))
+	suite.True(webhooks.VerifySignature("s3cr3t", timestamp, got.body, got.headers.Get(webhooks.HeaderSignature)))
+	suite.False(webhooks.VerifySignature("s3cr3t", "0", got.body, got.headers.Get(webhooks.HeaderSignature)), "timestamp is signed")
 }
 
 func (suite *SenderSuite) TestSendStatuses() {

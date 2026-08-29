@@ -102,7 +102,8 @@ func (p URLPolicy) resolve(ctx context.Context, host string) ([]netip.Addr, erro
 
 // IsPublicAddr reports whether addr is a globally routable unicast address:
 // loopback, private (RFC 1918 / ULA), link-local, multicast, unspecified,
-// CGNAT (100.64/10) and the IPv4-mapped forms of those are rejected.
+// CGNAT (100.64/10), the IPv4-mapped forms of those and the IPv6 transition
+// ranges that embed an IPv4 address (NAT64, 6to4, Teredo) are rejected.
 func IsPublicAddr(addr netip.Addr) bool {
 	addr = addr.Unmap()
 	switch {
@@ -133,7 +134,9 @@ var reservedBlocks = []netip.Prefix{
 	netip.MustParsePrefix("203.0.113.0/24"),  // TEST-NET-3
 	netip.MustParsePrefix("240.0.0.0/4"),     // reserved, incl. broadcast
 	netip.MustParsePrefix("64:ff9b::/96"),    // NAT64
+	netip.MustParsePrefix("2001::/32"),       // Teredo (embeds an IPv4 address)
 	netip.MustParsePrefix("2001:db8::/32"),   // documentation
+	netip.MustParsePrefix("2002::/16"),       // 6to4 (embeds an IPv4 address)
 }
 
 // DialContext returns a dialer that resolves the host itself, applies the

@@ -98,8 +98,8 @@ func NewSender(opts SenderOptions) *Sender {
 	}
 }
 
-// Send POSTs req.Body to req.URL with the signature headers. The URL is
-// re-validated on every attempt so a webhook whose host started resolving
+// Send POSTs req.Body to req.URL with the signature headers (X-Signature
+// covers X-Timestamp and the body, see Sign). The URL is re-validated on every attempt so a webhook whose host started resolving
 // to an internal address is no longer called.
 func (s *Sender) Send(ctx context.Context, req Request) Result {
 	if err := s.policy.Validate(ctx, req.URL); err != nil {
@@ -114,8 +114,9 @@ func (s *Sender) Send(ctx context.Context, req Request) Result {
 	httpReq.Header.Set("User-Agent", HeaderUserAgent)
 	httpReq.Header.Set(HeaderWebhookID, strconv.Itoa(req.WebhookID))
 	httpReq.Header.Set(HeaderEventID, req.EventID)
-	httpReq.Header.Set(HeaderTimestamp, strconv.FormatInt(s.now().Unix(), 10))
-	httpReq.Header.Set(HeaderSignature, Sign(req.Secret, req.Body))
+	timestamp := strconv.FormatInt(s.now().Unix(), 10)
+	httpReq.Header.Set(HeaderTimestamp, timestamp)
+	httpReq.Header.Set(HeaderSignature, Sign(req.Secret, timestamp, req.Body))
 
 	resp, err := s.client.Do(httpReq)
 	if err != nil {

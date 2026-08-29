@@ -27,8 +27,22 @@ type recordingDispatcher struct {
 	mu         sync.Mutex
 	dispatched []dispatched
 	retries    int
+	prunes     int
 	err        error
 	retryErr   error
+}
+
+func (d *recordingDispatcher) PruneDeliveries(context.Context) (int64, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.prunes++
+	return 1, nil
+}
+
+func (d *recordingDispatcher) pruneCount() int {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.prunes
 }
 
 func (d *recordingDispatcher) Dispatch(_ context.Context, subject, eventID string, data json.RawMessage) error {
@@ -168,6 +182,7 @@ func (suite *WebhookRouterSuite) TestRetryLoop() {
 	}()
 
 	suite.Eventually(func() bool { return d.retryCount() >= 3 }, 2*time.Second, time.Millisecond)
+	suite.Equal(1, d.pruneCount(), "the log is pruned once at start, then every PruneInterval")
 	cancel()
 	select {
 	case <-done:

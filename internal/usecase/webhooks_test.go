@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -301,6 +302,36 @@ func (suite *WebhooksSuite) TestDispatch() {
 	})
 }
 
+func (suite *WebhooksSuite) TestDispatchPayloadTooLarge() {
+	data := json.RawMessage(`{"blob":"` + strings.Repeat("x", usecase.MaxWebhookPayloadBytes) + `"}`)
+
+	err := suite.uc.Dispatch(context.Background(), events.SubjectMarkStatusChanged, "e-big", data)
+
+	suite.ErrorIs(err, usecase.ErrWebhookPayloadTooLarge)
+	suite.ErrorIs(err, usecase.ErrInvalidArgument)
+}
+
+func (suite *WebhooksSuite) TestPruneDeliveries() {
+	suite.Run("Success", func() {
+		suite.repo.On("DeleteDeliveriesBefore", mock.Anything, mock.MatchedBy(func(before time.Time) bool {
+			return time.Since(before) > usecase.WebhookDeliveryRetention-time.Minute
+		})).Once().Return(int64(7), nil)
+
+		n, err := suite.uc.PruneDeliveries(context.Background())
+
+		suite.NoError(err)
+		suite.Equal(int64(7), n)
+	})
+
+	suite.Run("RepoError", func() {
+		suite.repo.On("DeleteDeliveriesBefore", mock.Anything, mock.Anything).Once().Return(int64(0), errWebhookBoom)
+
+		_, err := suite.uc.PruneDeliveries(context.Background())
+
+		suite.ErrorIs(err, errWebhookBoom)
+	})
+}
+
 func (suite *WebhooksSuite) TestRetryDue() {
 	now := time.Date(2026, 8, 29, 12, 0, 0, 0, time.UTC)
 
@@ -408,7 +439,7 @@ func (suite *WebhooksSuite) TestDeliveryThroughHTTPServer() {
 	suite.Equal("3", got.headers.Get(webhooks.HeaderWebhookID))
 	suite.Equal(ev.EventID, got.headers.Get(webhooks.HeaderEventID))
 	suite.NotEmpty(got.headers.Get(webhooks.HeaderTimestamp))
-	suite.True(webhooks.VerifySignature(w.Secret, got.body, got.headers.Get(webhooks.HeaderSignature)))
+	suite.True(webhooks.VerifySignature(w.Secret, got.headers.Get(webhooks.HeaderTimestamp), got.body, got.headers.Get(webhooks.HeaderSignature)))
 
 	var payload models.WebhookPayload
 	suite.Require().NoError(json.Unmarshal(got.body, &payload))

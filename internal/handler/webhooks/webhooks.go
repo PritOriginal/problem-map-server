@@ -64,7 +64,7 @@ func (h *handler) actor(c *gin.Context) (models.Actor, bool) {
 // CreateWebhook registers a webhook
 //
 //	@Summary		Create webhook
-//	@Description	subscribe an https endpoint to domain events. The response carries the signing `secret` once; deliveries are signed with `X-Signature: sha256=<hex HMAC-SHA256(secret, body)>`. Private/loopback targets are rejected
+//	@Description	subscribe an https endpoint to domain events. The response carries the signing `secret` once; deliveries are signed with `X-Signature: sha256=<hex HMAC-SHA256(secret, "<X-Timestamp>." + body)>` (check the timestamp age to reject replays). Private/loopback targets are rejected
 //	@Tags			webhooks
 //	@Accept			json
 //	@Produce		json

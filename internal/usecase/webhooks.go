@@ -38,6 +38,9 @@ type WebhooksRepository interface {
 	// postpones them by lease so that no other worker picks them up.
 	ClaimDueDeliveries(ctx context.Context, now time.Time, lease time.Duration, limit int) ([]models.PendingWebhookDelivery, error)
 	RecordAttempt(ctx context.Context, deliveryID int64, res models.WebhookAttemptResult) error
+	// DeleteDeliveriesBefore removes deliveries created before the time and
+	// returns their number.
+	DeleteDeliveriesBefore(ctx context.Context, before time.Time) (int64, error)
 }
 
 // WebhookSender performs one HTTP delivery attempt (see webhooks.Sender).
@@ -99,6 +102,18 @@ const webhookClaimLease = 2 * time.Minute
 
 // webhookDispatchConcurrency bounds the parallel first attempts of one event.
 const webhookDispatchConcurrency = 8
+
+// WebhookDeliveryRetention is how long delivery rows are kept before
+// PruneDeliveries removes them.
+const WebhookDeliveryRetention = 30 * 24 * time.Hour
+
+// MaxWebhookPayloadBytes caps the event data one delivery may carry: the
+// payload is stored per webhook (JSONB) and re-sent on every retry.
+const MaxWebhookPayloadBytes = 256 << 10
+
+// ErrWebhookPayloadTooLarge is returned by Dispatch for events larger than
+// MaxWebhookPayloadBytes; such an event is dropped, not retried.
+var ErrWebhookPayloadTooLarge = fmt.Errorf("%w: webhook payload too large", ErrInvalidArgument)
 
 // Create validates and stores w for the actor. An empty Secret is
 // generated; the returned webhook carries it (the only time it is shown).
@@ -291,6 +306,10 @@ func (uc *Webhooks) payload(eventID, subject string, data json.RawMessage) (json
 func (uc *Webhooks) Dispatch(ctx context.Context, subject, eventID string, data json.RawMessage) error {
 	const op = "usecase.Webhooks.Dispatch"
 
+	if len(data) > MaxWebhookPayloadBytes {
+		return fmt.Errorf("%s: %w (%d bytes, max %d)", op, ErrWebhookPayloadTooLarge, len(data), MaxWebhookPayloadBytes)
+	}
+
 	hooks, err := uc.repos.Webhooks.GetActiveWebhooksForEvent(ctx, subject)
 	if err != nil {
 		return mapRepoErr(op, err)
@@ -363,6 +382,19 @@ func (uc *Webhooks) RetryDue(ctx context.Context, limit int) (int, error) {
 	}
 
 	return len(pending), errors.Join(errs...)
+}
+
+// PruneDeliveries removes the delivery rows older than
+// WebhookDeliveryRetention and returns how many were removed.
+func (uc *Webhooks) PruneDeliveries(ctx context.Context) (int64, error) {
+	const op = "usecase.Webhooks.PruneDeliveries"
+
+	n, err := uc.repos.Webhooks.DeleteDeliveriesBefore(ctx, uc.now().Add(-WebhookDeliveryRetention))
+	if err != nil {
+		return 0, mapRepoErr(op, err)
+	}
+
+	return n, nil
 }
 
 // attempt performs one delivery attempt and records its outcome: success

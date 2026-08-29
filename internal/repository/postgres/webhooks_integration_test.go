@@ -274,3 +274,22 @@ func (s *PostgresSuite) TestWebhooks_ClaimDueDeliveries() {
 	s.Require().NoError(err)
 	s.WithinDuration(now.Add(-time.Hour), got.NextAttemptAt.Time, time.Millisecond)
 }
+
+func (s *PostgresSuite) TestWebhooks_DeleteDeliveriesBefore() {
+	w := s.addWebhook(fxUserBob, "*")
+	old, _, err := s.webhooks.AddDelivery(s.ctx, s.newDelivery(w.ID, "mark.status_changed"))
+	s.Require().NoError(err)
+	fresh, _, err := s.webhooks.AddDelivery(s.ctx, s.newDelivery(w.ID, "check.added"))
+	s.Require().NoError(err)
+	_, err = s.db.ExecContext(s.ctx, "UPDATE webhook_deliveries SET created_at = NOW() - INTERVAL '31 days' WHERE delivery_id = $1", old.ID)
+	s.Require().NoError(err)
+
+	n, err := s.webhooks.DeleteDeliveriesBefore(s.ctx, time.Now().Add(-30*24*time.Hour))
+	s.Require().NoError(err)
+	s.Equal(int64(1), n)
+
+	_, err = s.webhooks.GetDeliveryById(s.ctx, old.ID)
+	s.ErrorIs(err, repository.ErrNotFound)
+	_, err = s.webhooks.GetDeliveryById(s.ctx, fresh.ID)
+	s.NoError(err)
+}

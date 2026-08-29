@@ -1,6 +1,6 @@
 -- Outgoing webhooks: HTTP subscriptions to domain events (mark.*, task.*,
 -- check.*) owned by a moderator/admin. The secret signs every delivery
--- (X-Signature: sha256=HMAC-SHA256(secret, body)).
+-- (X-Signature: sha256=HMAC-SHA256(secret, "<X-Timestamp>." || body)).
 CREATE TABLE IF NOT EXISTS webhooks (
     webhook_id    SERIAL PRIMARY KEY,
     owner_user_id INTEGER NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
@@ -38,6 +38,9 @@ CREATE TABLE IF NOT EXISTS webhook_deliveries (
 -- Delivery log per webhook, newest first.
 CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_webhook
     ON webhook_deliveries (webhook_id, delivery_id DESC);
+-- Retention: the notifier deletes deliveries older than 30 days by created_at.
+CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_created
+    ON webhook_deliveries (created_at);
 -- Retry scheduler: deliveries due for another attempt.
 CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_next_attempt
     ON webhook_deliveries (next_attempt_at) WHERE next_attempt_at IS NOT NULL;

@@ -13,17 +13,19 @@ import (
 // SignaturePrefix precedes the hex digest in the X-Signature header.
 const SignaturePrefix = "sha256="
 
-// Sign returns the X-Signature value of body: "sha256=" followed by the
-// lower-case hex HMAC-SHA256 of body under secret.
-func Sign(secret string, body []byte) string {
-	mac := hmac.New(sha256.New, []byte(secret))
-	mac.Write(body)
-	return SignaturePrefix + hex.EncodeToString(mac.Sum(nil))
+// Sign returns the X-Signature value of a delivery: "sha256=" followed by
+// the lower-case hex HMAC-SHA256, under secret, of the X-Timestamp value,
+// a dot and the body ("<timestamp>.<body>"). Signing the timestamp lets a
+// receiver reject replayed deliveries by their age.
+func Sign(secret, timestamp string, body []byte) string {
+	return SignaturePrefix + hex.EncodeToString(signedDigest(secret, timestamp, body))
 }
 
 // VerifySignature reports whether signature (an X-Signature value) is the
-// valid signature of body under secret. The comparison is constant-time.
-func VerifySignature(secret string, body []byte, signature string) bool {
+// valid signature of body sent with timestamp (the X-Timestamp value)
+// under secret. The comparison is constant-time. The caller should also
+// check that timestamp is recent (see the README).
+func VerifySignature(secret, timestamp string, body []byte, signature string) bool {
 	if !strings.HasPrefix(signature, SignaturePrefix) {
 		return false
 	}
@@ -31,7 +33,13 @@ func VerifySignature(secret string, body []byte, signature string) bool {
 	if err != nil {
 		return false
 	}
+	return hmac.Equal(signedDigest(secret, timestamp, body), want)
+}
+
+func signedDigest(secret, timestamp string, body []byte) []byte {
 	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(timestamp))
+	mac.Write([]byte("."))
 	mac.Write(body)
-	return hmac.Equal(mac.Sum(nil), want)
+	return mac.Sum(nil)
 }

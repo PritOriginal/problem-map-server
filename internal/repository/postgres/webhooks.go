@@ -315,3 +315,21 @@ func (r *WebhooksRepository) RecordAttempt(ctx context.Context, deliveryID int64
 
 	return nil
 }
+
+// DeleteDeliveriesBefore removes the deliveries created before the given
+// time (retention of the delivery log) and returns how many were removed.
+func (r *WebhooksRepository) DeleteDeliveriesBefore(ctx context.Context, before time.Time) (int64, error) {
+	const op = "storage.postgres.DeleteDeliveriesBefore"
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	res, err := tr.ExecContext(ctx, "DELETE FROM webhook_deliveries WHERE created_at < $1", before)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return n, nil
+}

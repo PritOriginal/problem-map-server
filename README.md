@@ -370,8 +370,14 @@ queue-группе `webhooks`, поэтому каждое событие и п�
 | `Content-Type` | `application/json` |
 | `X-Webhook-Id` | id вебхука |
 | `X-Event-Id` | `event_id` — используйте для дедупликации: при ретраях тело и id не меняются |
-| `X-Timestamp` | unix-время отправки (секунды) |
-| `X-Signature` | `sha256=<hex HMAC-SHA256(secret, body)>` — HMAC считается от **байтов тела как есть** |
+| `X-Timestamp` | unix-время отправки (секунды); входит в подпись |
+| `X-Signature` | `sha256=<hex HMAC-SHA256(secret, "<X-Timestamp>." + body)>` — HMAC считается от значения `X-Timestamp`, точки и **байтов тела как есть** |
+
+Защита от replay: `X-Timestamp` подписан, поэтому приёмник должен отклонять
+доставки, чей `X-Timestamp` отличается от текущего времени больше чем на
+допустимое окно (рекомендуется 5 минут), и дедуплицировать по `X-Event-Id`
+— при ретраях тело и `event_id` не меняются, а `X-Timestamp` и подпись
+пересчитываются на каждую попытку.
 
 Приёмник должен ответить `2xx` в течение `webhooks.timeout` (10 с);
 редиректы не выполняются (3xx — ошибка). Любой другой ответ или сетевая
@@ -388,6 +394,10 @@ queue-группе `webhooks`, поэтому каждое событие и п�
 на проверенные IP. `webhooks.allow-private-urls: true` отключает проверку
 адресов **только для локальной разработки**.
 
+Журнал доставок (`webhook_deliveries`) хранится 30 дней: notifier раз в
+час удаляет записи старше. Тело события (`data`) ограничено 256 КБ —
+события больше не доставляются (пишутся в лог с ошибкой).
+
 Настройки (секция `webhooks:` в YAML, переменные `WEBHOOKS_*`): `timeout`
 (`10s`), `retry-interval` (`30s`), `retry-batch` (`100`),
 `allow-private-urls` (`false`).
@@ -397,7 +407,13 @@ queue-группе `webhooks`, поэтому каждое событие и п�
 Go:
 
 ```go
-func verify(secret string, body []byte, signature string) bool {
+const maxSkew = 5 * time.Minute
+
+func verify(secret, timestamp string, body []byte, signature string) bool {
+	ts, err := strconv.ParseInt(timestamp, 10, 64)
+	if err != nil || time.Since(time.Unix(ts, 0)).Abs() > maxSkew {
+		return false // отсутствующая, битая или устаревшая метка времени (replay)
+	}
 	const prefix = "sha256="
 	if !strings.HasPrefix(signature, prefix) {
 		return false
@@ -407,13 +423,14 @@ func verify(secret string, body []byte, signature string) bool {
 		return false
 	}
 	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write([]byte(timestamp + "."))
 	mac.Write(body)
-	return hmac.Equal(mac.Sum(nil), want)
+	return hmac.Equal(mac.Sum(nil), want) // сравнение за константное время
 }
 
 // в хендлере:
-body, _ := io.ReadAll(r.Body)
-if !verify(os.Getenv("WEBHOOK_SECRET"), body, r.Header.Get("X-Signature")) {
+body, _ := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+if !verify(os.Getenv("WEBHOOK_SECRET"), r.Header.Get("X-Timestamp"), body, r.Header.Get("X-Signature")) {
 	http.Error(w, "bad signature", http.StatusUnauthorized)
 	return
 }
@@ -422,16 +439,20 @@ if !verify(os.Getenv("WEBHOOK_SECRET"), body, r.Header.Get("X-Signature")) {
 Python:
 
 ```python
-import hashlib, hmac
+import hashlib, hmac, time
 
-def verify(secret: str, body: bytes, signature: str) -> bool:
+MAX_SKEW = 300  # секунд
+
+def verify(secret: str, timestamp: str, body: bytes, signature: str) -> bool:
+    if not timestamp.isdigit() or abs(time.time() - int(timestamp)) > MAX_SKEW:
+        return False  # устаревшая метка времени (replay)
     if not signature.startswith("sha256="):
         return False
-    expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
-    return hmac.compare_digest(signature[len("sha256="):], expected)
+    expected = hmac.new(secret.encode(), timestamp.encode() + b"." + body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(signature[len("sha256="):], expected)  # константное время
 
 # Flask:
-# if not verify(SECRET, request.get_data(), request.headers.get("X-Signature", "")):
+# if not verify(SECRET, request.headers.get("X-Timestamp", ""), request.get_data(), request.headers.get("X-Signature", "")):
 #     abort(401)
 ```
 

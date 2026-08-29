@@ -58,6 +58,11 @@ func (suite *SSRFSuite) TestIsPublicAddr() {
 		{"::ffff:93.184.216.34", true},
 		{"64:ff9b::7f00:1", false}, // NAT64 of 127.0.0.1
 		{"2001:db8::1", false},
+		{"2002:7f00:1::1", false},     // 6to4 of 127.0.0.1
+		{"2001:0:0:0::7f00:1", false}, // Teredo
+		{"::ffff:10.0.0.1", false},    // IPv4-mapped private
+		{"fd00::1", false},            // ULA
+		{"fe80::1%eth0", false},       // link-local with zone
 	}
 	for _, tt := range tests {
 		suite.Run(tt.addr, func() {
