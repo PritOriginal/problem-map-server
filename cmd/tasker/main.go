@@ -109,24 +109,27 @@ func run(ctx context.Context) error {
 		Marks: postgres.NewMarks(postgresDB.DB, trmsqlx.DefaultCtxGetter),
 		Users: postgres.NewUsers(postgresDB.DB, trmsqlx.DefaultCtxGetter),
 	}).WithEvents(publisher)
+	sla := usecase.NewSLA(logger, usecase.SLARepositories{
+		Marks: postgres.NewOrganizations(postgresDB.DB, trmsqlx.DefaultCtxGetter),
+	}).WithEvents(publisher)
 
 	if once {
-		return finish(ctx, logger, runPass(ctx, logger, tasker))
+		return finish(ctx, logger, runPass(ctx, logger, tasker, sla))
 	}
 
 	logger.Info("tasker scheduled", slog.Duration("interval", cfg.Tasker.Interval))
-	return runScheduled(ctx, logger, tasker, cfg.Tasker.Interval)
+	return runScheduled(ctx, logger, tasker, sla, cfg.Tasker.Interval)
 }
 
 // runScheduled runs a pass immediately and then every interval until ctx is
 // cancelled. A failed pass is logged and the schedule continues; only a
 // shutdown signal stops the loop.
-func runScheduled(ctx context.Context, logger *slog.Logger, tasker *usecase.Tasker, interval time.Duration) error {
+func runScheduled(ctx context.Context, logger *slog.Logger, tasker *usecase.Tasker, sla *usecase.SLA, interval time.Duration) error {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	for {
-		if err := runPass(ctx, logger, tasker); err != nil {
+		if err := runPass(ctx, logger, tasker, sla); err != nil {
 			if ctx.Err() != nil {
 				return finish(ctx, logger, err)
 			}
@@ -141,15 +144,21 @@ func runScheduled(ctx context.Context, logger *slog.Logger, tasker *usecase.Task
 	}
 }
 
-// runPass expires overdue tasks and assigns new ones. Every repository call
+// runPass expires overdue tasks, assigns new ones and reports the marks
+// whose organization SLA has been breached. Every repository call
 // observes ctx: on SIGINT/SIGTERM the in-flight query is cancelled and the
 // pass returns, so the deferred DB close never races with a running query.
-func runPass(ctx context.Context, logger *slog.Logger, tasker *usecase.Tasker) error {
+func runPass(ctx context.Context, logger *slog.Logger, tasker *usecase.Tasker, sla *usecase.SLA) error {
 	started := time.Now()
 
 	expired, err := tasker.ExpireOverdue(ctx)
 	if err != nil {
 		return fmt.Errorf("expire overdue: %w", err)
+	}
+
+	slaBreached, err := sla.ExpireOverdue(ctx)
+	if err != nil {
+		return fmt.Errorf("sla check: %w", err)
 	}
 
 	stats, err := tasker.Update(ctx)
@@ -159,6 +168,7 @@ func runPass(ctx context.Context, logger *slog.Logger, tasker *usecase.Tasker) e
 
 	logger.Info("tasker pass finished",
 		slog.Int64("expired", expired),
+		slog.Int("sla_breached", slaBreached),
 		slog.Int("assigned", stats.Assigned),
 		slog.Int("marks", stats.Marks),
 		slog.Int("covered", stats.Covered),

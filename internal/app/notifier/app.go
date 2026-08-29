@@ -1,6 +1,6 @@
 // Package notifier is the worker that turns domain events (NATS) into
-// notifications: it subscribes to mark.status_changed, task.assigned and
-// check.added, stores a notification per addressee and hands it to the
+// notifications: it subscribes to mark.status_changed, task.assigned,
+// check.added, mark.assigned and mark.sla_breached, stores a notification per addressee and hands it to the
 // PushSender.
 package notifier
 
@@ -38,6 +38,8 @@ type Handlers interface {
 	HandleMarkStatusChanged(ctx context.Context, ev events.MarkStatusChanged) error
 	HandleTaskAssigned(ctx context.Context, ev events.TaskAssigned) error
 	HandleCheckAdded(ctx context.Context, ev events.CheckAdded) error
+	HandleMarkAssigned(ctx context.Context, ev events.MarkAssigned) error
+	HandleMarkSLABreached(ctx context.Context, ev events.MarkSLABreached) error
 }
 
 // App is the notifier worker: Run subscribes and blocks until Stop.
@@ -82,7 +84,8 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Devices:       notificationsRepo,
 	})
 	notifier := usecase.NewNotifier(log, notificationsUseCase, usecase.NotifierRepositories{
-		Marks: marksRepo,
+		Marks:         marksRepo,
+		Organizations: postgres.NewOrganizations(postgresDB.DB, trmsqlx.DefaultCtxGetter),
 	})
 
 	return &App{
@@ -136,7 +139,10 @@ func NewRouter(log *slog.Logger, handlers Handlers) *Router {
 
 // Subjects lists the subjects the router consumes.
 func (r *Router) Subjects() []string {
-	return []string{events.SubjectMarkStatusChanged, events.SubjectTaskAssigned, events.SubjectCheckAdded}
+	return []string{
+		events.SubjectMarkStatusChanged, events.SubjectTaskAssigned, events.SubjectCheckAdded,
+		events.SubjectMarkAssigned, events.SubjectMarkSLABreached,
+	}
 }
 
 // Subscribe registers Handle for every subject on sub within QueueGroup.
@@ -162,6 +168,10 @@ func (r *Router) Handle(ctx context.Context, subject string, data []byte) error 
 		return handle(ctx, subject, data, r.handlers.HandleTaskAssigned)
 	case events.SubjectCheckAdded:
 		return handle(ctx, subject, data, r.handlers.HandleCheckAdded)
+	case events.SubjectMarkAssigned:
+		return handle(ctx, subject, data, r.handlers.HandleMarkAssigned)
+	case events.SubjectMarkSLABreached:
+		return handle(ctx, subject, data, r.handlers.HandleMarkSLABreached)
 	default:
 		return fmt.Errorf("unknown subject %q", subject)
 	}

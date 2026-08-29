@@ -37,6 +37,12 @@ type MarkStatusUpdater interface {
 	Update(ctx context.Context, markId int) error
 }
 
+// MarkAssigner assigns a freshly confirmed mark to the responsible
+// organization; it runs inside the updater's transaction.
+type MarkAssigner interface {
+	AssignConfirmed(ctx context.Context, mark models.Mark) error
+}
+
 type ChecksRepositories struct {
 	Marks  MarksRepository
 	Checks ChecksRepository
@@ -287,6 +293,7 @@ type Updater struct {
 	trManager trm.Manager
 	repos     UpdaterRepositories
 	events    events.Publisher
+	assigner  MarkAssigner
 }
 
 func NewUpdater(log *slog.Logger, cfg config.RatingConfig, trManager trm.Manager, repos UpdaterRepositories) *Updater {
@@ -304,6 +311,15 @@ func NewUpdater(log *slog.Logger, cfg config.RatingConfig, trManager trm.Manager
 func (u *Updater) WithEvents(p events.Publisher) *Updater {
 	if p != nil {
 		u.events = p
+	}
+	return u
+}
+
+// WithAssigner sets the assigner called when a mark becomes confirmed.
+// Without it confirmed marks stay unassigned.
+func (u *Updater) WithAssigner(a MarkAssigner) *Updater {
+	if a != nil {
+		u.assigner = a
 	}
 	return u
 }
@@ -380,6 +396,11 @@ func (u *Updater) Reject(ctx context.Context, markId int) (models.MarkStatusType
 func (u *Updater) decide(ctx context.Context, op string, markId int,
 	transition func(context.Context, models.Mark, []models.Check) (models.MarkStatusType, error),
 ) (models.MarkStatusType, error) {
+	// Events raised inside the transaction (the assignment of a confirmed
+	// mark) are published only after the commit.
+	var pending events.Pending
+	ctx = events.WithPending(ctx, &pending)
+
 	var newStatus models.MarkStatusType
 	var mark models.Mark
 	err := u.trManager.Do(ctx, func(ctx context.Context) error {
@@ -405,6 +426,7 @@ func (u *Updater) decide(ctx context.Context, op string, markId int,
 
 	// Published after the commit: a rolled back decision must not notify.
 	u.statusChanged(ctx, mark, newStatus)
+	pending.Flush(ctx, u.log, u.events)
 
 	return newStatus, nil
 }
@@ -481,6 +503,13 @@ func (u *Updater) reject(ctx context.Context, mark models.Mark, checks []models.
 func (u *Updater) transition(ctx context.Context, mark models.Mark, newStatus models.MarkStatusType, checks []models.Check, confirmed bool) error {
 	if err := u.repos.Marks.UpdateMarkStatus(ctx, mark.ID, newStatus); err != nil {
 		return err
+	}
+
+	// A confirmed mark is handed to the responsible city service.
+	if newStatus == models.ConfirmedStatus && u.assigner != nil {
+		if err := u.assigner.AssignConfirmed(ctx, mark); err != nil {
+			return err
+		}
 	}
 
 	markId := null.IntFrom(int64(mark.ID))

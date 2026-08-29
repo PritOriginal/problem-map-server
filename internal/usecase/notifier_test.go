@@ -198,3 +198,88 @@ func (suite *NotifierSuite) TestHandleCheckAdded() {
 		})
 	}
 }
+
+func (suite *NotifierSuite) TestHandleOrganizationEvents() {
+	orgs := usecase.NewMockNotifierOrganizationsRepository(suite.T())
+	uc := usecase.NewNotifier(slogdiscard.NewDiscardLogger(), suite.notifications, usecase.NotifierRepositories{
+		Marks:         suite.marks,
+		Organizations: orgs,
+	})
+	dueAt := time.Date(2026, 1, 2, 3, 4, 5, 0, time.UTC)
+
+	tests := []struct {
+		name      string
+		handle    func(ctx context.Context) error
+		eventID   string
+		wantType  models.NotificationType
+		members   method[[]int]
+		createErr error
+		wantErr   bool
+	}{
+		{
+			name: "AssignedNotifiesEveryMember",
+			handle: func(ctx context.Context) error {
+				return uc.HandleMarkAssigned(ctx, events.MarkAssigned{Header: events.Header{EventID: "a1"}, MarkID: 5, OrganizationID: 10, SLADueAt: dueAt})
+			},
+			eventID:  "a1",
+			wantType: models.NotificationMarkAssigned,
+			members:  method[[]int]{data: []int{7, 8}},
+		},
+		{
+			name: "SLABreachedNotifiesEveryMember",
+			handle: func(ctx context.Context) error {
+				return uc.HandleMarkSLABreached(ctx, events.MarkSLABreached{Header: events.Header{EventID: "s1"}, MarkID: 5, OrganizationID: 10, SLADueAt: dueAt})
+			},
+			eventID:  "s1",
+			wantType: models.NotificationMarkSLABreached,
+			members:  method[[]int]{data: []int{7}},
+		},
+		{
+			name: "NoMembers",
+			handle: func(ctx context.Context) error {
+				return uc.HandleMarkAssigned(ctx, events.MarkAssigned{Header: events.Header{EventID: "a2"}, MarkID: 5, OrganizationID: 10})
+			},
+			members: method[[]int]{data: []int{}},
+		},
+		{
+			name: "ErrMembers",
+			handle: func(ctx context.Context) error {
+				return uc.HandleMarkAssigned(ctx, events.MarkAssigned{Header: events.Header{EventID: "a3"}, MarkID: 5, OrganizationID: 10})
+			},
+			members: method[[]int]{err: errRepo},
+			wantErr: true,
+		},
+		{
+			name: "ErrCreate",
+			handle: func(ctx context.Context) error {
+				return uc.HandleMarkAssigned(ctx, events.MarkAssigned{Header: events.Header{EventID: "a4"}, MarkID: 5, OrganizationID: 10})
+			},
+			eventID:   "a4",
+			wantType:  models.NotificationMarkAssigned,
+			members:   method[[]int]{data: []int{7}},
+			createErr: errRepo,
+			wantErr:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			orgs.On("GetMemberIDs", mock.Anything, 10).Once().Return(tt.members.data, tt.members.err)
+			for _, userID := range tt.members.data {
+				suite.notifications.On("Create", mock.Anything, mock.MatchedBy(func(n models.Notification) bool {
+					return n.UserID == userID && n.EventID == tt.eventID && n.Type == tt.wantType && n.MarkID.Int64 == 5
+				})).Once().Return(int64(1), true, tt.createErr)
+				if tt.createErr != nil {
+					break
+				}
+			}
+
+			err := tt.handle(context.Background())
+			if tt.wantErr {
+				suite.Error(err)
+				return
+			}
+			suite.NoError(err)
+		})
+	}
+}
