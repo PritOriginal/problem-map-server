@@ -617,7 +617,7 @@
                         "BearerAuth": []
                     }
                 ],
-                "description": "add mark",
+                "description": "add mark. Coordinates are WGS84: `longitude` is X, `latitude` is Y (GeoJSON/PostGIS order)",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -628,6 +628,44 @@
                     "marks"
                 ],
                 "summary": "Add mark",
+                "parameters": [
+                    {
+                        "type": "file",
+                        "description": "Photos of the problem",
+                        "name": "photos",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "number",
+                        "example": 41.44,
+                        "description": "Longitude in degrees (X), WGS84",
+                        "name": "longitude",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "number",
+                        "example": 52.72,
+                        "description": "Latitude in degrees (Y), WGS84",
+                        "name": "latitude",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Mark type id",
+                        "name": "mark_type_id",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "Description (max 256 chars)",
+                        "name": "description",
+                        "in": "formData"
+                    }
+                ],
                 "responses": {
                     "201": {
                         "description": "Created",

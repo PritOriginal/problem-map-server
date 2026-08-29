@@ -1196,7 +1196,35 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: add mark
+      description: 'add mark. Coordinates are WGS84: `longitude` is X, `latitude`
+        is Y (GeoJSON/PostGIS order)'
+      parameters:
+      - description: Photos of the problem
+        in: formData
+        name: photos
+        required: true
+        type: file
+      - description: Longitude in degrees (X), WGS84
+        example: 41.44
+        in: formData
+        name: longitude
+        required: true
+        type: number
+      - description: Latitude in degrees (Y), WGS84
+        example: 52.72
+        in: formData
+        name: latitude
+        required: true
+        type: number
+      - description: Mark type id
+        in: formData
+        name: mark_type_id
+        required: true
+        type: integer
+      - description: Description (max 256 chars)
+        in: formData
+        name: description
+        type: string
       produces:
       - application/json
       responses:
