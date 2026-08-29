@@ -16,11 +16,8 @@ import (
 
 // VersionChecker returns the current auth version of a user. It is
 // implemented by the Redis repository (usecase.AuthVersionStore) and by
-// VersionCache. It is the same contract as auth.VersionChecker, declared
-// here so that mockery generates a mock for this package.
-type VersionChecker interface {
-	AuthVersion(ctx context.Context, userID int) (int64, error)
-}
+// VersionCache; the mock lives in package auth.
+type VersionChecker = auth.VersionChecker
 
 // VersionSource is what VersionCache wraps: the Redis repository, which can
 // both read and bump the auth version.

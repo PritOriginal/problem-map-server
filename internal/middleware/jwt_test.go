@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/PritOriginal/problem-map-server/internal/auth"
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
@@ -19,7 +20,7 @@ import (
 
 type JWTSuite struct {
 	suite.Suite
-	versions *middleware.MockVersionChecker
+	versions *auth.MockVersionChecker
 	r        *gin.Engine
 }
 
@@ -28,7 +29,7 @@ func TestJWT(t *testing.T) {
 }
 
 func (suite *JWTSuite) SetupTest() {
-	suite.versions = middleware.NewMockVersionChecker(suite.T())
+	suite.versions = auth.NewMockVersionChecker(suite.T())
 	suite.r = suite.router(middleware.JWTParams{Key: testKey, Versions: suite.versions})
 }
 
@@ -88,7 +89,7 @@ func (suite *JWTSuite) TestMiddleware() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			// Every case gets a fresh middleware so the version cache is empty.
-			versions := middleware.NewMockVersionChecker(suite.T())
+			versions := auth.NewMockVersionChecker(suite.T())
 			r := suite.router(middleware.JWTParams{Key: testKey, Versions: versions})
 			if tt.version != nil || tt.versionErr != nil {
 				var v int64
@@ -123,7 +124,7 @@ func (suite *JWTSuite) TestVersionCache() {
 }
 
 func (suite *JWTSuite) TestVersionCacheExpires() {
-	versions := middleware.NewMockVersionChecker(suite.T())
+	versions := auth.NewMockVersionChecker(suite.T())
 	r := suite.router(middleware.JWTParams{Key: testKey, Versions: versions, VersionCacheTTL: 20 * time.Millisecond})
 	versions.On("AuthVersion", mock.Anything, 7).Once().Return(int64(1), nil)
 	versions.On("AuthVersion", mock.Anything, 7).Once().Return(int64(2), nil)

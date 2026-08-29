@@ -28,7 +28,9 @@ packages:
       filename: "mocks.go"
   github.com/PritOriginal/problem-map-server/internal/middleware:
     config:
-      all: true
+      # Not `all`: VersionChecker is an alias of auth.VersionChecker and its
+      # mock lives in package auth.
+      include-interface-regex: "^VersionSource$"
       filename: "mocks.go"
   github.com/PritOriginal/problem-map-server/internal/middleware/cache:
     config:

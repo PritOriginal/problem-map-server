@@ -99,7 +99,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	// outage without taking the server out of rotation.
 	redisClient, err := redis.New(cfg.Redis)
 	if err != nil {
-		log.Warn("failed connection to redis, continuing without it", slogger.Err(err))
+		log.Error("failed connection to redis, continuing without it", slogger.Err(err))
 	} else {
 		log.Info("Redis connected!")
 	}
