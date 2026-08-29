@@ -12,6 +12,7 @@ type PublicUser struct {
 }
 
 func NewPublicUser(user models.User) PublicUser {
+	user = user.Public()
 	return PublicUser{
 		Id:     user.Id,
 		Name:   user.Name,

@@ -67,13 +67,10 @@ func (s *server) GetUsers(ctx context.Context, in *emptypb.Empty) (*pb.GetUsersR
 // toProtobufObject mirrors the REST PublicUser: private fields (login and
 // home point) are exposed only to the authenticated owner of the profile.
 func toProtobufObject(ctx context.Context, user models.User) *pb.User {
-	result := user.ToProtobufObject()
-
 	claims, ok := interceptors.ClaimsFromContext(ctx)
 	if !ok || claims.UserID != user.Id {
-		result.Login = ""
-		result.HomePoint = nil
+		user = user.Public()
 	}
 
-	return result
+	return user.ToProtobufObject()
 }

@@ -49,3 +49,14 @@ func TestMark_MarshalJSON(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expectedMarkJSON, markJSON)
 }
+
+func TestUser_Public(t *testing.T) {
+	u := User{Id: 1, Name: "n", Login: "l", PasswordHash: "h", HomePoint: NewPoint(geom.Coord{1, 2}), Rating: 3, Role: RoleAdmin}
+
+	got := u.Public()
+
+	require.Equal(t, User{Id: 1, Name: "n", Rating: 3, Role: RoleAdmin}, got)
+	// The receiver is a copy: the original keeps its private fields.
+	require.Equal(t, "l", u.Login)
+	require.NotNil(t, u.HomePoint)
+}

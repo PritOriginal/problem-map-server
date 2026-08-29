@@ -46,6 +46,17 @@ type User struct {
 	Role         Role   `json:"role" db:"role"`
 }
 
+// Public returns the user as seen by other users: the private fields
+// (login, password hash, home point) are cleared. Both the REST PublicUser
+// and the gRPC representation derive from it, so the list of private
+// fields lives in one place.
+func (u User) Public() User {
+	u.Login = ""
+	u.PasswordHash = ""
+	u.HomePoint = nil
+	return u
+}
+
 func (u *User) ToProtobufObject() *pb.User {
 	return &pb.User{
 		Id:        int64(u.Id),
