@@ -8,6 +8,7 @@ import (
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
 	"github.com/PritOriginal/problem-map-server/internal/grpc/grpcerr"
 	"github.com/PritOriginal/problem-map-server/internal/grpc/interceptors"
+	"github.com/PritOriginal/problem-map-server/internal/grpc/pbconv"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -43,10 +44,7 @@ func (s *server) GetTasks(ctx context.Context, in *emptypb.Empty) (*pb.GetTasksR
 		return nil, grpcerr.Map(s.log, err, "error get tasks")
 	}
 
-	tasksPb := make([]*pb.Task, len(tasks))
-	for i := range tasks {
-		tasksPb[i] = tasks[i].ToProtobufObject()
-	}
+	tasksPb := pbconv.Slice(tasks, (*models.Task).ToProtobufObject)
 
 	return &pb.GetTasksResponse{
 		Tasks: tasksPb,
@@ -80,10 +78,7 @@ func (s *server) GetTasksByUserId(ctx context.Context, in *pb.GetTasksByUserIdRe
 		return nil, grpcerr.Map(s.log, err, "error get tasks by user id", slog.Int64("user_id", userId))
 	}
 
-	tasksPb := make([]*pb.Task, len(tasks))
-	for i := range tasks {
-		tasksPb[i] = tasks[i].ToProtobufObject()
-	}
+	tasksPb := pbconv.Slice(tasks, (*models.Task).ToProtobufObject)
 
 	return &pb.GetTasksByUserIdResponse{
 		Tasks: tasksPb,

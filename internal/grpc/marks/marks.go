@@ -5,11 +5,14 @@ import (
 	"io"
 	"log/slog"
 	"math"
+	"unicode/utf8"
 
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
 	"github.com/PritOriginal/problem-map-server/internal/grpc/grpcerr"
 	"github.com/PritOriginal/problem-map-server/internal/grpc/interceptors"
+	"github.com/PritOriginal/problem-map-server/internal/grpc/pbconv"
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/twpayne/go-geom"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -50,10 +53,7 @@ func (s *server) GetMarks(ctx context.Context, in *emptypb.Empty) (*pb.GetMarksR
 		return nil, grpcerr.Map(s.log, err, "error get marks")
 	}
 
-	marksPb := make([]*pb.Mark, len(marks))
-	for i := range marks {
-		marksPb[i] = marks[i].ToProtobufObject()
-	}
+	marksPb := pbconv.Slice(marks, (*models.Mark).ToProtobufObject)
 
 	return &pb.GetMarksResponse{
 		Marks: marksPb,
@@ -87,10 +87,7 @@ func (s *server) GetMarksByUserId(ctx context.Context, in *pb.GetMarksByUserIdRe
 		return nil, grpcerr.Map(s.log, err, "error get marks by user id", slog.Int64("user_id", userId))
 	}
 
-	marksPb := make([]*pb.Mark, len(marks))
-	for i := range marks {
-		marksPb[i] = marks[i].ToProtobufObject()
-	}
+	marksPb := pbconv.Slice(marks, (*models.Mark).ToProtobufObject)
 
 	return &pb.GetMarksByUserIdResponse{
 		Marks: marksPb,
@@ -107,8 +104,8 @@ func (s *server) AddMark(ctx context.Context, in *pb.AddMarkRequest) (*pb.AddMar
 	}
 
 	if err := validateAddMark(in); err != nil {
-		s.log.Debug("invalid add mark request", slog.String("reason", err.Error()))
-		return nil, grpcerr.InvalidArgument(err.Error())
+		s.log.Debug("invalid add mark request", logger.Err(err))
+		return nil, err
 	}
 
 	coords := in.GetPoint().GetCoordinates()
@@ -136,31 +133,29 @@ func (s *server) AddMark(ctx context.Context, in *pb.AddMarkRequest) (*pb.AddMar
 	}, nil
 }
 
+// validateAddMark mirrors the REST AddMarkRequest binding rules and returns
+// a codes.InvalidArgument status on failure.
 func validateAddMark(in *pb.AddMarkRequest) error {
 	coords := in.GetPoint().GetCoordinates()
 	if coords == nil {
-		return errInvalidArgument("point is required")
+		return grpcerr.InvalidArgument("point is required")
 	}
 	// NaN passes plain range comparisons, so it is rejected explicitly.
 	if lon := coords.GetLongitude(); math.IsNaN(lon) || lon < -180 || lon > 180 {
-		return errInvalidArgument("longitude must be in [-180, 180]")
+		return grpcerr.InvalidArgument("longitude must be in [-180, 180]")
 	}
 	if lat := coords.GetLatitude(); math.IsNaN(lat) || lat < -90 || lat > 90 {
-		return errInvalidArgument("latitude must be in [-90, 90]")
+		return grpcerr.InvalidArgument("latitude must be in [-90, 90]")
 	}
 	if in.GetMarkTypeId() <= 0 {
-		return errInvalidArgument("mark_type_id must be positive")
+		return grpcerr.InvalidArgument("mark_type_id must be positive")
 	}
-	if len([]rune(in.GetDescription())) > maxDescriptionLen {
-		return errInvalidArgument("description is too long")
+	if utf8.RuneCountInString(in.GetDescription()) > maxDescriptionLen {
+		return grpcerr.InvalidArgument("description is too long")
 	}
 
 	return nil
 }
-
-type errInvalidArgument string
-
-func (e errInvalidArgument) Error() string { return string(e) }
 
 func (s *server) GetMarkTypes(ctx context.Context, in *emptypb.Empty) (*pb.GetMarkTypesResponse, error) {
 	types, err := s.uc.GetMarkTypes(ctx)
@@ -168,10 +163,7 @@ func (s *server) GetMarkTypes(ctx context.Context, in *emptypb.Empty) (*pb.GetMa
 		return nil, grpcerr.Map(s.log, err, "error get mark types")
 	}
 
-	typesPb := make([]*pb.MarkType, len(types))
-	for i := range types {
-		typesPb[i] = types[i].ToProtobufObject()
-	}
+	typesPb := pbconv.Slice(types, (*models.MarkType).ToProtobufObject)
 
 	return &pb.GetMarkTypesResponse{
 		Types: typesPb,
@@ -184,10 +176,7 @@ func (s *server) GetMarkStatuses(ctx context.Context, in *emptypb.Empty) (*pb.Ge
 		return nil, grpcerr.Map(s.log, err, "error get mark statuses")
 	}
 
-	statusesPb := make([]*pb.MarkStatus, len(statuses))
-	for i := range statuses {
-		statusesPb[i] = statuses[i].ToProtobufObject()
-	}
+	statusesPb := pbconv.Slice(statuses, (*models.MarkStatus).ToProtobufObject)
 
 	return &pb.GetMarkStatusesResponse{
 		Statuses: statusesPb,

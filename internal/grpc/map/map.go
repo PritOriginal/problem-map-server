@@ -6,6 +6,7 @@ import (
 
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
 	"github.com/PritOriginal/problem-map-server/internal/grpc/grpcerr"
+	"github.com/PritOriginal/problem-map-server/internal/grpc/pbconv"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -38,10 +39,7 @@ func (s *server) GetRegions(ctx context.Context, in *emptypb.Empty) (*pb.GetRegi
 		return nil, grpcerr.Map(s.log, err, "error get regions")
 	}
 
-	regionsPb := make([]*pb.Region, len(regions))
-	for i := range regions {
-		regionsPb[i] = regions[i].ToProtobufObject()
-	}
+	regionsPb := pbconv.Slice(regions, (*models.Region).ToProtobufObject)
 
 	return &pb.GetRegionsResponse{
 		Regions: regionsPb,
@@ -54,10 +52,7 @@ func (s *server) GetCities(ctx context.Context, in *emptypb.Empty) (*pb.GetCitie
 		return nil, grpcerr.Map(s.log, err, "error get cities")
 	}
 
-	citiesPb := make([]*pb.City, len(cities))
-	for i := range cities {
-		citiesPb[i] = cities[i].ToProtobufObject()
-	}
+	citiesPb := pbconv.Slice(cities, (*models.City).ToProtobufObject)
 
 	return &pb.GetCitiesResponse{
 		Cities: citiesPb,
@@ -70,10 +65,7 @@ func (s *server) GetDistricts(ctx context.Context, in *emptypb.Empty) (*pb.GetDi
 		return nil, grpcerr.Map(s.log, err, "error get districts")
 	}
 
-	districtsPb := make([]*pb.District, len(districts))
-	for i := range districts {
-		districtsPb[i] = districts[i].ToProtobufObject()
-	}
+	districtsPb := pbconv.Slice(districts, (*models.District).ToProtobufObject)
 
 	return &pb.GetDistrictsResponse{
 		Districts: districtsPb,

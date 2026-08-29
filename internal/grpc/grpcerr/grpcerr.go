@@ -25,21 +25,23 @@ func Map(log *slog.Logger, err error, msg string, attrs ...any) error {
 		return err
 	}
 
+	attrs = append(attrs, logger.Err(err))
+
 	switch {
 	case errors.Is(err, usecase.ErrNotFound):
-		log.Debug(msg, append(attrs, logger.Err(err))...)
+		log.Debug(msg, attrs...)
 		return status.Error(codes.NotFound, msg)
 	case errors.Is(err, usecase.ErrConflict):
-		log.Debug(msg, append(attrs, logger.Err(err))...)
+		log.Debug(msg, attrs...)
 		return status.Error(codes.AlreadyExists, msg)
 	case errors.Is(err, usecase.ErrUnauthorized):
-		log.Debug(msg, append(attrs, logger.Err(err))...)
+		log.Debug(msg, attrs...)
 		return status.Error(codes.Unauthenticated, msg)
 	case errors.Is(err, usecase.ErrUnavailable):
-		log.Error(msg, append(attrs, logger.Err(err))...)
+		log.Error(msg, attrs...)
 		return status.Error(codes.Unavailable, msg)
 	default:
-		log.Error(msg, append(attrs, logger.Err(err))...)
+		log.Error(msg, attrs...)
 		return status.Error(codes.Internal, msg)
 	}
 }
