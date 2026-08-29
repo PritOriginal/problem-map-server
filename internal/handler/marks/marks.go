@@ -46,6 +46,7 @@ type handler struct {
 	log           *slog.Logger
 	uc            Marks
 	statusUpdater StatusUpdater
+	exporter      Exporter
 }
 
 type Params struct {
@@ -53,6 +54,10 @@ type Params struct {
 	Cacher         mwcache.Cacher
 	Usecase        Marks
 	StatusUpdater  StatusUpdater
+	// Exporter serves GET /marks/export; the route is not registered when nil.
+	Exporter Exporter
+	// ExportRateLimit is the per-IP limiter of GET /marks/export (optional).
+	ExportRateLimit gin.HandlerFunc
 }
 
 func Register(r *gin.Engine, log *slog.Logger, params Params) {
@@ -60,6 +65,7 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 		log:           log,
 		uc:            params.Usecase,
 		statusUpdater: params.StatusUpdater,
+		exporter:      params.Exporter,
 	}
 
 	// The viewer is recorded for every marks route so that is_following is
@@ -69,6 +75,13 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 		marks.GET("", handler.GetMarks())
 		marks.GET("nearby", handler.GetMarksNearby())
 		marks.GET("similar", handler.GetSimilarMarks())
+		if params.Exporter != nil {
+			export := marks.Group("")
+			if params.ExportRateLimit != nil {
+				export.Use(params.ExportRateLimit)
+			}
+			export.GET("export", handler.ExportMarks())
+		}
 		id := marks.Group(":id")
 		{
 			id.GET("", handler.GetMarkById())

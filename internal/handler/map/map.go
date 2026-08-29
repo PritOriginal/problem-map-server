@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/handler/listquery"
@@ -13,6 +16,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/render"
 )
 
 // HeatmapCacheTTL is how long a heatmap response is served from cache; the
@@ -22,6 +26,7 @@ const HeatmapCacheTTL = 60 * time.Second
 type Map interface {
 	GetAdminBoundaries(ctx context.Context, filters models.GetAdminBoundaryFilters) ([]models.AdminBoundary, error)
 	GetAdminBoundariesMarksCount(ctx context.Context, filters models.GetAdminBoundaryMarksCountFilters) ([]models.AdminBoundaryMarksCount, error)
+	GetAdminBoundaryById(ctx context.Context, id int) (models.AdminBoundary, error)
 	GetHeatmap(ctx context.Context, filters models.HeatmapFilters) ([]models.HeatmapCell, error)
 	GetRegions(ctx context.Context) ([]models.Region, error)
 	GetCities(ctx context.Context) ([]models.City, error)
@@ -39,6 +44,10 @@ func Register(r *gin.Engine, log *slog.Logger, uc Map, cacher mwcache.Cacher) {
 	mapRoute := r.Group("/map")
 	{
 		mapRoute.GET("admin-boundaries/marks/count", handler.GetAdminBoundariesMarksCount())
+		// The response is a bare GeoJSON document, not the JSON envelope,
+		// so it stays outside the cache middleware (which serves
+		// application/json).
+		mapRoute.GET("admin-boundaries/:file", handler.GetAdminBoundaryGeoJSON())
 		heatmap := mapRoute.Group("")
 		{
 			heatmap.Use(mwcache.New(cacher, HeatmapCacheTTL))
@@ -88,6 +97,45 @@ func (h *handler) GetAdminBoundaries() gin.HandlerFunc {
 		responses.OK(c, GetAdminBoundariesResponse{
 			AdminBoundaries: boundaries,
 		})
+	}
+}
+
+// GetAdminBoundaryGeoJSON returns one administrative boundary as a GeoJSON Feature
+//
+//	@Summary		Administrative boundary as GeoJSON
+//	@Description	one boundary with its MultiPolygon geometry as a GeoJSON Feature (`application/geo+json`): `properties` carry `name` and `admin_level`
+//	@Tags			map
+//	@Produce		application/geo+json
+//	@Param			id	path		int	true	"boundary id (the path is /map/admin-boundaries/{id}.geojson)"
+//	@Success		200	{object}	maprest.AdminBoundaryFeature
+//	@Failure		400	{object}	responses.Response[any]
+//	@Failure		404	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
+//	@Router			/map/admin-boundaries/{id}.geojson [get]
+func (h *handler) GetAdminBoundaryGeoJSON() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "maprest.GetAdminBoundaryGeoJSON"
+
+		id, ok := strings.CutSuffix(c.Param("file"), GeoJSONSuffix)
+		if !ok {
+			responses.NotFound(c, responses.MsgNotFound)
+			return
+		}
+		boundaryID, err := strconv.Atoi(id)
+		if err != nil || boundaryID <= 0 {
+			responses.BadRequest(c, "invalid boundary id")
+			return
+		}
+
+		boundary, err := h.uc.GetAdminBoundaryById(c.Request.Context(), boundaryID)
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		c.Header("Cache-Control", "public, max-age=86400")
+		c.Render(http.StatusOK, render.JSON{Data: NewAdminBoundaryFeature(boundary)})
+		c.Writer.Header().Set("Content-Type", ContentTypeGeoJSON)
 	}
 }
 

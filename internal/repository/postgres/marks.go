@@ -57,6 +57,74 @@ func marksOrderBy(sort models.MarksSort, order models.SortOrder) string {
 func (r *MarksRepository) GetMarks(ctx context.Context, filters models.GetMarksFilters) (models.Page[models.Mark], error) {
 	const op = "storage.postgres.GetMarks"
 
+	q := marksListQuery(ctx, filters)
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	page, err := selectPage[models.Mark](ctx, tr, q)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return page, nil
+}
+
+// CountMarks returns the number of marks matching the filters (pagination
+// is ignored).
+func (r *MarksRepository) CountMarks(ctx context.Context, filters models.GetMarksFilters) (int, error) {
+	const op = "storage.postgres.CountMarks"
+
+	query, args, err := marksListQuery(ctx, filters).countQuery()
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	var count int
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.GetContext(ctx, &count, query, args...); err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return count, nil
+}
+
+// IterateMarks streams the marks matching the filters to fn one by one
+// without materialising the result set; filters.Pagination.Limit (when
+// set) caps the rows read. Iteration stops at the first error of fn,
+// which is returned as is.
+func (r *MarksRepository) IterateMarks(ctx context.Context, filters models.GetMarksFilters, fn func(models.Mark) error) error {
+	const op = "storage.postgres.IterateMarks"
+
+	query, args, err := marksListQuery(ctx, filters).selectQuery()
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	rows, err := tr.QueryxContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	for rows.Next() {
+		var mark models.Mark
+		if err := rows.StructScan(&mark); err != nil {
+			return fmt.Errorf("%s: %w", op, err)
+		}
+		if err := fn(mark); err != nil {
+			return err
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
+
+// marksListQuery builds the filtered, ordered and paginated marks query
+// shared by GetMarks, CountMarks and IterateMarks.
+func marksListQuery(ctx context.Context, filters models.GetMarksFilters) *listQuery {
 	q := newListQuery(markColumns, "marks").
 		OrderBy(marksOrderBy(filters.Sort, filters.Order)).
 		Paginate(filters.Pagination)
@@ -82,13 +150,7 @@ func (r *MarksRepository) GetMarks(ctx context.Context, filters models.GetMarksF
 		q.Where("created_at <= ?", filters.CreatedTo)
 	}
 
-	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	page, err := selectPage[models.Mark](ctx, tr, q)
-	if err != nil {
-		return page, fmt.Errorf("%s: %w", op, err)
-	}
-
-	return page, nil
+	return q
 }
 
 func (r *MarksRepository) GetMarksNearby(ctx context.Context, filters models.GetMarksNearbyFilters) (models.Page[models.MarkWithDistance], error) {

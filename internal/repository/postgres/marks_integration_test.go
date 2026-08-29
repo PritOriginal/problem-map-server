@@ -4,6 +4,7 @@ package postgres_test
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
@@ -469,4 +470,63 @@ func (s *PostgresSuite) TestMarks_GetDistancesFromMarkToPoint_DistanceValue() {
 	// Alice -> mark 1 is about 150 m; Bob (Moscow) -> mark 1 is about 420 km.
 	s.InDelta(0.15, byUser[fxUserAlice], 0.05)
 	s.InDelta(420, byUser[fxUserBob], 40)
+}
+
+func (s *PostgresSuite) TestMarks_CountAndIterateMarks() {
+	tests := []struct {
+		name    string
+		filters models.GetMarksFilters
+		wantIDs []int
+	}{
+		{name: "all newest first", wantIDs: []int{fxMarkFar, fxMarkInside, fxMarkNear}},
+		{name: "by type asc", filters: models.GetMarksFilters{MarkTypeIds: []int{1}, Order: models.SortAsc}, wantIDs: []int{fxMarkNear, fxMarkFar}},
+		{name: "by status", filters: models.GetMarksFilters{MarkStatusIds: []int{int(models.ConfirmedStatus)}}, wantIDs: []int{fxMarkInside}},
+		{name: "by author", filters: models.GetMarksFilters{UserID: fxUserBob}, wantIDs: []int{fxMarkFar}},
+		{name: "by bbox", filters: models.GetMarksFilters{BBox: &models.BBox{MinLon: 41.39, MinLat: 52.69, MaxLon: 41.42, MaxLat: 52.71}}, wantIDs: []int{fxMarkInside, fxMarkNear}},
+		{name: "by created range", filters: models.GetMarksFilters{CreatedFrom: s.daysAgo(11), CreatedTo: s.daysAgo(4)}, wantIDs: []int{fxMarkFar, fxMarkInside}},
+		{name: "limit caps the iteration", filters: models.GetMarksFilters{Pagination: models.Pagination{Limit: 2}}, wantIDs: []int{fxMarkFar, fxMarkInside}},
+		{name: "nothing", filters: models.GetMarksFilters{UserID: 404}, wantIDs: []int{}},
+	}
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			count, err := s.marks.CountMarks(s.ctx, tt.filters)
+			s.Require().NoError(err)
+			if tt.filters.Pagination.Limit == 0 {
+				s.Equal(len(tt.wantIDs), count)
+			} else {
+				s.Equal(3, count, "the count ignores pagination")
+			}
+
+			got := []int{}
+			err = s.marks.IterateMarks(s.ctx, tt.filters, func(m models.Mark) error {
+				s.NotNil(m.Geom)
+				got = append(got, m.ID)
+				return nil
+			})
+			s.Require().NoError(err)
+			s.Equal(tt.wantIDs, got)
+		})
+	}
+
+	s.Run("callback error stops the iteration and is returned as is", func() {
+		errStop := errors.New("stop")
+		calls := 0
+		err := s.marks.IterateMarks(s.ctx, models.GetMarksFilters{}, func(models.Mark) error {
+			calls++
+			return errStop
+		})
+		s.ErrorIs(err, errStop)
+		s.Equal(1, calls)
+	})
+
+	s.Run("viewer fields are filled", func() {
+		ctx := models.ContextWithViewer(s.ctx, fxUserAlice)
+		following := map[int]bool{}
+		s.Require().NoError(s.marks.IterateMarks(ctx, models.GetMarksFilters{}, func(m models.Mark) error {
+			following[m.ID] = m.IsFollowing
+			return nil
+		}))
+		s.True(following[fxMarkNear])
+		s.False(following[fxMarkFar])
+	})
 }

@@ -42,6 +42,21 @@ func (r *MapRepository) GetAdminBoundaries(ctx context.Context, filters models.G
 	return page.Items, nil
 }
 
+// GetAdminBoundaryById returns one boundary with its geometry
+// (repository.ErrNotFound when missing).
+func (r *MapRepository) GetAdminBoundaryById(ctx context.Context, id int) (models.AdminBoundary, error) {
+	const op = "storage.postgres.GetAdminBoundaryById"
+
+	var boundary models.AdminBoundary
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	query := "SELECT id, name, admin_level, ST_AsEWKB(geom) AS geom FROM admin_boundaries WHERE id = $1"
+	if err := tr.GetContext(ctx, &boundary, query, id); err != nil {
+		return boundary, wrapPgError(op, err)
+	}
+
+	return boundary, nil
+}
+
 func (r *MapRepository) GetAdminBoundariesMarksCount(ctx context.Context, filters models.GetAdminBoundaryMarksCountFilters) ([]models.AdminBoundaryMarksCount, error) {
 	const op = "storage.postgres.GetAdminBoundariesMarksCount"
 
