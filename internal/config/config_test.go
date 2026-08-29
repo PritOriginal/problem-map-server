@@ -77,6 +77,7 @@ func (suite *ConfigSuite) TestValidate() {
 		c.Export.RateLimit.Requests = 2
 		c.Export.RateLimit.Window = time.Minute
 		c.Webhooks = config.WebhooksConfig{Timeout: 10 * time.Second, RetryInterval: 30 * time.Second, RetryBatch: 100}
+		c.REST.Idempotency = config.IdempotencyConfig{TTL: 24 * time.Hour, LockTTL: 30 * time.Second}
 		return c
 	}
 
@@ -123,6 +124,8 @@ func (suite *ConfigSuite) TestValidate() {
 		{name: "zero webhook timeout", mutate: func(c *config.Config) { c.Webhooks.Timeout = 0 }, wantErr: "WEBHOOKS_TIMEOUT"},
 		{name: "zero webhook retry interval", mutate: func(c *config.Config) { c.Webhooks.RetryInterval = 0 }, wantErr: "WEBHOOKS_RETRY_INTERVAL"},
 		{name: "zero webhook retry batch", mutate: func(c *config.Config) { c.Webhooks.RetryBatch = 0 }, wantErr: "WEBHOOKS_RETRY_BATCH"},
+		{name: "zero idempotency ttl", mutate: func(c *config.Config) { c.REST.Idempotency.TTL = 0 }, wantErr: "REST_IDEMPOTENCY_TTL"},
+		{name: "zero idempotency lock ttl", mutate: func(c *config.Config) { c.REST.Idempotency.LockTTL = 0 }, wantErr: "REST_IDEMPOTENCY_LOCK_TTL"},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {

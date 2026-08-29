@@ -76,6 +76,9 @@ func (r *TasksRepository) GetTasksByUserId(ctx context.Context, userId int, filt
 	if len(filters.Statuses) > 0 {
 		q.Where("status_id IN (?)", filters.Statuses)
 	}
+	if !filters.UpdatedSince.IsZero() {
+		q.Where("updated_at > ?", filters.UpdatedSince)
+	}
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	page, err := selectPage[models.Task](ctx, tr, q)

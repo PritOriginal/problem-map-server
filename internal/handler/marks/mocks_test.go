@@ -633,6 +633,72 @@ func (_c *MockMarks_GetMarkById_Call) RunAndReturn(run func(ctx context.Context,
 	return _c
 }
 
+// GetMarkChanges provides a mock function for the type MockMarks
+func (_mock *MockMarks) GetMarkChanges(ctx context.Context, filters models.MarkChangesFilters) (models.MarkChanges, error) {
+	ret := _mock.Called(ctx, filters)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMarkChanges")
+	}
+
+	var r0 models.MarkChanges
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.MarkChangesFilters) (models.MarkChanges, error)); ok {
+		return returnFunc(ctx, filters)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.MarkChangesFilters) models.MarkChanges); ok {
+		r0 = returnFunc(ctx, filters)
+	} else {
+		r0 = ret.Get(0).(models.MarkChanges)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.MarkChangesFilters) error); ok {
+		r1 = returnFunc(ctx, filters)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMarks_GetMarkChanges_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetMarkChanges'
+type MockMarks_GetMarkChanges_Call struct {
+	*mock.Call
+}
+
+// GetMarkChanges is a helper method to define mock.On call
+//   - ctx context.Context
+//   - filters models.MarkChangesFilters
+func (_e *MockMarks_Expecter) GetMarkChanges(ctx any, filters any) *MockMarks_GetMarkChanges_Call {
+	return &MockMarks_GetMarkChanges_Call{Call: _e.mock.On("GetMarkChanges", ctx, filters)}
+}
+
+func (_c *MockMarks_GetMarkChanges_Call) Run(run func(ctx context.Context, filters models.MarkChangesFilters)) *MockMarks_GetMarkChanges_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 models.MarkChangesFilters
+		if args[1] != nil {
+			arg1 = args[1].(models.MarkChangesFilters)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarks_GetMarkChanges_Call) Return(markChanges models.MarkChanges, err error) *MockMarks_GetMarkChanges_Call {
+	_c.Call.Return(markChanges, err)
+	return _c
+}
+
+func (_c *MockMarks_GetMarkChanges_Call) RunAndReturn(run func(ctx context.Context, filters models.MarkChangesFilters) (models.MarkChanges, error)) *MockMarks_GetMarkChanges_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetMarkStatusHistoryByMarkId provides a mock function for the type MockMarks
 func (_mock *MockMarks) GetMarkStatusHistoryByMarkId(ctx context.Context, markId int, withChecks bool) ([]models.MarkStatusHistoryItem, error) {
 	ret := _mock.Called(ctx, markId, withChecks)

@@ -26,9 +26,10 @@ type GetMarksRequest struct {
 	BBox  string `form:"bbox"`
 	Sort  string `form:"sort" binding:"omitempty,oneof=created_at updated_at"`
 	Order string `form:"order" binding:"omitempty,oneof=asc desc"`
-	// CreatedFrom / CreatedTo are RFC3339 timestamps.
-	CreatedFrom string `form:"created_from"`
-	CreatedTo   string `form:"created_to"`
+	// CreatedFrom / CreatedTo / UpdatedSince are RFC3339 timestamps.
+	CreatedFrom  string `form:"created_from"`
+	CreatedTo    string `form:"created_to"`
+	UpdatedSince string `form:"updated_since"`
 }
 
 // Filters converts the request to domain filters, parsing the list, bbox
@@ -74,6 +75,11 @@ func (r GetMarksRequest) Filters() (models.GetMarksFilters, error) {
 			return models.GetMarksFilters{}, fmt.Errorf("created_to must be RFC3339")
 		}
 	}
+	if r.UpdatedSince != "" {
+		if filters.UpdatedSince, err = time.Parse(time.RFC3339, r.UpdatedSince); err != nil {
+			return models.GetMarksFilters{}, fmt.Errorf("updated_since must be RFC3339")
+		}
+	}
 	if err := filters.Validate(); err != nil {
 		return models.GetMarksFilters{}, err
 	}
@@ -83,6 +89,58 @@ func (r GetMarksRequest) Filters() (models.GetMarksFilters, error) {
 
 type GetMarksResponse struct {
 	Marks []models.Mark `json:"marks"`
+}
+
+// GetMarkChangesRequest is bound from the query string of GET /marks/changes.
+type GetMarkChangesRequest struct {
+	listquery.Pagination
+	Since string `form:"since" binding:"required"`
+}
+
+// Filters parses since (RFC3339). Returned errors are safe to show.
+func (r GetMarkChangesRequest) Filters() (models.MarkChangesFilters, error) {
+	since, err := time.Parse(time.RFC3339, r.Since)
+	if err != nil {
+		return models.MarkChangesFilters{}, fmt.Errorf("since must be RFC3339")
+	}
+	filters := models.MarkChangesFilters{Since: since, Pagination: r.Model()}
+	if err := filters.Validate(); err != nil {
+		return models.MarkChangesFilters{}, err
+	}
+	return filters, nil
+}
+
+// GetMarkChangesResponse is the incremental sync payload of GET /marks/changes.
+type GetMarkChangesResponse struct {
+	Marks      []models.Mark `json:"marks"`
+	DeletedIDs []int         `json:"deleted_ids"`
+	// DeletedTotal is the number of marks deleted after since; deleted_ids
+	// is paged by the same limit/offset as marks.
+	DeletedTotal int `json:"deleted_total"`
+	// HiddenIDs is reserved for marks hidden by moderation; always empty for now.
+	HiddenIDs  []int     `json:"hidden_ids"`
+	ServerTime time.Time `json:"server_time"`
+}
+
+func NewGetMarkChangesResponse(ch models.MarkChanges) GetMarkChangesResponse {
+	resp := GetMarkChangesResponse{
+		Marks:        ch.Marks,
+		DeletedIDs:   ch.DeletedIDs,
+		DeletedTotal: ch.DeletedTotal,
+		HiddenIDs:    ch.HiddenIDs,
+		ServerTime:   ch.ServerTime,
+	}
+	// Arrays, never null, so clients can iterate without nil checks.
+	if resp.Marks == nil {
+		resp.Marks = []models.Mark{}
+	}
+	if resp.DeletedIDs == nil {
+		resp.DeletedIDs = []int{}
+	}
+	if resp.HiddenIDs == nil {
+		resp.HiddenIDs = []int{}
+	}
+	return resp
 }
 
 // GetMarksNearbyRequest is bound from the query string of GET /marks/nearby.

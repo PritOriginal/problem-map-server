@@ -47,6 +47,9 @@ type Notification struct {
 type GetNotificationsFilters struct {
 	// UnreadOnly keeps only notifications without read_at.
 	UnreadOnly bool
+	// CreatedSince keeps notifications created strictly after the instant;
+	// zero means unbounded.
+	CreatedSince time.Time
 	Pagination
 }
 

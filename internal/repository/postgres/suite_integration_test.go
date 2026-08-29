@@ -160,7 +160,7 @@ func (s *PostgresSuite) truncate() {
 			settings_history, settings,
 			organization_responsibilities, organization_members, organizations,
 			webhook_deliveries, webhooks, api_keys, notifications, user_devices, mark_comments, user_badges,
-			rating_events, checks, tasks, mark_status_history, mark_followers, marks, users, admin_boundaries, types_marks,
+			rating_events, checks, tasks, mark_status_history, mark_followers, mark_tombstones, marks, users, admin_boundaries, types_marks,
 			districts, cities, regions
 		RESTART IDENTITY CASCADE
 	`)

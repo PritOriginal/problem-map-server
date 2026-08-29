@@ -3,9 +3,11 @@ package tasksrest
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/handler/listquery"
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
+	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
@@ -27,13 +29,18 @@ type handler struct {
 	uc  Tasks
 }
 
-func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddleware, uc Tasks) {
+// DictionaryCacheTTL is how long the task statuses stay cached.
+const DictionaryCacheTTL = 24 * time.Hour
+
+// Register mounts the routes; cacher (may be nil) backs the cache of
+// GET /tasks/statuses.
+func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddleware, uc Tasks, cacher mwcache.Cacher) {
 	handler := &handler{log: log, uc: uc}
 
 	tasks := r.Group("/tasks")
 	{
 		tasks.GET("", handler.GetTasks())
-		tasks.GET("statuses", handler.GetTaskStatuses())
+		tasks.GET("statuses", mwcache.New(cacher, DictionaryCacheTTL), handler.GetTaskStatuses())
 		tasks.GET(":id", handler.GetTaskById())
 		tasks.GET("user/:id", handler.GetTasksByUserId())
 		auth := tasks.Group("", authMiddleware.MiddlewareFunc(),
@@ -219,7 +226,11 @@ func (h *handler) AddTask() gin.HandlerFunc {
 //	@Tags			tasks
 //	@Produce		json
 //	@Param			Accept-Language	header		string	false	"response language"	Enums(ru, en)	default(ru)
+//	@Param			If-None-Match	header		string	false	"ETag of a previous response; 304 when the dictionary did not change"
 //	@Success		200				{object}	responses.Response[tasksrest.GetTaskStatusesResponse]
+//	@Header			200				{string}	ETag			"validator for If-None-Match"
+//	@Header			200				{string}	Cache-Control	"public, max-age=60"
+//	@Success		304				"not modified"
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/tasks/statuses [get]
 func (h *handler) GetTaskStatuses() gin.HandlerFunc {

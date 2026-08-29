@@ -6,6 +6,9 @@ rest:
     read: 15s
     write: 10s
     idle: 5s
+  idempotency:
+    ttl: 24h
+    lock-ttl: 30s
 grpc:
   port: 44044
   timeout: 5s

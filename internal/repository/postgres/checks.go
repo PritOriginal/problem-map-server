@@ -107,6 +107,26 @@ func (r *ChecksRepository) GetChecksByUserId(ctx context.Context, userId int, p 
 	return page, nil
 }
 
+// GetChecksByUserIdSince returns the user's checks created strictly after
+// since, oldest first (incremental sync).
+func (r *ChecksRepository) GetChecksByUserIdSince(ctx context.Context, userId int, since time.Time, p models.Pagination) (models.Page[models.Check], error) {
+	const op = "storage.postgres.GetChecksByUserIdSince"
+
+	q := newListQuery(checkColumns, checksFrom).
+		Where("c.user_id = ?", userId).
+		Where("c.created_at > ?", since).
+		OrderBy("c.created_at ASC, c.check_id ASC").
+		Paginate(p)
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	page, err := selectPage[models.Check](ctx, tr, q)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return page, nil
+}
+
 func (r *ChecksRepository) GetChecksByMarkHistoryId(ctx context.Context, markHistoryId int) ([]models.Check, error) {
 	const op = "storage.postgres.GetChecksByMarkHistoryId"
 

@@ -33,6 +33,7 @@ type Marks interface {
 	FollowMark(ctx context.Context, userId, markId int) error
 	UnfollowMark(ctx context.Context, userId, markId int) error
 	ListFollowedMarks(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error)
+	GetMarkChanges(ctx context.Context, filters models.MarkChangesFilters) (models.MarkChanges, error)
 	GetMarkTypes(ctx context.Context, lang models.Lang) ([]models.MarkType, error)
 	GetMarkStatuses(ctx context.Context, lang models.Lang) ([]models.MarkStatus, error)
 	GetMarkStatusHistoryByMarkId(ctx context.Context, markId int, withChecks bool) ([]models.MarkStatusHistoryItem, error)
@@ -49,6 +50,9 @@ const (
 	Path      = "/marks"
 	TypesPath = "types"
 )
+
+// DictionaryCacheTTL is how long the mark types and statuses stay cached.
+const DictionaryCacheTTL = 24 * time.Hour
 
 type handler struct {
 	log           *slog.Logger
@@ -71,6 +75,10 @@ type Params struct {
 	// APIKey is the optional API key middleware (apikey.Optional) applied
 	// to the whole /marks group.
 	APIKey gin.HandlerFunc
+
+	// Idempotency handles the Idempotency-Key header of the mutating routes
+	// (POST /marks); optional.
+	Idempotency gin.HandlerFunc
 }
 
 func Register(r *gin.Engine, log *slog.Logger, params Params) {
@@ -91,6 +99,7 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 		marks.GET("", handler.GetMarks())
 		marks.GET("nearby", handler.GetMarksNearby())
 		marks.GET("similar", handler.GetSimilarMarks())
+		marks.GET("changes", handler.GetMarkChanges())
 		if params.Exporter != nil {
 			export := marks.Group("")
 			if params.ExportRateLimit != nil {
@@ -119,10 +128,16 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 		marks.GET("user/:userId", handler.GetMarksByUserId())
 		auth := marks.Group("", params.AuthMiddleware.MiddlewareFunc())
 		{
-			auth.POST("", middleware.MaxBodySize(handlers.MaxUploadBodySize), handler.AddMark())
+			// Order matters: the body limit must be in place before the
+			// idempotency middleware reads the form to fingerprint it.
+			create := auth.Group("", middleware.MaxBodySize(handlers.MaxUploadBodySize))
+			if params.Idempotency != nil {
+				create.Use(params.Idempotency)
+			}
+			create.POST("", handler.AddMark())
 		}
 		cache := marks.Group("")
-		cache.Use(mwcache.New(params.Cacher, 24*time.Hour))
+		cache.Use(mwcache.New(params.Cacher, DictionaryCacheTTL))
 		{
 			cache.GET(TypesPath, handler.GetMarkTypes())
 			cache.GET("statuses", handler.GetMarkStatuses())
@@ -169,6 +184,7 @@ func viewerContext(c *gin.Context, userId int) context.Context {
 //	@Param			bbox			query		string	false	"bounding box minLon,minLat,maxLon,maxLat (WGS84)"
 //	@Param			created_from	query		string	false	"created_at >= (RFC3339)"
 //	@Param			created_to		query		string	false	"created_at <= (RFC3339)"
+//	@Param			updated_since	query		string	false	"updated_at > (RFC3339); for incremental sync combine with sort=updated_at&order=asc"
 //	@Param			sort			query		string	false	"sort column"		Enums(created_at, updated_at)	default(created_at)
 //	@Param			order			query		string	false	"sort order"		Enums(asc, desc)				default(desc)
 //	@Param			limit			query		int		false	"page size, 1..500"	default(100)
@@ -245,6 +261,44 @@ func (h *handler) GetMarksNearby() gin.HandlerFunc {
 		}
 
 		listquery.OK(c, GetMarksNearbyResponse{Marks: page.Items}, filters.Pagination, page.Total)
+	}
+}
+
+// GetMarkChanges lists what changed since an instant, for offline clients
+//
+//	@Summary		Incremental mark changes
+//	@Description	marks updated after `since` (oldest change first; page with limit/offset, total in `meta`), ids of marks deleted after `since` (paged by the same limit/offset, total in `deleted_total`) and ids of marks hidden after it (always empty until moderation hides marks). Store `server_time` and pass it as the next `since`; with several server instances subtract a safety margin (`server_time - 1s`) to cover clock skew between them. `since` in the future is rejected with 400
+//	@Tags			marks
+//	@Produce		json
+//	@Param			since	query		string	true	"RFC3339 instant of the previous sync"
+//	@Param			limit	query		int		false	"page size of `marks`, 1..500"	default(100)
+//	@Param			offset	query		int		false	"page offset of `marks`"		default(0)
+//	@Success		200		{object}	responses.Response[marksrest.GetMarkChangesResponse]
+//	@Failure		400		{object}	responses.Response[any]
+//	@Failure		500		{object}	responses.Response[any]
+//	@Router			/marks/changes [get]
+func (h *handler) GetMarkChanges() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "marksrest.GetMarkChanges"
+
+		var req GetMarkChangesRequest
+		if !listquery.Bind(c, h.log, &req) {
+			return
+		}
+		filters, err := req.Filters()
+		if err != nil {
+			h.log.Debug("failed parse filters", logger.Err(err))
+			responses.BadRequest(c, err.Error())
+			return
+		}
+
+		changes, err := h.uc.GetMarkChanges(c.Request.Context(), filters)
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		listquery.OK(c, NewGetMarkChangesResponse(changes), filters.Pagination, changes.Total)
 	}
 }
 
@@ -333,6 +387,7 @@ func (h *handler) GetMarksByUserId() gin.HandlerFunc {
 //	@Accept			mpfd
 //	@Produce		json
 //	@Security		BearerAuth
+//	@Param			Idempotency-Key	header		string	false	"UUID chosen by the client; a repeat with the same key within 24h returns the stored response with `Idempotent-Replayed: true` (409 while the first request is in flight, 422 when reused with other form fields)"
 //	@Param			photos			formData	file	true	"Photos of the problem"
 //	@Param			longitude		formData	number	true	"Longitude in degrees (X), WGS84"	example(41.44)
 //	@Param			latitude		formData	number	true	"Latitude in degrees (Y), WGS84"	example(52.72)
@@ -342,7 +397,8 @@ func (h *handler) GetMarksByUserId() gin.HandlerFunc {
 //	@Success		201				{object}	responses.Response[marksrest.AddMarkResponse]
 //	@Failure		400				{object}	responses.Response[any]
 //	@Failure		401				{object}	responses.Response[any]
-//	@Failure		409				{object}	responses.Response[marksrest.SimilarMarksPayload]	"active marks of the same type exist within the dedup radius; `payload.similar_marks` lists them with `distance_m`. Repeat with `?force=true` to create anyway"
+//	@Failure		409				{object}	responses.Response[marksrest.SimilarMarksPayload]	"active marks of the same type exist within the dedup radius; `payload.similar_marks` lists them with `distance_m`. Repeat with `?force=true` to create anyway. Also returned (without payload) while a request with the same Idempotency-Key is in progress"
+//	@Failure		422				{object}	responses.Response[any]								"Idempotency-Key reused with a different payload"
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/marks [post]
 func (h *handler) AddMark() gin.HandlerFunc {
@@ -665,7 +721,11 @@ func (h *handler) GetFollowedMarks() gin.HandlerFunc {
 //	@Accept			json
 //	@Produce		json
 //	@Param			Accept-Language	header		string	false	"response language"	Enums(ru, en)	default(ru)
+//	@Param			If-None-Match	header		string	false	"ETag of a previous response; 304 when the dictionary did not change"
 //	@Success		200				{object}	responses.Response[marksrest.GetMarkTypesResponse]
+//	@Header			200				{string}	ETag			"validator for If-None-Match"
+//	@Header			200				{string}	Cache-Control	"public, max-age=60"
+//	@Success		304				"not modified"
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/marks/types [get]
 func (h *handler) GetMarkTypes() gin.HandlerFunc {
@@ -696,7 +756,11 @@ func (h *handler) GetMarkTypes() gin.HandlerFunc {
 //	@Accept			json
 //	@Produce		json
 //	@Param			Accept-Language	header		string	false	"response language"	Enums(ru, en)	default(ru)
+//	@Param			If-None-Match	header		string	false	"ETag of a previous response; 304 when the dictionary did not change"
 //	@Success		200				{object}	responses.Response[marksrest.GetMarkStatusesResponse]
+//	@Header			200				{string}	ETag			"validator for If-None-Match"
+//	@Header			200				{string}	Cache-Control	"public, max-age=60"
+//	@Success		304				"not modified"
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/marks/statuses [get]
 func (h *handler) GetMarkStatuses() gin.HandlerFunc {

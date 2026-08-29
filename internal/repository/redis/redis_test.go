@@ -44,6 +44,9 @@ func (s *NilSafeSuite) TestOperations() {
 			_, err := r.GetBytes(ctx, "k")
 			s.ErrorIs(err, redis.ErrUnavailable)
 			s.ErrorIs(r.Set(ctx, "k", "v", time.Minute), redis.ErrUnavailable)
+			_, err = r.SetNX(ctx, "k", "v", time.Minute)
+			s.ErrorIs(err, redis.ErrUnavailable)
+			s.ErrorIs(r.Del(ctx, "k"), redis.ErrUnavailable)
 
 			_, _, err = r.Incr(ctx, "k", time.Minute)
 			s.ErrorIs(err, redis.ErrUnavailable)

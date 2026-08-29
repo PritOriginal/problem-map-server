@@ -47,7 +47,7 @@ func (suite *TasksSuite) SetupTest() {
 	suite.r = gin.New()
 	suite.r.Use(lang.New())
 
-	tasksrest.Register(suite.r, log, authMiddleware, suite.uc)
+	tasksrest.Register(suite.r, log, authMiddleware, suite.uc, nil)
 }
 
 func TestUsers(t *testing.T) {

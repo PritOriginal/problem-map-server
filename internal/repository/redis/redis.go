@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -82,11 +83,17 @@ func (r *Redis) Get(ctx context.Context, key string, v any) error {
 	return nil
 }
 
+// GetBytes returns the raw value of the key; a missing key is reported as
+// repository.ErrNotFound so callers can tell a miss from a backend failure.
 func (r *Redis) GetBytes(ctx context.Context, key string) ([]byte, error) {
 	if !r.available() {
 		return nil, ErrUnavailable
 	}
-	return r.Client.Get(ctx, key).Bytes()
+	data, err := r.Client.Get(ctx, key).Bytes()
+	if errors.Is(err, redis.Nil) {
+		return nil, repository.ErrNotFound
+	}
+	return data, err
 }
 
 func (r *Redis) Set(ctx context.Context, key string, value any, expiration time.Duration) error {
@@ -144,6 +151,24 @@ func globEscape(s string) string {
 		b.WriteRune(c)
 	}
 	return b.String()
+}
+
+// SetNX stores the value only when the key does not exist yet and reports
+// whether it was stored (SET NX PX). It is the lock primitive of the
+// idempotency middleware.
+func (r *Redis) SetNX(ctx context.Context, key string, value any, expiration time.Duration) (bool, error) {
+	if !r.available() {
+		return false, ErrUnavailable
+	}
+	return r.Client.SetNX(ctx, key, value, expiration).Result()
+}
+
+// Del removes the key; a missing key is not an error.
+func (r *Redis) Del(ctx context.Context, key string) error {
+	if !r.available() {
+		return ErrUnavailable
+	}
+	return r.Client.Del(ctx, key).Err()
 }
 
 // incrScript atomically increments key, sets its TTL when the key has just
@@ -279,12 +304,4 @@ func (r *Redis) IncrAuthVersion(ctx context.Context, userID int) (int64, error) 
 		return 0, ErrUnavailable
 	}
 	return r.Client.Incr(ctx, fmt.Sprintf(authVersionKey, userID)).Result()
-}
-
-// Del removes the key; a missing key is not an error.
-func (r *Redis) Del(ctx context.Context, key string) error {
-	if !r.available() {
-		return ErrUnavailable
-	}
-	return r.Client.Del(ctx, key).Err()
 }

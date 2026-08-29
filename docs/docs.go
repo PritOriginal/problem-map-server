@@ -826,6 +826,14 @@ const docTemplate = `{
                     "checks"
                 ],
                 "summary": "Add check",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "UUID chosen by the client; a repeat with the same key within 24h returns the stored response with ` + "`" + `Idempotent-Replayed: true` + "`" + ` (409 while the first request is in flight, 422 when reused with other form fields)",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    }
+                ],
                 "responses": {
                     "201": {
                         "description": "Created",
@@ -859,6 +867,12 @@ const docTemplate = `{
                     },
                     "409": {
                         "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "422": {
+                        "description": "Idempotency-Key reused with a different payload",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
@@ -1126,6 +1140,12 @@ const docTemplate = `{
                         "description": "filter by admin level",
                         "name": "admin_levels",
                         "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "ETag of a previous response; 304 when the data did not change",
+                        "name": "If-None-Match",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -1133,7 +1153,20 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_GetAdminBoundariesResponse"
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "public, max-age=60"
+                            },
+                            "ETag": {
+                                "type": "string",
+                                "description": "validator for If-None-Match"
+                            }
                         }
+                    },
+                    "304": {
+                        "description": "not modified"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -1246,6 +1279,12 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "ETag of a previous response; 304 when the boundary did not change",
+                        "name": "If-None-Match",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -1253,7 +1292,20 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/internal_handler_map.AdminBoundaryFeature"
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "public, max-age=86400"
+                            },
+                            "ETag": {
+                                "type": "string",
+                                "description": "validator for If-None-Match"
+                            }
                         }
+                    },
+                    "304": {
+                        "description": "not modified"
                     },
                     "400": {
                         "description": "Bad Request",
@@ -1482,6 +1534,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "string",
+                        "description": "updated_at \u003e (RFC3339); for incremental sync combine with sort=updated_at\u0026order=asc",
+                        "name": "updated_since",
+                        "in": "query"
+                    },
+                    {
                         "enum": [
                             "created_at",
                             "updated_at"
@@ -1558,6 +1616,12 @@ const docTemplate = `{
                 "summary": "Add mark",
                 "parameters": [
                     {
+                        "type": "string",
+                        "description": "UUID chosen by the client; a repeat with the same key within 24h returns the stored response with ` + "`" + `Idempotent-Replayed: true` + "`" + ` (409 while the first request is in flight, 422 when reused with other form fields)",
+                        "name": "Idempotency-Key",
+                        "in": "header"
+                    },
+                    {
                         "type": "file",
                         "description": "Photos of the problem",
                         "name": "photos",
@@ -1621,9 +1685,70 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "active marks of the same type exist within the dedup radius; ` + "`" + `payload.similar_marks` + "`" + ` lists them with ` + "`" + `distance_m` + "`" + `. Repeat with ` + "`" + `?force=true` + "`" + ` to create anyway",
+                        "description": "active marks of the same type exist within the dedup radius; ` + "`" + `payload.similar_marks` + "`" + ` lists them with ` + "`" + `distance_m` + "`" + `. Repeat with ` + "`" + `?force=true` + "`" + ` to create anyway. Also returned (without payload) while a request with the same Idempotency-Key is in progress",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_SimilarMarksPayload"
+                        }
+                    },
+                    "422": {
+                        "description": "Idempotency-Key reused with a different payload",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
+        "/marks/changes": {
+            "get": {
+                "description": "marks updated after ` + "`" + `since` + "`" + ` (oldest change first; page with limit/offset, total in ` + "`" + `meta` + "`" + `), ids of marks deleted after ` + "`" + `since` + "`" + ` (paged by the same limit/offset, total in ` + "`" + `deleted_total` + "`" + `) and ids of marks hidden after it (always empty until moderation hides marks). Store ` + "`" + `server_time` + "`" + ` and pass it as the next ` + "`" + `since` + "`" + `; with several server instances subtract a safety margin (` + "`" + `server_time - 1s` + "`" + `) to cover clock skew between them. ` + "`" + `since` + "`" + ` in the future is rejected with 400",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "marks"
+                ],
+                "summary": "Incremental mark changes",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "RFC3339 instant of the previous sync",
+                        "name": "since",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "page size of ` + "`" + `marks` + "`" + `, 1..500",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "page offset of ` + "`" + `marks` + "`" + `",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkChangesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
@@ -1911,6 +2036,12 @@ const docTemplate = `{
                         "description": "response language",
                         "name": "Accept-Language",
                         "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "ETag of a previous response; 304 when the dictionary did not change",
+                        "name": "If-None-Match",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -1918,7 +2049,20 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkStatusesResponse"
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "public, max-age=60"
+                            },
+                            "ETag": {
+                                "type": "string",
+                                "description": "validator for If-None-Match"
+                            }
                         }
+                    },
+                    "304": {
+                        "description": "not modified"
                     },
                     "500": {
                         "description": "Internal Server Error",
@@ -1953,6 +2097,12 @@ const docTemplate = `{
                         "description": "response language",
                         "name": "Accept-Language",
                         "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "ETag of a previous response; 304 when the dictionary did not change",
+                        "name": "If-None-Match",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -1960,7 +2110,20 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkTypesResponse"
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "public, max-age=60"
+                            },
+                            "ETag": {
+                                "type": "string",
+                                "description": "validator for If-None-Match"
+                            }
                         }
+                    },
+                    "304": {
+                        "description": "not modified"
                     },
                     "500": {
                         "description": "Internal Server Error",
@@ -3805,6 +3968,12 @@ const docTemplate = `{
                         "description": "response language",
                         "name": "Accept-Language",
                         "in": "header"
+                    },
+                    {
+                        "type": "string",
+                        "description": "ETag of a previous response; 304 when the dictionary did not change",
+                        "name": "If-None-Match",
+                        "in": "header"
                     }
                 ],
                 "responses": {
@@ -3812,7 +3981,20 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_GetTaskStatusesResponse"
+                        },
+                        "headers": {
+                            "Cache-Control": {
+                                "type": "string",
+                                "description": "public, max-age=60"
+                            },
+                            "ETag": {
+                                "type": "string",
+                                "description": "validator for If-None-Match"
+                            }
                         }
+                    },
+                    "304": {
+                        "description": "not modified"
                     },
                     "500": {
                         "description": "Internal Server Error",
@@ -4280,6 +4462,72 @@ const docTemplate = `{
                     },
                     "404": {
                         "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/me/sync": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "one request for a client coming back online: the caller's tasks updated after ` + "`" + `since` + "`" + `, unread notifications received after it and checks submitted after it. Each collection is paged independently by limit/offset; ` + "`" + `totals` + "`" + ` carry the full counts. Store ` + "`" + `server_time` + "`" + ` and pass it as the next ` + "`" + `since` + "`" + `; with several server instances subtract a safety margin (` + "`" + `server_time - 1s` + "`" + `) to cover clock skew between them. ` + "`" + `since` + "`" + ` in the future is rejected with 400",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "users"
+                ],
+                "summary": "Personal changes since an instant",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "RFC3339 instant of the previous sync",
+                        "name": "since",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "page size of each collection, 1..500",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "page offset of each collection",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_sync_GetUserSyncResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
@@ -5762,6 +6010,20 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_PritOriginal_problem-map-server_internal_models.UserSyncTotals": {
+            "type": "object",
+            "properties": {
+                "checks": {
+                    "type": "integer"
+                },
+                "notifications": {
+                    "type": "integer"
+                },
+                "tasks": {
+                    "type": "integer"
+                }
+            }
+        },
         "github_com_PritOriginal_problem-map-server_internal_models.Webhook": {
             "type": "object",
             "properties": {
@@ -6374,6 +6636,23 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkChangesResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_marks.GetMarkChangesResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
         "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkStatusHistoryByMarkIdResponse": {
             "type": "object",
             "properties": {
@@ -6742,6 +7021,23 @@ const docTemplate = `{
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_organizations.ResponsibilityResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_sync_GetUserSyncResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_sync.GetUserSyncResponse"
                 },
                 "success": {
                     "type": "boolean"
@@ -7578,6 +7874,37 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler_marks.GetMarkChangesResponse": {
+            "type": "object",
+            "properties": {
+                "deleted_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "deleted_total": {
+                    "description": "DeletedTotal is the number of marks deleted after since; deleted_ids\nis paged by the same limit/offset as marks.",
+                    "type": "integer"
+                },
+                "hidden_ids": {
+                    "description": "HiddenIDs is reserved for marks hidden by moderation; always empty for now.",
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "marks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark"
+                    }
+                },
+                "server_time": {
+                    "type": "string"
+                }
+            }
+        },
         "internal_handler_marks.GetMarkStatusHistoryByMarkIdResponse": {
             "type": "object",
             "properties": {
@@ -7906,6 +8233,35 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 255,
                     "minLength": 1
+                }
+            }
+        },
+        "internal_handler_sync.GetUserSyncResponse": {
+            "type": "object",
+            "properties": {
+                "checks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Check"
+                    }
+                },
+                "notifications": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Notification"
+                    }
+                },
+                "server_time": {
+                    "type": "string"
+                },
+                "tasks": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Task"
+                    }
+                },
+                "totals": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.UserSyncTotals"
                 }
             }
         },

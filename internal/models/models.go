@@ -209,11 +209,57 @@ type GetMarksFilters struct {
 	// CreatedFrom / CreatedTo bound created_at (inclusive); zero means unbounded.
 	CreatedFrom time.Time
 	CreatedTo   time.Time
+	// UpdatedSince keeps marks changed strictly after the instant
+	// (updated_at >); zero means unbounded. Used by incremental sync.
+	UpdatedSince time.Time
 	// Sort / Order default to created_at desc when empty.
 	Sort  MarksSort
 	Order SortOrder
 
 	Pagination Pagination
+}
+
+// MarkChangesFilters selects what changed after Since for incremental sync.
+type MarkChangesFilters struct {
+	Since time.Time
+	// Pagination applies to the changed marks and to the deleted ids
+	// independently.
+	Pagination Pagination
+}
+
+// Validate checks that Since is set, not in the future, and the pagination
+// is sane.
+func (f MarkChangesFilters) Validate() error {
+	if err := validateSince(f.Since); err != nil {
+		return err
+	}
+	return f.Pagination.Validate()
+}
+
+// validateSince rejects a zero instant and one ahead of the server clock
+// (a client would silently miss every change until its clock is caught up).
+func validateSince(since time.Time) error {
+	if since.IsZero() {
+		return errors.New("since is required")
+	}
+	if since.After(time.Now()) {
+		return errors.New("since must not be in the future")
+	}
+	return nil
+}
+
+// MarkChanges is the incremental sync payload: marks updated after Since,
+// ids of marks deleted (tombstones) or hidden after it, and the server
+// time to use as the next Since.
+type MarkChanges struct {
+	Marks []Mark
+	// Total is the number of updated marks matching the filter, for paging.
+	Total      int
+	DeletedIDs []int
+	// DeletedTotal is the number of tombstones after Since, for paging.
+	DeletedTotal int
+	HiddenIDs    []int
+	ServerTime   time.Time
 }
 
 // Validate checks pagination, sort keys, bbox and the date range.

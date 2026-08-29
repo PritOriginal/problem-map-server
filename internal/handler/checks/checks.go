@@ -27,7 +27,9 @@ type handler struct {
 	uc  Checks
 }
 
-func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddleware, uc Checks) {
+// Register mounts the routes. idempotency handles the Idempotency-Key
+// header of POST /checks and may be nil.
+func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddleware, uc Checks, idempotency gin.HandlerFunc) {
 	handler := &handler{log: log, uc: uc}
 
 	checks := r.Group("/checks")
@@ -37,7 +39,13 @@ func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddlew
 		checks.GET("user/:userId", handler.GetChecksByUserId())
 		auth := checks.Group("", authMiddleware.MiddlewareFunc())
 		{
-			auth.POST("", middleware.MaxBodySize(handlers.MaxUploadBodySize), handler.AddCheck())
+			// The body limit must be in place before the idempotency
+			// middleware reads the form to fingerprint it.
+			create := auth.Group("", middleware.MaxBodySize(handlers.MaxUploadBodySize))
+			if idempotency != nil {
+				create.Use(idempotency)
+			}
+			create.POST("", handler.AddCheck())
 		}
 	}
 }
@@ -160,14 +168,16 @@ func (h *handler) GetChecksByUserId() gin.HandlerFunc {
 //	@Accept			mpfd
 //	@Produce		json
 //	@Security		BearerAuth
-//	@Success		201	{object}	responses.Response[checksrest.AddCheckResponse]
-//	@Failure		400	{object}	responses.Response[any]
-//	@Failure		401	{object}	responses.Response[any]
-//	@Failure		403	{object}	responses.Response[any]
-//	@Failure		404	{object}	responses.Response[any]
-//	@Failure		409	{object}	responses.Response[any]
-//	@Failure		429	{object}	responses.Response[any]
-//	@Failure		500	{object}	responses.Response[any]
+//	@Param			Idempotency-Key	header		string	false	"UUID chosen by the client; a repeat with the same key within 24h returns the stored response with `Idempotent-Replayed: true` (409 while the first request is in flight, 422 when reused with other form fields)"
+//	@Success		201				{object}	responses.Response[checksrest.AddCheckResponse]
+//	@Failure		400				{object}	responses.Response[any]
+//	@Failure		401				{object}	responses.Response[any]
+//	@Failure		403				{object}	responses.Response[any]
+//	@Failure		404				{object}	responses.Response[any]
+//	@Failure		409				{object}	responses.Response[any]
+//	@Failure		422				{object}	responses.Response[any]	"Idempotency-Key reused with a different payload"
+//	@Failure		429				{object}	responses.Response[any]
+//	@Failure		500				{object}	responses.Response[any]
 //	@Router			/checks [post]
 func (h *handler) AddCheck() gin.HandlerFunc {
 	return func(c *gin.Context) {

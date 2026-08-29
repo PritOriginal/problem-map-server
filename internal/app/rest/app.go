@@ -26,12 +26,14 @@ import (
 	notificationsrest "github.com/PritOriginal/problem-map-server/internal/handler/notifications"
 	openrest "github.com/PritOriginal/problem-map-server/internal/handler/open"
 	organizationsrest "github.com/PritOriginal/problem-map-server/internal/handler/organizations"
+	syncrest "github.com/PritOriginal/problem-map-server/internal/handler/sync"
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
 	webhooksrest "github.com/PritOriginal/problem-map-server/internal/handler/webhooks"
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/apikey"
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/idempotency"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/ratelimit"
 	"github.com/PritOriginal/problem-map-server/internal/repository/postgres"
@@ -89,6 +91,12 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 	m := metrics.New()
 	router := handler.GetRouter(log, cfg.Env, cfg.REST.TrustedProxies, m)
+
+	// Idempotency-Key support of the mutating routes; fails open without Redis.
+	idempotencyMiddleware := idempotency.New(log, redisClient, idempotency.Config{
+		TTL:     cfg.REST.Idempotency.TTL,
+		LockTTL: cfg.REST.Idempotency.LockTTL,
+	})
 
 	handler.SetSwagger(router)
 
@@ -180,7 +188,8 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 			Requests: cfg.Export.RateLimit.Requests,
 			Window:   cfg.Export.RateLimit.Window,
 		}),
-		APIKey: apiKeyMiddleware,
+		APIKey:      apiKeyMiddleware,
+		Idempotency: idempotencyMiddleware,
 	})
 
 	commentsUseCase := usecase.NewComments(log, cfg.Comments, usecase.CommentsRepositories{
@@ -198,7 +207,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Users:         usersRepo,
 		Organizations: organizationsRepo,
 	}).WithEvents(publisher).WithSettings(settingsUseCase)
-	checksrest.Register(router, log, authMiddleware, checksUseCase)
+	checksrest.Register(router, log, authMiddleware, checksUseCase, idempotencyMiddleware)
 
 	// Changing the dictionary drops its cached responses (any language).
 	markTypesUseCase := usecase.NewMarkTypes(log, trManager, marksRepo).
@@ -237,7 +246,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	tasksUseCase := usecase.NewTasks(log, usecase.TasksRepositories{
 		Tasks: tasksRepo,
 	}).WithEvents(publisher)
-	tasksrest.Register(router, log, authMiddleware, tasksUseCase)
+	tasksrest.Register(router, log, authMiddleware, tasksUseCase, redisClient)
 
 	notificationsRepo := postgres.NewNotifications(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	// The REST server only stores manual data and reads notifications; push
@@ -247,6 +256,15 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Devices:       notificationsRepo,
 	})
 	notificationsrest.Register(router, log, authMiddleware, notificationsUseCase)
+
+	// One call for a client coming back online: its tasks, unread
+	// notifications and checks since the last sync.
+	syncUseCase := usecase.NewSync(log, usecase.SyncRepositories{
+		Tasks:         tasksRepo,
+		Notifications: notificationsRepo,
+		Checks:        checksRepo,
+	})
+	syncrest.Register(router, log, authMiddleware, syncUseCase)
 
 	// The REST server only manages webhooks and serves the test delivery;
 	// events are delivered by cmd/notifier.

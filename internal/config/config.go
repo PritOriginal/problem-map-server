@@ -233,7 +233,32 @@ type RESTConfig struct {
 	RateLimit RateLimitConfig `yaml:"rate_limit"`
 	// TrustedProxies lists IPs/CIDRs of reverse proxies whose X-Forwarded-For
 	// is trusted for the client IP (used by rate limiting). Empty means none.
-	TrustedProxies []string `yaml:"trusted_proxies" env:"REST_TRUSTED_PROXIES"`
+	TrustedProxies []string          `yaml:"trusted_proxies" env:"REST_TRUSTED_PROXIES"`
+	Idempotency    IdempotencyConfig `yaml:"idempotency"`
+}
+
+// IdempotencyConfig tunes the Idempotency-Key handling of the mutating
+// endpoints (POST /marks, POST /checks): a stored response is replayed for
+// a repeated key within TTL.
+type IdempotencyConfig struct {
+	// TTL is how long a stored response (and a reused key) lives.
+	TTL time.Duration `yaml:"ttl" env:"REST_IDEMPOTENCY_TTL" env-default:"24h"`
+	// LockTTL bounds the "request in progress" lock held while the first
+	// request with a key is being handled; it should exceed the write
+	// timeout so that a crashed handler releases the key eventually.
+	LockTTL time.Duration `yaml:"lock-ttl" env:"REST_IDEMPOTENCY_LOCK_TTL" env-default:"30s"`
+}
+
+// Validate checks that both durations are positive.
+func (i IdempotencyConfig) Validate() error {
+	var errs []error
+	if i.TTL <= 0 {
+		errs = append(errs, errors.New("rest.idempotency.ttl (REST_IDEMPOTENCY_TTL) must be positive"))
+	}
+	if i.LockTTL <= 0 {
+		errs = append(errs, errors.New("rest.idempotency.lock-ttl (REST_IDEMPOTENCY_LOCK_TTL) must be positive"))
+	}
+	return errors.Join(errs...)
 }
 
 // RateLimitConfig limits requests per client IP for auth endpoints (signin, signup, refresh).
@@ -566,7 +591,7 @@ const MinJWTKeyLength = 32
 
 // Validate checks that security-sensitive settings are present and sane.
 func (c *Config) Validate() error {
-	if err := errors.Join(c.Auth.Validate(), c.DB.Validate(), c.Tasker.Validate(), c.Marks.Validate(), c.Comments.Validate(), c.Rating.Validate(), c.Push.Validate(), c.Nats.ValidateDelivery(), c.Export.Validate(), c.Webhooks.Validate()); err != nil {
+	if err := errors.Join(c.Auth.Validate(), c.DB.Validate(), c.Tasker.Validate(), c.Marks.Validate(), c.Comments.Validate(), c.Rating.Validate(), c.Push.Validate(), c.Nats.ValidateDelivery(), c.Export.Validate(), c.Webhooks.Validate(), c.REST.Idempotency.Validate()); err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 	return nil

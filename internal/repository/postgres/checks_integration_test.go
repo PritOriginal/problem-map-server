@@ -191,6 +191,34 @@ func (s *PostgresSuite) TestChecks_GetChecksByUserId() {
 	}
 }
 
+func (s *PostgresSuite) TestChecks_GetChecksByUserIdSince() {
+	// Bob's checks were created 2h and 1h ago (see seed).
+	tests := []struct {
+		name    string
+		userID  int
+		since   time.Duration
+		p       models.Pagination
+		wantIDs []int
+		total   int
+	}{
+		{name: "both after 3h ago", userID: fxUserBob, since: -3 * time.Hour, wantIDs: []int{fxCheckBobMark1, fxCheckBobMark2}, total: 2},
+		{name: "only the newer after 90m ago", userID: fxUserBob, since: -90 * time.Minute, wantIDs: []int{fxCheckBobMark2}, total: 1},
+		{name: "none after now", userID: fxUserBob, since: 0, wantIDs: []int{}, total: 0},
+		{name: "paged", userID: fxUserBob, since: -3 * time.Hour, p: models.Pagination{Limit: 1}, wantIDs: []int{fxCheckBobMark1}, total: 2},
+		{name: "alice", userID: fxUserAlice, since: -4 * time.Hour, wantIDs: []int{fxCheckAliceMark2}, total: 1},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			page, err := s.checks.GetChecksByUserIdSince(s.ctx, tt.userID, time.Now().Add(tt.since), tt.p)
+			s.Require().NoError(err)
+			s.NotNil(page.Items)
+			s.Equal(tt.total, page.Total)
+			s.Equal(tt.wantIDs, checkIDs(page.Items), "oldest first")
+		})
+	}
+}
+
 func (s *PostgresSuite) TestChecks_GetChecksByMarkHistoryId() {
 	tests := []struct {
 		name      string

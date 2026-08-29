@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
@@ -162,6 +163,9 @@ func marksListQuery(ctx context.Context, filters models.GetMarksFilters) *listQu
 	if !filters.CreatedTo.IsZero() {
 		q.Where("created_at <= ?", filters.CreatedTo)
 	}
+	if !filters.UpdatedSince.IsZero() {
+		q.Where("updated_at > ?", filters.UpdatedSince)
+	}
 
 	return q
 }
@@ -320,25 +324,21 @@ func (r *MarksRepository) UpdateMark(ctx context.Context, markId int, upd models
 }
 
 // DeleteMark removes the mark together with its checks, tasks, status
-// history and followers. Those tables reference marks without ON DELETE
+// history and followers, and leaves a tombstone (mark_tombstones) for
+// incremental sync. Those tables reference marks without ON DELETE
 // CASCADE (except mark_followers), so the rows are deleted explicitly;
 // call it inside a transaction.
 func (r *MarksRepository) DeleteMark(ctx context.Context, markId int) error {
 	const op = "storage.postgres.DeleteMark"
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	for _, query := range []string{
-		"DELETE FROM checks WHERE mark_id = $1",
-		"DELETE FROM tasks WHERE mark_id = $1",
-		"DELETE FROM mark_status_history WHERE mark_id = $1",
-		"DELETE FROM mark_followers WHERE mark_id = $1",
-	} {
-		if _, err := tr.ExecContext(ctx, query, markId); err != nil {
-			return fmt.Errorf("%s: %w", op, err)
-		}
-	}
 
-	res, err := tr.ExecContext(ctx, "DELETE FROM marks WHERE mark_id = $1", markId)
+	// The tombstone goes first so that the transaction fails early when the
+	// mark does not exist (nothing to delete, nothing to record).
+	res, err := tr.ExecContext(ctx, `
+		INSERT INTO mark_tombstones (mark_id, deleted_at)
+		SELECT mark_id, NOW() FROM marks WHERE mark_id = $1
+		ON CONFLICT (mark_id) DO UPDATE SET deleted_at = EXCLUDED.deleted_at`, markId)
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
@@ -346,7 +346,65 @@ func (r *MarksRepository) DeleteMark(ctx context.Context, markId int) error {
 		return repository.ErrNotFound
 	}
 
+	for _, query := range []string{
+		"DELETE FROM checks WHERE mark_id = $1",
+		"DELETE FROM tasks WHERE mark_id = $1",
+		"DELETE FROM mark_status_history WHERE mark_id = $1",
+		"DELETE FROM mark_followers WHERE mark_id = $1",
+		"DELETE FROM marks WHERE mark_id = $1",
+	} {
+		if _, err := tr.ExecContext(ctx, query, markId); err != nil {
+			return fmt.Errorf("%s: %w", op, err)
+		}
+	}
+
 	return nil
+}
+
+// GetDeletedMarkIDs returns the ids of marks deleted strictly after since
+// (from mark_tombstones), oldest deletion first, as a page with the total.
+func (r *MarksRepository) GetDeletedMarkIDs(ctx context.Context, since time.Time, p models.Pagination) (models.Page[int], error) {
+	const op = "storage.postgres.GetDeletedMarkIDs"
+
+	page := models.Page[int]{Items: []int{}}
+	q := newListQuery("mark_id", "mark_tombstones").
+		Where("deleted_at > ?", since).
+		OrderBy("deleted_at ASC, mark_id ASC").
+		Paginate(p)
+	query, args, err := q.pageQuery()
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
+	}
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	rows, err := tr.QueryxContext(ctx, query, args...)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id, &page.Total); err != nil {
+			return page, fmt.Errorf("%s: %w", op, err)
+		}
+		page.Items = append(page.Items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
+	}
+
+	// An empty page beyond the first carries no row to read the total from.
+	if len(page.Items) == 0 && p.Limit > 0 && p.Offset > 0 {
+		countQuery, countArgs, err := q.countQuery()
+		if err != nil {
+			return page, fmt.Errorf("%s: %w", op, err)
+		}
+		if err := tr.GetContext(ctx, &page.Total, countQuery, countArgs...); err != nil {
+			return page, fmt.Errorf("%s: %w", op, err)
+		}
+	}
+
+	return page, nil
 }
 
 // FollowMark subscribes the user to the mark; already following is not an error.

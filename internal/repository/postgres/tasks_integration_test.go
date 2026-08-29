@@ -114,6 +114,25 @@ func (s *PostgresSuite) TestTasks_GetTasksByUserId() {
 	}
 }
 
+func (s *PostgresSuite) TestTasks_GetTasksByUserId_UpdatedSince() {
+	// Backdate every task, then move one: only it is "changed since".
+	_, err := s.db.ExecContext(s.ctx, "UPDATE tasks SET updated_at = NOW() - INTERVAL '1 hour'")
+	s.Require().NoError(err)
+	since := time.Now().Add(-time.Minute)
+	s.Require().NoError(s.tasks.UpdateTaskStatus(s.ctx, fxTaskAliceMark1, models.CompletedStatus))
+
+	page, err := s.tasks.GetTasksByUserId(s.ctx, fxUserAlice, models.GetTasksByUserIdFilters{UpdatedSince: since})
+	s.Require().NoError(err)
+	s.Equal(1, page.Total)
+	s.Equal([]int{fxTaskAliceMark1}, taskIDs(page.Items))
+
+	// Another user's change is not Alice's.
+	page, err = s.tasks.GetTasksByUserId(s.ctx, fxUserBob, models.GetTasksByUserIdFilters{UpdatedSince: since})
+	s.Require().NoError(err)
+	s.Equal(0, page.Total)
+	s.NotNil(page.Items)
+}
+
 func (s *PostgresSuite) TestTasks_GetTaskByUserIdAndMarkId() {
 	tests := []struct {
 		name    string

@@ -125,8 +125,45 @@ type GetTasksFilters struct {
 
 type GetTasksByUserIdFilters struct {
 	Statuses []int
+	// UpdatedSince keeps tasks changed strictly after the instant
+	// (updated_at >); zero means unbounded.
+	UpdatedSince time.Time
 
 	Pagination Pagination
+}
+
+// UserSyncFilters selects a user's changes after Since (GET /users/me/sync).
+type UserSyncFilters struct {
+	Since time.Time
+	// Pagination applies to each collection independently.
+	Pagination Pagination
+}
+
+// Validate checks that Since is set, not in the future, and the pagination
+// is sane.
+func (f UserSyncFilters) Validate() error {
+	if err := validateSince(f.Since); err != nil {
+		return err
+	}
+	return f.Pagination.Validate()
+}
+
+// UserSync is what a user's client missed since an instant: tasks updated,
+// unread notifications received and checks submitted after it. Totals
+// count the matching rows of each collection so the client can page.
+type UserSync struct {
+	Tasks         []Task
+	Notifications []Notification
+	Checks        []Check
+	Totals        UserSyncTotals
+	ServerTime    time.Time
+}
+
+// UserSyncTotals are the per-collection totals of a UserSync.
+type UserSyncTotals struct {
+	Tasks         int `json:"tasks"`
+	Notifications int `json:"notifications"`
+	Checks        int `json:"checks"`
 }
 
 // RatingReason explains a rating change (rating_events.reason).

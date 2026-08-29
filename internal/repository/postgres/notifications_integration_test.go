@@ -7,6 +7,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
+	"time"
 )
 
 func (s *PostgresSuite) newNotification(userID int, eventID string) models.Notification {
@@ -102,6 +103,27 @@ func (s *PostgresSuite) TestNotifications_ListAndRead() {
 		s.Require().NoError(err)
 		s.Equal(3, page.Total)
 		s.Len(page.Items, 2)
+	})
+
+	s.Run("created since", func() {
+		// Backdate the first two: only the third was created "since".
+		_, err := s.db.ExecContext(s.ctx,
+			"UPDATE notifications SET created_at = NOW() - INTERVAL '1 hour' WHERE notification_id IN ($1, $2)", ids[0], ids[1])
+		s.Require().NoError(err)
+
+		page, err := s.notifications.GetNotificationsByUserId(s.ctx, fxUserAlice, models.GetNotificationsFilters{
+			UnreadOnly: true, CreatedSince: time.Now().Add(-time.Minute),
+		})
+		s.Require().NoError(err)
+		s.Equal(1, page.Total)
+		s.Equal([]int{int(ids[2])}, ids2ints(page.Items))
+
+		page, err = s.notifications.GetNotificationsByUserId(s.ctx, fxUserAlice, models.GetNotificationsFilters{
+			CreatedSince: time.Now().Add(time.Minute),
+		})
+		s.Require().NoError(err)
+		s.Equal(0, page.Total)
+		s.NotNil(page.Items)
 	})
 
 	s.Run("mark all read", func() {

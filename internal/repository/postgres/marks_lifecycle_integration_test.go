@@ -4,6 +4,7 @@ package postgres_test
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
@@ -258,4 +259,69 @@ func (s *PostgresSuite) TestMarks_DeleteMark_Cascade() {
 	})
 	s.ErrorIs(err, repository.ErrNotFound)
 	s.Equal(2, s.countRows("marks", "TRUE"))
+	s.Equal(0, s.countRows("mark_tombstones", "mark_id = $1", 404), "no tombstone for a missing mark")
+}
+
+func (s *PostgresSuite) TestMarks_DeleteMark_Tombstone() {
+	before := time.Now().Add(-time.Second)
+
+	err := s.trm.Do(s.ctx, func(ctx context.Context) error {
+		return s.marks.DeleteMark(ctx, fxMarkInside)
+	})
+	s.Require().NoError(err)
+
+	s.Equal(1, s.countRows("mark_tombstones", "mark_id = $1", fxMarkInside))
+
+	deleted, err := s.marks.GetDeletedMarkIDs(s.ctx, before, models.Pagination{})
+	s.Require().NoError(err)
+	s.Equal([]int{fxMarkInside}, deleted.Items)
+	s.Equal(1, deleted.Total)
+
+	// An empty page beyond the first still carries the total.
+	deleted, err = s.marks.GetDeletedMarkIDs(s.ctx, before, models.Pagination{Limit: 10, Offset: 10})
+	s.Require().NoError(err)
+	s.Empty(deleted.Items)
+	s.Equal(1, deleted.Total)
+
+	// Nothing was deleted after "now": an empty (not nil) slice.
+	deleted, err = s.marks.GetDeletedMarkIDs(s.ctx, time.Now().Add(time.Minute), models.Pagination{})
+	s.Require().NoError(err)
+	s.NotNil(deleted.Items)
+	s.Empty(deleted.Items)
+	s.Equal(0, deleted.Total)
+
+	// A rolled-back deletion leaves no tombstone behind.
+	errRollback := errors.New("rollback")
+	err = s.trm.Do(s.ctx, func(ctx context.Context) error {
+		if err := s.marks.DeleteMark(ctx, fxMarkNear); err != nil {
+			return err
+		}
+		return errRollback
+	})
+	s.ErrorIs(err, errRollback)
+	s.Equal(0, s.countRows("mark_tombstones", "mark_id = $1", fxMarkNear))
+	_, err = s.marks.GetMarkById(s.ctx, fxMarkNear)
+	s.NoError(err)
+}
+
+func (s *PostgresSuite) TestMarks_GetMarks_UpdatedSince() {
+	// Backdate every mark, then touch one: only it is "changed since".
+	_, err := s.db.ExecContext(s.ctx, "UPDATE marks SET updated_at = NOW() - INTERVAL '1 hour'")
+	s.Require().NoError(err)
+	since := time.Now().Add(-time.Minute)
+	touched := "touched"
+	s.Require().NoError(s.marks.UpdateMark(s.ctx, fxMarkFar, models.MarkUpdate{Description: &touched}))
+
+	page, err := s.marks.GetMarks(s.ctx, models.GetMarksFilters{
+		UpdatedSince: since, Sort: models.MarksSortUpdatedAt, Order: models.SortAsc,
+	})
+	s.Require().NoError(err)
+	s.Equal(1, page.Total)
+	s.Equal([]int{fxMarkFar}, markIDs(page.Items))
+
+	// The bound is strict: a mark updated exactly at since is not returned.
+	exact := page.Items[0].UpdatedAt
+	page, err = s.marks.GetMarks(s.ctx, models.GetMarksFilters{UpdatedSince: exact})
+	s.Require().NoError(err)
+	s.Equal(0, page.Total)
 }

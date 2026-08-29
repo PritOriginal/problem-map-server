@@ -619,6 +619,15 @@ definitions:
       tasks_completed:
         type: integer
     type: object
+  github_com_PritOriginal_problem-map-server_internal_models.UserSyncTotals:
+    properties:
+      checks:
+        type: integer
+      notifications:
+        type: integer
+      tasks:
+        type: integer
+    type: object
   github_com_PritOriginal_problem-map-server_internal_models.Webhook:
     properties:
       active:
@@ -1022,6 +1031,17 @@ definitions:
       success:
         type: boolean
     type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkChangesResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_marks.GetMarkChangesResponse'
+      success:
+        type: boolean
+    type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkStatusHistoryByMarkIdResponse:
     properties:
       error:
@@ -1261,6 +1281,17 @@ definitions:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_organizations.ResponsibilityResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_sync_GetUserSyncResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_sync.GetUserSyncResponse'
       success:
         type: boolean
     type: object
@@ -1832,6 +1863,30 @@ definitions:
       mark:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark'
     type: object
+  internal_handler_marks.GetMarkChangesResponse:
+    properties:
+      deleted_ids:
+        items:
+          type: integer
+        type: array
+      deleted_total:
+        description: |-
+          DeletedTotal is the number of marks deleted after since; deleted_ids
+          is paged by the same limit/offset as marks.
+        type: integer
+      hidden_ids:
+        description: HiddenIDs is reserved for marks hidden by moderation; always
+          empty for now.
+        items:
+          type: integer
+        type: array
+      marks:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark'
+        type: array
+      server_time:
+        type: string
+    type: object
   internal_handler_marks.GetMarkStatusHistoryByMarkIdResponse:
     properties:
       items:
@@ -2046,6 +2101,25 @@ definitions:
         maxLength: 255
         minLength: 1
         type: string
+    type: object
+  internal_handler_sync.GetUserSyncResponse:
+    properties:
+      checks:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Check'
+        type: array
+      notifications:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Notification'
+        type: array
+      server_time:
+        type: string
+      tasks:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Task'
+        type: array
+      totals:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.UserSyncTotals'
     type: object
   internal_handler_tasks.AddTaskRequest:
     properties:
@@ -2808,6 +2882,13 @@ paths:
       description: add check; the mark's author may not check their own mark (403),
         one check per voting stage (409), at most `rating.max-checks-per-day` checks
         per rolling 24 hours (429)
+      parameters:
+      - description: 'UUID chosen by the client; a repeat with the same key within
+          24h returns the stored response with `Idempotent-Replayed: true` (409 while
+          the first request is in flight, 422 when reused with other form fields)'
+        in: header
+        name: Idempotency-Key
+        type: string
       produces:
       - application/json
       responses:
@@ -2833,6 +2914,10 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "409":
           description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "422":
+          description: Idempotency-Key reused with a different payload
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "429":
@@ -3012,13 +3097,26 @@ paths:
           type: number
         name: admin_levels
         type: array
+      - description: ETag of a previous response; 304 when the data did not change
+        in: header
+        name: If-None-Match
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
+          headers:
+            Cache-Control:
+              description: public, max-age=60
+              type: string
+            ETag:
+              description: validator for If-None-Match
+              type: string
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_GetAdminBoundariesResponse'
+        "304":
+          description: not modified
         "400":
           description: Bad Request
           schema:
@@ -3040,13 +3138,26 @@ paths:
         name: id
         required: true
         type: integer
+      - description: ETag of a previous response; 304 when the boundary did not change
+        in: header
+        name: If-None-Match
+        type: string
       produces:
       - application/geo+json
       responses:
         "200":
           description: OK
+          headers:
+            Cache-Control:
+              description: public, max-age=86400
+              type: string
+            ETag:
+              description: validator for If-None-Match
+              type: string
           schema:
             $ref: '#/definitions/internal_handler_map.AdminBoundaryFeature'
+        "304":
+          description: not modified
         "400":
           description: Bad Request
           schema:
@@ -3252,6 +3363,10 @@ paths:
         in: query
         name: created_to
         type: string
+      - description: updated_at > (RFC3339); for incremental sync combine with sort=updated_at&order=asc
+        in: query
+        name: updated_since
+        type: string
       - default: created_at
         description: sort column
         enum:
@@ -3302,6 +3417,12 @@ paths:
       description: 'add mark. Coordinates are WGS84: `longitude` is X, `latitude`
         is Y (GeoJSON/PostGIS order)'
       parameters:
+      - description: 'UUID chosen by the client; a repeat with the same key within
+          24h returns the stored response with `Idempotent-Replayed: true` (409 while
+          the first request is in flight, 422 when reused with other form fields)'
+        in: header
+        name: Idempotency-Key
+        type: string
       - description: Photos of the problem
         in: formData
         name: photos
@@ -3351,9 +3472,14 @@ paths:
         "409":
           description: active marks of the same type exist within the dedup radius;
             `payload.similar_marks` lists them with `distance_m`. Repeat with `?force=true`
-            to create anyway
+            to create anyway. Also returned (without payload) while a request with
+            the same Idempotency-Key is in progress
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_SimilarMarksPayload'
+        "422":
+          description: Idempotency-Key reused with a different payload
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "500":
           description: Internal Server Error
           schema:
@@ -3856,6 +3982,48 @@ paths:
       summary: List mark statuses
       tags:
       - marks
+  /marks/changes:
+    get:
+      description: marks updated after `since` (oldest change first; page with limit/offset,
+        total in `meta`), ids of marks deleted after `since` (paged by the same limit/offset,
+        total in `deleted_total`) and ids of marks hidden after it (always empty until
+        moderation hides marks). Store `server_time` and pass it as the next `since`;
+        with several server instances subtract a safety margin (`server_time - 1s`)
+        to cover clock skew between them. `since` in the future is rejected with 400
+      parameters:
+      - description: RFC3339 instant of the previous sync
+        in: query
+        name: since
+        required: true
+        type: string
+      - default: 100
+        description: page size of `marks`, 1..500
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: page offset of `marks`
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkChangesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: Incremental mark changes
+      tags:
+      - marks
   /marks/export:
     get:
       description: 'stream every marker matching the same filters as GET /marks (no
@@ -4053,13 +4221,27 @@ paths:
         in: header
         name: Accept-Language
         type: string
+      - description: ETag of a previous response; 304 when the dictionary did not
+          change
+        in: header
+        name: If-None-Match
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
+          headers:
+            Cache-Control:
+              description: public, max-age=60
+              type: string
+            ETag:
+              description: validator for If-None-Match
+              type: string
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkStatusesResponse'
+        "304":
+          description: not modified
         "500":
           description: Internal Server Error
           schema:
@@ -4083,13 +4265,27 @@ paths:
         in: header
         name: Accept-Language
         type: string
+      - description: ETag of a previous response; 304 when the dictionary did not
+          change
+        in: header
+        name: If-None-Match
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
+          headers:
+            Cache-Control:
+              description: public, max-age=60
+              type: string
+            ETag:
+              description: validator for If-None-Match
+              type: string
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkTypesResponse'
+        "304":
+          description: not modified
         "500":
           description: Internal Server Error
           schema:
@@ -4845,13 +5041,27 @@ paths:
         in: header
         name: Accept-Language
         type: string
+      - description: ETag of a previous response; 304 when the dictionary did not
+          change
+        in: header
+        name: If-None-Match
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
+          headers:
+            Cache-Control:
+              description: public, max-age=60
+              type: string
+            ETag:
+              description: validator for If-None-Match
+              type: string
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_GetTaskStatusesResponse'
+        "304":
+          description: not modified
         "500":
           description: Internal Server Error
           schema:
@@ -5292,6 +5502,54 @@ paths:
       security:
       - BearerAuth: []
       summary: Get current user stats
+      tags:
+      - users
+  /users/me/sync:
+    get:
+      description: 'one request for a client coming back online: the caller''s tasks
+        updated after `since`, unread notifications received after it and checks submitted
+        after it. Each collection is paged independently by limit/offset; `totals`
+        carry the full counts. Store `server_time` and pass it as the next `since`;
+        with several server instances subtract a safety margin (`server_time - 1s`)
+        to cover clock skew between them. `since` in the future is rejected with 400'
+      parameters:
+      - description: RFC3339 instant of the previous sync
+        in: query
+        name: since
+        required: true
+        type: string
+      - default: 100
+        description: page size of each collection, 1..500
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: page offset of each collection
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_sync_GetUserSyncResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Personal changes since an instant
       tags:
       - users
   /webhooks:

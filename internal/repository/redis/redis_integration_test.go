@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/repository/redis"
-	goredis "github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
 	tcredis "github.com/testcontainers/testcontainers-go/modules/redis"
@@ -122,7 +122,31 @@ func (s *RedisSuite) TestSet_Overwrite() {
 
 func (s *RedisSuite) TestGet_MissingKey() {
 	var v map[string]any
-	s.ErrorIs(s.repo.Get(s.ctx, "missing", &v), goredis.Nil)
+	s.ErrorIs(s.repo.Get(s.ctx, "missing", &v), repository.ErrNotFound)
+
+	_, err := s.repo.GetBytes(s.ctx, "missing")
+	s.ErrorIs(err, repository.ErrNotFound)
+}
+
+func (s *RedisSuite) TestSetNX_Del() {
+	ok, err := s.repo.SetNX(s.ctx, "lock", "1", 10*time.Second)
+	s.Require().NoError(err)
+	s.True(ok, "first SetNX acquires the key")
+
+	ok, err = s.repo.SetNX(s.ctx, "lock", "2", 10*time.Second)
+	s.Require().NoError(err)
+	s.False(ok, "second SetNX must not overwrite")
+
+	b, err := s.repo.GetBytes(s.ctx, "lock")
+	s.Require().NoError(err)
+	s.Equal("1", string(b))
+
+	s.Require().NoError(s.repo.Del(s.ctx, "lock"))
+	s.Require().NoError(s.repo.Del(s.ctx, "lock"), "deleting a missing key is not an error")
+
+	ok, err = s.repo.SetNX(s.ctx, "lock", "3", 10*time.Second)
+	s.Require().NoError(err)
+	s.True(ok, "the key is free again after Del")
 }
 
 func (s *RedisSuite) TestGet_InvalidJSON() {
