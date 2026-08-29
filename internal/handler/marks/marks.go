@@ -43,6 +43,9 @@ type StatusUpdater interface {
 	Reject(ctx context.Context, markId int) (models.MarkStatusType, error)
 }
 
+// DictionaryCacheTTL is how long the mark types and statuses stay cached.
+const DictionaryCacheTTL = 24 * time.Hour
+
 type handler struct {
 	log           *slog.Logger
 	uc            Marks
@@ -117,7 +120,7 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 			create.POST("", handler.AddMark())
 		}
 		cache := marks.Group("")
-		cache.Use(mwcache.New(params.Cacher, 24*time.Hour))
+		cache.Use(mwcache.New(params.Cacher, DictionaryCacheTTL))
 		{
 			cache.GET("types", handler.GetMarkTypes())
 			cache.GET("statuses", handler.GetMarkStatuses())
@@ -686,7 +689,11 @@ func (h *handler) GetFollowedMarks() gin.HandlerFunc {
 //	@Accept			json
 //	@Produce		json
 //	@Param			Accept-Language	header		string	false	"response language"	Enums(ru, en)	default(ru)
+//	@Param			If-None-Match	header		string	false	"ETag of a previous response; 304 when the dictionary did not change"
 //	@Success		200				{object}	responses.Response[marksrest.GetMarkTypesResponse]
+//	@Header			200				{string}	ETag			"validator for If-None-Match"
+//	@Header			200				{string}	Cache-Control	"public, max-age=60"
+//	@Success		304				"not modified"
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/marks/types [get]
 func (h *handler) GetMarkTypes() gin.HandlerFunc {
@@ -715,7 +722,11 @@ func (h *handler) GetMarkTypes() gin.HandlerFunc {
 //	@Accept			json
 //	@Produce		json
 //	@Param			Accept-Language	header		string	false	"response language"	Enums(ru, en)	default(ru)
+//	@Param			If-None-Match	header		string	false	"ETag of a previous response; 304 when the dictionary did not change"
 //	@Success		200				{object}	responses.Response[marksrest.GetMarkStatusesResponse]
+//	@Header			200				{string}	ETag			"validator for If-None-Match"
+//	@Header			200				{string}	Cache-Control	"public, max-age=60"
+//	@Success		304				"not modified"
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/marks/statuses [get]
 func (h *handler) GetMarkStatuses() gin.HandlerFunc {

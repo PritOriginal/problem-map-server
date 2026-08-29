@@ -2,6 +2,7 @@ package maprest
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -16,12 +17,19 @@ import (
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/gin-gonic/gin"
-	"github.com/gin-gonic/gin/render"
 )
 
-// HeatmapCacheTTL is how long a heatmap response is served from cache; the
-// cache key includes the full query string.
-const HeatmapCacheTTL = 60 * time.Second
+const (
+	// HeatmapCacheTTL is how long a heatmap response is served from cache;
+	// the cache key includes the full query string.
+	HeatmapCacheTTL = 60 * time.Second
+	// DictionaryCacheTTL is how long the slowly changing reference data
+	// (boundaries, regions, cities, districts) stays cached.
+	DictionaryCacheTTL = 24 * time.Hour
+	// GeoJSONMaxAge is the Cache-Control max-age of the boundary GeoJSON:
+	// boundaries change only with an OSM re-import.
+	GeoJSONMaxAge = 24 * time.Hour
+)
 
 type Map interface {
 	GetAdminBoundaries(ctx context.Context, filters models.GetAdminBoundaryFilters) ([]models.AdminBoundary, error)
@@ -44,10 +52,13 @@ func Register(r *gin.Engine, log *slog.Logger, uc Map, cacher mwcache.Cacher) {
 	mapRoute := r.Group("/map")
 	{
 		mapRoute.GET("admin-boundaries/marks/count", handler.GetAdminBoundariesMarksCount())
-		// The response is a bare GeoJSON document, not the JSON envelope,
-		// so it stays outside the cache middleware (which serves
-		// application/json).
-		mapRoute.GET("admin-boundaries/:file", handler.GetAdminBoundaryGeoJSON())
+		// The bare GeoJSON document is cached with its own content type and
+		// a long max-age (see GeoJSONMaxAge).
+		geojson := mapRoute.Group("")
+		{
+			geojson.Use(mwcache.New(cacher, DictionaryCacheTTL, mwcache.WithMaxAge(GeoJSONMaxAge)))
+			geojson.GET("admin-boundaries/:file", handler.GetAdminBoundaryGeoJSON())
+		}
 		heatmap := mapRoute.Group("")
 		{
 			heatmap.Use(mwcache.New(cacher, HeatmapCacheTTL))
@@ -55,7 +66,7 @@ func Register(r *gin.Engine, log *slog.Logger, uc Map, cacher mwcache.Cacher) {
 		}
 		cache := mapRoute.Group("")
 		{
-			cache.Use(mwcache.New(cacher, 24*time.Hour))
+			cache.Use(mwcache.New(cacher, DictionaryCacheTTL))
 			cache.GET("admin-boundaries", handler.GetAdminBoundaries())
 			cache.GET("regions", handler.GetRegions())
 			cache.GET("cities", handler.GetCities())
@@ -72,7 +83,11 @@ func Register(r *gin.Engine, log *slog.Logger, uc Map, cacher mwcache.Cacher) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			admin_levels	query		[]number	false	"filter by admin level"
+//	@Param			If-None-Match	header		string		false	"ETag of a previous response; 304 when the data did not change"
 //	@Success		200				{object}	responses.Response[maprest.GetAdminBoundariesResponse]
+//	@Header			200				{string}	ETag		"validator for If-None-Match"
+//	@Header			200				{string}	Cache-Control	"public, max-age=60"
+//	@Success		304				"not modified"
 //	@Failure		400				{object}	responses.Response[any]
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/map/admin-boundaries [get]
@@ -106,11 +121,15 @@ func (h *handler) GetAdminBoundaries() gin.HandlerFunc {
 //	@Description	one boundary with its MultiPolygon geometry as a GeoJSON Feature (`application/geo+json`): `properties` carry `name` and `admin_level`
 //	@Tags			map
 //	@Produce		application/geo+json
-//	@Param			id	path		int	true	"boundary id (the path is /map/admin-boundaries/{id}.geojson)"
-//	@Success		200	{object}	maprest.AdminBoundaryFeature
-//	@Failure		400	{object}	responses.Response[any]
-//	@Failure		404	{object}	responses.Response[any]
-//	@Failure		500	{object}	responses.Response[any]
+//	@Param			id				path		int		true	"boundary id (the path is /map/admin-boundaries/{id}.geojson)"
+//	@Param			If-None-Match	header		string	false	"ETag of a previous response; 304 when the boundary did not change"
+//	@Success		200				{object}	maprest.AdminBoundaryFeature
+//	@Header			200				{string}	ETag			"validator for If-None-Match"
+//	@Header			200				{string}	Cache-Control	"public, max-age=86400"
+//	@Success		304				"not modified"
+//	@Failure		400				{object}	responses.Response[any]
+//	@Failure		404				{object}	responses.Response[any]
+//	@Failure		500				{object}	responses.Response[any]
 //	@Router			/map/admin-boundaries/{id}.geojson [get]
 func (h *handler) GetAdminBoundaryGeoJSON() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -133,9 +152,13 @@ func (h *handler) GetAdminBoundaryGeoJSON() gin.HandlerFunc {
 			return
 		}
 
-		c.Header("Cache-Control", "public, max-age=86400")
-		c.Render(http.StatusOK, render.JSON{Data: NewAdminBoundaryFeature(boundary)})
-		c.Writer.Header().Set("Content-Type", ContentTypeGeoJSON)
+		// Cache-Control and ETag are added by the cache middleware.
+		body, err := json.Marshal(NewAdminBoundaryFeature(boundary))
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+		c.Data(http.StatusOK, ContentTypeGeoJSON, body)
 	}
 }
 

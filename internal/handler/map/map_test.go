@@ -498,6 +498,12 @@ func (suite *MapSuite) TestGetAdminBoundaryGeoJSON() {
 			if tt.id != 0 {
 				suite.uc.On("GetAdminBoundaryById", mock.Anything, tt.id).Once().Return(boundary, tt.err)
 			}
+			suite.cacher.On("GetBytes", mock.Anything, mwcache.Key("GET", tt.path, models.LangRU)).Once().
+				Return(nil, errors.New("miss"))
+			if tt.statusCode == http.StatusOK {
+				suite.cacher.On("Set", mock.Anything, mwcache.Key("GET", tt.path, models.LangRU), mock.Anything, maprest.DictionaryCacheTTL).
+					Once().Return(nil)
+			}
 
 			w := httptest.NewRecorder()
 			suite.r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, tt.path, nil))
@@ -505,9 +511,12 @@ func (suite *MapSuite) TestGetAdminBoundaryGeoJSON() {
 			suite.Equal(tt.statusCode, w.Code, w.Body.String())
 			if tt.statusCode != http.StatusOK {
 				handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+				suite.Empty(w.Header().Get("ETag"))
 				return
 			}
 			suite.Equal(maprest.ContentTypeGeoJSON, w.Header().Get("Content-Type"))
+			suite.Equal(mwcache.ETag(w.Body.Bytes()), w.Header().Get("ETag"))
+			suite.Equal("public, max-age=86400", w.Header().Get("Cache-Control"))
 
 			var feature struct {
 				Type     string `json:"type"`
@@ -529,6 +538,47 @@ func (suite *MapSuite) TestGetAdminBoundaryGeoJSON() {
 }
 
 // The static marks/count route must keep working next to the :file param.
+
+func (suite *MapSuite) TestGetAdminBoundaryGeoJSON_NotModified() {
+	boundary := models.AdminBoundary{
+		Id: 5, Name: "Центр", AdminLevel: 8,
+		Geom: models.NewMultiPolygon([][][]geom.Coord{{{{41.39, 52.69}, {41.42, 52.69}, {41.42, 52.71}, {41.39, 52.71}, {41.39, 52.69}}}}),
+	}
+	const path = "/map/admin-boundaries/5.geojson"
+	key := mwcache.Key("GET", path, models.LangRU)
+
+	// Fill the cache and remember what was stored.
+	var saved []byte
+	suite.uc.On("GetAdminBoundaryById", mock.Anything, 5).Once().Return(boundary, nil)
+	suite.cacher.On("GetBytes", mock.Anything, key).Once().Return(nil, errors.New("miss"))
+	suite.cacher.On("Set", mock.Anything, key, mock.Anything, maprest.DictionaryCacheTTL).Once().
+		Run(func(args mock.Arguments) { saved = args.Get(2).([]byte) }).Return(nil)
+	first := httptest.NewRecorder()
+	suite.r.ServeHTTP(first, httptest.NewRequest(http.MethodGet, path, nil))
+	suite.Require().Equal(http.StatusOK, first.Code)
+	etag := first.Header().Get("ETag")
+	suite.Require().NotEmpty(etag)
+
+	// A client presenting the ETag gets 304 straight from the cache.
+	suite.cacher.On("GetBytes", mock.Anything, key).Once().Return(saved, nil)
+	req := httptest.NewRequest(http.MethodGet, path, nil)
+	req.Header.Set("If-None-Match", etag)
+	second := httptest.NewRecorder()
+	suite.r.ServeHTTP(second, req)
+
+	suite.Equal(http.StatusNotModified, second.Code)
+	suite.Empty(second.Body.Bytes())
+	suite.Equal(etag, second.Header().Get("ETag"))
+
+	// Without the validator the cached document is served with its content type.
+	suite.cacher.On("GetBytes", mock.Anything, key).Once().Return(saved, nil)
+	third := httptest.NewRecorder()
+	suite.r.ServeHTTP(third, httptest.NewRequest(http.MethodGet, path, nil))
+	suite.Equal(http.StatusOK, third.Code)
+	suite.Equal(maprest.ContentTypeGeoJSON, third.Header().Get("Content-Type"))
+	suite.JSONEq(first.Body.String(), third.Body.String())
+}
+
 func (suite *MapSuite) TestAdminBoundariesRoutesCoexist() {
 	suite.uc.On("GetAdminBoundariesMarksCount", mock.Anything, mock.Anything).Once().Return([]models.AdminBoundaryMarksCount{}, nil)
 

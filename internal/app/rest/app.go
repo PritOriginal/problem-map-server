@@ -192,7 +192,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	tasksUseCase := usecase.NewTasks(log, usecase.TasksRepositories{
 		Tasks: tasksRepo,
 	}).WithEvents(publisher)
-	tasksrest.Register(router, log, authMiddleware, tasksUseCase)
+	tasksrest.Register(router, log, authMiddleware, tasksUseCase, redisClient)
 
 	notificationsRepo := postgres.NewNotifications(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	// The REST server only stores manual data and reads notifications; push
