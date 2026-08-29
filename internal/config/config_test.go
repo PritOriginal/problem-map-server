@@ -66,6 +66,7 @@ func (suite *ConfigSuite) TestValidate() {
 			TargetProbability: 0.5, MaxRadiusMeters: 100,
 		}
 		c.Marks = config.MarksConfig{DedupRadiusM: 50}
+		c.Comments = config.CommentsConfig{EditWindow: 15 * time.Minute, MaxPerDay: 100}
 		c.Rating = config.RatingConfig{CheckCorrect: 2, CheckWrong: -1, MarkConfirmed: 3, MarkRefuted: -2, TaskCompleted: 1, MaxChecksPerDay: 50}
 		c.Push = config.PushConfig{SendTimeout: 15 * time.Second, FCM: config.FCMConfig{Timeout: 5 * time.Second, MaxRetries: 3, Concurrency: 8}}
 		c.Export.MaxRows = 50_000

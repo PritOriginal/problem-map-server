@@ -65,6 +65,12 @@ tasker:
 marks:
   dedup-radius-m: 50
 
+# Comments on marks (env: COMMENTS_*): how long the author may edit a
+# comment and how many comments a user may post per rolling 24 hours.
+comments:
+  edit-window: 15m
+  max-per-day: 100
+
 # Rating deltas awarded when a voting stage resolves and the anti-fraud
 # limits of POST /checks (env: RATING_*).
 rating:

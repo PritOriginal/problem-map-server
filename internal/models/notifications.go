@@ -16,6 +16,10 @@ const (
 	NotificationCheckAdded        NotificationType = "check.added"
 	NotificationMarkAssigned      NotificationType = "mark.assigned"
 	NotificationMarkSLABreached   NotificationType = "mark.sla_breached"
+	// NotificationCommentAdded is sent to the author of the mark, the
+	// author of the parent comment (for a reply) and the followers of the
+	// mark when a comment is posted.
+	NotificationCommentAdded NotificationType = "comment_added"
 	// NotificationWebhookDisabled tells the owner that a webhook was
 	// deactivated after repeated delivery failures.
 	NotificationWebhookDisabled NotificationType = "webhook.disabled"

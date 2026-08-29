@@ -19,13 +19,16 @@ type NotifierSuite struct {
 	uc            *usecase.Notifier
 	notifications *usecase.MockNotificationCreator
 	marks         *usecase.MockNotifierMarksRepository
+	comments      *usecase.MockNotifierCommentsRepository
 }
 
 func (suite *NotifierSuite) SetupTest() {
 	suite.notifications = usecase.NewMockNotificationCreator(suite.T())
 	suite.marks = usecase.NewMockNotifierMarksRepository(suite.T())
+	suite.comments = usecase.NewMockNotifierCommentsRepository(suite.T())
 	suite.uc = usecase.NewNotifier(slogdiscard.NewDiscardLogger(), suite.notifications, usecase.NotifierRepositories{
-		Marks: suite.marks,
+		Marks:    suite.marks,
+		Comments: suite.comments,
 	})
 }
 
@@ -275,6 +278,121 @@ func (suite *NotifierSuite) TestHandleOrganizationEvents() {
 			}
 
 			err := tt.handle(context.Background())
+			if tt.wantErr {
+				suite.Error(err)
+				return
+			}
+			suite.NoError(err)
+		})
+	}
+}
+
+func (suite *NotifierSuite) TestHandleCommentAdded() {
+	const (
+		markID    = 5
+		commenter = 2
+		author    = 3
+		parentID  = 40
+	)
+	parent := parentID
+
+	tests := []struct {
+		name      string
+		ev        events.CommentAdded
+		getMark   *method[models.Mark]
+		getParent *method[models.Comment]
+		followers *method[[]int]
+		createErr error
+		// wantBodies maps every expected addressee to the body they get.
+		wantBodies map[int]string
+		wantErr    bool
+	}{
+		{
+			name:      "OkAuthorAndFollowersWithoutCommenterDuplicates",
+			ev:        events.CommentAdded{Header: events.Header{EventID: "e1"}, CommentID: 41, MarkID: markID, UserID: commenter, AuthorID: author},
+			followers: &method[[]int]{data: []int{author, commenter, 9}},
+			wantBodies: map[int]string{
+				author: "Новый комментарий к вашей метке #5",
+				9:      "Новый комментарий к метке #5",
+			},
+		},
+		{
+			name:      "OkReplyParentAuthorGetsReplyText",
+			ev:        events.CommentAdded{Header: events.Header{EventID: "e2"}, CommentID: 42, MarkID: markID, UserID: commenter, ParentID: &parent, AuthorID: author},
+			getParent: &method[models.Comment]{data: models.Comment{ID: parentID, UserID: 9}},
+			followers: &method[[]int]{data: []int{9}},
+			wantBodies: map[int]string{
+				author: "Новый комментарий к вашей метке #5",
+				9:      "Ответ на ваш комментарий к метке #5",
+			},
+		},
+		{
+			name:       "OkAuthorFromMarkWhenEventLacksIt",
+			ev:         events.CommentAdded{Header: events.Header{EventID: "e3"}, CommentID: 43, MarkID: markID, UserID: commenter},
+			getMark:    &method[models.Mark]{data: models.Mark{ID: markID, UserID: author}},
+			followers:  &method[[]int]{data: nil},
+			wantBodies: map[int]string{author: "Новый комментарий к вашей метке #5"},
+		},
+		{
+			name:       "OkNobodyWhenAuthorCommentsOwnMarkWithoutFollowers",
+			ev:         events.CommentAdded{Header: events.Header{EventID: "e4"}, CommentID: 44, MarkID: markID, UserID: author, AuthorID: author},
+			followers:  &method[[]int]{data: []int{author}},
+			wantBodies: map[int]string{},
+		},
+		{
+			name:       "OkMissingParentIsSkipped",
+			ev:         events.CommentAdded{Header: events.Header{EventID: "e5"}, CommentID: 45, MarkID: markID, UserID: commenter, ParentID: &parent, AuthorID: author},
+			getParent:  &method[models.Comment]{err: repository.ErrNotFound},
+			followers:  &method[[]int]{data: nil},
+			wantBodies: map[int]string{author: "Новый комментарий к вашей метке #5"},
+		},
+		{
+			name:    "ErrMarkNotFound",
+			ev:      events.CommentAdded{Header: events.Header{EventID: "e6"}, CommentID: 46, MarkID: markID, UserID: commenter},
+			getMark: &method[models.Mark]{err: repository.ErrNotFound},
+			wantErr: true,
+		},
+		{
+			name:      "ErrFollowers",
+			ev:        events.CommentAdded{Header: events.Header{EventID: "e7"}, CommentID: 47, MarkID: markID, UserID: commenter, AuthorID: author},
+			followers: &method[[]int]{err: errRepo},
+			wantErr:   true,
+		},
+		{
+			name:       "ErrCreate",
+			ev:         events.CommentAdded{Header: events.Header{EventID: "e8"}, CommentID: 48, MarkID: markID, UserID: commenter, AuthorID: author},
+			followers:  &method[[]int]{data: nil},
+			createErr:  errRepo,
+			wantBodies: map[int]string{author: "Новый комментарий к вашей метке #5"},
+			wantErr:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if tt.getMark != nil {
+				suite.marks.On("GetMarkById", mock.Anything, markID).Once().Return(tt.getMark.data, tt.getMark.err)
+			}
+			if tt.getParent != nil {
+				suite.comments.On("GetCommentById", mock.Anything, parentID).Once().Return(tt.getParent.data, tt.getParent.err)
+			}
+			if tt.followers != nil {
+				suite.marks.On("GetFollowerIDs", mock.Anything, markID).Once().Return(tt.followers.data, tt.followers.err)
+			}
+			for userID, body := range tt.wantBodies {
+				suite.notifications.On("Create", mock.Anything, mock.MatchedBy(func(n models.Notification) bool {
+					return n.UserID == userID && n.Body == body &&
+						n.EventID == tt.ev.EventID &&
+						n.Type == models.NotificationCommentAdded &&
+						n.MarkID.ValueOrZero() == int64(markID) &&
+						!n.TaskID.Valid && n.Title != ""
+				})).Once().Return(int64(1), true, tt.createErr)
+				if tt.createErr != nil {
+					break
+				}
+			}
+
+			err := suite.uc.HandleCommentAdded(context.Background(), tt.ev)
 			if tt.wantErr {
 				suite.Error(err)
 				return
