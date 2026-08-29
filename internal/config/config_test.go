@@ -72,6 +72,7 @@ func (suite *ConfigSuite) TestValidate() {
 		c.Export.RateLimit.Requests = 2
 		c.Export.RateLimit.Window = time.Minute
 		c.Webhooks = config.WebhooksConfig{Timeout: 10 * time.Second, RetryInterval: 30 * time.Second, RetryBatch: 100}
+		c.Reports = config.ReportsConfig{HideThreshold: 5, MaxPerDay: 20}
 		return c
 	}
 

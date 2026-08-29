@@ -35,6 +35,28 @@ type Config struct {
 	Push            PushConfig       `yaml:"push"`
 	Export          ExportConfig     `yaml:"export"`
 	Webhooks        WebhooksConfig   `yaml:"webhooks"`
+	Reports         ReportsConfig    `yaml:"reports"`
+}
+
+// ReportsConfig tunes user reports (moderation).
+type ReportsConfig struct {
+	// HideThreshold is the number of open reports on a mark after which it
+	// is hidden automatically (mark.hidden event).
+	HideThreshold int `yaml:"hide-threshold" env:"REPORTS_HIDE_THRESHOLD" env-default:"5"`
+	// MaxPerDay caps the reports a user may file in a rolling 24 hours.
+	MaxPerDay int `yaml:"max-per-day" env:"REPORTS_MAX_PER_DAY" env-default:"20"`
+}
+
+// Validate checks that the report limits are sane.
+func (r ReportsConfig) Validate() error {
+	var errs []error
+	if r.HideThreshold <= 0 {
+		errs = append(errs, errors.New("reports.hide-threshold (REPORTS_HIDE_THRESHOLD) must be positive"))
+	}
+	if r.MaxPerDay <= 0 {
+		errs = append(errs, errors.New("reports.max-per-day (REPORTS_MAX_PER_DAY) must be positive"))
+	}
+	return errors.Join(errs...)
 }
 
 // NotifierConfig tunes the notification worker (cmd/notifier).
@@ -490,7 +512,7 @@ const MinJWTKeyLength = 32
 
 // Validate checks that security-sensitive settings are present and sane.
 func (c *Config) Validate() error {
-	if err := errors.Join(c.Auth.Validate(), c.DB.Validate(), c.Tasker.Validate(), c.Marks.Validate(), c.Rating.Validate(), c.Push.Validate(), c.Nats.ValidateDelivery(), c.Export.Validate(), c.Webhooks.Validate()); err != nil {
+	if err := errors.Join(c.Auth.Validate(), c.DB.Validate(), c.Tasker.Validate(), c.Marks.Validate(), c.Rating.Validate(), c.Push.Validate(), c.Nats.ValidateDelivery(), c.Export.Validate(), c.Webhooks.Validate(), c.Reports.Validate()); err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 	return nil
