@@ -40,6 +40,16 @@ func (suite *ConfigSuite) TestDatabaseConfigDSN() {
 	}
 }
 
+func (suite *ConfigSuite) TestNatsConfig() {
+	suite.True(config.NatsConfig{}.JetStream(), "empty delivery means jetstream")
+	suite.True(config.NatsConfig{Delivery: config.NatsDeliveryJetStream}.JetStream())
+	suite.False(config.NatsConfig{Delivery: config.NatsDeliveryCore}.JetStream())
+
+	suite.ErrorContains(config.NatsConfig{}.Validate(), "NATS_URL")
+	suite.NoError(config.NatsConfig{URL: "nats://127.0.0.1:4222"}.Validate())
+	suite.ErrorContains(config.NatsConfig{URL: "nats://127.0.0.1:4222", Delivery: "x"}.Validate(), "NATS_DELIVERY")
+}
+
 func (suite *ConfigSuite) TestValidate() {
 	longKey := "0123456789abcdef0123456789abcdef"
 
@@ -80,6 +90,8 @@ func (suite *ConfigSuite) TestValidate() {
 		{name: "zero tasker interval", mutate: func(c *config.Config) { c.Tasker.Interval = 0 }, wantErr: "TASKER_INTERVAL"},
 		{name: "target probability above one", mutate: func(c *config.Config) { c.Tasker.TargetProbability = 1.5 }, wantErr: "TASKER_TARGET_PROBABILITY"},
 		{name: "negative factor", mutate: func(c *config.Config) { c.Tasker.LoadDelta = -1 }, wantErr: "load-delta"},
+		{name: "CoreDelivery", mutate: func(c *config.Config) { c.Nats.Delivery = config.NatsDeliveryCore }},
+		{name: "UnknownDelivery", mutate: func(c *config.Config) { c.Nats.Delivery = "rabbit" }, wantErr: "NATS_DELIVERY"},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
