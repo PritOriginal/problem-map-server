@@ -62,6 +62,18 @@ func (r *MapRepository) GetAdminBoundariesMarksCount(ctx context.Context, filter
 		args = append(args, pq.Array(filters.MarkTypeIds))
 		joinConditions = append(joinConditions, fmt.Sprintf("m.type_mark_id = ANY($%d)", len(args)))
 	}
+	if len(filters.MarkStatusIds) > 0 {
+		args = append(args, pq.Array(filters.MarkStatusIds))
+		joinConditions = append(joinConditions, fmt.Sprintf("m.mark_status_id = ANY($%d)", len(args)))
+	}
+	if !filters.From.IsZero() {
+		args = append(args, filters.From.UTC())
+		joinConditions = append(joinConditions, fmt.Sprintf("m.created_at >= $%d::timestamp", len(args)))
+	}
+	if !filters.To.IsZero() {
+		args = append(args, filters.To.UTC())
+		joinConditions = append(joinConditions, fmt.Sprintf("m.created_at <= $%d::timestamp", len(args)))
+	}
 
 	query := fmt.Sprintf(`
 		SELECT
@@ -90,6 +102,53 @@ func (r *MapRepository) GetAdminBoundariesMarksCount(ctx context.Context, filter
 	}
 
 	return boundariesCount, nil
+}
+
+// GetHeatmap bins the marks inside the bbox into a hexagonal grid built in
+// EPSG:3857 (ST_HexagonGrid, PostGIS >= 3.1) and returns the non-empty cells
+// back in WGS84. Points are assigned by ST_Contains so a mark on an edge is
+// never counted twice.
+func (r *MapRepository) GetHeatmap(ctx context.Context, filters models.HeatmapFilters) ([]models.HeatmapCell, error) {
+	const op = "storage.postgres.GetHeatmap"
+
+	b := filters.BBox
+	args := []any{b.MinLon, b.MinLat, b.MaxLon, b.MaxLat, filters.CellM}
+	conds := []string{"ST_Intersects(m.geom, ST_MakeEnvelope($1, $2, $3, $4, 4326))"}
+
+	if len(filters.MarkTypeIds) > 0 {
+		args = append(args, pq.Array(filters.MarkTypeIds))
+		conds = append(conds, fmt.Sprintf("m.type_mark_id = ANY($%d)", len(args)))
+	}
+	if len(filters.MarkStatusIds) > 0 {
+		args = append(args, pq.Array(filters.MarkStatusIds))
+		conds = append(conds, fmt.Sprintf("m.mark_status_id = ANY($%d)", len(args)))
+	}
+
+	query := fmt.Sprintf(`
+		WITH bounds AS (
+			SELECT ST_Transform(ST_MakeEnvelope($1, $2, $3, $4, 4326), 3857) AS geom
+		),
+		pts AS (
+			SELECT ST_Transform(m.geom, 3857) AS geom
+			FROM marks m
+			WHERE %s
+		)
+		SELECT
+			ST_AsEWKB(ST_Transform(hex.geom, 4326)) AS geom,
+			COUNT(pts.geom) AS count
+		FROM bounds
+		CROSS JOIN ST_HexagonGrid($5, bounds.geom) AS hex
+		JOIN pts ON ST_Contains(hex.geom, pts.geom)
+		GROUP BY hex.i, hex.j, hex.geom
+		ORDER BY hex.i, hex.j
+	`, strings.Join(conds, " AND "))
+
+	cells := []models.HeatmapCell{}
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &cells, query, args...); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	return cells, nil
 }
 
 func (r *MapRepository) GetRegions(ctx context.Context) ([]models.Region, error) {

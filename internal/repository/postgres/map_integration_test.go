@@ -118,6 +118,132 @@ func (s *PostgresSuite) TestMap_GetAdminBoundariesMarksCount() {
 	}
 }
 
+func (s *PostgresSuite) TestMap_GetAdminBoundariesMarksCount_StatusAndDateFilters() {
+	void := models.AdminBoundaryMarksCount{Id: fxBoundaryVoid, Name: "Пустой"}
+
+	tests := []struct {
+		name    string
+		filters models.GetAdminBoundaryMarksCountFilters
+		want    models.AdminBoundaryMarksCount
+	}{
+		{
+			name:    "status filter keeps only confirmed",
+			filters: models.GetAdminBoundaryMarksCountFilters{MarkStatusIds: []int{int(models.ConfirmedStatus)}},
+			want:    models.AdminBoundaryMarksCount{Id: fxBoundaryMain, Name: "Центр", TotalCount: 1, ConfirmedCount: 1},
+		},
+		{
+			name:    "several statuses",
+			filters: models.GetAdminBoundaryMarksCountFilters{MarkStatusIds: []int{int(models.UnconfirmedStatus), int(models.ConfirmedStatus)}},
+			want:    models.AdminBoundaryMarksCount{Id: fxBoundaryMain, Name: "Центр", TotalCount: 2, UnconfirmedCount: 1, ConfirmedCount: 1},
+		},
+		{
+			name:    "from excludes the 40 days old mark",
+			filters: models.GetAdminBoundaryMarksCountFilters{DateRange: models.DateRange{From: s.daysAgo(20)}},
+			want:    models.AdminBoundaryMarksCount{Id: fxBoundaryMain, Name: "Центр", TotalCount: 1, ConfirmedCount: 1},
+		},
+		{
+			name:    "to excludes the recent mark",
+			filters: models.GetAdminBoundaryMarksCountFilters{DateRange: models.DateRange{To: s.daysAgo(20)}},
+			want:    models.AdminBoundaryMarksCount{Id: fxBoundaryMain, Name: "Центр", TotalCount: 1, UnconfirmedCount: 1},
+		},
+		{
+			name: "status and range combined to nothing",
+			filters: models.GetAdminBoundaryMarksCountFilters{
+				MarkStatusIds: []int{int(models.ConfirmedStatus)},
+				DateRange:     models.DateRange{To: s.daysAgo(20)},
+			},
+			want: models.AdminBoundaryMarksCount{Id: fxBoundaryMain, Name: "Центр"},
+		},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			got, err := s.maps.GetAdminBoundariesMarksCount(s.ctx, tt.filters)
+			s.Require().NoError(err)
+			s.Equal([]models.AdminBoundaryMarksCount{tt.want, void}, got)
+		})
+	}
+}
+
+func (s *PostgresSuite) TestMap_GetHeatmap() {
+	// Bbox of the "Центр" boundary: marks 1 (type 1, unconfirmed) and
+	// 2 (type 2, confirmed) are inside, ~700 m apart; mark 3 is outside.
+	bbox := models.BBox{MinLon: 41.39, MinLat: 52.69, MaxLon: 41.42, MaxLat: 52.71}
+
+	tests := []struct {
+		name      string
+		filters   models.HeatmapFilters
+		wantCells int
+		wantTotal int
+	}{
+		{
+			name:      "coarse grid: both marks, cell count between 1 and 2",
+			filters:   models.HeatmapFilters{BBox: bbox, CellM: 5000},
+			wantCells: -1,
+			wantTotal: 2,
+		},
+		{
+			name:      "fine grid: one mark per cell",
+			filters:   models.HeatmapFilters{BBox: bbox, CellM: 100},
+			wantCells: 2,
+			wantTotal: 2,
+		},
+		{
+			name:      "type filter",
+			filters:   models.HeatmapFilters{BBox: bbox, CellM: 100, MarkTypeIds: []int{2}},
+			wantCells: 1,
+			wantTotal: 1,
+		},
+		{
+			name:      "status filter",
+			filters:   models.HeatmapFilters{BBox: bbox, CellM: 100, MarkStatusIds: []int{int(models.UnconfirmedStatus)}},
+			wantCells: 1,
+			wantTotal: 1,
+		},
+		{
+			name:      "type and status that never match together",
+			filters:   models.HeatmapFilters{BBox: bbox, CellM: 100, MarkTypeIds: []int{2}, MarkStatusIds: []int{int(models.UnconfirmedStatus)}},
+			wantCells: 0,
+		},
+		{
+			name:      "bbox without marks",
+			filters:   models.HeatmapFilters{BBox: models.BBox{MinLon: 41.50, MinLat: 52.80, MaxLon: 41.52, MaxLat: 52.82}, CellM: 100},
+			wantCells: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			cells, err := s.maps.GetHeatmap(s.ctx, tt.filters)
+			s.Require().NoError(err)
+			s.NotNil(cells)
+			if tt.wantCells >= 0 {
+				s.Len(cells, tt.wantCells)
+			} else {
+				s.GreaterOrEqual(len(cells), 1)
+				s.LessOrEqual(len(cells), 2)
+			}
+
+			total := 0
+			for _, cell := range cells {
+				total += cell.Count
+				s.Positive(cell.Count)
+				s.Require().NotNil(cell.Geom)
+				s.Equal(4326, cell.Geom.Ewkb.SRID())
+				// A hexagon ring: 6 vertices plus the closing point.
+				s.Equal(7, cell.Geom.Ewkb.NumCoords())
+				// The cell overlaps the bbox (it may stick out along the edge).
+				bounds := cell.Geom.Ewkb.Bounds()
+				s.Less(bounds.Min(0), tt.filters.BBox.MaxLon)
+				s.Greater(bounds.Max(0), tt.filters.BBox.MinLon)
+				s.Less(bounds.Min(1), tt.filters.BBox.MaxLat)
+				s.Greater(bounds.Max(1), tt.filters.BBox.MinLat)
+			}
+			s.Equal(tt.wantTotal, total)
+		})
+	}
+}
+
 func (s *PostgresSuite) TestMap_GetAdminBoundariesMarksCount_NoMarksAtAll() {
 	_, err := s.db.ExecContext(s.ctx, `TRUNCATE TABLE checks, tasks, mark_status_history, marks RESTART IDENTITY CASCADE`)
 	s.Require().NoError(err)

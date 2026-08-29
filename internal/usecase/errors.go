@@ -17,6 +17,9 @@ var (
 	// ErrInvalidArgument is returned when request filters or pagination are
 	// out of range; handlers map it to 400.
 	ErrInvalidArgument = errors.New("invalid argument")
+	// ErrTooManyHeatmapCells is a specific invalid-argument case: the heatmap
+	// grid would exceed models.MaxHeatmapCells, the client must raise cell_m.
+	ErrTooManyHeatmapCells = fmt.Errorf("%w: too many heatmap cells, increase cell_m", ErrInvalidArgument)
 )
 
 // mapRepoErr translates repository errors into usecase errors so that callers
