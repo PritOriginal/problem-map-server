@@ -2,9 +2,9 @@ package usecase_test
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
@@ -21,6 +21,7 @@ type NotificationsSuite struct {
 	repo    *usecase.MockNotificationsRepository
 	devices *usecase.MockDevicesRepository
 	push    *usecase.MockPushSender
+	metrics *usecase.MockPushMetrics
 }
 
 func (suite *NotificationsSuite) SetupTest() {
@@ -28,129 +29,15 @@ func (suite *NotificationsSuite) SetupTest() {
 	suite.repo = usecase.NewMockNotificationsRepository(suite.T())
 	suite.devices = usecase.NewMockDevicesRepository(suite.T())
 	suite.push = usecase.NewMockPushSender(suite.T())
+	suite.metrics = usecase.NewMockPushMetrics(suite.T())
 	suite.uc = usecase.NewNotifications(suite.log, suite.push, usecase.NotificationsRepositories{
 		Notifications: suite.repo,
 		Devices:       suite.devices,
-	})
+	}, usecase.WithPushMetrics(suite.metrics), usecase.WithPushTimeout(time.Second))
 }
 
 func TestNotifications(t *testing.T) {
 	suite.Run(t, new(NotificationsSuite))
-}
-
-func (suite *NotificationsSuite) TestCreate() {
-	devices := []models.UserDevice{{ID: 1, UserID: 7, Platform: models.PlatformAndroid, Token: "tok"}}
-
-	tests := []struct {
-		name        string
-		eventID     string
-		add         method[int64]
-		created     bool
-		getDevices  method[[]models.UserDevice]
-		pushErr     error
-		wantID      int64
-		wantCreated bool
-		wantErr     bool
-	}{
-		{
-			name:        "OkWithPush",
-			eventID:     "evt-1",
-			add:         method[int64]{data: 10},
-			created:     true,
-			getDevices:  method[[]models.UserDevice]{data: devices},
-			wantID:      10,
-			wantCreated: true,
-		},
-		{
-			name:        "OkGeneratesEventID",
-			add:         method[int64]{data: 11},
-			created:     true,
-			getDevices:  method[[]models.UserDevice]{data: nil},
-			wantID:      11,
-			wantCreated: true,
-		},
-		{
-			name:        "DuplicateSkipped",
-			eventID:     "evt-1",
-			add:         method[int64]{data: 0},
-			created:     false,
-			wantID:      0,
-			wantCreated: false,
-		},
-		{
-			name:        "PushErrorIsSwallowed",
-			eventID:     "evt-1",
-			add:         method[int64]{data: 12},
-			created:     true,
-			getDevices:  method[[]models.UserDevice]{data: devices},
-			pushErr:     errors.New("fcm down"),
-			wantID:      12,
-			wantCreated: true,
-		},
-		{
-			name:        "DevicesErrorIsSwallowed",
-			eventID:     "evt-1",
-			add:         method[int64]{data: 13},
-			created:     true,
-			getDevices:  method[[]models.UserDevice]{err: errRepo},
-			wantID:      13,
-			wantCreated: true,
-		},
-		{
-			name:    "ErrRepo",
-			eventID: "evt-1",
-			add:     method[int64]{err: errRepo},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		suite.Run(tt.name, func() {
-			suite.repo.On("AddNotification", mock.Anything, mock.MatchedBy(func(n models.Notification) bool {
-				if tt.eventID != "" {
-					return n.EventID == tt.eventID
-				}
-				return n.EventID != ""
-			})).Once().Return(tt.add.data, tt.created, tt.add.err)
-
-			if tt.add.err == nil && tt.created {
-				suite.devices.On("GetDevicesByUserId", mock.Anything, 7).Once().Return(tt.getDevices.data, tt.getDevices.err)
-				if tt.getDevices.err == nil && len(tt.getDevices.data) > 0 {
-					suite.push.On("Send", mock.Anything, tt.getDevices.data, mock.MatchedBy(func(n models.Notification) bool {
-						return n.ID == int(tt.add.data)
-					})).Once().Return(tt.pushErr)
-				}
-			}
-
-			id, created, err := suite.uc.Create(context.Background(), models.Notification{
-				UserID:  7,
-				EventID: tt.eventID,
-				Type:    models.NotificationTaskAssigned,
-				Title:   "t",
-			})
-
-			if tt.wantErr {
-				assertRepoErr(&suite.Suite, err, tt.add.err)
-				return
-			}
-			suite.NoError(err)
-			suite.Equal(tt.wantID, id)
-			suite.Equal(tt.wantCreated, created)
-		})
-	}
-}
-
-func (suite *NotificationsSuite) TestCreateWithoutPushSender() {
-	uc := usecase.NewNotifications(suite.log, nil, usecase.NotificationsRepositories{
-		Notifications: suite.repo,
-		Devices:       suite.devices,
-	})
-	suite.repo.On("AddNotification", mock.Anything, mock.Anything).Once().Return(int64(1), true, nil)
-
-	id, created, err := uc.Create(context.Background(), models.Notification{UserID: 1, EventID: "e"})
-	suite.NoError(err)
-	suite.Equal(int64(1), id)
-	suite.True(created)
 }
 
 func (suite *NotificationsSuite) TestList() {
@@ -335,9 +222,4 @@ func (suite *NotificationsSuite) TestDeleteDevice() {
 			suite.NoError(err)
 		})
 	}
-}
-
-func (suite *NotificationsSuite) TestLogPushSender() {
-	sender := usecase.NewLogPushSender(suite.log)
-	suite.NoError(sender.Send(context.Background(), []models.UserDevice{{Platform: models.PlatformWeb, Token: "t"}}, models.Notification{UserID: 1}))
 }

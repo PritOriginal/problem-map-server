@@ -51,7 +51,7 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	if err := errors.Join(cfg.DB.Validate(), cfg.Nats.Validate()); err != nil {
+	if err := errors.Join(cfg.DB.Validate(), cfg.Nats.Validate(), cfg.Push.Validate()); err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 

@@ -31,6 +31,95 @@ type Config struct {
 	Tasker          TaskerConfig     `yaml:"tasker"`
 	Marks           MarksConfig      `yaml:"marks"`
 	Rating          RatingConfig     `yaml:"rating"`
+	Push            PushConfig       `yaml:"push"`
+	Notifier        NotifierConfig   `yaml:"notifier"`
+}
+
+// NotifierConfig tunes the notification worker (cmd/notifier).
+type NotifierConfig struct {
+	// MetricsPort is the HTTP port serving Prometheus metrics of the worker
+	// (push_sent_total etc.); 0 disables the endpoint.
+	MetricsPort int `yaml:"metrics-port" env:"NOTIFIER_METRICS_PORT" env-default:"0"`
+}
+
+// PushConfig configures push delivery in cmd/notifier. Without FCM
+// credentials the worker only logs what would be sent.
+type PushConfig struct {
+	// SendTimeout bounds the delivery of one notification to all devices of
+	// its addressee (including retries).
+	SendTimeout time.Duration `yaml:"send-timeout" env:"PUSH_SEND_TIMEOUT" env-default:"15s"`
+	FCM         FCMConfig     `yaml:"fcm"`
+	APNs        APNsConfig    `yaml:"apns"`
+}
+
+// FCMConfig configures Firebase Cloud Messaging (HTTP v1 API), used for
+// android and web devices. Credentials are a Google service account key in
+// JSON: either a path to the file or the JSON itself (handy for containers).
+type FCMConfig struct {
+	// ProjectID is the Firebase project id; empty means "take project_id
+	// from the credentials".
+	ProjectID       string `yaml:"project-id" env:"FCM_PROJECT_ID"`
+	CredentialsFile string `yaml:"credentials-file" env:"FCM_CREDENTIALS_FILE"`
+	CredentialsJSON string `yaml:"credentials-json" env:"FCM_CREDENTIALS_JSON"`
+	// Timeout bounds a single HTTP request to FCM.
+	Timeout time.Duration `yaml:"timeout" env:"FCM_TIMEOUT" env-default:"5s"`
+	// MaxRetries is how many times a request is repeated on 5xx/429 (0-3).
+	MaxRetries int `yaml:"max-retries" env:"FCM_MAX_RETRIES" env-default:"3"`
+	// Concurrency caps simultaneous requests to FCM.
+	Concurrency int `yaml:"concurrency" env:"FCM_CONCURRENCY" env-default:"8"`
+}
+
+// Enabled reports whether FCM credentials are configured.
+func (f FCMConfig) Enabled() bool {
+	return f.CredentialsFile != "" || f.CredentialsJSON != ""
+}
+
+// Validate checks the FCM settings; an unconfigured FCM is valid.
+func (f FCMConfig) Validate() error {
+	var errs []error
+	if f.CredentialsFile != "" && f.CredentialsJSON != "" {
+		errs = append(errs, errors.New("push.fcm: set either credentials-file (FCM_CREDENTIALS_FILE) or credentials-json (FCM_CREDENTIALS_JSON), not both"))
+	}
+	if f.Timeout <= 0 {
+		errs = append(errs, errors.New("push.fcm.timeout (FCM_TIMEOUT) must be positive"))
+	}
+	if f.MaxRetries < 0 || f.MaxRetries > 3 {
+		errs = append(errs, errors.New("push.fcm.max-retries (FCM_MAX_RETRIES) must be in [0, 3]"))
+	}
+	if f.Concurrency <= 0 {
+		errs = append(errs, errors.New("push.fcm.concurrency (FCM_CONCURRENCY) must be positive"))
+	}
+	return errors.Join(errs...)
+}
+
+// APNsConfig configures Apple Push Notification service (token-based auth)
+// for ios devices. The APNs sender is not implemented yet (see
+// internal/push/apns); the settings are reserved so that deployments can be
+// prepared ahead of time.
+type APNsConfig struct {
+	// KeyFile is the path to the .p8 signing key from the Apple developer
+	// account; empty disables APNs.
+	KeyFile  string `yaml:"key-file" env:"APNS_KEY_FILE"`
+	KeyID    string `yaml:"key-id" env:"APNS_KEY_ID"`
+	TeamID   string `yaml:"team-id" env:"APNS_TEAM_ID"`
+	BundleID string `yaml:"bundle-id" env:"APNS_BUNDLE_ID"`
+	// Sandbox selects the development APNs environment.
+	Sandbox bool `yaml:"sandbox" env:"APNS_SANDBOX" env-default:"false"`
+}
+
+// Enabled reports whether APNs credentials are configured.
+func (a APNsConfig) Enabled() bool {
+	return a.KeyFile != ""
+}
+
+// Validate checks that the push settings are sane.
+func (p PushConfig) Validate() error {
+	var errs []error
+	if p.SendTimeout <= 0 {
+		errs = append(errs, errors.New("push.send-timeout (PUSH_SEND_TIMEOUT) must be positive"))
+	}
+	errs = append(errs, p.FCM.Validate())
+	return errors.Join(errs...)
 }
 
 // MarksConfig tunes mark creation.
@@ -304,7 +393,7 @@ const MinJWTKeyLength = 32
 
 // Validate checks that security-sensitive settings are present and sane.
 func (c *Config) Validate() error {
-	if err := errors.Join(c.Auth.Validate(), c.DB.Validate(), c.Tasker.Validate(), c.Marks.Validate(), c.Rating.Validate()); err != nil {
+	if err := errors.Join(c.Auth.Validate(), c.DB.Validate(), c.Tasker.Validate(), c.Marks.Validate(), c.Rating.Validate(), c.Push.Validate()); err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 	return nil

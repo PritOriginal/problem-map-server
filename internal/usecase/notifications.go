@@ -2,10 +2,15 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
+	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/internal/push"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/google/uuid"
 )
@@ -26,61 +31,90 @@ type DevicesRepository interface {
 	GetDevicesByUserId(ctx context.Context, userId int) ([]models.UserDevice, error)
 }
 
-// PushSender delivers a notification to the user's devices. This is the
-// extension point for a real push provider (FCM/APNs): implement it, wire
-// the implementation in internal/app/notifier instead of LogPushSender.
+// PushSender delivers a notification to one device (see internal/push):
+// push.ErrInvalidToken makes the use case drop the device,
+// push.ErrNotImplemented is counted as unsupported, anything else is a
+// delivery failure.
 type PushSender interface {
-	Send(ctx context.Context, devices []models.UserDevice, n models.Notification) error
+	Send(ctx context.Context, device models.UserDevice, n models.Notification) error
 }
 
-// LogPushSender is the default PushSender: it only logs what would be sent.
-type LogPushSender struct {
-	log *slog.Logger
+// PushMetrics records the outcome of every push attempt
+// (push_sent_total{platform,result}).
+type PushMetrics interface {
+	PushSent(platform models.DevicePlatform, result string)
 }
 
-func NewLogPushSender(log *slog.Logger) *LogPushSender {
-	return &LogPushSender{log: log.With(slog.String("component", "push"))}
-}
+// DefaultPushTimeout bounds the delivery of one notification to all devices
+// of its addressee when no timeout is configured.
+const DefaultPushTimeout = 15 * time.Second
 
-func (s *LogPushSender) Send(_ context.Context, devices []models.UserDevice, n models.Notification) error {
-	tokens := make([]string, 0, len(devices))
-	for _, d := range devices {
-		tokens = append(tokens, string(d.Platform)+":"+d.Token)
-	}
-	s.log.Info("push notification (log sender)",
-		slog.Int("user_id", n.UserID),
-		slog.String("type", string(n.Type)),
-		slog.String("title", n.Title),
-		slog.Any("devices", tokens),
-	)
-	return nil
-}
+// deadTokenDeleteTimeout bounds the deletion of a device whose token the
+// provider rejected; it runs detached from the (possibly expired) push context.
+const deadTokenDeleteTimeout = 5 * time.Second
 
 type NotificationsRepositories struct {
 	Notifications NotificationsRepository
 	Devices       DevicesRepository
 }
 
-// Notifications manages a user's in-app notifications and push tokens.
-type Notifications struct {
-	log   *slog.Logger
-	repos NotificationsRepositories
-	push  PushSender
+// NotificationsOption tunes push delivery of Notifications.
+type NotificationsOption func(*Notifications)
+
+// WithPushMetrics records push outcomes on m.
+func WithPushMetrics(m PushMetrics) NotificationsOption {
+	return func(uc *Notifications) { uc.metrics = m }
 }
 
-// NewNotifications builds the use case; a nil push disables push delivery.
-func NewNotifications(log *slog.Logger, push PushSender, repos NotificationsRepositories) *Notifications {
-	return &Notifications{
-		log:   log,
-		repos: repos,
-		push:  push,
+// WithPushTimeout bounds the push delivery of one notification; a
+// non-positive d keeps DefaultPushTimeout.
+func WithPushTimeout(d time.Duration) NotificationsOption {
+	return func(uc *Notifications) {
+		if d > 0 {
+			uc.pushTimeout = d
+		}
 	}
 }
 
+// Notifications manages a user's in-app notifications and push tokens.
+type Notifications struct {
+	log         *slog.Logger
+	repos       NotificationsRepositories
+	push        PushSender
+	metrics     PushMetrics
+	pushTimeout time.Duration
+}
+
+// NewNotifications builds the use case; a nil push disables push delivery.
+func NewNotifications(log *slog.Logger, push PushSender, repos NotificationsRepositories, opts ...NotificationsOption) *Notifications {
+	uc := &Notifications{
+		log:         log,
+		repos:       repos,
+		push:        push,
+		metrics:     noopPushMetrics{},
+		pushTimeout: DefaultPushTimeout,
+	}
+	for _, opt := range opts {
+		opt(uc)
+	}
+	return uc
+}
+
+type noopPushMetrics struct{}
+
+func (noopPushMetrics) PushSent(models.DevicePlatform, string) {}
+
 // Create stores n and, when it is new, pushes it to the user's devices. A
 // missing EventID is generated, so manual notifications are never
-// deduplicated. Push failures are logged, not returned: the in-app
-// notification is already persisted.
+// deduplicated. Push failures are logged and counted, not returned: the
+// in-app notification is already persisted.
+//
+// Delivery is synchronous, bounded by the push timeout: Create runs in the
+// notifier worker where latency is not user-facing, the NATS queue group
+// gives natural back-pressure and scale-out, and a finished Create means
+// every push either reached the provider or was reported. An asynchronous
+// pool would have to survive shutdown and detach from the handler's context
+// to give the same guarantee.
 func (uc *Notifications) Create(ctx context.Context, n models.Notification) (int64, bool, error) {
 	const op = "usecase.Notifications.Create"
 
@@ -105,14 +139,62 @@ func (uc *Notifications) Create(ctx context.Context, n models.Notification) (int
 			uc.log.Warn("failed to load user devices, push skipped", slog.String("op", op), slogger.Err(err))
 			return id, true, nil
 		}
-		if len(devices) > 0 {
-			if err := uc.push.Send(ctx, devices, n); err != nil {
-				uc.log.Warn("failed to send push", slog.String("op", op), slogger.Err(err))
-			}
-		}
+		uc.sendPush(ctx, devices, n)
 	}
 
 	return id, true, nil
+}
+
+// sendPush delivers n to every device concurrently (the provider bounds the
+// parallelism) and drops the devices whose tokens are dead.
+func (uc *Notifications) sendPush(ctx context.Context, devices []models.UserDevice, n models.Notification) {
+	if len(devices) == 0 {
+		return
+	}
+
+	sendCtx, cancel := context.WithTimeout(ctx, uc.pushTimeout)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	for _, device := range devices {
+		wg.Go(func() {
+			uc.sendPushToDevice(sendCtx, device, n)
+		})
+	}
+	wg.Wait()
+}
+
+func (uc *Notifications) sendPushToDevice(ctx context.Context, device models.UserDevice, n models.Notification) {
+	const op = "usecase.Notifications.sendPush"
+
+	log := uc.log.With(slog.String("op", op), slog.Int("user_id", n.UserID),
+		slog.Int("notification_id", n.ID), slog.String("platform", string(device.Platform)))
+
+	err := uc.push.Send(ctx, device, n)
+	switch {
+	case err == nil:
+		uc.metrics.PushSent(device.Platform, push.ResultOK)
+	case errors.Is(err, push.ErrInvalidToken):
+		uc.metrics.PushSent(device.Platform, push.ResultInvalidToken)
+		log.Info("device token rejected by the provider, deleting device",
+			slog.Int("device_id", device.ID), slogger.Err(err))
+		// The device is deleted detached from the push context (a push timeout
+		// must not leave a dead token behind) but with its own bound. A token
+		// re-registered to another user meanwhile is not ours to delete
+		// (ErrNotFound).
+		delCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), deadTokenDeleteTimeout)
+		defer cancel()
+		if err := uc.repos.Devices.DeleteDevice(delCtx, device.UserID, device.Token); err != nil &&
+			!errors.Is(err, repository.ErrNotFound) {
+			log.Warn("failed to delete device with invalid token", slogger.Err(err))
+		}
+	case errors.Is(err, push.ErrNotImplemented):
+		uc.metrics.PushSent(device.Platform, push.ResultUnsupported)
+		log.Debug("push skipped: platform not supported", slogger.Err(err))
+	default:
+		uc.metrics.PushSent(device.Platform, push.ResultError)
+		log.Warn("failed to send push", slogger.Err(err))
+	}
 }
 
 // List returns a page of the user's notifications, newest first.

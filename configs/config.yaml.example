@@ -71,3 +71,31 @@ rating:
   mark-refuted: -2
   task-completed: 1
   max-checks-per-day: 50
+
+# Push delivery in cmd/notifier (env: PUSH_*, FCM_*, APNS_*). Without FCM
+# credentials pushes are only logged. See README, "Push-уведомления".
+push:
+  # Delivery of one notification to all devices of its addressee, including retries.
+  send-timeout: 15s
+  # Firebase Cloud Messaging (HTTP v1): android and web devices. Set exactly
+  # one of credentials-file / credentials-json (service account key JSON);
+  # project-id defaults to project_id of the credentials.
+  fcm:
+    project-id:
+    credentials-file: # /etc/problem-map/firebase-sa.json
+    credentials-json:
+    timeout: 5s
+    max-retries: 3   # on 5xx / 429, 0-3
+    concurrency: 8   # simultaneous requests to FCM
+  # Apple Push Notification service: ios devices. Not implemented yet, the
+  # settings are reserved (with key-file set the ios pushes are only logged).
+  apns:
+    key-file: # /etc/problem-map/AuthKey_XXXXXXXXXX.p8
+    key-id:
+    team-id:
+    bundle-id:
+    sandbox: false
+
+notifier:
+  # HTTP port serving Prometheus metrics of cmd/notifier (push_sent_total); 0 disables.
+  metrics-port: 0
