@@ -44,7 +44,7 @@ func (s *PasswordSuite) TestHashPassword() {
 
 			cost, err := bcrypt.Cost([]byte(hash))
 			s.Require().NoError(err)
-			s.Equal(bcrypt.DefaultCost, cost)
+			s.Equal(password.Cost, cost)
 
 			s.True(password.CheckPasswordHash(tt.password, hash))
 		})
