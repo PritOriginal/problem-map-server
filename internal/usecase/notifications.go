@@ -49,6 +49,10 @@ type PushMetrics interface {
 // of its addressee when no timeout is configured.
 const DefaultPushTimeout = 15 * time.Second
 
+// deadTokenDeleteTimeout bounds the deletion of a device whose token the
+// provider rejected; it runs detached from the (possibly expired) push context.
+const deadTokenDeleteTimeout = 5 * time.Second
+
 type NotificationsRepositories struct {
 	Notifications NotificationsRepository
 	Devices       DevicesRepository
@@ -174,10 +178,13 @@ func (uc *Notifications) sendPushToDevice(ctx context.Context, device models.Use
 		uc.metrics.PushSent(device.Platform, push.ResultInvalidToken)
 		log.Info("device token rejected by the provider, deleting device",
 			slog.Int("device_id", device.ID), slogger.Err(err))
-		// The device is deleted on the parent context: a push timeout must not
-		// leave a dead token behind. A token re-registered to another user
-		// meanwhile is not ours to delete (ErrNotFound).
-		if err := uc.repos.Devices.DeleteDevice(context.WithoutCancel(ctx), device.UserID, device.Token); err != nil &&
+		// The device is deleted detached from the push context (a push timeout
+		// must not leave a dead token behind) but with its own bound. A token
+		// re-registered to another user meanwhile is not ours to delete
+		// (ErrNotFound).
+		delCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), deadTokenDeleteTimeout)
+		defer cancel()
+		if err := uc.repos.Devices.DeleteDevice(delCtx, device.UserID, device.Token); err != nil &&
 			!errors.Is(err, repository.ErrNotFound) {
 			log.Warn("failed to delete device with invalid token", slogger.Err(err))
 		}

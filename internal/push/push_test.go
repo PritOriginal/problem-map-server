@@ -101,6 +101,12 @@ func (suite *PushSuite) TestMulti() {
 	}
 }
 
+func (suite *PushSuite) TestMaskToken() {
+	suite.Equal("***", push.MaskToken(""))
+	suite.Equal("***", push.MaskToken("short-token1"))
+	suite.Equal("abcdef...uvwxyz", push.MaskToken("abcdefghijklmnopqrstuvwxyz"))
+}
+
 func (suite *PushSuite) TestLogSender() {
 	sender := push.NewLogSender(slogdiscard.NewDiscardLogger())
 	suite.NoError(sender.Send(context.Background(), models.UserDevice{Platform: models.PlatformWeb, Token: "t"}, models.Notification{UserID: 1}))

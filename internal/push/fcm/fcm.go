@@ -10,9 +10,11 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"math/rand/v2"
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
@@ -289,20 +291,29 @@ func (s *Sender) attempt(ctx context.Context, body []byte) (retryAfter time.Dura
 }
 
 // delay returns the backoff before retry number attempt+1: base doubled on
-// every attempt, or the server's Retry-After when it is larger; capped.
+// every attempt with up to 50% random jitter (so retries of concurrent
+// sends do not align), or the server's Retry-After when it is larger; capped.
 func (s *Sender) delay(attempt int, retryAfter time.Duration) time.Duration {
 	d := s.backoff << uint(attempt)
-	if d <= 0 {
+	if d <= 0 || d > maxBackoff {
 		d = maxBackoff
 	}
+	d += time.Duration(rand.Int64N(int64(d)/2 + 1)) //nolint:gosec // jitter, not security
 	return min(max(d, retryAfter), maxBackoff)
 }
 
-// parseRetryAfter reads a Retry-After in seconds; dates and garbage give 0.
+// parseRetryAfter reads a Retry-After header, either delay-seconds or an
+// HTTP-date (RFC 9110); garbage and moments in the past give 0.
 func parseRetryAfter(header string) time.Duration {
-	secs, err := strconv.Atoi(header)
-	if err != nil || secs <= 0 {
+	header = strings.TrimSpace(header)
+	if header == "" {
 		return 0
 	}
-	return time.Duration(secs) * time.Second
+	if secs, err := strconv.Atoi(header); err == nil {
+		return max(time.Duration(secs)*time.Second, 0)
+	}
+	if at, err := http.ParseTime(header); err == nil {
+		return max(time.Until(at), 0)
+	}
+	return 0
 }

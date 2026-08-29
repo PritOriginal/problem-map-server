@@ -43,6 +43,16 @@ func Data(n models.Notification) map[string]string {
 	return data
 }
 
+// MaskToken shortens a device token for logs: a token is a credential of the
+// device, so only enough of it to correlate log lines is kept.
+func MaskToken(token string) string {
+	const keep = 6
+	if len(token) <= keep*2 {
+		return "***"
+	}
+	return token[:keep] + "..." + token[len(token)-keep:]
+}
+
 // LogSender is the fallback Sender: it only logs what would be sent.
 type LogSender struct {
 	log *slog.Logger
@@ -58,7 +68,7 @@ func (s *LogSender) Send(_ context.Context, device models.UserDevice, n models.N
 		slog.String("type", string(n.Type)),
 		slog.String("title", n.Title),
 		slog.String("platform", string(device.Platform)),
-		slog.String("token", device.Token),
+		slog.String("token", MaskToken(device.Token)),
 	)
 	return nil
 }

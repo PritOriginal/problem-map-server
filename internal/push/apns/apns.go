@@ -47,7 +47,7 @@ func (s *Sender) Send(_ context.Context, device models.UserDevice, n models.Noti
 		slog.Int("user_id", n.UserID),
 		slog.String("type", string(n.Type)),
 		slog.String("title", n.Title),
-		slog.String("token", device.Token),
+		slog.String("token", push.MaskToken(device.Token)),
 	)
 	return fmt.Errorf("apns: %w", push.ErrNotImplemented)
 }
