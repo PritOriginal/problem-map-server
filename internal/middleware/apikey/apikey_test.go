@@ -41,8 +41,16 @@ func (suite *APIKeySuite) SetupTest() {
 		c.JSON(http.StatusOK, gin.H{"key_id": id.KeyID, "with_key": ok})
 	}
 	limited := func(c *gin.Context) { c.Header("X-IP-Limited", "1"); c.Next() }
+	// jwt stands in for middleware.OptionalAuth: X-Viewer marks a request
+	// whose Bearer token was verified before the key middleware runs.
+	jwt := func(c *gin.Context) {
+		if c.GetHeader("X-Viewer") != "" {
+			c.Request = c.Request.WithContext(models.ContextWithViewer(c.Request.Context(), 42))
+		}
+		c.Next()
+	}
 
-	g := suite.r.Group("", apikey.Optional(slogdiscard.NewDiscardLogger(), apikey.Params{
+	g := suite.r.Group("", jwt, apikey.Optional(slogdiscard.NewDiscardLogger(), apikey.Params{
 		Auth:     suite.auth,
 		Counter:  suite.counter,
 		Recorder: suite.recorder,
@@ -129,6 +137,16 @@ func (suite *APIKeySuite) TestOptional() {
 			name: "Write403", method: http.MethodPost, path: "/marks",
 			header: map[string]string{apikey.Header: rawKey}, authKey: key(),
 			noCount: true, statusCode: http.StatusForbidden,
+		},
+		{
+			name: "JWTWinsOverKeyOnWrite", method: http.MethodPost, path: "/marks",
+			header: map[string]string{apikey.Header: "pm_live_garbage", "X-Viewer": "1"},
+			noAuth: true, noCount: true, statusCode: http.StatusOK,
+		},
+		{
+			name: "JWTWinsOverKeyOnRead", method: http.MethodGet, path: "/marks/export",
+			header: map[string]string{apikey.Header: rawKey, "X-Viewer": "1"},
+			noAuth: true, noCount: true, statusCode: http.StatusOK, ipLimited: "1",
 		},
 	}
 

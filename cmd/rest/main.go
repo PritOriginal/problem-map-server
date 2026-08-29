@@ -22,7 +22,7 @@ import (
 //	@securityDefinitions.apikey	ApiKeyAuth
 //	@in							header
 //	@name						X-Api-Key
-//	@description				Open-data API key "pm_live_…" (POST /api-keys); also accepted as "Authorization: ApiKey {key}". Optional on public GET routes: with a key the per-key quota applies and X-RateLimit-* headers are returned
+//	@description				Open-data API key "pm_live_…" (POST /api-keys); also accepted as "Authorization: ApiKey {key}". Optional on public GET routes: with a key the per-key quota applies and X-RateLimit-* headers are returned; ignored when a valid Bearer JWT is sent as well (the JWT identity wins)
 
 //	@tag.name			auth
 //	@tag.description	Authorization and authentication

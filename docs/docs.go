@@ -19,7 +19,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -83,7 +85,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -159,7 +163,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -933,7 +939,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -986,7 +994,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -1071,7 +1081,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -1124,7 +1136,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -1159,7 +1173,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -1194,7 +1210,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -1268,7 +1286,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -1303,7 +1323,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -1531,7 +1553,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -1647,7 +1671,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -1734,7 +1760,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -1801,7 +1829,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -1849,7 +1879,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -1897,7 +1929,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -1958,7 +1992,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -2660,7 +2696,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -2913,7 +2951,9 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": [],
+                        "ApiKeyAuth": []
+                    },
+                    {
                         "BearerAuth": []
                     }
                 ],
@@ -8100,7 +8140,7 @@ const docTemplate = `{
     },
     "securityDefinitions": {
         "ApiKeyAuth": {
-            "description": "Open-data API key \"pm_live_…\" (POST /api-keys); also accepted as \"Authorization: ApiKey {key}\". Optional on public GET routes: with a key the per-key quota applies and X-RateLimit-* headers are returned",
+            "description": "Open-data API key \"pm_live_…\" (POST /api-keys); also accepted as \"Authorization: ApiKey {key}\". Optional on public GET routes: with a key the per-key quota applies and X-RateLimit-* headers are returned; ignored when a valid Bearer JWT is sent as well (the JWT identity wins)",
             "type": "apiKey",
             "name": "X-Api-Key",
             "in": "header"

@@ -50,7 +50,10 @@ type Params struct {
 }
 
 // Optional returns the middleware. Requests without a key pass through
-// untouched. With a key:
+// untouched, and so do requests already authenticated with a JWT by an
+// earlier middleware (models.ViewerFromContext): the JWT identity wins,
+// the key is ignored, so a Bearer token keeps working on the write routes
+// of a group whatever X-Api-Key the client also sends. With a key:
 //   - an unknown, revoked or expired key is answered 401;
 //   - a non-read method (anything but GET/HEAD/OPTIONS) is answered 403,
 //     keys are read-only whatever their scopes;
@@ -62,7 +65,7 @@ type Params struct {
 func Optional(log *slog.Logger, p Params) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		raw, ok := FromRequest(c)
-		if !ok {
+		if !ok || models.ViewerFromContext(c.Request.Context()) != 0 {
 			c.Next()
 			return
 		}

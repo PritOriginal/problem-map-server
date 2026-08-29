@@ -726,7 +726,10 @@ scope `write` (зарезервирован, не реализован).
 
 Заголовок `X-Api-Key: pm_live_…` или `Authorization: ApiKey pm_live_…`
 (`Bearer` остаётся для JWT). Ключ **опционален**: без него маршруты работают
-как раньше (анонимно, с прежними лимитами по IP).
+как раньше (анонимно, с прежними лимитами по IP). Если запрос уже прошёл
+JWT-аутентификацию (валидный `Bearer`), ключ игнорируется: identity — JWT,
+лимиты — как у авторизованного пользователя; так `POST /marks` с токеном не
+ломается посторонним `X-Api-Key`.
 
 ```sh
 curl -H "X-Api-Key: $KEY" "https://host/marks?ids=1,2,3"
@@ -748,7 +751,9 @@ Middleware `internal/middleware/apikey`:
 - `last_used_at` обновляется не чаще раза в минуту (флаг `apikey:touch:<id>`);
 - в контексте запроса — `models.ApiKeyIdentity{KeyID, OwnerID, Scopes}`;
   `api_key_id` попадает в access-лог (сам ключ — никогда);
-- метрика `api_key_requests_total{key_prefix,status}`.
+- метрика `api_key_requests_total{key_prefix,status}` — кардинальность
+  `key_prefix` ограничена числом выпущенных ключей (префикс — 8 hex-символов,
+  сам ключ по нему не восстановить).
 
 ### Batch и открытая статистика
 

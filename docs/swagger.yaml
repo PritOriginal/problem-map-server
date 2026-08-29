@@ -2191,7 +2191,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: KPI summary
       tags:
       - analytics
@@ -2243,7 +2243,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: Marks time series
       tags:
       - analytics
@@ -2286,7 +2286,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: Top mark types
       tags:
       - analytics
@@ -2790,7 +2790,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: List administrative boundaries
       tags:
       - map
@@ -2825,7 +2825,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: Administrative boundary as GeoJSON
       tags:
       - map
@@ -2881,7 +2881,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: The count of markers of all administrative boundaries
       tags:
       - map
@@ -2903,7 +2903,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: List cities
       tags:
       - map
@@ -2925,7 +2925,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: List districts
       tags:
       - map
@@ -2977,7 +2977,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: Marks heatmap
       tags:
       - map
@@ -2999,7 +2999,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: List regions
       tags:
       - map
@@ -3089,7 +3089,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: List markers
       tags:
       - marks
@@ -3238,7 +3238,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: Get mark by id
       tags:
       - marks
@@ -3655,7 +3655,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: List mark statuses
       tags:
       - marks
@@ -3737,7 +3737,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: Export markers
       tags:
       - marks
@@ -3797,7 +3797,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: List nearby markers
       tags:
       - marks
@@ -3845,7 +3845,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: Find similar markers
       tags:
       - marks
@@ -3878,7 +3878,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: List mark statuses
       tags:
       - marks
@@ -3911,7 +3911,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: List mark types
       tags:
       - marks
@@ -3951,7 +3951,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: List markers by user id
       tags:
       - marks
@@ -4116,7 +4116,7 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       security:
       - ApiKeyAuth: []
-        BearerAuth: []
+      - BearerAuth: []
       summary: Open statistics
       tags:
       - open
@@ -5403,7 +5403,8 @@ securityDefinitions:
   ApiKeyAuth:
     description: 'Open-data API key "pm_live_…" (POST /api-keys); also accepted as
       "Authorization: ApiKey {key}". Optional on public GET routes: with a key the
-      per-key quota applies and X-RateLimit-* headers are returned'
+      per-key quota applies and X-RateLimit-* headers are returned; ignored when a
+      valid Bearer JWT is sent as well (the JWT identity wins)'
     in: header
     name: X-Api-Key
     type: apiKey
