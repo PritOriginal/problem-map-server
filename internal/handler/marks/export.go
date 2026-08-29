@@ -54,6 +54,8 @@ type ExportMarksRequest struct {
 //	@Summary		Export markers
 //	@Description	stream every marker matching the same filters as GET /marks (no pagination) as GeoJSON FeatureCollection or CSV (UTF-8 with BOM; a description starting with =, +, -, @ is prefixed with an apostrophe against formula injection). At most `export.max-rows` (50 000 by default) rows: a wider selection is rejected with 400 "narrow the filters". Rate limited per IP (2 per minute by default)
 //	@Tags			marks
+//	@Security		ApiKeyAuth
+//	@Security		BearerAuth
 //	@Produce		application/geo+json
 //	@Produce		text/csv
 //	@Param			format			query		string					true	"file format"	Enums(geojson, csv)

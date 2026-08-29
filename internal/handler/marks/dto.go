@@ -17,6 +17,8 @@ type GetMarkByIdResponse struct {
 // GetMarksRequest is bound from the query string of GET /marks.
 type GetMarksRequest struct {
 	listquery.Pagination
+	// Ids is a comma-separated batch of mark ids (at most models.MaxMarksIDs).
+	Ids           string `form:"ids"`
 	MarkTypeIds   string `form:"mark_type_ids"`
 	MarkStatusIds string `form:"mark_status_ids"`
 	UserID        int    `form:"user_id" binding:"omitempty,min=1"`
@@ -32,6 +34,10 @@ type GetMarksRequest struct {
 // Filters converts the request to domain filters, parsing the list, bbox
 // and time fields. Returned errors are safe to show to the client.
 func (r GetMarksRequest) Filters() (models.GetMarksFilters, error) {
+	ids, err := handlers.ParseIntArray(r.Ids)
+	if err != nil {
+		return models.GetMarksFilters{}, fmt.Errorf("failed parse ids")
+	}
 	markTypeIds, err := handlers.ParseIntArray(r.MarkTypeIds)
 	if err != nil {
 		return models.GetMarksFilters{}, fmt.Errorf("failed parse mark type ids")
@@ -42,6 +48,7 @@ func (r GetMarksRequest) Filters() (models.GetMarksFilters, error) {
 	}
 
 	filters := models.GetMarksFilters{
+		IDs:           ids,
 		MarkTypeIds:   markTypeIds,
 		MarkStatusIds: markStatusIds,
 		UserID:        r.UserID,

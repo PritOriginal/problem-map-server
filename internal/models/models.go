@@ -190,7 +190,13 @@ func (m *Mark) ToProtobufObject() *pb.Mark {
 	}
 }
 
+// MaxMarksIDs caps the number of ids one GetMarks batch request may name.
+const MaxMarksIDs = 100
+
 type GetMarksFilters struct {
+	// IDs restricts the result to the listed marks (at most MaxMarksIDs);
+	// empty means no restriction.
+	IDs           []int
 	MarkTypeIds   []int
 	MarkStatusIds []int
 	// UserID filters by author; 0 means any user.
@@ -209,6 +215,9 @@ type GetMarksFilters struct {
 
 // Validate checks pagination, sort keys, bbox and the date range.
 func (f GetMarksFilters) Validate() error {
+	if len(f.IDs) > MaxMarksIDs {
+		return fmt.Errorf("ids: at most %d values", MaxMarksIDs)
+	}
 	if err := f.Pagination.Validate(); err != nil {
 		return err
 	}

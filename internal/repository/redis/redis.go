@@ -232,3 +232,11 @@ func (r *Redis) IncrAuthVersion(ctx context.Context, userID int) (int64, error) 
 	}
 	return r.Client.Incr(ctx, fmt.Sprintf(authVersionKey, userID)).Result()
 }
+
+// Del removes the key; a missing key is not an error.
+func (r *Redis) Del(ctx context.Context, key string) error {
+	if !r.available() {
+		return ErrUnavailable
+	}
+	return r.Client.Del(ctx, key).Err()
+}

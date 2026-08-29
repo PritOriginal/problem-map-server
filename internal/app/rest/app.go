@@ -13,17 +13,20 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/handler"
 	analyticsrest "github.com/PritOriginal/problem-map-server/internal/handler/analytics"
+	apikeysrest "github.com/PritOriginal/problem-map-server/internal/handler/apikeys"
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
 	checksrest "github.com/PritOriginal/problem-map-server/internal/handler/checks"
 	"github.com/PritOriginal/problem-map-server/internal/handler/health"
 	maprest "github.com/PritOriginal/problem-map-server/internal/handler/map"
 	marksrest "github.com/PritOriginal/problem-map-server/internal/handler/marks"
 	notificationsrest "github.com/PritOriginal/problem-map-server/internal/handler/notifications"
+	openrest "github.com/PritOriginal/problem-map-server/internal/handler/open"
 	organizationsrest "github.com/PritOriginal/problem-map-server/internal/handler/organizations"
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
 	webhooksrest "github.com/PritOriginal/problem-map-server/internal/handler/webhooks"
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/apikey"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/ratelimit"
 	"github.com/PritOriginal/problem-map-server/internal/repository/postgres"
@@ -100,16 +103,32 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	publisher, publisherCloser := app.NewPublisher(log, cfg.Nats, m.Registry())
 	closers.Add("nats", publisherCloser)
 
+	// API keys: read-only access to the public routes with a per-key
+	// limit. The middleware is optional there, anonymous requests keep
+	// their limits.
+	apiKeysUseCase := usecase.NewAPIKeys(log, usecase.APIKeysRepositories{
+		APIKeys:  postgres.NewAPIKeys(postgresDB.DB, trmsqlx.DefaultCtxGetter),
+		Cache:    redisClient,
+		Throttle: redisClient,
+	})
+	apikeysrest.Register(router, log, authMiddleware, apiKeysUseCase)
+	apiKeyMiddleware := apikey.Optional(log, apikey.Params{
+		Auth:     apiKeysUseCase,
+		Counter:  redisClient,
+		Recorder: m,
+	})
+
 	mapUseCase := usecase.NewMap(log, usecase.MapRepositories{
 		Map: mapRepo,
 	})
-	maprest.Register(router, log, mapUseCase, redisClient)
+	maprest.Register(router, log, mapUseCase, redisClient, apiKeyMiddleware)
 
 	analyticsRepo := postgres.NewAnalytics(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	analyticsUseCase := usecase.NewAnalytics(log, usecase.AnalyticsRepositories{
 		Analytics: analyticsRepo,
 	})
-	analyticsrest.Register(router, log, analyticsUseCase)
+	analyticsrest.Register(router, log, analyticsUseCase, apiKeyMiddleware)
+	openrest.Register(router, log, analyticsUseCase, redisClient, apiKeyMiddleware)
 
 	marksRepo := postgres.NewMarks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	checksRepo := postgres.NewChecks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
@@ -150,6 +169,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 			Requests: cfg.Export.RateLimit.Requests,
 			Window:   cfg.Export.RateLimit.Window,
 		}),
+		APIKey: apiKeyMiddleware,
 	})
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB, trmsqlx.DefaultCtxGetter)

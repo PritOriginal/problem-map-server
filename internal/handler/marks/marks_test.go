@@ -163,6 +163,7 @@ func (suite *MarksSuite) TestGetMarksFilters() {
 			name:  "Defaults",
 			query: "",
 			wantFilters: models.GetMarksFilters{
+				IDs:           []int{},
 				MarkTypeIds:   []int{},
 				MarkStatusIds: []int{},
 				Pagination:    models.Pagination{Limit: models.DefaultLimit},
@@ -173,6 +174,7 @@ func (suite *MarksSuite) TestGetMarksFilters() {
 			name:  "AllFilters",
 			query: "?bbox=41.4,52.7,41.5,52.8&limit=50&offset=100&sort=updated_at&order=asc&user_id=7&created_from=2025-01-02T03:04:05Z&created_to=2025-02-01T00:00:00Z&mark_type_ids=1,2",
 			wantFilters: models.GetMarksFilters{
+				IDs:           []int{},
 				MarkTypeIds:   []int{1, 2},
 				MarkStatusIds: []int{},
 				UserID:        7,
@@ -185,6 +187,19 @@ func (suite *MarksSuite) TestGetMarksFilters() {
 			},
 			statusCode: http.StatusOK,
 		},
+		{
+			name:  "Ids",
+			query: "?ids=3,1,2",
+			wantFilters: models.GetMarksFilters{
+				IDs:           []int{3, 1, 2},
+				MarkTypeIds:   []int{},
+				MarkStatusIds: []int{},
+				Pagination:    models.Pagination{Limit: models.DefaultLimit},
+			},
+			statusCode: http.StatusOK,
+		},
+		{name: "ErrIdsNotNumber", query: "?ids=1,x", statusCode: http.StatusBadRequest},
+		{name: "ErrIdsTooMany", query: "?ids=" + strings.Repeat("1,", models.MaxMarksIDs) + "1", statusCode: http.StatusBadRequest},
 		{name: "ErrBBoxThreeParts", query: "?bbox=1,2,3", statusCode: http.StatusBadRequest},
 		{name: "ErrBBoxNotNumber", query: "?bbox=a,2,3,4", statusCode: http.StatusBadRequest},
 		{name: "ErrBBoxMinGreaterThanMax", query: "?bbox=41.5,52.7,41.4,52.8", statusCode: http.StatusBadRequest},

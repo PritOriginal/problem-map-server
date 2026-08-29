@@ -247,3 +247,37 @@ func (suite *AnalyticsSuite) TestGetTopTypes() {
 		})
 	}
 }
+
+func (suite *AnalyticsSuite) TestGetOpenStats() {
+	tests := []struct {
+		name       string
+		boundaryID int
+		repo       *method[models.OpenStats]
+	}{
+		{name: "Ok", repo: &method[models.OpenStats]{data: models.OpenStats{MarksTotal: 3}}},
+		{name: "OkBoundary", boundaryID: 1, repo: &method[models.OpenStats]{data: models.OpenStats{MarksTotal: 1}}},
+		{name: "ErrNegativeBoundary", boundaryID: -1},
+		{name: "ErrRepo", repo: &method[models.OpenStats]{err: errRepo}},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if tt.repo != nil {
+				suite.repo.On("GetOpenStats", mock.Anything, tt.boundaryID).Once().
+					Return(tt.repo.data, tt.repo.err)
+			}
+
+			got, gotErr := suite.uc.GetOpenStats(context.Background(), tt.boundaryID)
+
+			switch {
+			case tt.repo == nil:
+				suite.ErrorIs(gotErr, usecase.ErrInvalidArgument)
+			case tt.repo.err != nil:
+				suite.ErrorIs(gotErr, tt.repo.err)
+			default:
+				suite.NoError(gotErr)
+				suite.Equal(tt.repo.data, got)
+			}
+		})
+	}
+}

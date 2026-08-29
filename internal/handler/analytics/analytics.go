@@ -23,10 +23,12 @@ type handler struct {
 	uc  Analytics
 }
 
-func Register(r *gin.Engine, log *slog.Logger, uc Analytics) {
+// Register mounts /analytics; middlewares (e.g. the optional API key) are
+// applied to the whole group.
+func Register(r *gin.Engine, log *slog.Logger, uc Analytics, middlewares ...gin.HandlerFunc) {
 	handler := &handler{log: log, uc: uc}
 
-	analytics := r.Group("/analytics")
+	analytics := r.Group("/analytics", middlewares...)
 	{
 		analytics.GET("kpi", handler.GetKPI())
 		analytics.GET("timeseries", handler.GetTimeseries())
@@ -40,6 +42,8 @@ func Register(r *gin.Engine, log *slog.Logger, uc Analytics) {
 //	@Description	Totals, per-status counts, confirmation/closing durations (hours, from the status history), refuted share and stale open marks. All filters are optional.
 //	@Tags			analytics
 //	@Produce		json
+//	@Security		ApiKeyAuth
+//	@Security		BearerAuth
 //	@Param			boundary_id		query		int		false	"only marks inside this admin boundary"
 //	@Param			mark_type_id	query		int		false	"only marks of this type"
 //	@Param			from			query		string	false	"marks created at or after (RFC3339)"
@@ -78,6 +82,8 @@ func (h *handler) GetKPI() gin.HandlerFunc {
 //	@Description	Number of marks created and transitions to confirmed / closed / refuted per period; empty periods are returned with zeros. Defaults: step=day, to=now, from=to minus 30 days (12 weeks / 12 months for coarser steps).
 //	@Tags			analytics
 //	@Produce		json
+//	@Security		ApiKeyAuth
+//	@Security		BearerAuth
 //	@Param			boundary_id		query		int		false	"only marks inside this admin boundary"
 //	@Param			mark_type_id	query		int		false	"only marks of this type"
 //	@Param			from			query		string	false	"start of the range (RFC3339)"
@@ -117,6 +123,8 @@ func (h *handler) GetTimeseries() gin.HandlerFunc {
 //	@Description	Mark types ordered by the number of matching marks with their share of the total.
 //	@Tags			analytics
 //	@Produce		json
+//	@Security		ApiKeyAuth
+//	@Security		BearerAuth
 //	@Param			boundary_id	query		int		false	"only marks inside this admin boundary"
 //	@Param			from		query		string	false	"marks created at or after (RFC3339)"
 //	@Param			to			query		string	false	"marks created at or before (RFC3339)"

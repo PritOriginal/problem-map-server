@@ -735,6 +735,78 @@ def verify(secret: str, timestamp: str, body: bytes, signature: str) -> bool:
 Та же функция есть в сервере: `webhooks.VerifySignature` в
 `internal/webhooks`.
 
+## Открытые данные и API-ключи
+
+Публичные GET-маршруты (`/marks*`, `/marks/export`, `/map/*`, `/analytics/*`,
+`/open/*`) доступны без аккаунта. Для интеграций (дашборды, боты, исследования)
+можно выпустить **API-ключ**: с ним запрос считается по собственной квоте
+ключа, а не по IP, и получает заголовки `X-RateLimit-*`. Ключи только для
+чтения: `POST`/`PATCH`/`DELETE` с ключом отвечают `403`, даже если у ключа
+scope `write` (зарезервирован, не реализован).
+
+### Управление ключами (JWT)
+
+| Метод | Путь | Что делает |
+|---|---|---|
+| `POST` | `/api-keys` | `{name, expires_at?}` — выпустить ключ `pm_live_<32 hex>`; ключ **возвращается один раз** в `payload.key`, в БД хранится только SHA-256 и префикс `pm_live_xxxxxxxx` |
+| `GET` | `/api-keys` | свои ключи (без хешей); `admin` с `?all=true` — все |
+| `DELETE` | `/api-keys/{id}` | отозвать (`active=false`); владелец или `admin` |
+
+Таблица `api_keys` (миграция `000043`): `scopes TEXT[]` (по умолчанию `{read}`),
+`rate_limit_per_min` (600), `active`, `expires_at`, `last_used_at`.
+
+### Использование ключа
+
+Заголовок `X-Api-Key: pm_live_…` или `Authorization: ApiKey pm_live_…`
+(`Bearer` остаётся для JWT). Ключ **опционален**: без него маршруты работают
+как раньше (анонимно, с прежними лимитами по IP). Если запрос уже прошёл
+JWT-аутентификацию (валидный `Bearer`), ключ игнорируется: identity — JWT,
+лимиты — как у авторизованного пользователя; так `POST /marks` с токеном не
+ломается посторонним `X-Api-Key`.
+
+```sh
+curl -H "X-Api-Key: $KEY" "https://host/marks?ids=1,2,3"
+curl -H "X-Api-Key: $KEY" "https://host/open/stats?boundary_id=1"
+```
+
+Middleware `internal/middleware/apikey`:
+
+- ключ → SHA-256 → поиск в `api_keys` (результат кэшируется в Redis 60 с под
+  `apikey:hash:<sha256>`; при отзыве запись удаляется, другой инстанс может
+  принимать ключ ещё до минуты);
+- неизвестный / отозванный / истёкший ключ → `401` (`invalid api key`,
+  `api key revoked`, `api key expired`);
+- лимит `rate_limit_per_min` в минуту на ключ — счётчик `apikey:<id>` в Redis
+  (тот же `ratelimit`, без Redis — fail open); в ответе `X-RateLimit-Limit`,
+  `X-RateLimit-Remaining`, `X-RateLimit-Reset` (секунды до сброса), при
+  превышении `429` + `Retry-After`. Для `/marks/export` лимит ключа заменяет
+  лимит по IP;
+- `last_used_at` обновляется не чаще раза в минуту (флаг `apikey:touch:<id>`);
+- в контексте запроса — `models.ApiKeyIdentity{KeyID, OwnerID, Scopes}`;
+  `api_key_id` попадает в access-лог (сам ключ — никогда);
+- метрика `api_key_requests_total{key_prefix,status}` — кардинальность
+  `key_prefix` ограничена числом выпущенных ключей (префикс — 8 hex-символов,
+  сам ключ по нему не восстановить).
+
+### Batch и открытая статистика
+
+- `GET /marks?ids=1,2,3` — до 100 id за запрос (остальные фильтры и
+  пагинация работают как обычно).
+- `GET /open/stats?boundary_id=` — публичная сводка, кэш 5 минут:
+
+```json
+{
+  "marks_total": 120,
+  "by_status": {"1": 30, "2": 50, "5": 40},
+  "by_type": [{"code": "garbage", "count": 70}, {"code": "lighting", "count": 50}],
+  "resolved_last_30d": 12,
+  "avg_close_hours": 96.5
+}
+```
+
+В Swagger ключ описан как `ApiKeyAuth` (заголовок `X-Api-Key`); на публичных
+чтениях указаны оба варианта — `ApiKeyAuth` или `BearerAuth`.
+
 ## Тесты
 
 ### Unit-тесты

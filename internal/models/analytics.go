@@ -266,3 +266,23 @@ type HeatmapCell struct {
 	Geom  *Polygon `json:"geom" db:"geom"`
 	Count int      `json:"count" db:"count"`
 }
+
+// OpenStats is the public summary served by GET /open/stats.
+type OpenStats struct {
+	MarksTotal int `json:"marks_total"`
+	// ByStatus counts marks per mark_status_id.
+	ByStatus map[int]int `json:"by_status"`
+	// ByType counts marks per mark type code, most frequent first.
+	ByType []TypeCount `json:"by_type"`
+	// ResolvedLast30d counts marks closed during the last 30 days.
+	ResolvedLast30d int `json:"resolved_last_30d"`
+	// AvgCloseHours is the mean unconfirmed -> closed time; null when no
+	// mark was closed.
+	AvgCloseHours null.Float `json:"avg_close_hours" swaggertype:"number"`
+}
+
+// TypeCount is the number of marks of one type, identified by its code.
+type TypeCount struct {
+	Code  string `json:"code" db:"code"`
+	Count int    `json:"count" db:"count"`
+}
