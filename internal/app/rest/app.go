@@ -103,7 +103,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Marks:  marksRepo,
 		Checks: checksRepo,
 	})
-	marksUseCase := usecase.NewMarks(log, trManager, usecase.MarksRepositories{
+	marksUseCase := usecase.NewMarks(log, cfg.Marks, trManager, usecase.MarksRepositories{
 		Marks:  marksRepo,
 		Checks: checksRepo,
 		Photos: photoRepo,

@@ -33,6 +33,11 @@ func (repo *PhotosRepo) AddPhotos(ctx context.Context, markId, reviewId int, pho
 	return nil
 }
 
+// DeletePhotos is a no-op: the local store does not index files by mark.
+func (repo *PhotosRepo) DeletePhotos(ctx context.Context, markId int) error {
+	return nil
+}
+
 func (repo *PhotosRepo) GetPhotos(ctx context.Context) (map[int]map[int][]string, error) {
 	return map[int]map[int][]string{}, nil
 }

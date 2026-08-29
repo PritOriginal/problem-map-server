@@ -8,12 +8,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
+	"github.com/twpayne/go-geom"
 )
 
 type MarksSuite struct {
@@ -32,7 +34,7 @@ func (suite *MarksSuite) SetupTest() {
 	suite.marksRepo = usecase.NewMockMarksRepository(suite.T())
 	suite.checksRepo = usecase.NewMockChecksRepository(suite.T())
 	suite.photosRepo = usecase.NewMockPhotosRepository(suite.T())
-	suite.uc = usecase.NewMarks(suite.log, suite.trManager, usecase.MarksRepositories{
+	suite.uc = usecase.NewMarks(suite.log, config.MarksConfig{DedupRadiusM: 50}, suite.trManager, usecase.MarksRepositories{
 		Marks:  suite.marksRepo,
 		Checks: suite.checksRepo,
 		Photos: suite.photosRepo,
@@ -509,6 +511,8 @@ func (suite *MarksSuite) TestAddMark() {
 					return
 				}
 
+				suite.marksRepo.On("FollowMark", mock.Anything, 7, int(tt.addMark.data)).Once().Return(nil)
+
 				suite.marksRepo.On("GetLastMarkStatusHistoryItem", mock.Anything, mock.AnythingOfType("int")).Once().
 					Return(tt.getLastMarkStatusHistoryItem.data, tt.getLastMarkStatusHistoryItem.err)
 				if tt.getLastMarkStatusHistoryItem.err != nil {
@@ -528,7 +532,7 @@ func (suite *MarksSuite) TestAddMark() {
 				}
 			}()
 
-			_, gotErr := suite.uc.AddMark(context.Background(), models.Mark{}, []io.Reader{})
+			_, gotErr := suite.uc.AddMark(context.Background(), models.Mark{UserID: 7}, []io.Reader{}, true)
 
 			if tt.addMark.err == nil &&
 				tt.getLastMarkStatusHistoryItem.err == nil &&
@@ -541,6 +545,314 @@ func (suite *MarksSuite) TestAddMark() {
 			suite.marksRepo.AssertExpectations(suite.T())
 			suite.checksRepo.AssertExpectations(suite.T())
 			suite.photosRepo.AssertExpectations(suite.T())
+		})
+	}
+}
+
+func (suite *MarksSuite) TestAddMarkDedup() {
+	newMark := models.Mark{Geom: models.NewPoint(geom.Coord{41.44, 52.72}), MarkTypeID: 3, UserID: 7}
+	similar := []models.MarkWithDistance{{Mark: models.Mark{ID: 5, MarkTypeID: 3}, DistanceM: 12.5}}
+
+	tests := []struct {
+		name        string
+		mark        models.Mark
+		force       bool
+		similar     method[[]models.MarkWithDistance]
+		wantCreate  bool
+		wantSimilar bool
+		wantErrArg  bool
+	}{
+		{name: "NoSimilarCreates", mark: newMark, similar: method[[]models.MarkWithDistance]{data: []models.MarkWithDistance{}}, wantCreate: true},
+		{name: "SimilarConflict", mark: newMark, similar: method[[]models.MarkWithDistance]{data: similar}, wantSimilar: true},
+		{name: "SimilarForced", mark: newMark, force: true, wantCreate: true},
+		{name: "ErrSearch", mark: newMark, similar: method[[]models.MarkWithDistance]{err: errRepo}},
+		{name: "ErrNoGeom", mark: models.Mark{MarkTypeID: 3, UserID: 7}, wantErrArg: true},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if !tt.force && !tt.wantErrArg {
+				// The search must use the mark's point, type and the configured radius.
+				suite.marksRepo.On("GetSimilarMarks", mock.Anything, models.GetSimilarMarksFilters{
+					Lon: 41.44, Lat: 52.72, MarkTypeID: 3, RadiusM: 50,
+				}).Once().Return(tt.similar.data, tt.similar.err)
+			}
+			if tt.wantCreate {
+				suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Run(func(args mock.Arguments) {
+					_ = args.Get(1).(func(ctx context.Context) error)(args.Get(0).(context.Context))
+				}).Return(nil)
+				suite.marksRepo.On("AddMark", mock.Anything, tt.mark).Once().Return(int64(9), nil)
+				suite.marksRepo.On("FollowMark", mock.Anything, 7, 9).Once().Return(nil)
+				suite.marksRepo.On("GetLastMarkStatusHistoryItem", mock.Anything, 9).Once().Return(models.MarkStatusHistoryItem{ID: 3}, nil)
+				suite.checksRepo.On("AddCheck", mock.Anything, mock.Anything).Once().Return(int64(1), nil)
+				suite.photosRepo.On("AddPhotos", mock.Anything, 9, 1, mock.Anything).Once().Return(nil)
+			}
+
+			id, err := suite.uc.AddMark(context.Background(), tt.mark, nil, tt.force)
+
+			switch {
+			case tt.wantCreate:
+				suite.NoError(err)
+				suite.Equal(int64(9), id)
+			case tt.wantSimilar:
+				var similarErr *usecase.SimilarMarksError
+				suite.ErrorAs(err, &similarErr)
+				suite.ErrorIs(err, usecase.ErrConflict)
+				suite.Equal(similar, similarErr.Marks)
+			case tt.wantErrArg:
+				suite.ErrorIs(err, usecase.ErrInvalidArgument)
+			default:
+				assertRepoErr(&suite.Suite, err, tt.similar.err)
+			}
+		})
+	}
+}
+
+func (suite *MarksSuite) TestFindSimilarMarks() {
+	tests := []struct {
+		name       string
+		filters    models.GetSimilarMarksFilters
+		wantRadius float64
+		similar    method[[]models.MarkWithDistance]
+		wantErrArg bool
+	}{
+		{name: "Ok", filters: models.GetSimilarMarksFilters{Lon: 41.4, Lat: 52.7, MarkTypeID: 1, RadiusM: 100}, wantRadius: 100,
+			similar: method[[]models.MarkWithDistance]{data: []models.MarkWithDistance{{}}}},
+		{name: "DefaultRadius", filters: models.GetSimilarMarksFilters{Lon: 41.4, Lat: 52.7, MarkTypeID: 1}, wantRadius: 50},
+		{name: "ErrRepo", filters: models.GetSimilarMarksFilters{Lon: 41.4, Lat: 52.7, MarkTypeID: 1}, wantRadius: 50,
+			similar: method[[]models.MarkWithDistance]{err: errRepo}},
+		{name: "ErrRadiusTooBig", filters: models.GetSimilarMarksFilters{Lon: 41.4, Lat: 52.7, MarkTypeID: 1, RadiusM: models.MaxNearbyRadiusM + 1}, wantErrArg: true},
+		{name: "ErrNoType", filters: models.GetSimilarMarksFilters{Lon: 41.4, Lat: 52.7}, wantErrArg: true},
+		{name: "ErrBadLon", filters: models.GetSimilarMarksFilters{Lon: 181, Lat: 52.7, MarkTypeID: 1}, wantErrArg: true},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if !tt.wantErrArg {
+				want := tt.filters
+				want.RadiusM = tt.wantRadius
+				suite.marksRepo.On("GetSimilarMarks", mock.Anything, want).Once().Return(tt.similar.data, tt.similar.err)
+			}
+
+			got, err := suite.uc.FindSimilarMarks(context.Background(), tt.filters)
+
+			switch {
+			case tt.wantErrArg:
+				suite.ErrorIs(err, usecase.ErrInvalidArgument)
+			case tt.similar.err != nil:
+				assertRepoErr(&suite.Suite, err, tt.similar.err)
+			default:
+				suite.NoError(err)
+				suite.Equal(tt.similar.data, got)
+			}
+		})
+	}
+}
+
+var (
+	actorOwner     = models.Actor{UserID: 1, Role: models.RoleUser}
+	actorStranger  = models.Actor{UserID: 2, Role: models.RoleUser}
+	actorModerator = models.Actor{UserID: 3, Role: models.RoleModerator}
+)
+
+func (suite *MarksSuite) TestUpdateMark() {
+	desc := "new description"
+	upd := models.MarkUpdate{Description: &desc}
+	unconfirmed := models.Mark{ID: 10, UserID: 1, MarkStatusID: models.UnconfirmedStatus}
+	confirmed := models.Mark{ID: 10, UserID: 1, MarkStatusID: models.ConfirmedStatus}
+
+	tests := []struct {
+		name       string
+		actor      models.Actor
+		upd        models.MarkUpdate
+		getMark    method[models.Mark]
+		wantUpdate bool
+		update     error
+		wantErr    error
+		wantErrArg bool
+	}{
+		{name: "OwnerUnconfirmed", actor: actorOwner, upd: upd, getMark: method[models.Mark]{data: unconfirmed}, wantUpdate: true},
+		{name: "ModeratorAnyStatus", actor: actorModerator, upd: upd, getMark: method[models.Mark]{data: confirmed}, wantUpdate: true},
+		{name: "OwnerConfirmed409", actor: actorOwner, upd: upd, getMark: method[models.Mark]{data: confirmed}, wantErr: usecase.ErrConflict},
+		{name: "Stranger403", actor: actorStranger, upd: upd, getMark: method[models.Mark]{data: unconfirmed}, wantErr: usecase.ErrForbidden},
+		{name: "NotFound", actor: actorOwner, upd: upd, getMark: method[models.Mark]{err: repository.ErrNotFound}, wantErr: usecase.ErrNotFound},
+		{name: "EmptyUpdate", actor: actorOwner, wantErrArg: true},
+		{name: "ErrUpdate", actor: actorOwner, upd: upd, getMark: method[models.Mark]{data: unconfirmed}, wantUpdate: true, update: errRepo, wantErr: errRepo},
+		{name: "UnknownType400", actor: actorOwner, upd: upd, getMark: method[models.Mark]{data: unconfirmed}, wantUpdate: true, update: repository.ErrInvalidReference, wantErr: usecase.ErrInvalidArgument},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if !tt.wantErrArg {
+				suite.marksRepo.On("GetMarkById", mock.Anything, 10).Once().Return(tt.getMark.data, tt.getMark.err)
+			}
+			if tt.wantUpdate {
+				suite.marksRepo.On("UpdateMark", mock.Anything, 10, tt.upd).Once().Return(tt.update)
+				if tt.update == nil {
+					updated := tt.getMark.data
+					updated.Description = desc
+					suite.marksRepo.On("GetMarkById", mock.Anything, 10).Once().Return(updated, nil)
+				}
+			}
+
+			got, err := suite.uc.UpdateMark(context.Background(), tt.actor, 10, tt.upd)
+
+			switch {
+			case tt.wantErrArg:
+				suite.ErrorIs(err, usecase.ErrInvalidArgument)
+			case tt.wantErr != nil:
+				suite.ErrorIs(err, tt.wantErr)
+			default:
+				suite.NoError(err)
+				suite.Equal(desc, got.Description)
+			}
+		})
+	}
+}
+
+func (suite *MarksSuite) TestDeleteMark() {
+	unconfirmed := models.Mark{ID: 10, UserID: 1, MarkStatusID: models.UnconfirmedStatus}
+	confirmed := models.Mark{ID: 10, UserID: 1, MarkStatusID: models.ConfirmedStatus}
+	ownChecks := []models.Check{{UserID: 1}}
+	foreignChecks := []models.Check{{UserID: 1}, {UserID: 2}}
+
+	tests := []struct {
+		name         string
+		actor        models.Actor
+		getMark      method[models.Mark]
+		wantChecks   bool
+		checks       method[[]models.Check]
+		wantDelete   bool
+		deleteMark   error
+		deletePhotos error
+		wantErr      error
+	}{
+		{name: "OwnerNoForeignChecks", actor: actorOwner, getMark: method[models.Mark]{data: unconfirmed}, wantChecks: true, checks: method[[]models.Check]{data: ownChecks}, wantDelete: true},
+		{name: "OwnerForeignChecks409", actor: actorOwner, getMark: method[models.Mark]{data: unconfirmed}, wantChecks: true, checks: method[[]models.Check]{data: foreignChecks}, wantErr: usecase.ErrConflict},
+		{name: "OwnerConfirmed409", actor: actorOwner, getMark: method[models.Mark]{data: confirmed}, wantErr: usecase.ErrConflict},
+		{name: "Stranger403", actor: actorStranger, getMark: method[models.Mark]{data: unconfirmed}, wantErr: usecase.ErrForbidden},
+		{name: "ModeratorSkipsCheckRule", actor: actorModerator, getMark: method[models.Mark]{data: confirmed}, wantDelete: true},
+		{name: "NotFound", actor: actorOwner, getMark: method[models.Mark]{err: repository.ErrNotFound}, wantErr: usecase.ErrNotFound},
+		{name: "ErrChecks", actor: actorOwner, getMark: method[models.Mark]{data: unconfirmed}, wantChecks: true, checks: method[[]models.Check]{err: errRepo}, wantErr: errRepo},
+		{name: "ErrDeleteMark", actor: actorModerator, getMark: method[models.Mark]{data: confirmed}, wantDelete: true, deleteMark: errRepo, wantErr: errRepo},
+		// Photos are removed after the commit; a storage failure is only logged.
+		{name: "ErrDeletePhotosIgnored", actor: actorModerator, getMark: method[models.Mark]{data: confirmed}, wantDelete: true, deletePhotos: errRepo},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			suite.marksRepo.On("GetMarkById", mock.Anything, 10).Once().Return(tt.getMark.data, tt.getMark.err)
+			if tt.wantChecks {
+				suite.checksRepo.On("GetChecksByMarkId", mock.Anything, 10, models.Pagination{}).Once().
+					Return(models.Page[models.Check]{Items: tt.checks.data}, tt.checks.err)
+			}
+			if tt.wantDelete {
+				var txErr error
+				suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Run(func(args mock.Arguments) {
+					txErr = args.Get(1).(func(ctx context.Context) error)(args.Get(0).(context.Context))
+				}).Return(func(context.Context, func(context.Context) error) error { return txErr })
+				suite.marksRepo.On("DeleteMark", mock.Anything, 10).Once().Return(tt.deleteMark)
+				if tt.deleteMark == nil {
+					suite.photosRepo.On("DeletePhotos", mock.Anything, 10).Once().Return(tt.deletePhotos)
+				}
+			}
+
+			err := suite.uc.DeleteMark(context.Background(), tt.actor, 10)
+
+			if tt.wantErr != nil {
+				suite.ErrorIs(err, tt.wantErr)
+			} else {
+				suite.NoError(err)
+			}
+		})
+	}
+}
+
+func (suite *MarksSuite) TestFollowMark() {
+	tests := []struct {
+		name    string
+		follow  error
+		wantErr error
+	}{
+		{name: "Ok"},
+		{name: "NotFound", follow: repository.ErrNotFound, wantErr: usecase.ErrNotFound},
+		{name: "ErrRepo", follow: errRepo, wantErr: errRepo},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			suite.marksRepo.On("FollowMark", mock.Anything, 1, 10).Once().Return(tt.follow)
+
+			err := suite.uc.FollowMark(context.Background(), 1, 10)
+
+			if tt.wantErr != nil {
+				suite.ErrorIs(err, tt.wantErr)
+			} else {
+				suite.NoError(err)
+			}
+		})
+	}
+}
+
+func (suite *MarksSuite) TestUnfollowMark() {
+	tests := []struct {
+		name     string
+		getMark  method[models.Mark]
+		unfollow error
+		wantErr  error
+	}{
+		{name: "Ok"},
+		{name: "NotFound", getMark: method[models.Mark]{err: repository.ErrNotFound}, wantErr: usecase.ErrNotFound},
+		{name: "ErrRepo", unfollow: errRepo, wantErr: errRepo},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			suite.marksRepo.On("GetMarkById", mock.Anything, 10).Once().Return(tt.getMark.data, tt.getMark.err)
+			if tt.getMark.err == nil {
+				suite.marksRepo.On("UnfollowMark", mock.Anything, 1, 10).Once().Return(tt.unfollow)
+			}
+
+			err := suite.uc.UnfollowMark(context.Background(), 1, 10)
+
+			if tt.wantErr != nil {
+				suite.ErrorIs(err, tt.wantErr)
+			} else {
+				suite.NoError(err)
+			}
+		})
+	}
+}
+
+func (suite *MarksSuite) TestListFollowedMarks() {
+	tests := []struct {
+		name       string
+		p          models.Pagination
+		page       method[models.Page[models.Mark]]
+		wantErrArg bool
+	}{
+		{name: "Ok", p: models.Pagination{Limit: 10}, page: method[models.Page[models.Mark]]{data: models.Page[models.Mark]{Items: []models.Mark{{ID: 1}}, Total: 1}}},
+		{name: "ErrRepo", p: models.Pagination{Limit: 10}, page: method[models.Page[models.Mark]]{err: errRepo}},
+		{name: "ErrPagination", p: models.Pagination{Limit: models.MaxLimit + 1}, wantErrArg: true},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if !tt.wantErrArg {
+				suite.marksRepo.On("GetFollowedMarks", mock.Anything, 1, tt.p).Once().Return(tt.page.data, tt.page.err)
+			}
+
+			got, err := suite.uc.ListFollowedMarks(context.Background(), 1, tt.p)
+
+			switch {
+			case tt.wantErrArg:
+				suite.ErrorIs(err, usecase.ErrInvalidArgument)
+			case tt.page.err != nil:
+				assertRepoErr(&suite.Suite, err, tt.page.err)
+			default:
+				suite.NoError(err)
+				suite.Equal(tt.page.data, got)
+			}
 		})
 	}
 }

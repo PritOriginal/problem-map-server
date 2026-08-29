@@ -2,14 +2,17 @@ package marksrest
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/handler/listquery"
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
@@ -23,7 +26,13 @@ type Marks interface {
 	GetMarksNearby(ctx context.Context, filters models.GetMarksNearbyFilters) (models.Page[models.MarkWithDistance], error)
 	GetMarkById(ctx context.Context, id int) (models.Mark, error)
 	ListMarksByUserId(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error)
-	AddMark(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error)
+	AddMark(ctx context.Context, mark models.Mark, photos []io.Reader, force bool) (int64, error)
+	FindSimilarMarks(ctx context.Context, filters models.GetSimilarMarksFilters) ([]models.MarkWithDistance, error)
+	UpdateMark(ctx context.Context, actor models.Actor, markId int, upd models.MarkUpdate) (models.Mark, error)
+	DeleteMark(ctx context.Context, actor models.Actor, markId int) error
+	FollowMark(ctx context.Context, userId, markId int) error
+	UnfollowMark(ctx context.Context, userId, markId int) error
+	ListFollowedMarks(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error)
 	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
 	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
 	GetMarkStatusHistoryByMarkId(ctx context.Context, markId int, withChecks bool) ([]models.MarkStatusHistoryItem, error)
@@ -54,14 +63,24 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 		statusUpdater: params.StatusUpdater,
 	}
 
-	marks := r.Group("/marks")
+	// The viewer is recorded for every marks route so that is_following is
+	// filled in for authenticated readers; anonymous requests still pass.
+	marks := r.Group("/marks", middleware.OptionalAuth(params.AuthMiddleware))
 	{
 		marks.GET("", handler.GetMarks())
 		marks.GET("nearby", handler.GetMarksNearby())
+		marks.GET("similar", handler.GetSimilarMarks())
 		id := marks.Group(":id")
 		{
 			id.GET("", handler.GetMarkById())
 			id.GET("status-history", handler.GetMarkStatusHistoryByMarkId())
+			idAuth := id.Group("", params.AuthMiddleware.MiddlewareFunc())
+			{
+				idAuth.PATCH("", handler.UpdateMark())
+				idAuth.DELETE("", handler.DeleteMark())
+				idAuth.POST("follow", handler.FollowMark())
+				idAuth.DELETE("follow", handler.UnfollowMark())
+			}
 			moderation := id.Group("", params.AuthMiddleware.MiddlewareFunc(),
 				middleware.RequireRole(models.RoleModerator, models.RoleAdmin))
 			{
@@ -81,6 +100,29 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 			cache.GET("statuses", handler.GetMarkStatuses())
 		}
 	}
+
+	me := r.Group("/users/me", params.AuthMiddleware.MiddlewareFunc())
+	{
+		me.GET("following", handler.GetFollowedMarks())
+	}
+}
+
+// actorFromClaims builds the acting user from the validated JWT; it writes a
+// 401 and returns false when the token carries no usable subject.
+func (h *handler) actorFromClaims(c *gin.Context) (models.Actor, bool) {
+	userId, err := middleware.UserIDFromClaims(c)
+	if err != nil {
+		h.log.Debug("invalid token", logger.Err(err))
+		responses.Unauthorized(c, "invalid token")
+		return models.Actor{}, false
+	}
+	return models.Actor{UserID: userId, Role: middleware.RoleFromClaims(c)}, true
+}
+
+// viewerContext returns the request context with the authenticated user as
+// the viewer, so marks returned from mutations carry is_following.
+func viewerContext(c *gin.Context, userId int) context.Context {
+	return models.ContextWithViewer(c.Request.Context(), userId)
 }
 
 // GetMarks lists markers matching the filters, paginated
@@ -257,9 +299,11 @@ func (h *handler) GetMarksByUserId() gin.HandlerFunc {
 //	@Param			latitude		formData	number	true	"Latitude in degrees (Y), WGS84"	example(52.72)
 //	@Param			mark_type_id	formData	int		true	"Mark type id"
 //	@Param			description		formData	string	false	"Description (max 256 chars)"
+//	@Param			force			query		boolean	false	"create even if similar marks exist nearby"	default(false)
 //	@Success		201				{object}	responses.Response[marksrest.AddMarkResponse]
 //	@Failure		400				{object}	responses.Response[any]
 //	@Failure		401				{object}	responses.Response[any]
+//	@Failure		409				{object}	responses.Response[marksrest.SimilarMarksPayload]	"active marks of the same type exist within the dedup radius; `payload.similar_marks` lists them with `distance_m`. Repeat with `?force=true` to create anyway"
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/marks [post]
 func (h *handler) AddMark() gin.HandlerFunc {
@@ -270,6 +314,12 @@ func (h *handler) AddMark() gin.HandlerFunc {
 		if err := c.ShouldBind(&req); err != nil {
 			h.log.Debug("failed binding request", logger.Err(err))
 			responses.BadRequest(c, "invalid request")
+			return
+		}
+		var query AddMarkQuery
+		if err := c.ShouldBindQuery(&query); err != nil {
+			h.log.Debug("failed binding query", logger.Err(err))
+			responses.BadRequest(c, "invalid query params")
 			return
 		}
 
@@ -292,8 +342,16 @@ func (h *handler) AddMark() gin.HandlerFunc {
 			UserID:      userId,
 			Description: req.Description,
 		}
-		markId, err := h.uc.AddMark(c.Request.Context(), newMark, photos)
+		markId, err := h.uc.AddMark(viewerContext(c, userId), newMark, photos, query.Force)
 		if err != nil {
+			var similar *usecase.SimilarMarksError
+			if errors.As(err, &similar) {
+				h.log.Debug(op, logger.Err(err))
+				responses.FailWithPayload(c, http.StatusConflict, "similar marks nearby", SimilarMarksPayload{
+					SimilarMarks: similar.Marks,
+				})
+				return
+			}
 			responses.FromError(c, h.log, op, err)
 			return
 		}
@@ -308,6 +366,244 @@ func (h *handler) AddMark() gin.HandlerFunc {
 		responses.Created(c, AddMarkResponse{
 			MarkId: int(markId),
 		})
+	}
+}
+
+// GetSimilarMarks lists active marks of the same type near a point
+//
+//	@Summary		Find similar markers
+//	@Description	get active markers (not closed/refuted) of `mark_type_id` within `radius` meters of (lon, lat), nearest first, with `distance_m`; the same search POST /marks runs before creating a mark. Use it to preview duplicates on the client
+//	@Tags			marks
+//	@Produce		json
+//	@Param			lon				query		number	true	"longitude"
+//	@Param			lat				query		number	true	"latitude"
+//	@Param			mark_type_id	query		int		true	"mark type id"
+//	@Param			radius			query		number	false	"radius in meters, at most 50000; default is the server dedup radius (50)"
+//	@Success		200				{object}	responses.Response[marksrest.GetSimilarMarksResponse]
+//	@Failure		400				{object}	responses.Response[any]
+//	@Failure		500				{object}	responses.Response[any]
+//	@Router			/marks/similar [get]
+func (h *handler) GetSimilarMarks() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "marksrest.GetSimilarMarks"
+
+		var req GetSimilarMarksRequest
+		if !listquery.Bind(c, h.log, &req) {
+			return
+		}
+
+		marks, err := h.uc.FindSimilarMarks(c.Request.Context(), req.Filters())
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		responses.OK(c, GetSimilarMarksResponse{Marks: marks})
+	}
+}
+
+// UpdateMark edits the description and/or type of a mark
+//
+//	@Summary		Update mark
+//	@Description	change `description` and/or `mark_type_id`. The owner may edit only an unconfirmed mark (409 otherwise); moderators may edit any mark
+//	@Tags			marks
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		int							true	"mark id"
+//	@Param			request	body		marksrest.UpdateMarkRequest	true	"fields to change"
+//	@Success		200		{object}	responses.Response[marksrest.UpdateMarkResponse]
+//	@Failure		400		{object}	responses.Response[any]
+//	@Failure		401		{object}	responses.Response[any]
+//	@Failure		403		{object}	responses.Response[any]
+//	@Failure		404		{object}	responses.Response[any]
+//	@Failure		409		{object}	responses.Response[any]
+//	@Failure		500		{object}	responses.Response[any]
+//	@Router			/marks/{id} [patch]
+func (h *handler) UpdateMark() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "marksrest.UpdateMark"
+
+		id, err := handlers.ParamInt(c, "id")
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		var req UpdateMarkRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			h.log.Debug("failed binding request", logger.Err(err))
+			responses.BadRequest(c, "invalid request")
+			return
+		}
+
+		actor, ok := h.actorFromClaims(c)
+		if !ok {
+			return
+		}
+
+		mark, err := h.uc.UpdateMark(viewerContext(c, actor.UserID), actor, id, req.Model())
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		h.log.Info("mark updated", slog.Int("mark_id", id), slog.Int("user_id", actor.UserID))
+		responses.OK(c, UpdateMarkResponse{Mark: mark})
+	}
+}
+
+// DeleteMark deletes a mark with its checks, tasks, history and photos
+//
+//	@Summary		Delete mark
+//	@Description	delete the mark together with its checks, tasks, status history, followers and photos. The owner may delete only an unconfirmed mark that nobody else has checked (409 otherwise); moderators may delete any mark
+//	@Tags			marks
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		int	true	"mark id"
+//	@Success		200	{object}	responses.Response[marksrest.DeleteMarkResponse]
+//	@Failure		400	{object}	responses.Response[any]
+//	@Failure		401	{object}	responses.Response[any]
+//	@Failure		403	{object}	responses.Response[any]
+//	@Failure		404	{object}	responses.Response[any]
+//	@Failure		409	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
+//	@Router			/marks/{id} [delete]
+func (h *handler) DeleteMark() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "marksrest.DeleteMark"
+
+		id, err := handlers.ParamInt(c, "id")
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		actor, ok := h.actorFromClaims(c)
+		if !ok {
+			return
+		}
+
+		if err := h.uc.DeleteMark(c.Request.Context(), actor, id); err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		responses.OK(c, DeleteMarkResponse{MarkId: id})
+	}
+}
+
+// FollowMark subscribes the current user to a mark
+//
+//	@Summary		Follow mark
+//	@Description	subscribe to the mark's updates; following twice is not an error
+//	@Tags			marks
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		int	true	"mark id"
+//	@Success		200	{object}	responses.Response[marksrest.FollowResponse]
+//	@Failure		400	{object}	responses.Response[any]
+//	@Failure		401	{object}	responses.Response[any]
+//	@Failure		404	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
+//	@Router			/marks/{id}/follow [post]
+func (h *handler) FollowMark() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "marksrest.FollowMark"
+
+		id, err := handlers.ParamInt(c, "id")
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		actor, ok := h.actorFromClaims(c)
+		if !ok {
+			return
+		}
+
+		if err := h.uc.FollowMark(c.Request.Context(), actor.UserID, id); err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		responses.OK(c, FollowResponse{MarkId: id, Following: true})
+	}
+}
+
+// UnfollowMark unsubscribes the current user from a mark
+//
+//	@Summary		Unfollow mark
+//	@Description	remove the subscription; not being subscribed is not an error
+//	@Tags			marks
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id	path		int	true	"mark id"
+//	@Success		200	{object}	responses.Response[marksrest.FollowResponse]
+//	@Failure		400	{object}	responses.Response[any]
+//	@Failure		401	{object}	responses.Response[any]
+//	@Failure		404	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
+//	@Router			/marks/{id}/follow [delete]
+func (h *handler) UnfollowMark() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "marksrest.UnfollowMark"
+
+		id, err := handlers.ParamInt(c, "id")
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		actor, ok := h.actorFromClaims(c)
+		if !ok {
+			return
+		}
+
+		if err := h.uc.UnfollowMark(c.Request.Context(), actor.UserID, id); err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		responses.OK(c, FollowResponse{MarkId: id, Following: false})
+	}
+}
+
+// GetFollowedMarks lists the marks the current user follows
+//
+//	@Summary		List followed markers
+//	@Description	get markers the authenticated user follows, newest subscription first; pagination info is in the top-level `meta` field
+//	@Tags			users
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			limit	query		int	false	"page size, 1..500"	default(100)
+//	@Param			offset	query		int	false	"page offset"		default(0)
+//	@Success		200		{object}	responses.Response[marksrest.GetFollowedMarksResponse]
+//	@Failure		400		{object}	responses.Response[any]
+//	@Failure		401		{object}	responses.Response[any]
+//	@Failure		500		{object}	responses.Response[any]
+//	@Router			/users/me/following [get]
+func (h *handler) GetFollowedMarks() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "marksrest.GetFollowedMarks"
+
+		actor, ok := h.actorFromClaims(c)
+		if !ok {
+			return
+		}
+
+		p, ok := listquery.BindPagination(c, h.log)
+		if !ok {
+			return
+		}
+
+		page, err := h.uc.ListFollowedMarks(viewerContext(c, actor.UserID), actor.UserID, p)
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		listquery.OK(c, GetFollowedMarksResponse{Marks: page.Items}, p, page.Total)
 	}
 }
 

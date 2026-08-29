@@ -58,3 +58,32 @@ func RequireRole(roles ...models.Role) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// OptionalAuth reads the JWT when an Authorization header is present and
+// records the user as the viewer of the request (models.ContextWithViewer)
+// so read endpoints can return per-user fields. Requests without a header,
+// or with a token the middleware rejects, continue as anonymous; protected
+// routes must still use mw.MiddlewareFunc.
+func OptionalAuth(mw *jwt.GinJWTMiddleware) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.GetHeader("Authorization") == "" {
+			c.Next()
+			return
+		}
+
+		// GetClaimsFromJWT verifies the signature and the exp/nbf claims;
+		// a missing exp is rejected as the strict middleware does.
+		claims, err := mw.GetClaimsFromJWT(c)
+		if err != nil || claims["exp"] == nil {
+			c.Next()
+			return
+		}
+		c.Set("JWT_PAYLOAD", claims)
+
+		if userId, err := UserIDFromClaims(c); err == nil {
+			c.Request = c.Request.WithContext(models.ContextWithViewer(c.Request.Context(), userId))
+		}
+
+		c.Next()
+	}
+}

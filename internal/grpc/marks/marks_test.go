@@ -3,6 +3,7 @@ package marksgrpc_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 	"strings"
 	"testing"
@@ -17,6 +18,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"github.com/twpayne/go-geom"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -144,8 +146,11 @@ func (suite *MarksSuite) TestAddMark() {
 		ctx      context.Context
 		mutate   func(*pb.AddMarkRequest)
 		callUC   bool
+		force    bool
 		errAdd   error
 		wantCode codes.Code
+		// wantSimilar lists the mark ids expected as pb.Mark status details.
+		wantSimilar []int64
 	}{
 		{name: "Ok", ctx: authedCtx(7), callUC: true, wantCode: codes.OK},
 		{name: "Unauthenticated", ctx: context.Background(), wantCode: codes.Unauthenticated},
@@ -178,6 +183,21 @@ func (suite *MarksSuite) TestAddMark() {
 			mutate: func(r *pb.AddMarkRequest) { r.Description = strings.Repeat("A", 257) },
 		},
 		{name: "Internal", ctx: authedCtx(7), callUC: true, errAdd: errors.New("boom"), wantCode: codes.Internal},
+		{
+			name: "SimilarMarks", ctx: authedCtx(7), callUC: true, wantCode: codes.AlreadyExists,
+			errAdd: fmt.Errorf("op: %w", &usecase.SimilarMarksError{Marks: []models.MarkWithDistance{
+				{Mark: models.Mark{ID: 5, Geom: models.NewPoint(geom.Coord{42, 52})}, DistanceM: 12.5},
+			}}),
+			wantSimilar: []int64{5},
+		},
+		{
+			name: "ForceMetadata", callUC: true, force: true, wantCode: codes.OK,
+			ctx: metadata.NewIncomingContext(authedCtx(7), metadata.Pairs("force", "true")),
+		},
+		{
+			name: "ForceMetadataInvalid", callUC: true, wantCode: codes.OK,
+			ctx: metadata.NewIncomingContext(authedCtx(7), metadata.Pairs("force", "yes please")),
+		},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
@@ -190,13 +210,22 @@ func (suite *MarksSuite) TestAddMark() {
 					c := m.Geom.Ewkb.Coords()
 					return m.UserID == 7 && m.MarkTypeID == 1 && m.Description == "desc" &&
 						c.X() == 42 && c.Y() == 52
-				}), mock.Anything).Once().Return(int64(10), tt.errAdd)
+				}), mock.Anything, tt.force).Once().Return(int64(10), tt.errAdd)
 			}
 
 			resp, err := suite.srv.AddMark(tt.ctx, req)
 			suite.Equal(tt.wantCode, status.Code(err))
 			if tt.wantCode == codes.OK {
 				suite.Equal(int64(10), resp.GetMarkId())
+			}
+			if tt.wantSimilar != nil {
+				var gotIds []int64
+				for _, d := range status.Convert(err).Details() {
+					m, ok := d.(*pb.Mark)
+					suite.Require().True(ok, "detail %T", d)
+					gotIds = append(gotIds, m.GetId())
+				}
+				suite.Equal(tt.wantSimilar, gotIds)
 			}
 		})
 	}

@@ -151,7 +151,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 	marksRepo := postgres.NewMarks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	checksRepo := postgres.NewChecks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
-	marksUseCase := usecase.NewMarks(log, trManager, usecase.MarksRepositories{
+	marksUseCase := usecase.NewMarks(log, cfg.Marks, trManager, usecase.MarksRepositories{
 		Marks:  marksRepo,
 		Checks: checksRepo,
 		Photos: photoRepo,

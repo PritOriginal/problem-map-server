@@ -29,6 +29,22 @@ type Config struct {
 	Aws             AwsConfig        `yaml:"aws"`
 	Nats            NatsConfig       `yaml:"nats"`
 	Tasker          TaskerConfig     `yaml:"tasker"`
+	Marks           MarksConfig      `yaml:"marks"`
+}
+
+// MarksConfig tunes mark creation.
+type MarksConfig struct {
+	// DedupRadiusM is the radius (meters) within which an active mark of the
+	// same type is treated as a duplicate on POST /marks.
+	DedupRadiusM float64 `yaml:"dedup-radius-m" env:"MARKS_DEDUP_RADIUS_M" env-default:"50"`
+}
+
+// Validate checks that the dedup radius is sane.
+func (m MarksConfig) Validate() error {
+	if m.DedupRadiusM <= 0 || m.DedupRadiusM > 50_000 {
+		return errors.New("marks.dedup-radius-m (MARKS_DEDUP_RADIUS_M) must be in (0, 50000]")
+	}
+	return nil
 }
 
 type PhotoStorageType string
@@ -248,7 +264,7 @@ const MinJWTKeyLength = 32
 
 // Validate checks that security-sensitive settings are present and sane.
 func (c *Config) Validate() error {
-	if err := errors.Join(c.Auth.Validate(), c.DB.Validate(), c.Tasker.Validate()); err != nil {
+	if err := errors.Join(c.Auth.Validate(), c.DB.Validate(), c.Tasker.Validate(), c.Marks.Validate()); err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 	return nil
