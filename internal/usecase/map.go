@@ -83,17 +83,17 @@ func (uc *Map) GetDistricts(ctx context.Context) ([]models.District, error) {
 	// if uc.redis.Exists(ctx, key) {
 	// 	var districtsList models.DistrictList
 	// 	if err := uc.redis.Get(ctx, key, &districtsList); err != nil {
-	// 		return districts, mapRepoErr(op, err)
+	// 		return districts, fmt.Errorf("%s: %w", op, err)
 	// 	}
 	// 	districts = districtsList.List
 	// } else {
 	// 	districts, err = uc.repos.Map.GetDistricts(ctx)
 	// 	if err != nil {
-	// 		return districts, mapRepoErr(op, err)
+	// 		return districts, fmt.Errorf("%s: %w", op, err)
 	// 	}
 
 	// 	if err := uc.redis.Set(ctx, key, models.DistrictList{List: districts}, 0*time.Second); err != nil {
-	// 		return districts, mapRepoErr(op, err)
+	// 		return districts, fmt.Errorf("%s: %w", op, err)
 	// 	}
 
 	// 	uc.log.Debug("cached districts", slog.Int("len", len(districts)))

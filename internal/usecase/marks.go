@@ -201,7 +201,7 @@ func (uc *Marks) addChecksToHistoryItems(historyItems []models.MarkStatusHistory
 
 // 	mark, err := uc.repos.Marks.GetMarkById(ctx, markId)
 // 	if err != nil {
-// 		return 0, mapRepoErr(op, err)
+// 		return 0, fmt.Errorf("%s: %w", op, err)
 // 	}
 
 // 	var newStatus models.MarkStatusType
@@ -218,7 +218,7 @@ func (uc *Marks) addChecksToHistoryItems(historyItems []models.MarkStatusHistory
 // 	}
 
 // 	if err := uc.repos.Marks.UpdateMarkStatus(ctx, markId, newStatus); err != nil {
-// 		return 0, mapRepoErr(op, err)
+// 		return 0, fmt.Errorf("%s: %w", op, err)
 // 	}
 
 // 	return newStatus, nil
@@ -229,7 +229,7 @@ func (uc *Marks) addChecksToHistoryItems(historyItems []models.MarkStatusHistory
 
 // 	mark, err := uc.repos.Marks.GetMarkById(ctx, markId)
 // 	if err != nil {
-// 		return 0, mapRepoErr(op, err)
+// 		return 0, fmt.Errorf("%s: %w", op, err)
 // 	}
 
 // 	var newStatus models.MarkStatusType
@@ -242,7 +242,7 @@ func (uc *Marks) addChecksToHistoryItems(historyItems []models.MarkStatusHistory
 // 	}
 
 // 	if err := uc.repos.Marks.UpdateMarkStatus(ctx, markId, newStatus); err != nil {
-// 		return 0, mapRepoErr(op, err)
+// 		return 0, fmt.Errorf("%s: %w", op, err)
 // 	}
 
 // 	return newStatus, nil
