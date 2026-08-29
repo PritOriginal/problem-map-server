@@ -81,6 +81,11 @@ func (suite *AuthSuite) TestAuthFunc() {
 			wantCode: codes.Unauthenticated,
 		},
 		{
+			name:     "RefreshToken",
+			ctx:      ctxWithAuthorization("Bearer " + mustRefreshToken(suite.T(), 42, testKey)),
+			wantCode: codes.Unauthenticated,
+		},
+		{
 			name:     "WrongScheme",
 			ctx:      ctxWithAuthorization("Basic abc"),
 			wantCode: codes.Unauthenticated,
@@ -165,4 +170,15 @@ func (suite *AuthSuite) TestRequireRole() {
 			suite.Equal(tt.wantCode, status.Code(err))
 		})
 	}
+}
+
+// mustRefreshToken issues a refresh-typed token signed with key: it must
+// not be accepted as a bearer token even though the signature is valid.
+func mustRefreshToken(t *testing.T, userID int, key string) string {
+	t.Helper()
+	tok, err := token.Create(token.Params{TTL: time.Minute, UserID: userID, Role: "admin", Type: token.TypeRefresh, ID: "jti"}, key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tok
 }

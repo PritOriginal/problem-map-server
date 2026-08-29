@@ -34,6 +34,12 @@ func (suite *RateLimitSuite) SetupSuite() {
 
 	disabled := suite.r.Group("", ratelimit.New(slogdiscard.NewDiscardLogger(), suite.counter, ratelimit.Config{}))
 	disabled.POST("/disabled", func(c *gin.Context) { c.Status(http.StatusOK) })
+
+	noCounter := suite.r.Group("", ratelimit.New(slogdiscard.NewDiscardLogger(), nil, ratelimit.Config{
+		Requests: 2,
+		Window:   time.Minute,
+	}))
+	noCounter.POST("/no-counter", func(c *gin.Context) { c.Status(http.StatusOK) })
 }
 
 func TestRateLimit(t *testing.T) {
@@ -58,10 +64,11 @@ func (suite *RateLimitSuite) TestNew() {
 		{name: "OverLimitTTLAboveWindowClamped", path: "/auth/signin", count: 3, ttl: time.Hour, statusCode: http.StatusTooManyRequests, retryAfter: "60"},
 		{name: "FailOpen", path: "/auth/signin", errIncr: errors.New("redis down"), statusCode: http.StatusOK},
 		{name: "Disabled", path: "/disabled", statusCode: http.StatusOK},
+		{name: "NilCounter", path: "/no-counter", statusCode: http.StatusOK},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			if tt.path != "/disabled" {
+			if tt.path == "/auth/signin" {
 				suite.counter.On("Incr", mock.Anything, "ratelimit:/auth/signin:192.0.2.1", time.Minute).Once().
 					Return(tt.count, tt.ttl, tt.errIncr)
 			}
