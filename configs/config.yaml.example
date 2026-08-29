@@ -53,3 +53,6 @@ tasker:
   distance-lambda: 0.05
   load-delta: 0.3
   fatigue-beta: 0.2
+
+marks:
+  dedup-radius-m: 50

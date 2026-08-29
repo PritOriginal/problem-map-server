@@ -6,6 +6,7 @@ import (
 	"io"
 	"log/slog"
 
+	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/avito-tech/go-transaction-manager/trm/v2"
 )
@@ -23,10 +24,18 @@ type MarksRepository interface {
 	GetLastMarkStatusHistoryItem(ctx context.Context, markId int) (models.MarkStatusHistoryItem, error)
 	GetLastMarkStatusHistoryItemWithStatus(ctx context.Context, markId int, newMarkStatusId models.MarkStatusType) (models.MarkStatusHistoryItem, error)
 	GetDistancesFromMarkToPoint(ctx context.Context, filters models.GetDistanceFromMarkToPointFilters) ([]models.DistanceFromMarkToPoint, error)
+	GetSimilarMarks(ctx context.Context, filters models.GetSimilarMarksFilters) ([]models.MarkWithDistance, error)
+	UpdateMark(ctx context.Context, markId int, upd models.MarkUpdate) error
+	DeleteMark(ctx context.Context, markId int) error
+	FollowMark(ctx context.Context, userId, markId int) error
+	UnfollowMark(ctx context.Context, userId, markId int) error
+	GetFollowedMarks(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error)
+	GetFollowerIDs(ctx context.Context, markId int) ([]int, error)
 }
 
 type PhotosRepository interface {
 	AddPhotos(ctx context.Context, markId, checkId int, photos []io.Reader) error
+	DeletePhotos(ctx context.Context, markId int) error
 	GetPhotos(ctx context.Context) (map[int]map[int][]string, error)
 	GetPhotosByMarkId(ctx context.Context, markId int) (map[int]map[int][]string, error)
 	GetPhotosByCheckId(ctx context.Context, markId, checkId int) ([]string, error)
@@ -34,8 +43,26 @@ type PhotosRepository interface {
 
 type Marks struct {
 	log       *slog.Logger
+	cfg       config.MarksConfig
 	trManager trm.Manager
 	repos     MarksRepositories
+}
+
+// SimilarMarksError is returned by AddMark when active marks of the same
+// type already exist nearby and the caller did not force creation. It
+// matches ErrConflict via errors.Is; handlers may errors.As it to expose the
+// candidates.
+type SimilarMarksError struct {
+	Marks []models.MarkWithDistance
+}
+
+func (e *SimilarMarksError) Error() string {
+	return fmt.Sprintf("%d similar marks nearby", len(e.Marks))
+}
+
+// Is makes the error match ErrConflict.
+func (e *SimilarMarksError) Is(target error) bool {
+	return target == ErrConflict
 }
 
 type MarksRepositories struct {
@@ -44,9 +71,13 @@ type MarksRepositories struct {
 	Photos PhotosRepository
 }
 
-func NewMarks(log *slog.Logger, trManager trm.Manager, repos MarksRepositories) *Marks {
+func NewMarks(log *slog.Logger, cfg config.MarksConfig, trManager trm.Manager, repos MarksRepositories) *Marks {
+	if cfg.DedupRadiusM <= 0 {
+		cfg.DedupRadiusM = models.DefaultDedupRadiusM
+	}
 	return &Marks{
 		log:       log,
+		cfg:       cfg,
 		trManager: trManager,
 		repos:     repos,
 	}
@@ -137,14 +168,58 @@ func (uc *Marks) GetMarksByUserId(ctx context.Context, userId int) ([]models.Mar
 	return page.Items, nil
 }
 
-func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error) {
+// FindSimilarMarks returns active marks of the same type near the point.
+// A zero radius means the configured dedup radius.
+func (uc *Marks) FindSimilarMarks(ctx context.Context, filters models.GetSimilarMarksFilters) ([]models.MarkWithDistance, error) {
+	const op = "usecase.Marks.FindSimilarMarks"
+
+	if filters.RadiusM == 0 {
+		filters.RadiusM = uc.cfg.DedupRadiusM
+	}
+	if err := filters.Validate(); err != nil {
+		return nil, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
+	}
+
+	marks, err := uc.repos.Marks.GetSimilarMarks(ctx, filters)
+	if err != nil {
+		return nil, mapRepoErr(op, err)
+	}
+	return marks, nil
+}
+
+// AddMark creates the mark with its first check and photos and subscribes
+// the author to it. Unless force is set, active marks of the same type
+// within the dedup radius block creation with a *SimilarMarksError.
+func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos []io.Reader, force bool) (int64, error) {
 	const op = "usecase.Marks.AddMark"
+
+	if !force {
+		if mark.Geom == nil {
+			return 0, fmt.Errorf("%s: %w: geometry is required", op, ErrInvalidArgument)
+		}
+		similar, err := uc.repos.Marks.GetSimilarMarks(ctx, models.GetSimilarMarksFilters{
+			Lon:        mark.Geom.Ewkb.X(),
+			Lat:        mark.Geom.Ewkb.Y(),
+			MarkTypeID: mark.MarkTypeID,
+			RadiusM:    uc.cfg.DedupRadiusM,
+		})
+		if err != nil {
+			return 0, mapRepoErr(op, err)
+		}
+		if len(similar) > 0 {
+			return 0, fmt.Errorf("%s: %w", op, &SimilarMarksError{Marks: similar})
+		}
+	}
 
 	var markId int64
 	err := uc.trManager.Do(ctx, func(ctx context.Context) error {
 		var err error
 		markId, err = uc.repos.Marks.AddMark(ctx, mark)
 		if err != nil {
+			return err
+		}
+
+		if err := uc.repos.Marks.FollowMark(ctx, mark.UserID, int(markId)); err != nil {
 			return err
 		}
 
@@ -178,6 +253,128 @@ func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos []io.Read
 	}
 
 	return markId, nil
+}
+
+// UpdateMark changes description/type. The owner may edit only an
+// unconfirmed mark; moderators may edit any mark.
+func (uc *Marks) UpdateMark(ctx context.Context, actor models.Actor, markId int, upd models.MarkUpdate) (models.Mark, error) {
+	const op = "usecase.Marks.UpdateMark"
+
+	if upd.IsEmpty() {
+		return models.Mark{}, fmt.Errorf("%s: %w: nothing to update", op, ErrInvalidArgument)
+	}
+
+	mark, err := uc.repos.Marks.GetMarkById(ctx, markId)
+	if err != nil {
+		return models.Mark{}, mapRepoErr(op, err)
+	}
+	if err := uc.authorizeOwnerAction(actor, mark); err != nil {
+		return models.Mark{}, fmt.Errorf("%s: %w", op, err)
+	}
+
+	if err := uc.repos.Marks.UpdateMark(ctx, markId, upd); err != nil {
+		return models.Mark{}, mapRepoErr(op, err)
+	}
+
+	mark, err = uc.repos.Marks.GetMarkById(ctx, markId)
+	if err != nil {
+		return models.Mark{}, mapRepoErr(op, err)
+	}
+	return mark, nil
+}
+
+// DeleteMark removes the mark with its checks, tasks, history, followers
+// and photos. The owner may delete only an unconfirmed mark nobody else has
+// checked; moderators may delete any mark.
+func (uc *Marks) DeleteMark(ctx context.Context, actor models.Actor, markId int) error {
+	const op = "usecase.Marks.DeleteMark"
+
+	mark, err := uc.repos.Marks.GetMarkById(ctx, markId)
+	if err != nil {
+		return mapRepoErr(op, err)
+	}
+	if err := uc.authorizeOwnerAction(actor, mark); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	if !actor.IsModerator() {
+		checks, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId, models.Pagination{})
+		if err != nil {
+			return mapRepoErr(op, err)
+		}
+		for _, check := range checks.Items {
+			if check.UserID != mark.UserID {
+				return fmt.Errorf("%s: %w: mark has checks by other users", op, ErrConflict)
+			}
+		}
+	}
+
+	err = uc.trManager.Do(ctx, func(ctx context.Context) error {
+		if err := uc.repos.Marks.DeleteMark(ctx, markId); err != nil {
+			return err
+		}
+		return uc.repos.Photos.DeletePhotos(ctx, markId)
+	})
+	if err != nil {
+		return mapRepoErr(op, err)
+	}
+
+	uc.log.Info("mark deleted", slog.Int("mark_id", markId), slog.Int("user_id", actor.UserID))
+	return nil
+}
+
+// authorizeOwnerAction allows moderators always and the owner only while the
+// mark is unconfirmed: ErrForbidden for strangers, ErrConflict for a wrong
+// status.
+func (uc *Marks) authorizeOwnerAction(actor models.Actor, mark models.Mark) error {
+	if actor.IsModerator() {
+		return nil
+	}
+	if mark.UserID != actor.UserID {
+		return ErrForbidden
+	}
+	if mark.MarkStatusID != models.UnconfirmedStatus {
+		return fmt.Errorf("%w: mark is not unconfirmed", ErrConflict)
+	}
+	return nil
+}
+
+// FollowMark subscribes the user to the mark's updates.
+func (uc *Marks) FollowMark(ctx context.Context, userId, markId int) error {
+	const op = "usecase.Marks.FollowMark"
+
+	if err := uc.repos.Marks.FollowMark(ctx, userId, markId); err != nil {
+		return mapRepoErr(op, err)
+	}
+	return nil
+}
+
+// UnfollowMark removes the subscription; the mark must exist.
+func (uc *Marks) UnfollowMark(ctx context.Context, userId, markId int) error {
+	const op = "usecase.Marks.UnfollowMark"
+
+	if _, err := uc.repos.Marks.GetMarkById(ctx, markId); err != nil {
+		return mapRepoErr(op, err)
+	}
+	if err := uc.repos.Marks.UnfollowMark(ctx, userId, markId); err != nil {
+		return mapRepoErr(op, err)
+	}
+	return nil
+}
+
+// ListFollowedMarks returns a page of marks the user follows.
+func (uc *Marks) ListFollowedMarks(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error) {
+	const op = "usecase.Marks.ListFollowedMarks"
+
+	if err := p.Validate(); err != nil {
+		return models.Page[models.Mark]{}, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
+	}
+
+	page, err := uc.repos.Marks.GetFollowedMarks(ctx, userId, p)
+	if err != nil {
+		return page, mapRepoErr(op, err)
+	}
+	return page, nil
 }
 
 func (uc *Marks) GetMarkTypes(ctx context.Context) ([]models.MarkType, error) {

@@ -1214,6 +1214,126 @@ func (_c *MockMarksRepository_AddMark_Call) RunAndReturn(run func(ctx context.Co
 	return _c
 }
 
+// DeleteMark provides a mock function for the type MockMarksRepository
+func (_mock *MockMarksRepository) DeleteMark(ctx context.Context, markId int) error {
+	ret := _mock.Called(ctx, markId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteMark")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) error); ok {
+		r0 = returnFunc(ctx, markId)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockMarksRepository_DeleteMark_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteMark'
+type MockMarksRepository_DeleteMark_Call struct {
+	*mock.Call
+}
+
+// DeleteMark is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markId int
+func (_e *MockMarksRepository_Expecter) DeleteMark(ctx any, markId any) *MockMarksRepository_DeleteMark_Call {
+	return &MockMarksRepository_DeleteMark_Call{Call: _e.mock.On("DeleteMark", ctx, markId)}
+}
+
+func (_c *MockMarksRepository_DeleteMark_Call) Run(run func(ctx context.Context, markId int)) *MockMarksRepository_DeleteMark_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarksRepository_DeleteMark_Call) Return(err error) *MockMarksRepository_DeleteMark_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockMarksRepository_DeleteMark_Call) RunAndReturn(run func(ctx context.Context, markId int) error) *MockMarksRepository_DeleteMark_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// FollowMark provides a mock function for the type MockMarksRepository
+func (_mock *MockMarksRepository) FollowMark(ctx context.Context, userId int, markId int) error {
+	ret := _mock.Called(ctx, userId, markId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FollowMark")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) error); ok {
+		r0 = returnFunc(ctx, userId, markId)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockMarksRepository_FollowMark_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FollowMark'
+type MockMarksRepository_FollowMark_Call struct {
+	*mock.Call
+}
+
+// FollowMark is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userId int
+//   - markId int
+func (_e *MockMarksRepository_Expecter) FollowMark(ctx any, userId any, markId any) *MockMarksRepository_FollowMark_Call {
+	return &MockMarksRepository_FollowMark_Call{Call: _e.mock.On("FollowMark", ctx, userId, markId)}
+}
+
+func (_c *MockMarksRepository_FollowMark_Call) Run(run func(ctx context.Context, userId int, markId int)) *MockMarksRepository_FollowMark_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarksRepository_FollowMark_Call) Return(err error) *MockMarksRepository_FollowMark_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockMarksRepository_FollowMark_Call) RunAndReturn(run func(ctx context.Context, userId int, markId int) error) *MockMarksRepository_FollowMark_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetDistancesFromMarkToPoint provides a mock function for the type MockMarksRepository
 func (_mock *MockMarksRepository) GetDistancesFromMarkToPoint(ctx context.Context, filters models.GetDistanceFromMarkToPointFilters) ([]models.DistanceFromMarkToPoint, error) {
 	ret := _mock.Called(ctx, filters)
@@ -1278,6 +1398,146 @@ func (_c *MockMarksRepository_GetDistancesFromMarkToPoint_Call) Return(distanceF
 }
 
 func (_c *MockMarksRepository_GetDistancesFromMarkToPoint_Call) RunAndReturn(run func(ctx context.Context, filters models.GetDistanceFromMarkToPointFilters) ([]models.DistanceFromMarkToPoint, error)) *MockMarksRepository_GetDistancesFromMarkToPoint_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetFollowedMarks provides a mock function for the type MockMarksRepository
+func (_mock *MockMarksRepository) GetFollowedMarks(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error) {
+	ret := _mock.Called(ctx, userId, p)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetFollowedMarks")
+	}
+
+	var r0 models.Page[models.Mark]
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, models.Pagination) (models.Page[models.Mark], error)); ok {
+		return returnFunc(ctx, userId, p)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, models.Pagination) models.Page[models.Mark]); ok {
+		r0 = returnFunc(ctx, userId, p)
+	} else {
+		r0 = ret.Get(0).(models.Page[models.Mark])
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, models.Pagination) error); ok {
+		r1 = returnFunc(ctx, userId, p)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMarksRepository_GetFollowedMarks_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetFollowedMarks'
+type MockMarksRepository_GetFollowedMarks_Call struct {
+	*mock.Call
+}
+
+// GetFollowedMarks is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userId int
+//   - p models.Pagination
+func (_e *MockMarksRepository_Expecter) GetFollowedMarks(ctx any, userId any, p any) *MockMarksRepository_GetFollowedMarks_Call {
+	return &MockMarksRepository_GetFollowedMarks_Call{Call: _e.mock.On("GetFollowedMarks", ctx, userId, p)}
+}
+
+func (_c *MockMarksRepository_GetFollowedMarks_Call) Run(run func(ctx context.Context, userId int, p models.Pagination)) *MockMarksRepository_GetFollowedMarks_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 models.Pagination
+		if args[2] != nil {
+			arg2 = args[2].(models.Pagination)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarksRepository_GetFollowedMarks_Call) Return(page models.Page[models.Mark], err error) *MockMarksRepository_GetFollowedMarks_Call {
+	_c.Call.Return(page, err)
+	return _c
+}
+
+func (_c *MockMarksRepository_GetFollowedMarks_Call) RunAndReturn(run func(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error)) *MockMarksRepository_GetFollowedMarks_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetFollowerIDs provides a mock function for the type MockMarksRepository
+func (_mock *MockMarksRepository) GetFollowerIDs(ctx context.Context, markId int) ([]int, error) {
+	ret := _mock.Called(ctx, markId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetFollowerIDs")
+	}
+
+	var r0 []int
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) ([]int, error)); ok {
+		return returnFunc(ctx, markId)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) []int); ok {
+		r0 = returnFunc(ctx, markId)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]int)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = returnFunc(ctx, markId)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMarksRepository_GetFollowerIDs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetFollowerIDs'
+type MockMarksRepository_GetFollowerIDs_Call struct {
+	*mock.Call
+}
+
+// GetFollowerIDs is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markId int
+func (_e *MockMarksRepository_Expecter) GetFollowerIDs(ctx any, markId any) *MockMarksRepository_GetFollowerIDs_Call {
+	return &MockMarksRepository_GetFollowerIDs_Call{Call: _e.mock.On("GetFollowerIDs", ctx, markId)}
+}
+
+func (_c *MockMarksRepository_GetFollowerIDs_Call) Run(run func(ctx context.Context, markId int)) *MockMarksRepository_GetFollowerIDs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarksRepository_GetFollowerIDs_Call) Return(ints []int, err error) *MockMarksRepository_GetFollowerIDs_Call {
+	_c.Call.Return(ints, err)
+	return _c
+}
+
+func (_c *MockMarksRepository_GetFollowerIDs_Call) RunAndReturn(run func(ctx context.Context, markId int) ([]int, error)) *MockMarksRepository_GetFollowerIDs_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1882,6 +2142,200 @@ func (_c *MockMarksRepository_GetMarksNearby_Call) RunAndReturn(run func(ctx con
 	return _c
 }
 
+// GetSimilarMarks provides a mock function for the type MockMarksRepository
+func (_mock *MockMarksRepository) GetSimilarMarks(ctx context.Context, filters models.GetSimilarMarksFilters) ([]models.MarkWithDistance, error) {
+	ret := _mock.Called(ctx, filters)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetSimilarMarks")
+	}
+
+	var r0 []models.MarkWithDistance
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetSimilarMarksFilters) ([]models.MarkWithDistance, error)); ok {
+		return returnFunc(ctx, filters)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetSimilarMarksFilters) []models.MarkWithDistance); ok {
+		r0 = returnFunc(ctx, filters)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]models.MarkWithDistance)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.GetSimilarMarksFilters) error); ok {
+		r1 = returnFunc(ctx, filters)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMarksRepository_GetSimilarMarks_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetSimilarMarks'
+type MockMarksRepository_GetSimilarMarks_Call struct {
+	*mock.Call
+}
+
+// GetSimilarMarks is a helper method to define mock.On call
+//   - ctx context.Context
+//   - filters models.GetSimilarMarksFilters
+func (_e *MockMarksRepository_Expecter) GetSimilarMarks(ctx any, filters any) *MockMarksRepository_GetSimilarMarks_Call {
+	return &MockMarksRepository_GetSimilarMarks_Call{Call: _e.mock.On("GetSimilarMarks", ctx, filters)}
+}
+
+func (_c *MockMarksRepository_GetSimilarMarks_Call) Run(run func(ctx context.Context, filters models.GetSimilarMarksFilters)) *MockMarksRepository_GetSimilarMarks_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 models.GetSimilarMarksFilters
+		if args[1] != nil {
+			arg1 = args[1].(models.GetSimilarMarksFilters)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarksRepository_GetSimilarMarks_Call) Return(markWithDistances []models.MarkWithDistance, err error) *MockMarksRepository_GetSimilarMarks_Call {
+	_c.Call.Return(markWithDistances, err)
+	return _c
+}
+
+func (_c *MockMarksRepository_GetSimilarMarks_Call) RunAndReturn(run func(ctx context.Context, filters models.GetSimilarMarksFilters) ([]models.MarkWithDistance, error)) *MockMarksRepository_GetSimilarMarks_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UnfollowMark provides a mock function for the type MockMarksRepository
+func (_mock *MockMarksRepository) UnfollowMark(ctx context.Context, userId int, markId int) error {
+	ret := _mock.Called(ctx, userId, markId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UnfollowMark")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) error); ok {
+		r0 = returnFunc(ctx, userId, markId)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockMarksRepository_UnfollowMark_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UnfollowMark'
+type MockMarksRepository_UnfollowMark_Call struct {
+	*mock.Call
+}
+
+// UnfollowMark is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userId int
+//   - markId int
+func (_e *MockMarksRepository_Expecter) UnfollowMark(ctx any, userId any, markId any) *MockMarksRepository_UnfollowMark_Call {
+	return &MockMarksRepository_UnfollowMark_Call{Call: _e.mock.On("UnfollowMark", ctx, userId, markId)}
+}
+
+func (_c *MockMarksRepository_UnfollowMark_Call) Run(run func(ctx context.Context, userId int, markId int)) *MockMarksRepository_UnfollowMark_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarksRepository_UnfollowMark_Call) Return(err error) *MockMarksRepository_UnfollowMark_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockMarksRepository_UnfollowMark_Call) RunAndReturn(run func(ctx context.Context, userId int, markId int) error) *MockMarksRepository_UnfollowMark_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateMark provides a mock function for the type MockMarksRepository
+func (_mock *MockMarksRepository) UpdateMark(ctx context.Context, markId int, upd models.MarkUpdate) error {
+	ret := _mock.Called(ctx, markId, upd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateMark")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, models.MarkUpdate) error); ok {
+		r0 = returnFunc(ctx, markId, upd)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockMarksRepository_UpdateMark_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateMark'
+type MockMarksRepository_UpdateMark_Call struct {
+	*mock.Call
+}
+
+// UpdateMark is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markId int
+//   - upd models.MarkUpdate
+func (_e *MockMarksRepository_Expecter) UpdateMark(ctx any, markId any, upd any) *MockMarksRepository_UpdateMark_Call {
+	return &MockMarksRepository_UpdateMark_Call{Call: _e.mock.On("UpdateMark", ctx, markId, upd)}
+}
+
+func (_c *MockMarksRepository_UpdateMark_Call) Run(run func(ctx context.Context, markId int, upd models.MarkUpdate)) *MockMarksRepository_UpdateMark_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 models.MarkUpdate
+		if args[2] != nil {
+			arg2 = args[2].(models.MarkUpdate)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarksRepository_UpdateMark_Call) Return(err error) *MockMarksRepository_UpdateMark_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockMarksRepository_UpdateMark_Call) RunAndReturn(run func(ctx context.Context, markId int, upd models.MarkUpdate) error) *MockMarksRepository_UpdateMark_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UpdateMarkStatus provides a mock function for the type MockMarksRepository
 func (_mock *MockMarksRepository) UpdateMarkStatus(ctx context.Context, markId int, markStatusId models.MarkStatusType) error {
 	ret := _mock.Called(ctx, markId, markStatusId)
@@ -2037,6 +2491,63 @@ func (_c *MockPhotosRepository_AddPhotos_Call) Return(err error) *MockPhotosRepo
 }
 
 func (_c *MockPhotosRepository_AddPhotos_Call) RunAndReturn(run func(ctx context.Context, markId int, checkId int, photos []io.Reader) error) *MockPhotosRepository_AddPhotos_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeletePhotos provides a mock function for the type MockPhotosRepository
+func (_mock *MockPhotosRepository) DeletePhotos(ctx context.Context, markId int) error {
+	ret := _mock.Called(ctx, markId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeletePhotos")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) error); ok {
+		r0 = returnFunc(ctx, markId)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockPhotosRepository_DeletePhotos_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeletePhotos'
+type MockPhotosRepository_DeletePhotos_Call struct {
+	*mock.Call
+}
+
+// DeletePhotos is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markId int
+func (_e *MockPhotosRepository_Expecter) DeletePhotos(ctx any, markId any) *MockPhotosRepository_DeletePhotos_Call {
+	return &MockPhotosRepository_DeletePhotos_Call{Call: _e.mock.On("DeletePhotos", ctx, markId)}
+}
+
+func (_c *MockPhotosRepository_DeletePhotos_Call) Run(run func(ctx context.Context, markId int)) *MockPhotosRepository_DeletePhotos_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockPhotosRepository_DeletePhotos_Call) Return(err error) *MockPhotosRepository_DeletePhotos_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockPhotosRepository_DeletePhotos_Call) RunAndReturn(run func(ctx context.Context, markId int) error) *MockPhotosRepository_DeletePhotos_Call {
 	_c.Call.Return(run)
 	return _c
 }

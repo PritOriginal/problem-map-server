@@ -55,6 +55,7 @@ func (suite *ConfigSuite) TestValidate() {
 			Interval: time.Minute, TaskTTL: time.Hour, MaxTasksPerUser: 1, RequiredChecks: 1,
 			TargetProbability: 0.5, MaxRadiusMeters: 100,
 		}
+		c.Marks = config.MarksConfig{DedupRadiusM: 50}
 		return c
 	}
 
@@ -70,6 +71,7 @@ func (suite *ConfigSuite) TestValidate() {
 		{name: "EmptyDBHost", mutate: func(c *config.Config) { c.DB.Host = "" }, wantErr: "POSTGRES_HOST"},
 		{name: "EmptyDBUser", mutate: func(c *config.Config) { c.DB.Username = "" }, wantErr: "POSTGRES_USER"},
 		{name: "EmptyDBName", mutate: func(c *config.Config) { c.DB.Name = "" }, wantErr: "POSTGRES_DB"},
+		{name: "ZeroDedupRadius", mutate: func(c *config.Config) { c.Marks.DedupRadiusM = 0 }, wantErr: "MARKS_DEDUP_RADIUS_M"},
 		{name: "valid", mutate: func(*config.Config) {}},
 		{name: "short access key", mutate: func(c *config.Config) { c.Auth.JWT.Access.Key = "qwer" }, wantErr: "JWT_ACCESS_TOKEN_KEY"},
 		{name: "empty refresh key", mutate: func(c *config.Config) { c.Auth.JWT.Refresh.Key = "" }, wantErr: "JWT_REFRESH_TOKEN_KEY"},
