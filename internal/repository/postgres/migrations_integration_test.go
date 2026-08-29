@@ -11,6 +11,9 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 )
 
+// i18nMigrationVersion is the version of 000037_add_i18n.
+const i18nMigrationVersion = 37
+
 // TestMigration_I18nDuplicateNames re-runs 000037_add_i18n over dictionaries
 // with duplicated and unknown names: the codes must stay unique (the
 // duplicates get an `_<id>` suffix, unknown names a synthetic code) so the
@@ -24,7 +27,9 @@ func (s *PostgresSuite) TestMigration_I18nDuplicateNames() {
 	s.Require().NoError(err)
 	defer func() { _, _ = m.Close() }()
 
-	s.Require().NoError(m.Steps(-1), "revert 000037")
+	// Migrate to an explicit version: later migrations (000038, ...) may
+	// follow 000037, so a relative step would revert the wrong one.
+	s.Require().NoError(m.Migrate(i18nMigrationVersion-1), "revert 000037")
 	// Whatever happens, leave the schema fully migrated for the next tests.
 	defer func() {
 		if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
@@ -37,7 +42,7 @@ func (s *PostgresSuite) TestMigration_I18nDuplicateNames() {
 	`)
 	s.Require().NoError(err)
 
-	s.Require().NoError(m.Steps(1), "apply 000037 with duplicated names")
+	s.Require().NoError(m.Migrate(i18nMigrationVersion), "apply 000037 with duplicated names")
 
 	var got []struct {
 		ID   int    `db:"type_mark_id"`
