@@ -616,7 +616,7 @@ func (h *handler) GetFollowedMarks() gin.HandlerFunc {
 // GetMarkTypes lists all existing mark types
 //
 //	@Summary		List mark types
-//	@Description	get mark types; `name` is localised by the Accept-Language header (ru, en; default ru), `code` is a stable identifier
+//	@Description	get mark types; `name` is localised by the Accept-Language header (ru, en; default ru), `code` is a stable identifier. `mark_type_id` duplicates `id` and is deprecated
 //	@Tags			marks
 //	@Accept			json
 //	@Produce		json
@@ -645,7 +645,7 @@ func (h *handler) GetMarkTypes() gin.HandlerFunc {
 // GetMarkStatuses lists all existing mark statuses
 //
 //	@Summary		List mark statuses
-//	@Description	get mark statuses; `name` is localised by the Accept-Language header (ru, en; default ru), `code` is a stable identifier
+//	@Description	get mark statuses; `name` is localised by the Accept-Language header (ru, en; default ru), `code` is a stable identifier. `mark_status_id` duplicates `id` and is deprecated
 //	@Tags			marks
 //	@Accept			json
 //	@Produce		json

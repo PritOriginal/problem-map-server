@@ -148,6 +148,11 @@ definitions:
         type: string
       id:
         type: integer
+      mark_status_id:
+        description: |-
+          LegacyID mirrors ID under the key older clients read; it is filled
+          by MarshalJSON. Deprecated: use ID (`id`).
+        type: integer
       name:
         type: string
       parent_id:
@@ -193,6 +198,11 @@ definitions:
       code:
         type: string
       id:
+        type: integer
+      mark_type_id:
+        description: |-
+          LegacyID mirrors ID under the key older clients read; it is filled
+          by MarshalJSON. Deprecated: use ID (`id`).
         type: integer
       name:
         type: string
@@ -2750,7 +2760,8 @@ paths:
       consumes:
       - application/json
       description: get mark statuses; `name` is localised by the Accept-Language header
-        (ru, en; default ru), `code` is a stable identifier
+        (ru, en; default ru), `code` is a stable identifier. `mark_status_id` duplicates
+        `id` and is deprecated
       parameters:
       - default: ru
         description: response language
@@ -2779,7 +2790,8 @@ paths:
       consumes:
       - application/json
       description: get mark types; `name` is localised by the Accept-Language header
-        (ru, en; default ru), `code` is a stable identifier
+        (ru, en; default ru), `code` is a stable identifier. `mark_type_id` duplicates
+        `id` and is deprecated
       parameters:
       - default: ru
         description: response language

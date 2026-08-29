@@ -1,6 +1,7 @@
 package models
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
@@ -269,9 +270,19 @@ type GetDistanceFromMarkToPointFilters struct {
 // MarkType is a dictionary entry: Code is the stable machine-readable
 // identifier, Name is localised (see Lang).
 type MarkType struct {
-	ID   int    `json:"id" db:"type_mark_id"`
-	Code string `json:"code" db:"code"`
-	Name string `json:"name" db:"name"`
+	ID int `json:"id" db:"type_mark_id"`
+	// LegacyID mirrors ID under the key older clients read; it is filled
+	// by MarshalJSON. Deprecated: use ID (`id`).
+	LegacyID int    `json:"mark_type_id" db:"-"`
+	Code     string `json:"code" db:"code"`
+	Name     string `json:"name" db:"name"`
+}
+
+// MarshalJSON emits the deprecated `mark_type_id` alias next to `id`.
+func (t MarkType) MarshalJSON() ([]byte, error) {
+	type plain MarkType
+	t.LegacyID = t.ID
+	return json.Marshal(plain(t))
 }
 
 func (t *MarkType) ToProtobufObject() *pb.MarkType {
@@ -295,10 +306,20 @@ const (
 // MarkStatus is a dictionary entry: Code is the stable machine-readable
 // identifier, Name is localised (see Lang).
 type MarkStatus struct {
-	ID       int      `json:"id" db:"mark_status_id"`
+	ID int `json:"id" db:"mark_status_id"`
+	// LegacyID mirrors ID under the key older clients read; it is filled
+	// by MarshalJSON. Deprecated: use ID (`id`).
+	LegacyID int      `json:"mark_status_id" db:"-"`
 	ParentId null.Int `json:"parent_id" db:"parent_id"`
 	Code     string   `json:"code" db:"code"`
 	Name     string   `json:"name" db:"name"`
+}
+
+// MarshalJSON emits the deprecated `mark_status_id` alias next to `id`.
+func (s MarkStatus) MarshalJSON() ([]byte, error) {
+	type plain MarkStatus
+	s.LegacyID = s.ID
+	return json.Marshal(plain(s))
 }
 
 func (s *MarkStatus) ToProtobufObject() *pb.MarkStatus {

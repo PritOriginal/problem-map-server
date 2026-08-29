@@ -1370,7 +1370,7 @@ const docTemplate = `{
         },
         "/marks/statuses": {
             "get": {
-                "description": "get mark statuses; ` + "`" + `name` + "`" + ` is localised by the Accept-Language header (ru, en; default ru), ` + "`" + `code` + "`" + ` is a stable identifier",
+                "description": "get mark statuses; ` + "`" + `name` + "`" + ` is localised by the Accept-Language header (ru, en; default ru), ` + "`" + `code` + "`" + ` is a stable identifier. ` + "`" + `mark_status_id` + "`" + ` duplicates ` + "`" + `id` + "`" + ` and is deprecated",
                 "consumes": [
                     "application/json"
                 ],
@@ -1412,7 +1412,7 @@ const docTemplate = `{
         },
         "/marks/types": {
             "get": {
-                "description": "get mark types; ` + "`" + `name` + "`" + ` is localised by the Accept-Language header (ru, en; default ru), ` + "`" + `code` + "`" + ` is a stable identifier",
+                "description": "get mark types; ` + "`" + `name` + "`" + ` is localised by the Accept-Language header (ru, en; default ru), ` + "`" + `code` + "`" + ` is a stable identifier. ` + "`" + `mark_type_id` + "`" + ` duplicates ` + "`" + `id` + "`" + ` and is deprecated",
                 "consumes": [
                     "application/json"
                 ],
@@ -3314,6 +3314,10 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
+                "mark_status_id": {
+                    "description": "LegacyID mirrors ID under the key older clients read; it is filled\nby MarshalJSON. Deprecated: use ID (` + "`" + `id` + "`" + `).",
+                    "type": "integer"
+                },
                 "name": {
                     "type": "string"
                 },
@@ -3377,6 +3381,10 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
+                    "type": "integer"
+                },
+                "mark_type_id": {
+                    "description": "LegacyID mirrors ID under the key older clients read; it is filled\nby MarshalJSON. Deprecated: use ID (` + "`" + `id` + "`" + `).",
                     "type": "integer"
                 },
                 "name": {

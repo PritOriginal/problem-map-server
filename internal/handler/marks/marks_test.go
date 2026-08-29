@@ -923,7 +923,7 @@ func (suite *MarksSuite) TestGetMarkTypes() {
 			wantLang:   models.LangRU,
 			types:      []models.MarkType{{ID: 1, Code: "garbage", Name: "Мусор"}},
 			statusCode: 200,
-			wantBody:   `{"mark_types":[{"id":1,"code":"garbage","name":"Мусор"}]}`,
+			wantBody:   `{"mark_types":[{"id":1,"mark_type_id":1,"code":"garbage","name":"Мусор"}]}`,
 		},
 		{
 			name:           "Ok200EN",
@@ -931,7 +931,7 @@ func (suite *MarksSuite) TestGetMarkTypes() {
 			wantLang:       models.LangEN,
 			types:          []models.MarkType{{ID: 1, Code: "garbage", Name: "Garbage"}},
 			statusCode:     200,
-			wantBody:       `{"mark_types":[{"id":1,"code":"garbage","name":"Garbage"}]}`,
+			wantBody:       `{"mark_types":[{"id":1,"mark_type_id":1,"code":"garbage","name":"Garbage"}]}`,
 		},
 		{
 			name:           "Ok200UnsupportedFallsBackToRU",
@@ -972,7 +972,7 @@ func (suite *MarksSuite) TestGetMarkTypes() {
 			suite.r.ServeHTTP(w, req)
 
 			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
-			suite.Contains(w.Header().Values("Vary"), "Accept-Language")
+			suite.Equal([]string{"Accept-Language"}, w.Header().Values("Vary"))
 			if tt.wantBody != "" {
 				suite.Equal(string(tt.wantLang), w.Header().Get("Content-Language"))
 				var resp responses.Response[json.RawMessage]
@@ -998,7 +998,7 @@ func (suite *MarksSuite) TestGetMarkStatuses() {
 			wantLang:   models.LangRU,
 			statuses:   []models.MarkStatus{{ID: 1, Code: "unconfirmed", Name: "Неподтверждённая"}},
 			statusCode: 200,
-			wantBody:   `{"mark_statuses":[{"id":1,"parent_id":null,"code":"unconfirmed","name":"Неподтверждённая"}]}`,
+			wantBody:   `{"mark_statuses":[{"id":1,"mark_status_id":1,"parent_id":null,"code":"unconfirmed","name":"Неподтверждённая"}]}`,
 		},
 		{
 			name:           "Ok200EN",
@@ -1006,7 +1006,7 @@ func (suite *MarksSuite) TestGetMarkStatuses() {
 			wantLang:       models.LangEN,
 			statuses:       []models.MarkStatus{{ID: 1, Code: "unconfirmed", Name: "Unconfirmed"}},
 			statusCode:     200,
-			wantBody:       `{"mark_statuses":[{"id":1,"parent_id":null,"code":"unconfirmed","name":"Unconfirmed"}]}`,
+			wantBody:       `{"mark_statuses":[{"id":1,"mark_status_id":1,"parent_id":null,"code":"unconfirmed","name":"Unconfirmed"}]}`,
 		},
 		{
 			name:               "Err500",
