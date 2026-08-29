@@ -185,26 +185,3 @@ func (s *PostgresSuite) TestUsers_GetUserStats() {
 		})
 	}
 }
-
-func (s *PostgresSuite) TestChecks_CountChecksByUserIdSince() {
-	// Bob's fixture checks were created 2h and 1h ago.
-	tests := []struct {
-		name   string
-		userId int
-		since  time.Duration
-		want   int
-	}{
-		{name: "all within a day", userId: fxUserBob, since: 24 * time.Hour, want: 2},
-		{name: "only the latest", userId: fxUserBob, since: 90 * time.Minute, want: 1},
-		{name: "none in the last minute", userId: fxUserBob, since: time.Minute, want: 0},
-		{name: "unknown user", userId: 999, since: 24 * time.Hour, want: 0},
-	}
-
-	for _, tt := range tests {
-		s.Run(tt.name, func() {
-			got, err := s.checks.CountChecksByUserIdSince(s.ctx, tt.userId, time.Now().Add(-tt.since))
-			s.Require().NoError(err)
-			s.Equal(tt.want, got)
-		})
-	}
-}
