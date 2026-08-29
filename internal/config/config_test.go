@@ -57,6 +57,7 @@ func (suite *ConfigSuite) TestValidate() {
 		}
 		c.Marks = config.MarksConfig{DedupRadiusM: 50}
 		c.Rating = config.RatingConfig{CheckCorrect: 2, CheckWrong: -1, MarkConfirmed: 3, MarkRefuted: -2, TaskCompleted: 1, MaxChecksPerDay: 50}
+		c.Push = config.PushConfig{SendTimeout: 15 * time.Second, FCM: config.FCMConfig{Timeout: 5 * time.Second, MaxRetries: 3, Concurrency: 8}}
 		return c
 	}
 
@@ -80,6 +81,13 @@ func (suite *ConfigSuite) TestValidate() {
 		{name: "zero tasker interval", mutate: func(c *config.Config) { c.Tasker.Interval = 0 }, wantErr: "TASKER_INTERVAL"},
 		{name: "target probability above one", mutate: func(c *config.Config) { c.Tasker.TargetProbability = 1.5 }, wantErr: "TASKER_TARGET_PROBABILITY"},
 		{name: "negative factor", mutate: func(c *config.Config) { c.Tasker.LoadDelta = -1 }, wantErr: "load-delta"},
+		{name: "zero push send timeout", mutate: func(c *config.Config) { c.Push.SendTimeout = 0 }, wantErr: "PUSH_SEND_TIMEOUT"},
+		{name: "both fcm credentials", mutate: func(c *config.Config) {
+			c.Push.FCM.CredentialsFile = "sa.json"
+			c.Push.FCM.CredentialsJSON = "{}"
+		}, wantErr: "FCM_CREDENTIALS_FILE"},
+		{name: "too many fcm retries", mutate: func(c *config.Config) { c.Push.FCM.MaxRetries = 4 }, wantErr: "FCM_MAX_RETRIES"},
+		{name: "zero fcm concurrency", mutate: func(c *config.Config) { c.Push.FCM.Concurrency = 0 }, wantErr: "FCM_CONCURRENCY"},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
