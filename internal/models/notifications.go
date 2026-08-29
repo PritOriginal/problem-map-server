@@ -14,6 +14,9 @@ const (
 	NotificationMarkStatusChanged NotificationType = "mark.status_changed"
 	NotificationTaskAssigned      NotificationType = "task.assigned"
 	NotificationCheckAdded        NotificationType = "check.added"
+	// NotificationWebhookDisabled tells the owner that a webhook was
+	// deactivated after repeated delivery failures.
+	NotificationWebhookDisabled NotificationType = "webhook.disabled"
 )
 
 // Notification is an in-app message addressed to one user. EventID makes

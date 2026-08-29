@@ -118,10 +118,33 @@ func (c *Client) QueueSubscribe(subject, queue string, handler Handler) (*nats.S
 	return sub, nil
 }
 
+// MsgHandler processes one message with access to its subject, which
+// wildcard subscriptions ("mark.>") need to tell events apart.
+type MsgHandler func(ctx context.Context, msg *nats.Msg) error
+
+// QueueSubscribeMsg is QueueSubscribe for a MsgHandler.
+func (c *Client) QueueSubscribeMsg(subject, queue string, handler MsgHandler) (*nats.Subscription, error) {
+	const op = "nats.QueueSubscribeMsg"
+
+	sub, err := c.conn.QueueSubscribe(subject, queue, c.wrap(subject, handler))
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	return sub, nil
+}
+
 // msgHandler adapts handler to a NATS callback: a panic in the handler is
 // logged instead of killing the process, and every call gets its own
 // timeout. Errors are logged; core NATS has no redelivery to request.
 func (c *Client) msgHandler(subject string, handler Handler) nats.MsgHandler {
+	return c.wrap(subject, func(ctx context.Context, msg *nats.Msg) error {
+		return handler(ctx, msg.Data)
+	})
+}
+
+// wrap adds panic recovery, the per-call timeout and error logging to a
+// MsgHandler.
+func (c *Client) wrap(subject string, handler MsgHandler) nats.MsgHandler {
 	log := c.log.With(slog.String("subject", subject))
 	return func(msg *nats.Msg) {
 		defer func() {
@@ -136,7 +159,7 @@ func (c *Client) msgHandler(subject string, handler Handler) nats.MsgHandler {
 		ctx, cancel := context.WithTimeout(context.Background(), handlerTimeout)
 		defer cancel()
 
-		if err := handler(ctx, msg.Data); err != nil {
+		if err := handler(ctx, msg); err != nil {
 			log.Error("handler error", slogger.Err(err))
 		}
 	}

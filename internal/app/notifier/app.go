@@ -1,7 +1,9 @@
 // Package notifier is the worker that turns domain events (NATS) into
 // notifications: it subscribes to mark.status_changed, task.assigned and
 // check.added, stores a notification per addressee and hands it to the
-// PushSender.
+// PushSender. A second consumer (WebhookRouter) delivers every mark.>,
+// task.> and check.> event to the subscribed webhooks and retries failed
+// deliveries on a ticker.
 package notifier
 
 import (
@@ -28,6 +30,27 @@ type Subscriber interface {
 	QueueSubscribe(subject, queue string, handler nats.Handler) (*natsgo.Subscription, error)
 }
 
+// SubjectHandler processes one message and receives the subject it was
+// published on, which differs from the subscription pattern for wildcard
+// subscriptions ("mark.>").
+type SubjectHandler func(ctx context.Context, subject string, data []byte) error
+
+// SubjectSubscriber subscribes with a SubjectHandler (see natsSubscriber).
+type SubjectSubscriber interface {
+	QueueSubscribeSubject(pattern, queue string, handler SubjectHandler) (*natsgo.Subscription, error)
+}
+
+// natsSubscriber adapts the NATS client to SubjectSubscriber.
+type natsSubscriber struct {
+	client *nats.Client
+}
+
+func (s natsSubscriber) QueueSubscribeSubject(pattern, queue string, handler SubjectHandler) (*natsgo.Subscription, error) {
+	return s.client.QueueSubscribeMsg(pattern, queue, func(ctx context.Context, msg *natsgo.Msg) error {
+		return handler(ctx, msg.Subject, msg.Data)
+	})
+}
+
 // QueueGroup is the NATS queue group of the worker: every event is handled
 // by exactly one running notifier instance, so the worker scales out
 // without duplicating notifications.
@@ -42,13 +65,16 @@ type Handlers interface {
 
 // App is the notifier worker: Run subscribes and blocks until Stop.
 type App struct {
-	log     *slog.Logger
-	nats    *nats.Client
-	closers app.Closers
-	router  *Router
+	log      *slog.Logger
+	nats     *nats.Client
+	closers  app.Closers
+	router   *Router
+	webhooks *WebhookRouter
+	cfg      config.WebhooksConfig
 
 	stopOnce sync.Once
 	done     chan struct{}
+	retries  sync.WaitGroup
 }
 
 func New(log *slog.Logger, cfg *config.Config) *App {
@@ -85,12 +111,23 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Marks: marksRepo,
 	})
 
+	webhookSender, webhookURLs := app.NewWebhookSender(log, cfg.Webhooks)
+	webhooksUseCase := usecase.NewWebhooks(log, usecase.WebhooksDeps{
+		Sender:        webhookSender,
+		URLs:          webhookURLs,
+		Notifications: notificationsUseCase,
+	}, usecase.WebhooksRepositories{
+		Webhooks: postgres.NewWebhooks(postgresDB.DB, trmsqlx.DefaultCtxGetter),
+	})
+
 	return &App{
-		log:     log,
-		nats:    natsClient,
-		closers: closers,
-		router:  NewRouter(log, notifier),
-		done:    make(chan struct{}),
+		log:      log,
+		nats:     natsClient,
+		closers:  closers,
+		router:   NewRouter(log, notifier),
+		webhooks: NewWebhookRouter(log, webhooksUseCase),
+		cfg:      cfg.Webhooks,
+		done:     make(chan struct{}),
 	}
 }
 
@@ -101,10 +138,26 @@ func (a *App) Run() error {
 	if err := a.router.Subscribe(a.nats); err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
-	a.log.Info("notifier started", slog.Any("subjects", a.router.Subjects()))
+	if err := a.webhooks.Subscribe(natsSubscriber{client: a.nats}); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	a.log.Info("notifier started",
+		slog.Any("subjects", a.router.Subjects()),
+		slog.Any("webhook_subjects", WebhookSubjects),
+	)
+
+	retryCtx, cancelRetries := context.WithCancel(context.Background())
+	defer cancelRetries()
+	a.retries.Add(1)
+	go func() {
+		defer a.retries.Done()
+		a.webhooks.RetryLoop(retryCtx, a.cfg.RetryInterval, a.cfg.RetryBatch)
+	}()
 
 	select {
 	case <-a.done:
+		cancelRetries()
+		a.retries.Wait()
 		return nil
 	case <-a.nats.Closed():
 		// The connection is gone for good (not a reconnect): the worker
