@@ -1,6 +1,7 @@
 package cache_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -37,6 +38,12 @@ func (s *CacheSuite) router(cacher cache.Cacher, opts ...cache.Option) (*gin.Eng
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "boom"})
 		case "204":
 			c.Status(http.StatusNoContent)
+		case "big":
+			// Just over the buffer limit, written in two chunks.
+			c.Status(http.StatusOK)
+			c.Header("Content-Type", "application/octet-stream")
+			_, _ = c.Writer.Write(bytes.Repeat([]byte("a"), cache.MaxBufferedBody))
+			_, _ = c.Writer.WriteString("b")
 		default:
 			c.JSON(http.StatusOK, gin.H{"n": calls})
 		}
@@ -184,6 +191,25 @@ func (s *CacheSuite) TestErrorsAreNotCachedNorTagged() {
 	s.JSONEq(`{"error":"boom"}`, w.Body.String())
 	s.Empty(w.Header().Get("ETag"))
 	s.Empty(w.Header().Get("Cache-Control"))
+}
+
+func (s *CacheSuite) TestBigResponseIsStreamedWithoutETag() {
+	cacher := cache.NewMockCacher(s.T())
+	r, calls := s.router(cacher)
+
+	cacher.On("GetBytes", mock.Anything, "http:GET:/data?status=big:ru").Twice().Return(nil, errors.New("miss"))
+
+	for range 2 {
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodGet, "/data?status=big", nil)
+		r.ServeHTTP(w, req)
+		s.Equal(http.StatusOK, w.Code)
+		s.Equal(cache.MaxBufferedBody+1, w.Body.Len())
+		s.Empty(w.Header().Get("ETag"))
+		s.Equal("application/octet-stream", w.Header().Get("Content-Type"))
+	}
+	s.Equal(2, *calls)
+	cacher.AssertNotCalled(s.T(), "Set", mock.Anything, mock.Anything, mock.Anything, mock.Anything)
 }
 
 func (s *CacheSuite) TestWithMaxAge() {

@@ -1,6 +1,18 @@
 // Package idempotency implements the Idempotency-Key protocol for mutating
 // endpoints: the response of the first request with a key is stored in
 // Redis and replayed for every repeat of the same request within the TTL.
+//
+// Known limits:
+//   - The key is scoped to the authenticated user, so the routes must sit
+//     behind the JWT middleware.
+//   - The in-progress lock is released when the handler answers 5xx or
+//     panics. If the client connection drops after the lock was taken but
+//     before the response was stored (the handler may still complete the
+//     write), a retry within LockTTL gets 409 and the client must retry
+//     after it; a retry after a stored response gets the replay.
+//   - The fingerprint of a multipart request covers the form fields only,
+//     not the uploaded files: a repeat with the same key and fields but
+//     other files is treated as the same request and replayed.
 package idempotency
 
 import (
@@ -174,15 +186,28 @@ func New(log *slog.Logger, store Store, cfg Config) gin.HandlerFunc {
 		w := &bufferedWriter{ResponseWriter: c.Writer, body: &bytes.Buffer{}}
 		c.Writer = w
 
-		c.Next()
+		release := func() {
+			// Release the key so that the client can retry.
+			if err := store.Del(ctx, storeKey); err != nil {
+				log.Warn("failed to release idempotency key", logger.Err(err))
+			}
+		}
+		func() {
+			// A panicking handler (turned into 500 by gin.Recovery further
+			// up the chain) must not leave the lock in place for LockTTL.
+			defer func() {
+				if r := recover(); r != nil {
+					release()
+					panic(r)
+				}
+			}()
+			c.Next()
+		}()
 
 		status := w.Status()
 		storable := (status >= 200 && status < 500) && w.body.Len() <= MaxStoredBody
 		if !storable {
-			// Release the key so that the client can retry after a 5xx.
-			if err := store.Del(ctx, storeKey); err != nil {
-				log.Warn("failed to release idempotency key", logger.Err(err))
-			}
+			release()
 			return
 		}
 

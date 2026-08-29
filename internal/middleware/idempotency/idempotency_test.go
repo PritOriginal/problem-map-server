@@ -51,11 +51,15 @@ func (s *IdempotencySuite) router(store idempotency.Store) (*gin.Engine, *int) {
 	r := gin.New()
 	calls := 0
 	mw := idempotency.New(slogdiscard.NewDiscardLogger(), store, idempotency.Config{TTL: time.Hour, LockTTL: time.Minute})
+	r.Use(gin.Recovery())
 	r.POST("/items", authMiddleware.MiddlewareFunc(), mw, func(c *gin.Context) {
 		calls++
 		if c.Query("status") == "500" {
 			responses.Internal(c, "boom")
 			return
+		}
+		if c.Query("status") == "panic" {
+			panic("boom")
 		}
 		c.Header("Location", "/items/1")
 		responses.Created(c, gin.H{"calls": calls})
@@ -303,6 +307,19 @@ func (s *IdempotencySuite) TestServerErrorReleasesKey() {
 	store.On("Del", mock.Anything, storeKey).Once().Return(nil)
 
 	w := s.do(r, request{body: `{}`, key: idemKey, query: "?status=500"})
+	s.Equal(http.StatusInternalServerError, w.Code)
+	s.Equal(1, *calls)
+}
+
+func (s *IdempotencySuite) TestPanicReleasesKey() {
+	store := idempotency.NewMockStore(s.T())
+	r, calls := s.router(store)
+
+	store.On("GetBytes", mock.Anything, storeKey).Once().Return(nil, repository.ErrNotFound)
+	store.On("SetNX", mock.Anything, storeKey, mock.Anything, time.Minute).Once().Return(true, nil)
+	store.On("Del", mock.Anything, storeKey).Once().Return(nil)
+
+	w := s.do(r, request{body: `{}`, key: idemKey, query: "?status=panic"})
 	s.Equal(http.StatusInternalServerError, w.Code)
 	s.Equal(1, *calls)
 }

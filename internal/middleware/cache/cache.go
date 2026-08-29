@@ -26,9 +26,15 @@ type Cacher interface {
 	Set(ctx context.Context, key string, value any, expiration time.Duration) error
 }
 
-// DefaultMaxAge is the Cache-Control max-age sent with cached responses
-// unless WithMaxAge says otherwise.
-const DefaultMaxAge = 60 * time.Second
+const (
+	// DefaultMaxAge is the Cache-Control max-age sent with cached responses
+	// unless WithMaxAge says otherwise.
+	DefaultMaxAge = 60 * time.Second
+	// MaxBufferedBody bounds the response buffered to compute the ETag and
+	// store it (4 MiB). A bigger response is streamed to the client as is:
+	// no ETag, no cache entry.
+	MaxBufferedBody = 4 << 20
+)
 
 // Option tunes the middleware.
 type Option func(*options)
@@ -80,12 +86,16 @@ func New(cacher Cacher, ttl time.Duration, opts ...Option) gin.HandlerFunc {
 			}
 		}
 
-		w := &bufferedWriter{ResponseWriter: c.Writer, body: &bytes.Buffer{}}
+		w := &bufferedWriter{ResponseWriter: c.Writer, body: &bytes.Buffer{}, limit: MaxBufferedBody}
 		c.Writer = w
 
 		c.Next()
 
 		c.Writer = w.ResponseWriter
+		if w.passthrough {
+			// Too big to tag and cache; the body already went to the client.
+			return
+		}
 		status := w.status
 		if status < 200 || status >= 300 {
 			w.flush()
@@ -182,52 +192,81 @@ func mustJSON(v any) []byte {
 }
 
 // bufferedWriter holds the response back until the handler returned, so
-// that the ETag can be computed from the body and put in the headers.
+// that the ETag can be computed from the body and put in the headers. Once
+// the body outgrows limit the writer switches to passthrough: what was
+// buffered is flushed and the rest goes straight to the client.
 type bufferedWriter struct {
 	gin.ResponseWriter
-	body   *bytes.Buffer
-	status int
+	body        *bytes.Buffer
+	status      int
+	limit       int
+	passthrough bool
 }
 
 func (w *bufferedWriter) Write(b []byte) (int, error) {
+	if w.passthrough {
+		return w.ResponseWriter.Write(b)
+	}
 	if w.status == 0 {
 		w.status = http.StatusOK
+	}
+	if w.body.Len()+len(b) > w.limit {
+		w.passthrough = true
+		w.flush()
+		return w.ResponseWriter.Write(b)
 	}
 	return w.body.Write(b)
 }
 
 func (w *bufferedWriter) WriteString(s string) (int, error) {
-	if w.status == 0 {
-		w.status = http.StatusOK
-	}
-	return w.body.WriteString(s)
+	return w.Write([]byte(s))
 }
 
 // WriteHeader records the status; like Gin's writer it may be changed
 // until the first byte of the body is written.
 func (w *bufferedWriter) WriteHeader(code int) {
+	if w.passthrough {
+		w.ResponseWriter.WriteHeader(code)
+		return
+	}
 	if code > 0 && w.body.Len() == 0 {
 		w.status = code
 	}
 }
 
 // WriteHeaderNow is deferred to flush.
-func (w *bufferedWriter) WriteHeaderNow() {}
+func (w *bufferedWriter) WriteHeaderNow() {
+	if w.passthrough {
+		w.ResponseWriter.WriteHeaderNow()
+	}
+}
 
 func (w *bufferedWriter) Status() int {
+	if w.passthrough {
+		return w.ResponseWriter.Status()
+	}
 	if w.status == 0 {
 		return http.StatusOK
 	}
 	return w.status
 }
 
-func (w *bufferedWriter) Size() int { return w.body.Len() }
+func (w *bufferedWriter) Size() int {
+	if w.passthrough {
+		return w.ResponseWriter.Size()
+	}
+	return w.body.Len()
+}
 
-func (w *bufferedWriter) Written() bool { return w.status != 0 }
+func (w *bufferedWriter) Written() bool { return w.passthrough || w.status != 0 }
 
 // flush sends the buffered response to the client unchanged.
 func (w *bufferedWriter) flush() {
-	w.ResponseWriter.WriteHeader(w.Status())
+	status := w.status
+	if status == 0 {
+		status = http.StatusOK
+	}
+	w.ResponseWriter.WriteHeader(status)
 	if w.body.Len() > 0 {
 		_, _ = w.ResponseWriter.Write(w.body.Bytes())
 	} else {
