@@ -241,25 +241,25 @@ func (_c *MockUsers_GetUserStats_Call) RunAndReturn(run func(ctx context.Context
 }
 
 // ListLeaderboard provides a mock function for the type MockUsers
-func (_mock *MockUsers) ListLeaderboard(ctx context.Context, p models.Pagination) (models.Page[models.User], error) {
-	ret := _mock.Called(ctx, p)
+func (_mock *MockUsers) ListLeaderboard(ctx context.Context, f models.LeaderboardFilters, p models.Pagination) (models.Page[models.LeaderboardEntry], error) {
+	ret := _mock.Called(ctx, f, p)
 
 	if len(ret) == 0 {
 		panic("no return value specified for ListLeaderboard")
 	}
 
-	var r0 models.Page[models.User]
+	var r0 models.Page[models.LeaderboardEntry]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Pagination) (models.Page[models.User], error)); ok {
-		return returnFunc(ctx, p)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.LeaderboardFilters, models.Pagination) (models.Page[models.LeaderboardEntry], error)); ok {
+		return returnFunc(ctx, f, p)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Pagination) models.Page[models.User]); ok {
-		r0 = returnFunc(ctx, p)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.LeaderboardFilters, models.Pagination) models.Page[models.LeaderboardEntry]); ok {
+		r0 = returnFunc(ctx, f, p)
 	} else {
-		r0 = ret.Get(0).(models.Page[models.User])
+		r0 = ret.Get(0).(models.Page[models.LeaderboardEntry])
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, models.Pagination) error); ok {
-		r1 = returnFunc(ctx, p)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.LeaderboardFilters, models.Pagination) error); ok {
+		r1 = returnFunc(ctx, f, p)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -273,35 +273,41 @@ type MockUsers_ListLeaderboard_Call struct {
 
 // ListLeaderboard is a helper method to define mock.On call
 //   - ctx context.Context
+//   - f models.LeaderboardFilters
 //   - p models.Pagination
-func (_e *MockUsers_Expecter) ListLeaderboard(ctx any, p any) *MockUsers_ListLeaderboard_Call {
-	return &MockUsers_ListLeaderboard_Call{Call: _e.mock.On("ListLeaderboard", ctx, p)}
+func (_e *MockUsers_Expecter) ListLeaderboard(ctx any, f any, p any) *MockUsers_ListLeaderboard_Call {
+	return &MockUsers_ListLeaderboard_Call{Call: _e.mock.On("ListLeaderboard", ctx, f, p)}
 }
 
-func (_c *MockUsers_ListLeaderboard_Call) Run(run func(ctx context.Context, p models.Pagination)) *MockUsers_ListLeaderboard_Call {
+func (_c *MockUsers_ListLeaderboard_Call) Run(run func(ctx context.Context, f models.LeaderboardFilters, p models.Pagination)) *MockUsers_ListLeaderboard_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
-		var arg1 models.Pagination
+		var arg1 models.LeaderboardFilters
 		if args[1] != nil {
-			arg1 = args[1].(models.Pagination)
+			arg1 = args[1].(models.LeaderboardFilters)
+		}
+		var arg2 models.Pagination
+		if args[2] != nil {
+			arg2 = args[2].(models.Pagination)
 		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
 }
 
-func (_c *MockUsers_ListLeaderboard_Call) Return(page models.Page[models.User], err error) *MockUsers_ListLeaderboard_Call {
+func (_c *MockUsers_ListLeaderboard_Call) Return(page models.Page[models.LeaderboardEntry], err error) *MockUsers_ListLeaderboard_Call {
 	_c.Call.Return(page, err)
 	return _c
 }
 
-func (_c *MockUsers_ListLeaderboard_Call) RunAndReturn(run func(ctx context.Context, p models.Pagination) (models.Page[models.User], error)) *MockUsers_ListLeaderboard_Call {
+func (_c *MockUsers_ListLeaderboard_Call) RunAndReturn(run func(ctx context.Context, f models.LeaderboardFilters, p models.Pagination) (models.Page[models.LeaderboardEntry], error)) *MockUsers_ListLeaderboard_Call {
 	_c.Call.Return(run)
 	return _c
 }

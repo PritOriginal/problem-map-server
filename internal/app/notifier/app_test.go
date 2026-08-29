@@ -19,6 +19,7 @@ type recordingHandlers struct {
 	statusChanged []events.MarkStatusChanged
 	taskAssigned  []events.TaskAssigned
 	checkAdded    []events.CheckAdded
+	taskCompleted []events.TaskCompleted
 	assigned      []events.MarkAssigned
 	slaBreached   []events.MarkSLABreached
 	commentAdded  []events.CommentAdded
@@ -55,6 +56,11 @@ func (h *recordingHandlers) HandleCheckAdded(_ context.Context, ev events.CheckA
 	return h.err
 }
 
+func (h *recordingHandlers) HandleTaskCompleted(_ context.Context, ev events.TaskCompleted) error {
+	h.taskCompleted = append(h.taskCompleted, ev)
+	return h.err
+}
+
 type RouterSuite struct {
 	suite.Suite
 }
@@ -69,6 +75,7 @@ func (suite *RouterSuite) TestHandle() {
 	statusEv := events.NewMarkStatusChanged(5, models.UnconfirmedStatus, models.ConfirmedStatus, 3)
 	taskEv := events.NewTaskAssigned(9, 2, 5, nil)
 	checkEv := events.NewCheckAdded(77, 5, 2)
+	completedEv := events.NewTaskCompleted(9, 2, 5, 77)
 
 	tests := []struct {
 		name       string
@@ -92,6 +99,10 @@ func (suite *RouterSuite) TestHandle() {
 		{
 			name: "CheckAdded", subject: events.SubjectCheckAdded, payload: checkEv,
 			check: func(h *recordingHandlers) { suite.Equal([]events.CheckAdded{checkEv}, h.checkAdded) },
+		},
+		{
+			name: "TaskCompleted", subject: events.SubjectTaskCompleted, payload: completedEv,
+			check: func(h *recordingHandlers) { suite.Equal([]events.TaskCompleted{completedEv}, h.taskCompleted) },
 		},
 		{
 			name: "HandlerErrorIsReturned", subject: events.SubjectCheckAdded, payload: checkEv,
@@ -171,5 +182,6 @@ func (suite *RouterSuite) TestSubjects() {
 	suite.ElementsMatch([]string{
 		events.SubjectMarkStatusChanged, events.SubjectTaskAssigned, events.SubjectCheckAdded,
 		events.SubjectMarkAssigned, events.SubjectMarkSLABreached, events.SubjectCommentAdded,
+		events.SubjectTaskCompleted,
 	}, router.Subjects())
 }

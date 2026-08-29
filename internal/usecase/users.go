@@ -25,7 +25,7 @@ type UsersRepository interface {
 	// AddRatingEvent stores the event and applies its delta to users.rating.
 	AddRatingEvent(ctx context.Context, event models.RatingEvent) (int64, error)
 	GetRatingEvents(ctx context.Context, userId int, p models.Pagination) (models.Page[models.RatingEvent], error)
-	GetLeaderboard(ctx context.Context, p models.Pagination) (models.Page[models.User], error)
+	GetLeaderboard(ctx context.Context, f models.LeaderboardFilters, p models.Pagination) (models.Page[models.LeaderboardEntry], error)
 	GetUserStats(ctx context.Context, userId int) (models.UserStats, error)
 }
 
@@ -172,14 +172,20 @@ func (uc *Users) GetUserStats(ctx context.Context, id int) (models.UserStats, er
 }
 
 // ListLeaderboard returns a page of users ordered by rating, highest first.
-func (uc *Users) ListLeaderboard(ctx context.Context, p models.Pagination) (models.Page[models.User], error) {
+// The filters restrict the rating to the events inside an admin boundary
+// and/or a period (see models.LeaderboardFilters); an unknown period is
+// ErrInvalidArgument.
+func (uc *Users) ListLeaderboard(ctx context.Context, f models.LeaderboardFilters, p models.Pagination) (models.Page[models.LeaderboardEntry], error) {
 	const op = "usecase.Users.ListLeaderboard"
 
+	if err := f.Period.Validate(); err != nil {
+		return models.Page[models.LeaderboardEntry]{}, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
+	}
 	if err := p.Validate(); err != nil {
-		return models.Page[models.User]{}, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
+		return models.Page[models.LeaderboardEntry]{}, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
 	}
 
-	page, err := uc.repos.Users.GetLeaderboard(ctx, p)
+	page, err := uc.repos.Users.GetLeaderboard(ctx, f, p)
 	if err != nil {
 		return page, mapRepoErr(op, err)
 	}

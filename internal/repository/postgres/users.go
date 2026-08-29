@@ -3,6 +3,9 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
+	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
@@ -29,7 +32,7 @@ func (r *UsersRepository) GetUserById(ctx context.Context, id int) (models.User,
 
 	query := `
 			SELECT 
-				user_id, name, login, password_hash, ST_AsEWKB(home_point) as home_point, rating, role 
+				user_id, name, login, password_hash, ST_AsEWKB(home_point) as home_point, rating, role, created_at 
 			FROM 
 				users 
 			WHERE 
@@ -50,7 +53,7 @@ func (r *UsersRepository) GetUserByLogin(ctx context.Context, username string) (
 
 	query := `
 			SELECT
-				user_id, name, login, password_hash, ST_AsEWKB(home_point) as home_point, rating, role 
+				user_id, name, login, password_hash, ST_AsEWKB(home_point) as home_point, rating, role, created_at 
 			FROM 
 				users 
 			WHERE 
@@ -69,7 +72,7 @@ func (r *UsersRepository) GetUsers(ctx context.Context, p models.Pagination) (mo
 	const op = "storage.postgres.GetUsers"
 
 	q := newListQuery(
-		"user_id, name, login, ST_AsEWKB(home_point) as home_point, rating, role",
+		"user_id, name, login, ST_AsEWKB(home_point) as home_point, rating, role, created_at",
 		"users",
 	).
 		OrderBy("user_id ASC").
@@ -200,22 +203,75 @@ func (r *UsersRepository) GetRatingEvents(ctx context.Context, userId int, p mod
 	return page, nil
 }
 
-// GetLeaderboard returns users ordered by rating (highest first). Only the
-// public identity is selected: the leaderboard never needs login, home
-// point or role, so they cannot leak from here.
-func (r *UsersRepository) GetLeaderboard(ctx context.Context, p models.Pagination) (models.Page[models.User], error) {
+// GetLeaderboard returns users ordered by rating (highest first) with the
+// number of badges each of them earned. Without filters the rating is
+// users.rating; with a boundary and/or a period it is the sum of the rating
+// events whose mark lies inside the boundary (ST_Contains) and that
+// happened inside the period, and only users with such events are listed.
+// Only the public identity is selected: the leaderboard never needs login,
+// home point or role, so they cannot leak from here.
+func (r *UsersRepository) GetLeaderboard(ctx context.Context, f models.LeaderboardFilters, p models.Pagination) (models.Page[models.LeaderboardEntry], error) {
 	const op = "storage.postgres.GetLeaderboard"
 
-	q := newListQuery("user_id, name, COALESCE(rating, 0) AS rating", "users").
-		OrderBy("rating DESC, user_id ASC").
-		Paginate(p)
+	const badgesCount = "(SELECT COUNT(*) FROM user_badges b WHERE b.user_id = u.user_id) AS badges_count"
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	page, err := selectPage[models.User](ctx, tr, q)
+
+	if !f.Any() {
+		q := newListQuery("u.user_id, u.name, COALESCE(u.rating, 0) AS rating, "+badgesCount, "users u").
+			OrderBy("rating DESC, user_id ASC").
+			Paginate(p)
+		page, err := selectPage[models.LeaderboardEntry](ctx, tr, q)
+		if err != nil {
+			return page, fmt.Errorf("%s: %w", op, err)
+		}
+		return page, nil
+	}
+
+	from := "users u JOIN rating_events e ON e.user_id = u.user_id"
+	conds := []string{"TRUE"}
+	var args []any
+	if f.BoundaryID != 0 {
+		from += " JOIN marks m ON m.mark_id = e.mark_id JOIN admin_boundaries ab ON ST_Contains(ab.geom, m.geom)"
+		conds = append(conds, "ab.id = ?")
+		args = append(args, f.BoundaryID)
+	}
+	if window := f.Period.Window(); window > 0 {
+		conds = append(conds, "e.created_at >= ?")
+		args = append(args, time.Now().Add(-window))
+	}
+	grouped := fmt.Sprintf("SELECT u.user_id, u.name, SUM(e.delta) AS rating, %s FROM %s WHERE %s GROUP BY u.user_id, u.name",
+		badgesCount, from, strings.Join(conds, " AND "))
+
+	page := models.Page[models.LeaderboardEntry]{Items: []models.LeaderboardEntry{}}
+
+	query := "SELECT user_id, name, rating, badges_count, COUNT(*) OVER() AS total FROM (" + grouped + ") g ORDER BY rating DESC, user_id ASC"
+	pageArgs := args
+	if p.Limit > 0 {
+		query += " LIMIT ? OFFSET ?"
+		pageArgs = append(slices.Clone(args), p.Limit, p.Offset)
+	}
+	query, pageArgs, err := bind(query, pageArgs)
 	if err != nil {
 		return page, fmt.Errorf("%s: %w", op, err)
 	}
+	total, err := scanPage(ctx, tr, query, pageArgs, &page.Items)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
+	}
+	if len(page.Items) > 0 || p.Offset == 0 {
+		page.Total = total
+		return page, nil
+	}
 
+	// An offset past the end: the window is empty, the total is not.
+	countQuery, countArgs, err := bind("SELECT COUNT(*) FROM ("+grouped+") g", args)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
+	}
+	if err := tr.GetContext(ctx, &page.Total, countQuery, countArgs...); err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
+	}
 	return page, nil
 }
 

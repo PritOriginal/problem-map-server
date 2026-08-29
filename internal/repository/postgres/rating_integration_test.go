@@ -126,15 +126,13 @@ func (s *PostgresSuite) TestUsers_GetLeaderboard() {
 	_, err = s.users.AddRatingEvent(s.ctx, models.RatingEvent{UserID: fxUserBob, Delta: 25, Reason: models.RatingReasonMarkConfirmed})
 	s.Require().NoError(err)
 
-	page, err := s.users.GetLeaderboard(s.ctx, models.Pagination{Limit: 2})
+	page, err := s.users.GetLeaderboard(s.ctx, models.LeaderboardFilters{}, models.Pagination{Limit: 2})
 	s.Require().NoError(err)
 	s.Equal(3, page.Total)
 	s.Require().Len(page.Items, 2)
-	s.Equal([]int{fxUserBob, fxUserAlice}, ids(page.Items, func(u models.User) int { return u.Id }))
+	s.Equal([]int{fxUserBob, fxUserAlice}, ids(page.Items, func(u models.LeaderboardEntry) int { return u.UserID }))
 	s.Equal([]int{25, 10}, []int{page.Items[0].Rating, page.Items[1].Rating})
-	for _, u := range page.Items {
-		s.Empty(u.PasswordHash, "leaderboard must not expose password hashes")
-	}
+	s.Equal([]string{"Bob", "Alice"}, []string{page.Items[0].Name, page.Items[1].Name})
 }
 
 func (s *PostgresSuite) TestUsers_GetUserStats() {

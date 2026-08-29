@@ -195,7 +195,7 @@ fatigue(o)  = 1 / (1 + β·o)                    o — просроченных 
 ### Push-уведомления (cmd/notifier)
 
 `cmd/notifier` подписывается на доменные события в NATS
-(`mark.status_changed`, `task.assigned`, `check.added`, `mark.assigned`,
+(`mark.status_changed`, `task.assigned`, `check.added`, `task.completed`, `mark.assigned`,
 `mark.sla_breached`, `mark.comment_added`), сохраняет
 уведомление каждому адресату в `notifications` и отправляет push на его
 устройства из `user_devices` (токены регистрирует клиент через
@@ -301,6 +301,8 @@ Notifier подписывает JWT (ES256, `kid` = key-id, `iss` = team-id,
 | `task.assigned` | выдано задание на проверку | исполнителю |
 | `check.added` | добавлена проверка метки | автору метки |
 | `mark.comment_added` | добавлен комментарий к метке | автору метки, автору родительского комментария (для ответа) и подписчикам метки, без дублей и не самому автору комментария (тип уведомления `comment_added`) |
+| `task.completed` | проверка закрыла выданное задание | — (пересчёт достижений исполнителя) |
+| `badge.earned` | пользователь получил бейдж (публикует сам notifier) | пользователю (`badge_earned`) |
 
 Запуск (нужны `db` и `nats.url`):
 
@@ -643,7 +645,7 @@ curl -o center.geojson 'http://localhost:3333/map/admin-boundaries/1.geojson'
 | `POST` | `/webhooks/{id}/test` | отправить событие `webhook.test` один раз (без ретраев) и вернуть результат; работает и для выключенного вебхука |
 
 `events` — точные темы (`mark.status_changed`, `task.assigned`,
-`check.added`), маски по домену (`mark.*`) или `*`.
+`check.added`, `task.completed`, `badge.earned`), маски по домену (`mark.*`) или `*`.
 
 ### Формат доставки
 

@@ -20,8 +20,8 @@ import (
 const WebhookConsumerName = "webhooks"
 
 // WebhookSubjects are the wildcard subscriptions of the webhook consumer:
-// every current and future event of the three domains is forwarded.
-var WebhookSubjects = []string{"mark.>", "task.>", "check.>"}
+// every current and future event of the four domains is forwarded.
+var WebhookSubjects = []string{"mark.>", "task.>", "check.>", "badge.>"}
 
 // Dispatcher fans an event out to the subscribed webhooks (usecase.Webhooks).
 type Dispatcher interface {

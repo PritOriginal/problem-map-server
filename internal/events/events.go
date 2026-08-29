@@ -30,7 +30,9 @@ const (
 	// SubjectCommentAdded lives under mark.> so that the event flows through
 	// the existing events stream and webhook subscriptions without a new
 	// subject filter.
-	SubjectCommentAdded = "mark.comment_added"
+	SubjectCommentAdded  = "mark.comment_added"
+	SubjectTaskCompleted = "task.completed"
+	SubjectBadgeEarned   = "badge.earned"
 )
 
 // Publisher sends a domain event to the broker. Implementations must be
@@ -212,6 +214,53 @@ func NewCommentAdded(commentID, markID, userID int, parentID *int, authorID int)
 		UserID:    userID,
 		ParentID:  parentID,
 		AuthorID:  authorID,
+	}
+}
+
+// TaskCompleted is published after a check closed the issued task of the
+// checker.
+type TaskCompleted struct {
+	Header
+	TaskID  int `json:"task_id"`
+	UserID  int `json:"user_id"`
+	MarkID  int `json:"mark_id"`
+	CheckID int `json:"check_id"`
+}
+
+func (TaskCompleted) Subject() string { return SubjectTaskCompleted }
+
+// NewTaskCompleted builds the event with a fresh EventID.
+func NewTaskCompleted(taskID, userID, markID, checkID int) TaskCompleted {
+	return TaskCompleted{
+		Header:  newHeader(),
+		TaskID:  taskID,
+		UserID:  userID,
+		MarkID:  markID,
+		CheckID: checkID,
+	}
+}
+
+// BadgeEarned is published when a user earned a badge. The EventID is
+// derived from (user_id, badge code): a badge is earned once, so a repeated
+// evaluation cannot produce a second event or notification.
+type BadgeEarned struct {
+	Header
+	UserID    int    `json:"user_id"`
+	BadgeCode string `json:"badge_code"`
+}
+
+func (BadgeEarned) Subject() string { return SubjectBadgeEarned }
+
+// badgeEarnedNamespace is the UUID namespace of BadgeEarned event ids.
+var badgeEarnedNamespace = uuid.MustParse("2f6d1c0e-8b4a-4f0e-9c3d-1a5e7b9d4c21")
+
+// NewBadgeEarned builds the event with a deterministic EventID.
+func NewBadgeEarned(userID int, badgeCode string) BadgeEarned {
+	id := uuid.NewSHA1(badgeEarnedNamespace, []byte(fmt.Sprintf("%d:%s", userID, badgeCode)))
+	return BadgeEarned{
+		Header:    Header{Version: SchemaVersion, EventID: id.String()},
+		UserID:    userID,
+		BadgeCode: badgeCode,
 	}
 }
 

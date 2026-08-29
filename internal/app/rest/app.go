@@ -12,6 +12,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/app"
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/handler"
+	achievementsrest "github.com/PritOriginal/problem-map-server/internal/handler/achievements"
 	analyticsrest "github.com/PritOriginal/problem-map-server/internal/handler/analytics"
 	apikeysrest "github.com/PritOriginal/problem-map-server/internal/handler/apikeys"
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
@@ -196,6 +197,13 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		AuthVersions:  authVersions,
 	})
 	usersrest.Register(router, log, authMiddleware, usersUseCase)
+
+	// Badges are awarded by cmd/notifier; the REST server only reads them.
+	achievementsUseCase := usecase.NewAchievements(log, usecase.AchievementsRepositories{
+		Achievements: postgres.NewAchievements(postgresDB.DB, trmsqlx.DefaultCtxGetter),
+		Users:        usersRepo,
+	})
+	achievementsrest.Register(router, log, authMiddleware, achievementsUseCase)
 
 	authUseCase := usecase.NewAuth(log, cfg.Auth, usecase.AuthRepositories{
 		Users:         usersRepo,

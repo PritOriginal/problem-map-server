@@ -15,6 +15,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/nats"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
+	natsgo "github.com/nats-io/nats.go"
 	"github.com/nats-io/nats.go/jetstream"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -536,4 +537,58 @@ func (s *CoreFallbackSuite) TestFallback() {
 			s.NoError(consumer.Stop(s.ctx))
 		})
 	}
+}
+
+// StreamUpgradeSuite runs the client against a server whose events stream
+// predates the badge.> subject: nats.New must bring the existing stream up
+// to date (UpdateStream) so that badge.earned is captured.
+type StreamUpgradeSuite struct {
+	suite.Suite
+
+	ctx context.Context
+	cfg config.NatsConfig
+}
+
+func TestStreamUpgradeSuite(t *testing.T) {
+	suite.Run(t, new(StreamUpgradeSuite))
+}
+
+func (s *StreamUpgradeSuite) SetupSuite() {
+	s.ctx = context.Background()
+	s.cfg = config.NatsConfig{URL: startNATS(&s.Suite, s.ctx, true), Name: "test"}
+}
+
+func (s *StreamUpgradeSuite) TestBadgeEarnedCapturedAfterUpgrade() {
+	// The stream as an older binary created it: without badge.>.
+	conn, err := natsgo.Connect(s.cfg.URL)
+	s.Require().NoError(err)
+	defer conn.Close()
+	js, err := jetstream.New(conn)
+	s.Require().NoError(err)
+	_, err = js.CreateStream(s.ctx, jetstream.StreamConfig{
+		Name:     nats.StreamEvents,
+		Subjects: []string{"mark.>", "task.>", "check.>"},
+		Storage:  jetstream.FileStorage,
+	})
+	s.Require().NoError(err)
+
+	client, err := nats.New(slogdiscard.NewDiscardLogger(), s.cfg)
+	s.Require().NoError(err)
+	defer func() { _ = client.Close() }()
+	s.Require().True(client.JetStream())
+
+	stream, err := js.Stream(s.ctx, nats.StreamEvents)
+	s.Require().NoError(err)
+	info, err := stream.Info(s.ctx)
+	s.Require().NoError(err)
+	s.Equal(nats.EventSubjects, info.Config.Subjects)
+
+	want := events.NewBadgeEarned(7, "first_mark")
+	s.Require().NoError(client.Publish(s.ctx, want.Subject(), want))
+
+	msg, err := stream.GetLastMsgForSubject(s.ctx, events.SubjectBadgeEarned)
+	s.Require().NoError(err)
+	var got events.BadgeEarned
+	s.Require().NoError(json.Unmarshal(msg.Data, &got))
+	s.Equal(want, got)
 }

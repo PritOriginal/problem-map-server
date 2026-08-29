@@ -44,6 +44,12 @@ type NotifierRepositories struct {
 	Comments NotifierCommentsRepository
 }
 
+// AchievementEvaluator awards the badges a user earned and returns the new
+// ones (see Achievements.Evaluate).
+type AchievementEvaluator interface {
+	Evaluate(ctx context.Context, userId int) ([]models.Badge, error)
+}
+
 // Notifier turns domain events into notifications for their addressees.
 // Every handler is idempotent: the event id is stored with the
 // notification, so a redelivered event is a no-op.
@@ -51,6 +57,7 @@ type Notifier struct {
 	log           *slog.Logger
 	notifications NotificationCreator
 	repos         NotifierRepositories
+	achievements  AchievementEvaluator
 }
 
 func NewNotifier(log *slog.Logger, notifications NotificationCreator, repos NotifierRepositories) *Notifier {
@@ -59,6 +66,47 @@ func NewNotifier(log *slog.Logger, notifications NotificationCreator, repos Noti
 		notifications: notifications,
 		repos:         repos,
 	}
+}
+
+// WithAchievements makes the notifier re-evaluate the badges of the user
+// an event concerns (check.added: the checker, mark.status_changed: the
+// author, task.completed: the assignee) and notify them of every badge
+// earned. Without it no badges are awarded.
+func (uc *Notifier) WithAchievements(a AchievementEvaluator) *Notifier {
+	if a != nil {
+		uc.achievements = a
+	}
+	return uc
+}
+
+// awardBadges evaluates the badges of the user and creates a badge_earned
+// notification per new badge. The notification's event id is the
+// deterministic id of the badge.earned event, so a redelivered event that
+// re-evaluates the user cannot notify twice.
+func (uc *Notifier) awardBadges(ctx context.Context, op string, userID int) error {
+	if uc.achievements == nil {
+		return nil
+	}
+
+	badges, err := uc.achievements.Evaluate(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	for _, badge := range badges {
+		_, _, err := uc.notifications.Create(ctx, models.Notification{
+			UserID:  userID,
+			EventID: events.NewBadgeEarned(userID, badge.Code).EventID,
+			Type:    models.NotificationBadgeEarned,
+			Title:   "Новое достижение",
+			Body:    fmt.Sprintf("Вы получили бейдж «%s»", badge.Name),
+		})
+		if err != nil {
+			return fmt.Errorf("%s: %w", op, err)
+		}
+	}
+
+	return nil
 }
 
 // markStatusNames are the human-readable names of mark statuses used in
@@ -105,7 +153,15 @@ func (uc *Notifier) HandleMarkStatusChanged(ctx context.Context, ev events.MarkS
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
-	return nil
+	return uc.awardBadges(ctx, op, authorID)
+}
+
+// HandleTaskCompleted awards the badges the assignee earned by completing
+// the task; the completion itself needs no notification.
+func (uc *Notifier) HandleTaskCompleted(ctx context.Context, ev events.TaskCompleted) error {
+	const op = "usecase.Notifier.HandleTaskCompleted"
+
+	return uc.awardBadges(ctx, op, ev.UserID)
 }
 
 // HandleTaskAssigned notifies the assignee.
@@ -134,7 +190,7 @@ func (uc *Notifier) HandleTaskAssigned(ctx context.Context, ev events.TaskAssign
 }
 
 // HandleCheckAdded notifies the author of the mark unless the check is
-// their own.
+// their own, and awards the badges the checker earned.
 func (uc *Notifier) HandleCheckAdded(ctx context.Context, ev events.CheckAdded) error {
 	const op = "usecase.Notifier.HandleCheckAdded"
 
@@ -144,22 +200,21 @@ func (uc *Notifier) HandleCheckAdded(ctx context.Context, ev events.CheckAdded) 
 	}
 	if mark.UserID == ev.UserID {
 		uc.log.Debug("check by the mark author, no notification", slog.Int("mark_id", ev.MarkID))
-		return nil
+	} else {
+		_, _, err = uc.notifications.Create(ctx, models.Notification{
+			UserID:  mark.UserID,
+			EventID: ev.EventID,
+			Type:    models.NotificationCheckAdded,
+			MarkID:  null.IntFrom(int64(ev.MarkID)),
+			Title:   "Новая проверка вашей метки",
+			Body:    fmt.Sprintf("Метка #%d получила новую проверку", ev.MarkID),
+		})
+		if err != nil {
+			return fmt.Errorf("%s: %w", op, err)
+		}
 	}
 
-	_, _, err = uc.notifications.Create(ctx, models.Notification{
-		UserID:  mark.UserID,
-		EventID: ev.EventID,
-		Type:    models.NotificationCheckAdded,
-		MarkID:  null.IntFrom(int64(ev.MarkID)),
-		Title:   "Новая проверка вашей метки",
-		Body:    fmt.Sprintf("Метка #%d получила новую проверку", ev.MarkID),
-	})
-	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
-	}
-
-	return nil
+	return uc.awardBadges(ctx, op, ev.UserID)
 }
 
 // HandleMarkAssigned notifies every member of the organization the mark

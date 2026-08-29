@@ -12,6 +12,7 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/handler/handlertest"
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/lang"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
@@ -46,6 +47,7 @@ func (suite *UsersSuite) SetupTest() {
 
 	gin.SetMode(gin.TestMode)
 	suite.r = gin.New()
+	suite.r.Use(lang.New())
 
 	usersrest.Register(suite.r, log, authMiddleware, suite.uc)
 }
@@ -464,24 +466,37 @@ func (suite *UsersSuite) TestGetLeaderboard() {
 	tests := []struct {
 		name       string
 		query      string
+		lang       string
+		filters    models.LeaderboardFilters
 		pagination models.Pagination
 		errList    error
 		statusCode int
+		wantLevel  string
 	}{
-		{name: "Ok200", pagination: models.Pagination{Limit: models.DefaultLimit}, statusCode: 200},
-		{name: "OkPaginated", query: "?limit=5&offset=10", pagination: models.Pagination{Limit: 5, Offset: 10}, statusCode: 200},
+		{name: "Ok200", pagination: models.Pagination{Limit: models.DefaultLimit}, statusCode: 200, wantLevel: "Наблюдатель"},
+		{name: "OkPaginated", query: "?limit=5&offset=10", pagination: models.Pagination{Limit: 5, Offset: 10}, statusCode: 200, wantLevel: "Наблюдатель"},
+		{
+			name: "OkFiltersAndLang", query: "?boundary_id=7&period=week", lang: "en",
+			filters:    models.LeaderboardFilters{BoundaryID: 7, Period: models.LeaderboardWeek},
+			pagination: models.Pagination{Limit: models.DefaultLimit}, statusCode: 200, wantLevel: "Observer",
+		},
 		{name: "Err400", query: "?limit=0", statusCode: 400},
+		{name: "Err400Period", query: "?period=year", statusCode: 400},
+		{name: "Err400Boundary", query: "?boundary_id=-1", statusCode: 400},
 		{name: "Err500", pagination: models.Pagination{Limit: models.DefaultLimit}, errList: errors.New(""), statusCode: 500},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			if tt.statusCode != 400 {
-				suite.uc.On("ListLeaderboard", mock.Anything, tt.pagination).Once().
-					Return(models.Page[models.User]{Items: []models.User{testUser()}, Total: 1}, tt.errList)
+				suite.uc.On("ListLeaderboard", mock.Anything, tt.filters, tt.pagination).Once().
+					Return(models.Page[models.LeaderboardEntry]{Items: []models.LeaderboardEntry{{UserID: 1, Name: "name", Rating: 25, BadgesCount: 2}}, Total: 1}, tt.errList)
 			}
 
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/leaderboard"+tt.query, nil)
+			if tt.lang != "" {
+				req.Header.Set("Accept-Language", tt.lang)
+			}
 
 			suite.r.ServeHTTP(w, req)
 
@@ -494,7 +509,9 @@ func (suite *UsersSuite) TestGetLeaderboard() {
 				entry := resp.Payload["leaderboard"][0]
 				suite.Equal(float64(1), entry["user_id"])
 				suite.Equal("name", entry["username"])
-				suite.Equal(float64(3), entry["rating"])
+				suite.Equal(float64(25), entry["rating"])
+				suite.Equal(float64(2), entry["badges_count"])
+				suite.Equal(map[string]any{"number": float64(2), "name": tt.wantLevel, "next_threshold": float64(50)}, entry["level"])
 				suite.NotContains(entry, "login")
 				suite.NotContains(entry, "home_point")
 				suite.NotContains(entry, "role")

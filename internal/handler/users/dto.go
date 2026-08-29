@@ -1,6 +1,9 @@
 package usersrest
 
-import "github.com/PritOriginal/problem-map-server/internal/models"
+import (
+	"github.com/PritOriginal/problem-map-server/internal/handler/listquery"
+	"github.com/PritOriginal/problem-map-server/internal/models"
+)
 
 // PublicUser is the user representation exposed to other users:
 // it omits private fields such as login and home point.
@@ -56,17 +59,37 @@ type GetUserStatsResponse struct {
 	Stats models.UserStats `json:"stats"`
 }
 
-// LeaderboardEntry is a leaderboard row: the public identity and rating.
-type LeaderboardEntry struct {
-	Id     int    `json:"user_id"`
-	Name   string `json:"username"`
-	Rating int    `json:"rating"`
+// GetLeaderboardQuery are the query parameters of GET /leaderboard.
+type GetLeaderboardQuery struct {
+	listquery.Pagination
+	BoundaryID int                      `form:"boundary_id" binding:"min=0"`
+	Period     models.LeaderboardPeriod `form:"period" binding:"omitempty,oneof=all month week"`
 }
 
-func NewLeaderboardEntries(users []models.User) []LeaderboardEntry {
-	result := make([]LeaderboardEntry, 0, len(users))
-	for _, user := range users {
-		result = append(result, LeaderboardEntry{Id: user.Id, Name: user.Name, Rating: user.Rating})
+func (q GetLeaderboardQuery) Filters() models.LeaderboardFilters {
+	return models.LeaderboardFilters{BoundaryID: q.BoundaryID, Period: q.Period}
+}
+
+// LeaderboardEntry is a leaderboard row: the public identity, rating,
+// level and the number of badges earned.
+type LeaderboardEntry struct {
+	Id          int          `json:"user_id"`
+	Name        string       `json:"username"`
+	Rating      int          `json:"rating"`
+	Level       models.Level `json:"level"`
+	BadgesCount int          `json:"badges_count"`
+}
+
+func NewLeaderboardEntries(entries []models.LeaderboardEntry, lang models.Lang) []LeaderboardEntry {
+	result := make([]LeaderboardEntry, 0, len(entries))
+	for _, e := range entries {
+		result = append(result, LeaderboardEntry{
+			Id:          e.UserID,
+			Name:        e.Name,
+			Rating:      e.Rating,
+			Level:       models.LevelFor(e.Rating, lang),
+			BadgesCount: e.BadgesCount,
+		})
 	}
 	return result
 }

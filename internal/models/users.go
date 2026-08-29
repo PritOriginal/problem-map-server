@@ -46,6 +46,8 @@ type User struct {
 	HomePoint    *Point `json:"home_point" db:"home_point"`
 	Rating       int    `json:"rating" db:"rating"`
 	Role         Role   `json:"role" db:"role"`
+	// CreatedAt is the sign-up time (users.created_at).
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
 }
 
 // Public returns the user as seen by other users: the private fields

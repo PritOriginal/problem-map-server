@@ -79,9 +79,9 @@ func NewChecks(log *slog.Logger, cfg config.RatingConfig, trManager trm.Manager,
 	}
 }
 
-// WithEvents sets the publisher of domain events (check.added and the
-// mark.status_changed produced by the status updater). Without it events
-// are dropped.
+// WithEvents sets the publisher of domain events (check.added,
+// task.completed and the mark.status_changed produced by the status
+// updater). Without it events are dropped.
 func (uc *Checks) WithEvents(p events.Publisher) *Checks {
 	if p != nil {
 		uc.events = p
@@ -107,7 +107,11 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 	ctx = events.WithPending(ctx, &pending)
 
 	var checkId int64
+	// completedTask is the issued task the check closed, if any; its event
+	// is published after the commit.
+	var completedTask *models.Task
 	err := uc.trManager.Do(ctx, func(ctx context.Context) error {
+		completedTask = nil
 		// Concurrent checks on one mark are serialised by the row lock, so
 		// the stage is read, scored and resolved (markStatusUpdater) by one
 		// transaction at a time and can never be rated twice.
@@ -179,7 +183,11 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 				MarkID:  null.IntFrom(int64(check.MarkID)),
 				CheckID: null.IntFrom(checkId),
 			})
-			return err
+			if err != nil {
+				return err
+			}
+			completedTask = &task
+			return nil
 		case errors.Is(err, repository.ErrNotFound):
 			return nil
 		default:
@@ -192,6 +200,9 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 
 	events.PublishEvent(ctx, uc.log, uc.events, events.NewCheckAdded(int(checkId), check.MarkID, check.UserID))
 	pending.Flush(ctx, uc.log, uc.events)
+	if completedTask != nil {
+		events.PublishEvent(ctx, uc.log, uc.events, events.NewTaskCompleted(completedTask.ID, check.UserID, check.MarkID, int(checkId)))
+	}
 
 	return checkId, nil
 }
