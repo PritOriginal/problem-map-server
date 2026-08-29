@@ -264,7 +264,7 @@ func (suite *MarksSuite) TestGetMarkChanges() {
 			wantFilters: models.MarkChangesFilters{Since: since, Pagination: models.Pagination{Limit: models.DefaultLimit}},
 			changes: models.MarkChanges{
 				Marks: []models.Mark{{ID: 1}, {ID: 2}}, Total: 2,
-				DeletedIDs: []int{3}, DeletedTotal: 1, HiddenIDs: []int{}, ServerTime: serverTime,
+				DeletedIDs: []int{3}, DeletedTotal: 1, HiddenIDs: []int{4}, HiddenTotal: 1, ServerTime: serverTime,
 			},
 			statusCode: http.StatusOK,
 		},
@@ -316,6 +316,7 @@ func (suite *MarksSuite) TestGetMarkChanges() {
 			// Raw JSON must carry arrays, never null.
 			suite.Contains(w.Body.String(), `"deleted_ids":[`)
 			suite.Contains(w.Body.String(), `"hidden_ids":[`)
+			suite.Contains(w.Body.String(), `"hidden_total":`)
 			suite.Contains(w.Body.String(), `"marks":[`)
 		})
 	}

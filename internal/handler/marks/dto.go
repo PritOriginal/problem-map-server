@@ -117,9 +117,12 @@ type GetMarkChangesResponse struct {
 	// DeletedTotal is the number of marks deleted after since; deleted_ids
 	// is paged by the same limit/offset as marks.
 	DeletedTotal int `json:"deleted_total"`
-	// HiddenIDs is reserved for marks hidden by moderation; always empty for now.
-	HiddenIDs  []int     `json:"hidden_ids"`
-	ServerTime time.Time `json:"server_time"`
+	// HiddenIDs are the marks hidden by moderation after since (paged by the
+	// same limit/offset as marks); a client drops its copies of them.
+	HiddenIDs []int `json:"hidden_ids"`
+	// HiddenTotal is the number of marks hidden after since.
+	HiddenTotal int       `json:"hidden_total"`
+	ServerTime  time.Time `json:"server_time"`
 }
 
 func NewGetMarkChangesResponse(ch models.MarkChanges) GetMarkChangesResponse {
@@ -128,6 +131,7 @@ func NewGetMarkChangesResponse(ch models.MarkChanges) GetMarkChangesResponse {
 		DeletedIDs:   ch.DeletedIDs,
 		DeletedTotal: ch.DeletedTotal,
 		HiddenIDs:    ch.HiddenIDs,
+		HiddenTotal:  ch.HiddenTotal,
 		ServerTime:   ch.ServerTime,
 	}
 	// Arrays, never null, so clients can iterate without nil checks.

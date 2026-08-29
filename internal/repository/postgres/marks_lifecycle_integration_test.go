@@ -304,6 +304,39 @@ func (s *PostgresSuite) TestMarks_DeleteMark_Tombstone() {
 	s.NoError(err)
 }
 
+func (s *PostgresSuite) TestMarks_GetHiddenMarkIDs() {
+	// Backdate every mark, then hide one: only it changed since.
+	_, err := s.db.ExecContext(s.ctx, "UPDATE marks SET updated_at = NOW() - INTERVAL '1 hour'")
+	s.Require().NoError(err)
+	since := time.Now().Add(-time.Minute)
+
+	hidden, err := s.marks.GetHiddenMarkIDs(s.ctx, since, models.Pagination{})
+	s.Require().NoError(err)
+	s.NotNil(hidden.Items)
+	s.Empty(hidden.Items)
+	s.Equal(0, hidden.Total)
+
+	s.Require().NoError(s.marks.SetMarkHidden(s.ctx, fxMarkInside, true))
+
+	hidden, err = s.marks.GetHiddenMarkIDs(s.ctx, since, models.Pagination{})
+	s.Require().NoError(err)
+	s.Equal([]int{fxMarkInside}, hidden.Items)
+	s.Equal(1, hidden.Total)
+
+	// An empty page beyond the first still carries the total.
+	hidden, err = s.marks.GetHiddenMarkIDs(s.ctx, since, models.Pagination{Limit: 10, Offset: 10})
+	s.Require().NoError(err)
+	s.Empty(hidden.Items)
+	s.Equal(1, hidden.Total)
+
+	// A mark hidden before since is not a change; showing it again is one
+	// but it is no longer hidden.
+	s.Require().NoError(s.marks.SetMarkHidden(s.ctx, fxMarkInside, false))
+	hidden, err = s.marks.GetHiddenMarkIDs(s.ctx, since, models.Pagination{})
+	s.Require().NoError(err)
+	s.Empty(hidden.Items)
+}
+
 func (s *PostgresSuite) TestMarks_GetMarks_UpdatedSince() {
 	// Backdate every mark, then touch one: only it is "changed since".
 	_, err := s.db.ExecContext(s.ctx, "UPDATE marks SET updated_at = NOW() - INTERVAL '1 hour'")

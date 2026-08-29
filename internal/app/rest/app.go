@@ -197,8 +197,9 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Idempotency: idempotencyMiddleware,
 	})
 
+	commentsRepo := postgres.NewComments(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	commentsUseCase := usecase.NewComments(log, cfg.Comments, usecase.CommentsRepositories{
-		Comments: postgres.NewComments(postgresDB.DB, trmsqlx.DefaultCtxGetter),
+		Comments: commentsRepo,
 		Marks:    marksRepo,
 	}).WithEvents(publisher)
 	commentsrest.Register(router, log, authMiddleware, commentsUseCase)
@@ -223,9 +224,10 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	})
 
 	reportsUseCase := usecase.NewReports(log, cfg.Reports, trManager, usecase.ReportsRepositories{
-		Reports: reportsRepo,
-		Marks:   marksRepo,
-		Checks:  checksRepo,
+		Comments: commentsRepo,
+		Reports:  reportsRepo,
+		Marks:    marksRepo,
+		Checks:   checksRepo,
 	}).WithEvents(publisher)
 	reportsrest.Register(router, log, authMiddleware, reportsUseCase)
 

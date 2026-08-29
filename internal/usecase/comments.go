@@ -113,6 +113,14 @@ func (uc *Comments) AddComment(ctx context.Context, comment models.Comment) (mod
 	if err != nil {
 		return models.Comment{}, mapRepoErr(op, err)
 	}
+	// A hidden mark is out of the public discussion and a merged duplicate
+	// is discussed on its target (its threads are frozen).
+	if mark.Hidden {
+		return models.Comment{}, fmt.Errorf("%s: %w: mark is hidden", op, ErrConflict)
+	}
+	if mark.MergedIntoID.Valid {
+		return models.Comment{}, fmt.Errorf("%s: %w: mark was merged into mark %d", op, ErrConflict, mark.MergedIntoID.Int64)
+	}
 
 	if comment.ParentID.Valid {
 		parent, err := uc.repos.Comments.GetCommentById(ctx, int(comment.ParentID.Int64))

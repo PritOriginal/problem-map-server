@@ -25,6 +25,7 @@ type ReportsSuite struct {
 	reports   *usecase.MockReportsRepository
 	marks     *usecase.MockReportsMarksRepository
 	checks    *usecase.MockReportsChecksRepository
+	comments  *usecase.MockReportsCommentsRepository
 	publisher *events.MockPublisher
 }
 
@@ -32,12 +33,14 @@ func (suite *ReportsSuite) SetupTest() {
 	suite.trManager = usecase.NewMockManager(suite.T())
 	suite.reports = usecase.NewMockReportsRepository(suite.T())
 	suite.marks = usecase.NewMockReportsMarksRepository(suite.T())
+	suite.comments = usecase.NewMockReportsCommentsRepository(suite.T())
 	suite.checks = usecase.NewMockReportsChecksRepository(suite.T())
 	suite.publisher = events.NewMockPublisher(suite.T())
 	suite.uc = usecase.NewReports(slogdiscard.NewDiscardLogger(), reportsCfg, suite.trManager, usecase.ReportsRepositories{
-		Reports: suite.reports,
-		Marks:   suite.marks,
-		Checks:  suite.checks,
+		Reports:  suite.reports,
+		Marks:    suite.marks,
+		Checks:   suite.checks,
+		Comments: suite.comments,
 	}).WithEvents(suite.publisher)
 }
 
@@ -204,14 +207,44 @@ func (suite *ReportsSuite) TestCreate() {
 			wantErr: usecase.ErrNotFound,
 		},
 		{
-			// Comments live in another module: the report is stored by id only.
-			name:   "OkCommentWithoutLookup",
+			name:   "OkComment",
 			report: models.Report{ReporterID: 7, TargetType: models.ReportTargetComment, TargetID: 42, Reason: models.ReportReasonOther, Comment: "text"},
 			setup: func() {
 				suite.reports.On("CountReportsByReporterSince", mock.Anything, 7, mock.Anything).Once().Return(0, nil)
 				suite.expectTx(nil)
+				suite.comments.On("GetCommentById", mock.Anything, 42).Once().Return(models.Comment{ID: 42, UserID: 3}, nil)
 				suite.reports.On("AddReport", mock.Anything, mock.Anything).Once().Return(created, nil)
 			},
+		},
+		{
+			name:   "ErrCommentNotFound",
+			report: models.Report{ReporterID: 7, TargetType: models.ReportTargetComment, TargetID: 42, Reason: models.ReportReasonSpam},
+			setup: func() {
+				suite.reports.On("CountReportsByReporterSince", mock.Anything, 7, mock.Anything).Once().Return(0, nil)
+				suite.expectTx(nil)
+				suite.comments.On("GetCommentById", mock.Anything, 42).Once().Return(models.Comment{}, repository.ErrNotFound)
+			},
+			wantErr: usecase.ErrNotFound,
+		},
+		{
+			name:   "ErrCommentDeleted",
+			report: models.Report{ReporterID: 7, TargetType: models.ReportTargetComment, TargetID: 42, Reason: models.ReportReasonSpam},
+			setup: func() {
+				suite.reports.On("CountReportsByReporterSince", mock.Anything, 7, mock.Anything).Once().Return(0, nil)
+				suite.expectTx(nil)
+				suite.comments.On("GetCommentById", mock.Anything, 42).Once().Return(models.Comment{ID: 42, UserID: 3, Deleted: true}, nil)
+			},
+			wantErr: usecase.ErrNotFound,
+		},
+		{
+			name:   "ErrOwnComment",
+			report: models.Report{ReporterID: 7, TargetType: models.ReportTargetComment, TargetID: 42, Reason: models.ReportReasonSpam},
+			setup: func() {
+				suite.reports.On("CountReportsByReporterSince", mock.Anything, 7, mock.Anything).Once().Return(0, nil)
+				suite.expectTx(nil)
+				suite.comments.On("GetCommentById", mock.Anything, 42).Once().Return(models.Comment{ID: 42, UserID: 7}, nil)
+			},
+			wantErr: usecase.ErrForbidden,
 		},
 	}
 

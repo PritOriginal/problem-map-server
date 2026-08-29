@@ -391,40 +391,70 @@ func (r *MarksRepository) GetDeletedMarkIDs(ctx context.Context, since time.Time
 		Where("deleted_at > ?", since).
 		OrderBy("deleted_at ASC, mark_id ASC").
 		Paginate(p)
+	if err := r.readIDPage(ctx, op, q, p, &page); err != nil {
+		return page, err
+	}
+
+	return page, nil
+}
+
+// GetHiddenMarkIDs returns the ids of the hidden marks changed strictly
+// after since (hiding bumps updated_at), oldest change first, as a page
+// with the total. Unlike the lists it is not filtered by the viewer: a
+// client uses it to drop its copies, whoever it is.
+func (r *MarksRepository) GetHiddenMarkIDs(ctx context.Context, since time.Time, p models.Pagination) (models.Page[int], error) {
+	const op = "storage.postgres.GetHiddenMarkIDs"
+
+	page := models.Page[int]{Items: []int{}}
+	q := newListQuery("mark_id", "marks").
+		Where("hidden").
+		Where("updated_at > ?", since).
+		OrderBy("updated_at ASC, mark_id ASC").
+		Paginate(p)
+	if err := r.readIDPage(ctx, op, q, p, &page); err != nil {
+		return page, err
+	}
+
+	return page, nil
+}
+
+// readIDPage runs an id-only list query into page (items and total; the
+// total of an empty page beyond the first comes from a count query).
+func (r *MarksRepository) readIDPage(ctx context.Context, op string, q *listQuery, p models.Pagination, page *models.Page[int]) error {
 	query, args, err := q.pageQuery()
 	if err != nil {
-		return page, fmt.Errorf("%s: %w", op, err)
+		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	rows, err := tr.QueryxContext(ctx, query, args...)
 	if err != nil {
-		return page, fmt.Errorf("%s: %w", op, err)
+		return fmt.Errorf("%s: %w", op, err)
 	}
 	defer func() { _ = rows.Close() }()
 	for rows.Next() {
 		var id int
 		if err := rows.Scan(&id, &page.Total); err != nil {
-			return page, fmt.Errorf("%s: %w", op, err)
+			return fmt.Errorf("%s: %w", op, err)
 		}
 		page.Items = append(page.Items, id)
 	}
 	if err := rows.Err(); err != nil {
-		return page, fmt.Errorf("%s: %w", op, err)
+		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	// An empty page beyond the first carries no row to read the total from.
 	if len(page.Items) == 0 && p.Limit > 0 && p.Offset > 0 {
 		countQuery, countArgs, err := q.countQuery()
 		if err != nil {
-			return page, fmt.Errorf("%s: %w", op, err)
+			return fmt.Errorf("%s: %w", op, err)
 		}
 		if err := tr.GetContext(ctx, &page.Total, countQuery, countArgs...); err != nil {
-			return page, fmt.Errorf("%s: %w", op, err)
+			return fmt.Errorf("%s: %w", op, err)
 		}
 	}
 
-	return page, nil
+	return nil
 }
 
 // FollowMark subscribes the user to the mark; already following is not an error.

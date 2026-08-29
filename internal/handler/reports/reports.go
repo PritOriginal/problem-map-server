@@ -63,7 +63,7 @@ func (h *handler) actorFromClaims(c *gin.Context) (models.Actor, bool) {
 // CreateReport files a report on a mark, a check or a comment
 //
 //	@Summary		Report content
-//	@Description	file a complaint about a mark, a check or a comment. A mark or a check must exist (404) and must not be the reporter's own (403); a comment is accepted by id only. One report per target per user (409 on repeat); at most `reports.max-per-day` reports per user in 24 hours (429). When the open reports on a mark reach `reports.hide-threshold` the mark is hidden automatically
+//	@Description	file a complaint about a mark, a check or a comment. The target (a mark, a check or a comment; a deleted comment counts as missing) must exist (404) and must not be the reporter's own (403). One report per target per user (409 on repeat); at most `reports.max-per-day` reports per user in 24 hours (429). When the open reports on a mark reach `reports.hide-threshold` the mark is hidden automatically
 //	@Tags			moderation
 //	@Accept			json
 //	@Produce		json

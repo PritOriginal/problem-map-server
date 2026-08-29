@@ -35,6 +35,9 @@ type MarksRepository interface {
 	DeleteMark(ctx context.Context, markId int) error
 	// GetDeletedMarkIDs pages the tombstones written by DeleteMark after since.
 	GetDeletedMarkIDs(ctx context.Context, since time.Time, p models.Pagination) (models.Page[int], error)
+	// GetHiddenMarkIDs pages the ids of the marks that are hidden and were
+	// changed after since (a hide bumps updated_at).
+	GetHiddenMarkIDs(ctx context.Context, since time.Time, p models.Pagination) (models.Page[int], error)
 	FollowMark(ctx context.Context, userId, markId int) error
 	UnfollowMark(ctx context.Context, userId, markId int) error
 	GetFollowedMarks(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error)
@@ -586,8 +589,10 @@ func (uc *Marks) ListFollowedMarks(ctx context.Context, userId int, p models.Pag
 }
 
 // GetMarkChanges returns what an offline client missed since
-// filters.Since: marks updated after it (oldest change first) and ids of
-// marks deleted after it, each paginated independently. ServerTime is
+// filters.Since: marks updated after it (oldest change first), ids of
+// marks deleted after it and ids of marks hidden after it (the public
+// lists drop them, so a client must drop its copy too), each paginated
+// independently. ServerTime is
 // taken before the queries, so using it as the next Since cannot skip a
 // concurrent change on this instance; see the handler docs about clock
 // skew between instances.
@@ -616,9 +621,12 @@ func (uc *Marks) GetMarkChanges(ctx context.Context, filters models.MarkChangesF
 		return models.MarkChanges{}, mapRepoErr(op, err)
 	}
 	changes.DeletedIDs, changes.DeletedTotal = deleted.Items, deleted.Total
-	// TODO: fill HiddenIDs once marks get a hidden flag (moderation); until
-	// then hidden marks are indistinguishable from visible ones.
-	changes.HiddenIDs = []int{}
+
+	hidden, err := uc.repos.Marks.GetHiddenMarkIDs(ctx, filters.Since, filters.Pagination)
+	if err != nil {
+		return models.MarkChanges{}, mapRepoErr(op, err)
+	}
+	changes.HiddenIDs, changes.HiddenTotal = hidden.Items, hidden.Total
 
 	return changes, nil
 }

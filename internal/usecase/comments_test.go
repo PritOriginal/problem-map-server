@@ -152,6 +152,16 @@ func (suite *CommentsSuite) TestAddComment() {
 		{name: "ErrInvalidUTF8", body: "hi\xff", wantErr: usecase.ErrInvalidArgument},
 		{name: "ErrMarkNotFound", body: "hi", getMark: &method[models.Mark]{err: repository.ErrNotFound}, wantErr: usecase.ErrNotFound},
 		{
+			name: "ErrMarkHidden", body: "hi",
+			getMark: &method[models.Mark]{data: models.Mark{ID: markID, UserID: authorID, Hidden: true}},
+			wantErr: usecase.ErrConflict,
+		},
+		{
+			name: "ErrMarkMerged", body: "hi",
+			getMark: &method[models.Mark]{data: models.Mark{ID: markID, UserID: authorID, MergedIntoID: null.IntFrom(99)}},
+			wantErr: usecase.ErrConflict,
+		},
+		{
 			name: "ErrParentNotFound", body: "hi", parentID: &parent, getMark: mark,
 			getParent: &method[models.Comment]{err: repository.ErrNotFound},
 			wantErr:   usecase.ErrInvalidArgument,

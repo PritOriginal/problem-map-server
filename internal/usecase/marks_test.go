@@ -96,6 +96,7 @@ func (suite *MarksSuite) TestGetMarkChanges() {
 		filters    models.MarkChangesFilters
 		getMarks   method[models.Page[models.Mark]]
 		getDeleted method[models.Page[int]]
+		getHidden  method[models.Page[int]]
 		wantErrArg bool
 	}{
 		{
@@ -103,6 +104,14 @@ func (suite *MarksSuite) TestGetMarkChanges() {
 			filters:    models.MarkChangesFilters{Since: since, Pagination: models.Pagination{Limit: 50}},
 			getMarks:   method[models.Page[models.Mark]]{data: models.Page[models.Mark]{Items: []models.Mark{{ID: 1}}, Total: 7}},
 			getDeleted: method[models.Page[int]]{data: models.Page[int]{Items: []int{4, 5}, Total: 9}},
+			getHidden:  method[models.Page[int]]{data: models.Page[int]{Items: []int{6}, Total: 2}},
+		},
+		{
+			name:       "OkNothingHidden",
+			filters:    models.MarkChangesFilters{Since: since, Pagination: models.Pagination{Limit: 50}},
+			getMarks:   method[models.Page[models.Mark]]{data: models.Page[models.Mark]{}},
+			getDeleted: method[models.Page[int]]{data: models.Page[int]{Items: []int{}}},
+			getHidden:  method[models.Page[int]]{data: models.Page[int]{Items: []int{}}},
 		},
 		{
 			name:       "ErrSinceRequired",
@@ -130,6 +139,13 @@ func (suite *MarksSuite) TestGetMarkChanges() {
 			getMarks:   method[models.Page[models.Mark]]{data: models.Page[models.Mark]{}},
 			getDeleted: method[models.Page[int]]{err: errRepo},
 		},
+		{
+			name:       "ErrGetHidden",
+			filters:    models.MarkChangesFilters{Since: since, Pagination: models.Pagination{Limit: 50}},
+			getMarks:   method[models.Page[models.Mark]]{data: models.Page[models.Mark]{}},
+			getDeleted: method[models.Page[int]]{data: models.Page[int]{}},
+			getHidden:  method[models.Page[int]]{err: errRepo},
+		},
 	}
 
 	for _, tt := range tests {
@@ -144,6 +160,10 @@ func (suite *MarksSuite) TestGetMarkChanges() {
 				if tt.getMarks.err == nil {
 					suite.marksRepo.On("GetDeletedMarkIDs", mock.Anything, since, tt.filters.Pagination).Once().
 						Return(tt.getDeleted.data, tt.getDeleted.err)
+					if tt.getDeleted.err == nil {
+						suite.marksRepo.On("GetHiddenMarkIDs", mock.Anything, since, tt.filters.Pagination).Once().
+							Return(tt.getHidden.data, tt.getHidden.err)
+					}
 				}
 			}
 
@@ -157,14 +177,16 @@ func (suite *MarksSuite) TestGetMarkChanges() {
 				assertRepoErr(&suite.Suite, err, tt.getMarks.err)
 			case tt.getDeleted.err != nil:
 				assertRepoErr(&suite.Suite, err, tt.getDeleted.err)
+			case tt.getHidden.err != nil:
+				assertRepoErr(&suite.Suite, err, tt.getHidden.err)
 			default:
 				suite.Require().NoError(err)
 				suite.Equal(tt.getMarks.data.Items, got.Marks)
 				suite.Equal(tt.getMarks.data.Total, got.Total)
 				suite.Equal(tt.getDeleted.data.Items, got.DeletedIDs)
 				suite.Equal(tt.getDeleted.data.Total, got.DeletedTotal)
-				suite.NotNil(got.HiddenIDs)
-				suite.Empty(got.HiddenIDs)
+				suite.Equal(tt.getHidden.data.Items, got.HiddenIDs)
+				suite.Equal(tt.getHidden.data.Total, got.HiddenTotal)
 				suite.False(got.ServerTime.Before(before.UTC().Truncate(time.Second)))
 				suite.Equal(time.UTC, got.ServerTime.Location())
 			}

@@ -272,8 +272,12 @@ type MarkChanges struct {
 	DeletedIDs []int
 	// DeletedTotal is the number of tombstones after Since, for paging.
 	DeletedTotal int
-	HiddenIDs    []int
-	ServerTime   time.Time
+	// HiddenIDs are the marks hidden by moderation after Since; the public
+	// lists no longer return them.
+	HiddenIDs []int
+	// HiddenTotal is the number of hidden marks changed after Since, for paging.
+	HiddenTotal int
+	ServerTime  time.Time
 }
 
 // Validate checks pagination, sort keys, bbox and the date range.

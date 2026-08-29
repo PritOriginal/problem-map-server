@@ -70,7 +70,9 @@ func (d *Duration) UnmarshalJSON(b []byte) error {
 // RuntimeSettings are the parameters administrators may change at runtime
 // (GET/PUT /admin/settings). They override the corresponding config values
 // (config.MarksConfig, RatingConfig, TaskerConfig), which only provide the
-// defaults until the first PUT.
+// defaults until the first PUT. The moderation and comment limits
+// (config.ReportsConfig, CommentsConfig) are deliberately not here: they
+// come from the config only and need a restart to change.
 type RuntimeSettings struct {
 	// VoteThreshold is the vote score (confirming minus refuting checks) at
 	// which a voting stage resolves (see Updater.Update).

@@ -272,7 +272,7 @@ func (h *handler) GetMarksNearby() gin.HandlerFunc {
 // GetMarkChanges lists what changed since an instant, for offline clients
 //
 //	@Summary		Incremental mark changes
-//	@Description	marks updated after `since` (oldest change first; page with limit/offset, total in `meta`), ids of marks deleted after `since` (paged by the same limit/offset, total in `deleted_total`) and ids of marks hidden after it (always empty until moderation hides marks). Store `server_time` and pass it as the next `since`; with several server instances subtract a safety margin (`server_time - 1s`) to cover clock skew between them. `since` in the future is rejected with 400
+//	@Description	marks updated after `since` (oldest change first; page with limit/offset, total in `meta`), ids of marks deleted after `since` (paged by the same limit/offset, total in `deleted_total`) and ids of marks hidden by moderation after it (paged the same way, total in `hidden_total`); a client drops its copies of the deleted and hidden marks. A hidden mark still shows up in `marks` for its author and for moderators (with `hidden: true`). Store `server_time` and pass it as the next `since`; with several server instances subtract a safety margin (`server_time - 1s`) to cover clock skew between them. `since` in the future is rejected with 400
 //	@Tags			marks
 //	@Produce		json
 //	@Param			since	query		string	true	"RFC3339 instant of the previous sync"

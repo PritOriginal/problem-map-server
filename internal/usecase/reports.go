@@ -43,10 +43,17 @@ type ReportsChecksRepository interface {
 	GetCheckById(ctx context.Context, id int) (models.Check, error)
 }
 
+// ReportsCommentsRepository resolves the comment a report is about.
+type ReportsCommentsRepository interface {
+	// GetCommentById returns the comment, deleted ones included (Deleted set).
+	GetCommentById(ctx context.Context, id int) (models.Comment, error)
+}
+
 type ReportsRepositories struct {
-	Reports ReportsRepository
-	Marks   ReportsMarksRepository
-	Checks  ReportsChecksRepository
+	Reports  ReportsRepository
+	Marks    ReportsMarksRepository
+	Checks   ReportsChecksRepository
+	Comments ReportsCommentsRepository
 }
 
 // Reports handles user complaints: filing, the moderation queue and the
@@ -86,10 +93,9 @@ func (uc *Reports) WithEvents(p events.Publisher) *Reports {
 
 // Create files the report of reporter on the target.
 //
-// Rules: the target must be valid (ErrInvalidArgument); a mark or a check
-// must exist (ErrNotFound) and must not belong to the reporter
-// (ErrForbidden) — comments are accepted without an existence check
-// because their storage lives in another module; a user files at most
+// Rules: the target must be valid (ErrInvalidArgument); a mark, a check or
+// a comment must exist (ErrNotFound; a deleted comment counts as missing)
+// and must not belong to the reporter (ErrForbidden); a user files at most
 // cfg.MaxPerDay reports per rolling 24 hours (ErrTooManyRequests) and one
 // report per target (ErrConflict). When the open reports on a mark reach
 // cfg.HideThreshold the mark is hidden and mark.hidden is published after
@@ -138,7 +144,16 @@ func (uc *Reports) Create(ctx context.Context, report models.Report) (models.Rep
 				return fmt.Errorf("%w: own check", ErrForbidden)
 			}
 		case models.ReportTargetComment:
-			// Comments are stored by another module: only the id is validated.
+			comment, err := uc.repos.Comments.GetCommentById(ctx, report.TargetID)
+			if err != nil {
+				return err
+			}
+			if comment.Deleted {
+				return fmt.Errorf("%w: comment is deleted", repository.ErrNotFound)
+			}
+			if comment.UserID == report.ReporterID {
+				return fmt.Errorf("%w: own comment", ErrForbidden)
+			}
 		}
 
 		var err error

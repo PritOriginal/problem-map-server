@@ -2197,7 +2197,7 @@ const docTemplate = `{
         },
         "/marks/changes": {
             "get": {
-                "description": "marks updated after ` + "`" + `since` + "`" + ` (oldest change first; page with limit/offset, total in ` + "`" + `meta` + "`" + `), ids of marks deleted after ` + "`" + `since` + "`" + ` (paged by the same limit/offset, total in ` + "`" + `deleted_total` + "`" + `) and ids of marks hidden after it (always empty until moderation hides marks). Store ` + "`" + `server_time` + "`" + ` and pass it as the next ` + "`" + `since` + "`" + `; with several server instances subtract a safety margin (` + "`" + `server_time - 1s` + "`" + `) to cover clock skew between them. ` + "`" + `since` + "`" + ` in the future is rejected with 400",
+                "description": "marks updated after ` + "`" + `since` + "`" + ` (oldest change first; page with limit/offset, total in ` + "`" + `meta` + "`" + `), ids of marks deleted after ` + "`" + `since` + "`" + ` (paged by the same limit/offset, total in ` + "`" + `deleted_total` + "`" + `) and ids of marks hidden by moderation after it (paged the same way, total in ` + "`" + `hidden_total` + "`" + `); a client drops its copies of the deleted and hidden marks. A hidden mark still shows up in ` + "`" + `marks` + "`" + ` for its author and for moderators (with ` + "`" + `hidden: true` + "`" + `). Store ` + "`" + `server_time` + "`" + ` and pass it as the next ` + "`" + `since` + "`" + `; with several server instances subtract a safety margin (` + "`" + `server_time - 1s` + "`" + `) to cover clock skew between them. ` + "`" + `since` + "`" + ` in the future is rejected with 400",
                 "produces": [
                     "application/json"
                 ],
@@ -4982,7 +4982,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "file a complaint about a mark, a check or a comment. A mark or a check must exist (404) and must not be the reporter's own (403); a comment is accepted by id only. One report per target per user (409 on repeat); at most ` + "`" + `reports.max-per-day` + "`" + ` reports per user in 24 hours (429). When the open reports on a mark reach ` + "`" + `reports.hide-threshold` + "`" + ` the mark is hidden automatically",
+                "description": "file a complaint about a mark, a check or a comment. The target (a mark, a check or a comment; a deleted comment counts as missing) must exist (404) and must not be the reporter's own (403). One report per target per user (409 on repeat); at most ` + "`" + `reports.max-per-day` + "`" + ` reports per user in 24 hours (429). When the open reports on a mark reach ` + "`" + `reports.hide-threshold` + "`" + ` the mark is hidden automatically",
                 "consumes": [
                     "application/json"
                 ],
@@ -10024,11 +10024,15 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "hidden_ids": {
-                    "description": "HiddenIDs is reserved for marks hidden by moderation; always empty for now.",
+                    "description": "HiddenIDs are the marks hidden by moderation after since (paged by the\nsame limit/offset as marks); a client drops its copies of them.",
                     "type": "array",
                     "items": {
                         "type": "integer"
                     }
+                },
+                "hidden_total": {
+                    "description": "HiddenTotal is the number of marks hidden after since.",
+                    "type": "integer"
                 },
                 "marks": {
                     "type": "array",
