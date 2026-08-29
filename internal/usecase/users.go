@@ -11,7 +11,7 @@ import (
 type UsersRepository interface {
 	GetUserById(ctx context.Context, id int) (models.User, error)
 	GetUserByLogin(ctx context.Context, username string) (models.User, error)
-	GetUsers(ctx context.Context) ([]models.User, error)
+	GetUsers(ctx context.Context, p models.Pagination) (models.Page[models.User], error)
 	AddUser(ctx context.Context, user models.User) (int64, error)
 }
 
@@ -39,13 +39,30 @@ func (uc *Users) GetUserById(ctx context.Context, id int) (models.User, error) {
 	return user, nil
 }
 
+// ListUsers returns a page of users with the total count.
+func (uc *Users) ListUsers(ctx context.Context, p models.Pagination) (models.Page[models.User], error) {
+	const op = "usecase.Users.ListUsers"
+
+	if err := p.Validate(); err != nil {
+		return models.Page[models.User]{}, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
+	}
+
+	page, err := uc.repos.Users.GetUsers(ctx, p)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return page, nil
+}
+
+// GetUsers returns all users without pagination (gRPC, tasker).
 func (uc *Users) GetUsers(ctx context.Context) ([]models.User, error) {
 	const op = "usecase.Users.GetUsers"
 
-	users, err := uc.repos.Users.GetUsers(ctx)
+	page, err := uc.repos.Users.GetUsers(ctx, models.Pagination{})
 	if err != nil {
-		return users, fmt.Errorf("%s: %w", op, err)
+		return page.Items, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return users, nil
+	return page.Items, nil
 }

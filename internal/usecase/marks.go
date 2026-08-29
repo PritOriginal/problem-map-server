@@ -11,9 +11,10 @@ import (
 )
 
 type MarksRepository interface {
-	GetMarks(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error)
+	GetMarks(ctx context.Context, filters models.GetMarksFilters) (models.Page[models.Mark], error)
+	GetMarksNearby(ctx context.Context, filters models.GetMarksNearbyFilters) (models.Page[models.MarkWithDistance], error)
 	GetMarkById(ctx context.Context, id int) (models.Mark, error)
-	GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error)
+	GetMarksByUserId(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error)
 	AddMark(ctx context.Context, mark models.Mark) (int64, error)
 	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
 	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
@@ -51,14 +52,80 @@ func NewMarks(log *slog.Logger, trManager trm.Manager, repos MarksRepositories) 
 	}
 }
 
+// ListMarks returns a page of marks matching the filters together with the
+// total number of matches. Sort/order and pagination are validated here so
+// that every transport gets the same rules.
+func (uc *Marks) ListMarks(ctx context.Context, filters models.GetMarksFilters) (models.Page[models.Mark], error) {
+	const op = "usecase.Marks.ListMarks"
+
+	if err := validateMarksFilters(filters); err != nil {
+		return models.Page[models.Mark]{}, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
+	}
+
+	page, err := uc.repos.Marks.GetMarks(ctx, filters)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
+	}
+	return page, nil
+}
+
+func validateMarksFilters(filters models.GetMarksFilters) error {
+	if err := filters.Pagination.Validate(); err != nil {
+		return err
+	}
+	if err := filters.Sort.Validate(); err != nil {
+		return err
+	}
+	if err := filters.Order.Validate(); err != nil {
+		return err
+	}
+	if filters.BBox != nil {
+		if err := filters.BBox.Validate(); err != nil {
+			return err
+		}
+	}
+	if !filters.CreatedFrom.IsZero() && !filters.CreatedTo.IsZero() && filters.CreatedTo.Before(filters.CreatedFrom) {
+		return fmt.Errorf("created_to is before created_from")
+	}
+	return nil
+}
+
+// GetMarks returns every mark matching the filters without pagination.
+// Kept for callers that need the full set (gRPC, tasker).
 func (uc *Marks) GetMarks(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error) {
 	const op = "usecase.Marks.GetMarks"
 
-	marks, err := uc.repos.Marks.GetMarks(ctx, filters)
+	filters.Pagination = models.Pagination{}
+	page, err := uc.repos.Marks.GetMarks(ctx, filters)
 	if err != nil {
-		return marks, fmt.Errorf("%s: %w", op, err)
+		return page.Items, fmt.Errorf("%s: %w", op, err)
 	}
-	return marks, nil
+	return page.Items, nil
+}
+
+// MaxNearbyRadiusM caps the radius accepted by GetMarksNearby (50 km).
+const MaxNearbyRadiusM = 50_000
+
+// GetMarksNearby returns marks within filters.RadiusM meters of the point,
+// nearest first, with the distance to each mark.
+func (uc *Marks) GetMarksNearby(ctx context.Context, filters models.GetMarksNearbyFilters) (models.Page[models.MarkWithDistance], error) {
+	const op = "usecase.Marks.GetMarksNearby"
+
+	if err := filters.Pagination.Validate(); err != nil {
+		return models.Page[models.MarkWithDistance]{}, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
+	}
+	if filters.Lon < -180 || filters.Lon > 180 || filters.Lat < -90 || filters.Lat > 90 {
+		return models.Page[models.MarkWithDistance]{}, fmt.Errorf("%s: %w: invalid coordinates", op, ErrInvalidArgument)
+	}
+	if filters.RadiusM <= 0 || filters.RadiusM > MaxNearbyRadiusM {
+		return models.Page[models.MarkWithDistance]{}, fmt.Errorf("%s: %w: radius must be between 1 and %d meters", op, ErrInvalidArgument, MaxNearbyRadiusM)
+	}
+
+	page, err := uc.repos.Marks.GetMarksNearby(ctx, filters)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
+	}
+	return page, nil
 }
 
 func (uc *Marks) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
@@ -71,14 +138,30 @@ func (uc *Marks) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
 	return mark, nil
 }
 
+// ListMarksByUserId returns a page of the user's marks with the total count.
+func (uc *Marks) ListMarksByUserId(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error) {
+	const op = "usecase.Marks.ListMarksByUserId"
+
+	if err := p.Validate(); err != nil {
+		return models.Page[models.Mark]{}, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
+	}
+
+	page, err := uc.repos.Marks.GetMarksByUserId(ctx, userId, p)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
+	}
+	return page, nil
+}
+
+// GetMarksByUserId returns all marks of the user without pagination (gRPC).
 func (uc *Marks) GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error) {
 	const op = "usecase.Marks.GetMarksByUserId"
 
-	marks, err := uc.repos.Marks.GetMarksByUserId(ctx, userId)
+	page, err := uc.repos.Marks.GetMarksByUserId(ctx, userId, models.Pagination{})
 	if err != nil {
-		return marks, fmt.Errorf("%s: %w", op, err)
+		return page.Items, fmt.Errorf("%s: %w", op, err)
 	}
-	return marks, nil
+	return page.Items, nil
 }
 
 func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error) {
@@ -155,10 +238,11 @@ func (uc *Marks) GetMarkStatusHistoryByMarkId(ctx context.Context, markId int, w
 	}
 
 	if withChecks {
-		checks, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId)
+		checksPage, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId, models.Pagination{})
 		if err != nil {
 			return nil, fmt.Errorf("%s: %w", op, err)
 		}
+		checks := checksPage.Items
 
 		photosMap, err := uc.repos.Photos.GetPhotosByMarkId(ctx, markId)
 		if err != nil {
