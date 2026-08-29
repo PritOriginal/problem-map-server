@@ -404,17 +404,38 @@ func (r *MarksRepository) GetFollowerIDs(ctx context.Context, markId int) ([]int
 	return ids, nil
 }
 
-// GetMarkTypes lists the mark types with names in lang (falling back to the
-// default language, then to the raw name), sorted by the localised name.
+// markTypeColumns are the columns of a mark type followed by the localised
+// name (see translatedName).
+const markTypeColumns = `t.type_mark_id, t.code, t.sla_hours, t.icon, t.color, t.active, t.sort_order, `
+
+// markTypeEntity is the translations.entity of mark types.
+const markTypeEntity = "mark_type"
+
+// GetMarkTypes lists the active mark types with names in lang (falling back
+// to the default language, then to the raw name), sorted by sort_order and
+// then by the localised name.
 func (r *MarksRepository) GetMarkTypes(ctx context.Context, lang models.Lang) ([]models.MarkType, error) {
 	const op = "storage.postgres.GetMarkTypes"
 
+	return r.listMarkTypes(ctx, op, lang, "WHERE t.active")
+}
+
+// GetAllMarkTypes lists every mark type, inactive ones included (admin
+// dictionary), sorted like GetMarkTypes.
+func (r *MarksRepository) GetAllMarkTypes(ctx context.Context, lang models.Lang) ([]models.MarkType, error) {
+	const op = "storage.postgres.GetAllMarkTypes"
+
+	return r.listMarkTypes(ctx, op, lang, "")
+}
+
+func (r *MarksRepository) listMarkTypes(ctx context.Context, op string, lang models.Lang, where string) ([]models.MarkType, error) {
 	types := []models.MarkType{}
 
-	query := `SELECT t.type_mark_id, t.code, t.sla_hours, ` + translatedName("t.name") + `
+	query := `SELECT ` + markTypeColumns + translatedName("t.name") + `
 		FROM types_marks t
-		` + translationJoins("mark_type", "t.type_mark_id") + `
-		ORDER BY name, t.type_mark_id`
+		` + translationJoins(markTypeEntity, "t.type_mark_id") + `
+		` + where + `
+		ORDER BY t.sort_order, name, t.type_mark_id`
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.SelectContext(ctx, &types, query, lang, models.DefaultLang); err != nil {
@@ -422,6 +443,90 @@ func (r *MarksRepository) GetMarkTypes(ctx context.Context, lang models.Lang) ([
 	}
 
 	return types, nil
+}
+
+// GetMarkTypeById returns one mark type (active or not) with its name in lang.
+func (r *MarksRepository) GetMarkTypeById(ctx context.Context, id int, lang models.Lang) (models.MarkType, error) {
+	const op = "storage.postgres.GetMarkTypeById"
+
+	var t models.MarkType
+	query := `SELECT ` + markTypeColumns + translatedName("t.name") + `
+		FROM types_marks t
+		` + translationJoins(markTypeEntity, "t.type_mark_id") + `
+		WHERE t.type_mark_id = $3`
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.GetContext(ctx, &t, query, lang, models.DefaultLang, id); err != nil {
+		return t, wrapPgError(op, err)
+	}
+
+	return t, nil
+}
+
+// AddMarkType inserts a mark type with its Russian and (optional) English
+// names; repository.ErrExists when the code is taken.
+func (r *MarksRepository) AddMarkType(ctx context.Context, t models.MarkTypeCreate) (int64, error) {
+	const op = "storage.postgres.AddMarkType"
+
+	var id int64
+	query := `INSERT INTO types_marks (name, code, sla_hours, icon, color) VALUES ($1, $2, $3, $4, $5)
+		RETURNING type_mark_id`
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.GetContext(ctx, &id, query, t.NameRU, t.Code, t.SLAHours, t.Icon, t.Color); err != nil {
+		return 0, wrapPgError(op, err)
+	}
+
+	if err := r.SetTranslation(ctx, markTypeEntity, int(id), models.LangRU, t.NameRU); err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+	if t.NameEN != "" {
+		if err := r.SetTranslation(ctx, markTypeEntity, int(id), models.LangEN, t.NameEN); err != nil {
+			return 0, fmt.Errorf("%s: %w", op, err)
+		}
+	}
+
+	return id, nil
+}
+
+// UpdateMarkType applies the non-nil fields of upd to the mark type
+// (repository.ErrNotFound when it does not exist, repository.ErrExists when
+// the new code is taken). An empty Icon/Color clears the column.
+func (r *MarksRepository) UpdateMarkType(ctx context.Context, id int, upd models.MarkTypeUpdate) error {
+	const op = "storage.postgres.UpdateMarkType"
+
+	query := `
+		UPDATE types_marks SET
+			code = COALESCE($2, code),
+			name = COALESCE($3, name),
+			sla_hours = COALESCE($4, sla_hours),
+			icon = CASE WHEN $5::text IS NULL THEN icon ELSE NULLIF($5, '') END,
+			color = CASE WHEN $6::text IS NULL THEN color ELSE NULLIF($6, '') END,
+			active = COALESCE($7, active),
+			sort_order = COALESCE($8, sort_order)
+		WHERE type_mark_id = $1`
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	res, err := tr.ExecContext(ctx, query, id, upd.Code, upd.NameRU, upd.SLAHours, upd.Icon, upd.Color, upd.Active, upd.SortOrder)
+	if err != nil {
+		return wrapPgError(op, err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return fmt.Errorf("%s: %w", op, repository.ErrNotFound)
+	}
+
+	if upd.NameRU != nil {
+		if err := r.SetTranslation(ctx, markTypeEntity, id, models.LangRU, *upd.NameRU); err != nil {
+			return fmt.Errorf("%s: %w", op, err)
+		}
+	}
+	if upd.NameEN != nil {
+		if err := r.SetTranslation(ctx, markTypeEntity, id, models.LangEN, *upd.NameEN); err != nil {
+			return fmt.Errorf("%s: %w", op, err)
+		}
+	}
+
+	return nil
 }
 
 // GetMarkStatuses lists the mark statuses with names in lang (falling back

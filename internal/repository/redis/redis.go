@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
@@ -96,6 +97,53 @@ func (r *Redis) Set(ctx context.Context, key string, value any, expiration time.
 		return err
 	}
 	return nil
+}
+
+// DeleteByPrefix removes every key starting with prefix (SCAN + DEL in
+// batches, so it is safe on a live instance). It is used to invalidate the
+// HTTP cache of a dictionary when the dictionary changes.
+func (r *Redis) DeleteByPrefix(ctx context.Context, prefix string) error {
+	if !r.available() {
+		return ErrUnavailable
+	}
+
+	pattern := globEscape(prefix) + "*"
+	iter := r.Client.Scan(ctx, 0, pattern, 100).Iterator()
+	batch := make([]string, 0, 100)
+	flush := func() error {
+		if len(batch) == 0 {
+			return nil
+		}
+		err := r.Client.Del(ctx, batch...).Err()
+		batch = batch[:0]
+		return err
+	}
+	for iter.Next(ctx) {
+		batch = append(batch, iter.Val())
+		if len(batch) == cap(batch) {
+			if err := flush(); err != nil {
+				return err
+			}
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return err
+	}
+	return flush()
+}
+
+// globEscape escapes the glob metacharacters of SCAN MATCH so that a prefix
+// is matched literally.
+func globEscape(s string) string {
+	var b strings.Builder
+	for _, c := range s {
+		switch c {
+		case '*', '?', '[', ']', '\\':
+			b.WriteByte('\\')
+		}
+		b.WriteRune(c)
+	}
+	return b.String()
 }
 
 // incrScript atomically increments key, sets its TTL when the key has just

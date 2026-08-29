@@ -294,3 +294,32 @@ func (s *RedisSuite) TestAuthVersion_NonInteger() {
 	_, err = s.repo.IncrAuthVersion(s.ctx, 5)
 	s.Error(err)
 }
+
+func (s *RedisSuite) TestDeleteByPrefix() {
+	keys := []string{
+		"http:GET:/marks/types:ru", "http:GET:/marks/types:en", "http:GET:/marks/types?x=1:ru",
+		"http:GET:/marks/statuses:ru", "other",
+	}
+	for _, k := range keys {
+		s.Require().NoError(s.repo.Set(s.ctx, k, "v", 0))
+	}
+
+	s.Require().NoError(s.repo.DeleteByPrefix(s.ctx, "http:GET:/marks/types"))
+
+	for _, k := range keys[:3] {
+		s.False(s.repo.Exists(s.ctx, k), k)
+	}
+	for _, k := range keys[3:] {
+		s.True(s.repo.Exists(s.ctx, k), k)
+	}
+
+	// Glob characters in the prefix are matched literally.
+	s.Require().NoError(s.repo.Set(s.ctx, "a*b:1", "v", 0))
+	s.Require().NoError(s.repo.Set(s.ctx, "axb:1", "v", 0))
+	s.Require().NoError(s.repo.DeleteByPrefix(s.ctx, "a*b"))
+	s.False(s.repo.Exists(s.ctx, "a*b:1"))
+	s.True(s.repo.Exists(s.ctx, "axb:1"))
+
+	var nilRepo *redis.Redis
+	s.ErrorIs(nilRepo.DeleteByPrefix(s.ctx, "x"), redis.ErrUnavailable)
+}

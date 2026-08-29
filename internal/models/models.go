@@ -286,6 +286,15 @@ type MarkType struct {
 	Name     string `json:"name" db:"name"`
 	// SLAHours is the time an organization has to resolve a mark of the type.
 	SLAHours int `json:"sla_hours" db:"sla_hours"`
+	// Icon is a client-side icon identifier (optional).
+	Icon null.String `json:"icon" db:"icon" swaggertype:"string"`
+	// Color is a hex colour like "#ff8800" (optional).
+	Color null.String `json:"color" db:"color" swaggertype:"string"`
+	// Active reports whether new marks of the type may be created; inactive
+	// types are hidden from the public dictionary.
+	Active bool `json:"active" db:"active"`
+	// SortOrder orders the dictionary (ascending, then by name).
+	SortOrder int `json:"sort_order" db:"sort_order"`
 }
 
 // MarshalJSON emits the deprecated `mark_type_id` alias next to `id`.
