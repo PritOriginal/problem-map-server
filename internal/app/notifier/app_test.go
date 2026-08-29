@@ -9,6 +9,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/app/notifier"
 	"github.com/PritOriginal/problem-map-server/internal/events"
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/internal/nats"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/stretchr/testify/suite"
 )
@@ -79,8 +80,9 @@ func (suite *RouterSuite) TestHandle() {
 			handlerErr: errHandler, wantErr: errHandler,
 		},
 		{
-			name: "BadPayload", subject: events.SubjectCheckAdded, raw: []byte("{not json"),
-			check: func(h *recordingHandlers) { suite.Empty(h.checkAdded) },
+			name: "BadPayloadIsNotRetried", subject: events.SubjectCheckAdded, raw: []byte("{not json"),
+			wantErr: nats.ErrNoRetry,
+			check:   func(h *recordingHandlers) { suite.Empty(h.checkAdded) },
 		},
 		{
 			name: "NewerSchemaVersion", subject: events.SubjectCheckAdded,
@@ -89,13 +91,19 @@ func (suite *RouterSuite) TestHandle() {
 			check:   func(h *recordingHandlers) { suite.Empty(h.checkAdded) },
 		},
 		{
+			name: "NewerSchemaVersionIsNotRetried", subject: events.SubjectCheckAdded,
+			raw:     []byte(`{"v":99,"event_id":"e1","check_id":1,"mark_id":5,"user_id":2}`),
+			wantErr: nats.ErrNoRetry,
+		},
+		{
 			name: "MissingVersionIsAccepted", subject: events.SubjectCheckAdded,
 			raw:   []byte(`{"event_id":"e1","check_id":1,"mark_id":5,"user_id":2}`),
 			rawOK: true,
 			check: func(h *recordingHandlers) { suite.Len(h.checkAdded, 1) },
 		},
 		{
-			name: "UnknownSubject", subject: "mark.deleted", raw: []byte("{}"),
+			name: "UnknownSubjectIsNotRetried", subject: "mark.deleted", raw: []byte("{}"),
+			wantErr: nats.ErrNoRetry,
 		},
 	}
 
@@ -125,6 +133,19 @@ func (suite *RouterSuite) TestHandle() {
 			}
 		})
 	}
+}
+
+// TestHandlerErrorIsRetried checks that a handler failure is not marked
+// ErrNoRetry, so the consumer redelivers the event.
+func (suite *RouterSuite) TestHandlerErrorIsRetried() {
+	errHandler := errors.New("db down")
+	data, err := json.Marshal(events.NewCheckAdded(77, 5, 2))
+	suite.Require().NoError(err)
+
+	err = notifier.NewRouter(slogdiscard.NewDiscardLogger(), &recordingHandlers{err: errHandler}).
+		Handle(context.Background(), events.SubjectCheckAdded, data)
+	suite.ErrorIs(err, errHandler)
+	suite.NotErrorIs(err, nats.ErrNoRetry)
 }
 
 func (suite *RouterSuite) TestSubjects() {

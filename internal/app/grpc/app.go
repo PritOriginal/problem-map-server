@@ -143,7 +143,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	photoRepo, photoCloser := app.NewPhotosRepository(log, cfg)
 	closers.Add("s3", photoCloser)
 
-	publisher, publisherCloser := app.NewPublisher(log, cfg.Nats)
+	publisher, publisherCloser := app.NewPublisher(log, cfg.Nats, m.Registry())
 	closers.Add("nats", publisherCloser)
 
 	mapRepo := postgres.NewMap(postgresDB.DB, trmsqlx.DefaultCtxGetter)
