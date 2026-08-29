@@ -67,6 +67,7 @@ type PostgresSuite struct {
 	notifications *postgres.NotificationsRepository
 	organizations *postgres.OrganizationsRepository
 	webhooks      *postgres.WebhooksRepository
+	reports       *postgres.ReportsRepository
 
 	// seedNow anchors the backdated timestamps of the fixtures (UTC, whole
 	// seconds) so tests can compute expected periods and durations exactly.
@@ -117,6 +118,7 @@ func (s *PostgresSuite) SetupSuite() {
 	s.webhooks = postgres.NewWebhooks(db, getter)
 	s.analytics = postgres.NewAnalytics(db, getter)
 	s.organizations = postgres.NewOrganizations(db, getter)
+	s.reports = postgres.NewReports(db, getter)
 }
 
 func (s *PostgresSuite) TearDownSuite() {
@@ -150,7 +152,7 @@ func (s *PostgresSuite) truncate() {
 	_, err := s.db.ExecContext(s.ctx, `
 		TRUNCATE TABLE
 			organization_responsibilities, organization_members, organizations,
-			webhook_deliveries, webhooks, notifications, user_devices,
+			reports, webhook_deliveries, webhooks, notifications, user_devices,
 			rating_events, checks, tasks, mark_status_history, mark_followers, marks, users, admin_boundaries, types_marks,
 			districts, cities, regions
 		RESTART IDENTITY CASCADE
