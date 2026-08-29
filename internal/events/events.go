@@ -5,12 +5,19 @@ package events
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/google/uuid"
 )
+
+// SchemaVersion is the version of the event payloads written into the
+// "v" field. Bump it on an incompatible change of a payload; consumers
+// reject payloads of an unknown (newer) version instead of guessing.
+const SchemaVersion = 1
 
 // Subjects (NATS) of the domain events.
 const (
@@ -31,9 +38,33 @@ type Event interface {
 	Subject() string
 }
 
+// Header is embedded into every event payload.
+type Header struct {
+	// Version is the payload schema version (SchemaVersion at publish time).
+	Version int    `json:"v"`
+	EventID string `json:"event_id"`
+}
+
+func newHeader() Header {
+	return Header{Version: SchemaVersion, EventID: uuid.NewString()}
+}
+
+// CheckVersion reports an error when the payload was written by a newer
+// schema than this binary understands.
+func (h Header) CheckVersion() error {
+	if h.Version > SchemaVersion {
+		return fmt.Errorf("%w: got %d, supported up to %d", ErrUnsupportedVersion, h.Version, SchemaVersion)
+	}
+	return nil
+}
+
+// ErrUnsupportedVersion is returned by Header.CheckVersion for a payload of
+// a newer schema.
+var ErrUnsupportedVersion = errors.New("unsupported event schema version")
+
 // MarkStatusChanged is published after a mark moved to a new status.
 type MarkStatusChanged struct {
-	EventID   string                `json:"event_id"`
+	Header
 	MarkID    int                   `json:"mark_id"`
 	OldStatus models.MarkStatusType `json:"old_status"`
 	NewStatus models.MarkStatusType `json:"new_status"`
@@ -46,7 +77,7 @@ func (MarkStatusChanged) Subject() string { return SubjectMarkStatusChanged }
 // NewMarkStatusChanged builds the event with a fresh EventID.
 func NewMarkStatusChanged(markID int, oldStatus, newStatus models.MarkStatusType, authorID int) MarkStatusChanged {
 	return MarkStatusChanged{
-		EventID:   uuid.NewString(),
+		Header:    newHeader(),
 		MarkID:    markID,
 		OldStatus: oldStatus,
 		NewStatus: newStatus,
@@ -56,11 +87,11 @@ func NewMarkStatusChanged(markID int, oldStatus, newStatus models.MarkStatusType
 
 // TaskAssigned is published after a verification task was issued to a user.
 type TaskAssigned struct {
-	EventID string     `json:"event_id"`
-	TaskID  int        `json:"task_id"`
-	UserID  int        `json:"user_id"`
-	MarkID  int        `json:"mark_id"`
-	DueAt   *time.Time `json:"due_at,omitempty"`
+	Header
+	TaskID int        `json:"task_id"`
+	UserID int        `json:"user_id"`
+	MarkID int        `json:"mark_id"`
+	DueAt  *time.Time `json:"due_at,omitempty"`
 }
 
 func (TaskAssigned) Subject() string { return SubjectTaskAssigned }
@@ -68,19 +99,19 @@ func (TaskAssigned) Subject() string { return SubjectTaskAssigned }
 // NewTaskAssigned builds the event with a fresh EventID.
 func NewTaskAssigned(taskID, userID, markID int, dueAt *time.Time) TaskAssigned {
 	return TaskAssigned{
-		EventID: uuid.NewString(),
-		TaskID:  taskID,
-		UserID:  userID,
-		MarkID:  markID,
-		DueAt:   dueAt,
+		Header: newHeader(),
+		TaskID: taskID,
+		UserID: userID,
+		MarkID: markID,
+		DueAt:  dueAt,
 	}
 }
 
 // CheckAdded is published after a user submitted a check for a mark.
 type CheckAdded struct {
-	EventID string `json:"event_id"`
-	CheckID int    `json:"check_id"`
-	MarkID  int    `json:"mark_id"`
+	Header
+	CheckID int `json:"check_id"`
+	MarkID  int `json:"mark_id"`
 	// UserID is the author of the check.
 	UserID int `json:"user_id"`
 }
@@ -90,7 +121,7 @@ func (CheckAdded) Subject() string { return SubjectCheckAdded }
 // NewCheckAdded builds the event with a fresh EventID.
 func NewCheckAdded(checkID, markID, userID int) CheckAdded {
 	return CheckAdded{
-		EventID: uuid.NewString(),
+		Header:  newHeader(),
 		CheckID: checkID,
 		MarkID:  markID,
 		UserID:  userID,
@@ -105,8 +136,11 @@ func PublishEvent(ctx context.Context, log *slog.Logger, p Publisher, ev Event) 
 		return
 	}
 	if err := p.Publish(ctx, ev.Subject(), ev); err != nil {
-		log.Warn("failed to publish event",
+		// The event is lost (best effort); it is logged in full so it can
+		// be replayed by hand if needed.
+		log.Warn("failed to publish event, event lost",
 			slog.String("subject", ev.Subject()),
+			slog.Any("event", ev),
 			slog.String("error", err.Error()),
 		)
 	}

@@ -98,6 +98,47 @@ func (s *NatsSuite) TestPublishSubscribe() {
 	}
 }
 
+// TestQueueSubscribe checks that a message is delivered to exactly one
+// member of a queue group.
+func (s *NatsSuite) TestQueueSubscribe() {
+	log := slogdiscard.NewDiscardLogger()
+
+	received := make(chan int, 4)
+	for i := range 2 {
+		member, err := nats.New(log, s.cfg)
+		s.Require().NoError(err)
+		defer func() { _ = member.Close() }()
+
+		_, err = member.QueueSubscribe(events.SubjectCheckAdded, "workers", func(context.Context, []byte) error {
+			received <- i
+			return nil
+		})
+		s.Require().NoError(err)
+		s.Require().NoError(member.Flush())
+	}
+
+	publisher, err := nats.New(log, s.cfg)
+	s.Require().NoError(err)
+	defer func() { _ = publisher.Close() }()
+
+	for range 4 {
+		s.Require().NoError(publisher.Publish(s.ctx, events.SubjectCheckAdded, events.NewCheckAdded(1, 1, 1)))
+	}
+
+	for range 4 {
+		select {
+		case <-received:
+		case <-time.After(5 * time.Second):
+			s.Fail("event not received")
+		}
+	}
+	select {
+	case got := <-received:
+		s.Failf("event delivered to both members", "member %d", got)
+	case <-time.After(300 * time.Millisecond):
+	}
+}
+
 func (s *NatsSuite) TestNewBadURL() {
 	_, err := nats.New(slogdiscard.NewDiscardLogger(), config.NatsConfig{URL: "nats://127.0.0.1:1", Name: "test"})
 	s.Error(err)

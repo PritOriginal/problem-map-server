@@ -44,24 +44,24 @@ func (suite *NotifierSuite) TestHandleMarkStatusChanged() {
 	}{
 		{
 			name:       "OkAuthorFromEvent",
-			ev:         events.MarkStatusChanged{EventID: "e1", MarkID: 5, OldStatus: models.UnconfirmedStatus, NewStatus: models.ConfirmedStatus, AuthorID: 3},
+			ev:         events.MarkStatusChanged{Header: events.Header{EventID: "e1"}, MarkID: 5, OldStatus: models.UnconfirmedStatus, NewStatus: models.ConfirmedStatus, AuthorID: 3},
 			wantUserID: 3,
 		},
 		{
 			name:       "OkAuthorFromMark",
-			ev:         events.MarkStatusChanged{EventID: "e2", MarkID: 5, OldStatus: models.UnconfirmedStatus, NewStatus: models.MarkStatusType(99)},
+			ev:         events.MarkStatusChanged{Header: events.Header{EventID: "e2"}, MarkID: 5, OldStatus: models.UnconfirmedStatus, NewStatus: models.MarkStatusType(99)},
 			getMark:    &method[models.Mark]{data: models.Mark{ID: 5, UserID: 4}},
 			wantUserID: 4,
 		},
 		{
 			name:    "ErrMarkNotFound",
-			ev:      events.MarkStatusChanged{EventID: "e3", MarkID: 5},
+			ev:      events.MarkStatusChanged{Header: events.Header{EventID: "e3"}, MarkID: 5},
 			getMark: &method[models.Mark]{err: repository.ErrNotFound},
 			wantErr: true,
 		},
 		{
 			name:       "ErrCreate",
-			ev:         events.MarkStatusChanged{EventID: "e4", MarkID: 5, AuthorID: 3},
+			ev:         events.MarkStatusChanged{Header: events.Header{EventID: "e4"}, MarkID: 5, AuthorID: 3},
 			createErr:  errRepo,
 			wantUserID: 3,
 			wantErr:    true,
@@ -104,17 +104,17 @@ func (suite *NotifierSuite) TestHandleTaskAssigned() {
 	}{
 		{
 			name:     "OkWithDueAt",
-			ev:       events.TaskAssigned{EventID: "e1", TaskID: 9, UserID: 2, MarkID: 5, DueAt: &due},
+			ev:       events.TaskAssigned{Header: events.Header{EventID: "e1"}, TaskID: 9, UserID: 2, MarkID: 5, DueAt: &due},
 			wantBody: "Вам назначена проверка метки #5 до 02.01.2026 15:04",
 		},
 		{
 			name:     "OkWithoutDueAt",
-			ev:       events.TaskAssigned{EventID: "e2", TaskID: 9, UserID: 2, MarkID: 5},
+			ev:       events.TaskAssigned{Header: events.Header{EventID: "e2"}, TaskID: 9, UserID: 2, MarkID: 5},
 			wantBody: "Вам назначена проверка метки #5",
 		},
 		{
 			name:      "ErrCreate",
-			ev:        events.TaskAssigned{EventID: "e3", TaskID: 9, UserID: 2, MarkID: 5},
+			ev:        events.TaskAssigned{Header: events.Header{EventID: "e3"}, TaskID: 9, UserID: 2, MarkID: 5},
 			createErr: errRepo,
 			wantBody:  "Вам назначена проверка метки #5",
 		},
@@ -152,24 +152,24 @@ func (suite *NotifierSuite) TestHandleCheckAdded() {
 	}{
 		{
 			name:       "OkNotifiesAuthor",
-			ev:         events.CheckAdded{EventID: "e1", CheckID: 1, MarkID: 5, UserID: 2},
+			ev:         events.CheckAdded{Header: events.Header{EventID: "e1"}, CheckID: 1, MarkID: 5, UserID: 2},
 			getMark:    method[models.Mark]{data: models.Mark{ID: 5, UserID: 3}},
 			wantCreate: true,
 		},
 		{
 			name:    "OwnCheckIsSkipped",
-			ev:      events.CheckAdded{EventID: "e2", CheckID: 1, MarkID: 5, UserID: 3},
+			ev:      events.CheckAdded{Header: events.Header{EventID: "e2"}, CheckID: 1, MarkID: 5, UserID: 3},
 			getMark: method[models.Mark]{data: models.Mark{ID: 5, UserID: 3}},
 		},
 		{
 			name:    "ErrMarkNotFound",
-			ev:      events.CheckAdded{EventID: "e3", MarkID: 5, UserID: 2},
+			ev:      events.CheckAdded{Header: events.Header{EventID: "e3"}, MarkID: 5, UserID: 2},
 			getMark: method[models.Mark]{err: repository.ErrNotFound},
 			wantErr: true,
 		},
 		{
 			name:       "ErrCreate",
-			ev:         events.CheckAdded{EventID: "e4", MarkID: 5, UserID: 2},
+			ev:         events.CheckAdded{Header: events.Header{EventID: "e4"}, MarkID: 5, UserID: 2},
 			getMark:    method[models.Mark]{data: models.Mark{ID: 5, UserID: 3}},
 			wantCreate: true,
 			createErr:  errRepo,
