@@ -2395,8 +2395,8 @@ func (_c *MockTaskerTasksRepository_GetTaskById_Call) RunAndReturn(run func(ctx 
 }
 
 // GetTaskByUserIdAndMarkId provides a mock function for the type MockTaskerTasksRepository
-func (_mock *MockTaskerTasksRepository) GetTaskByUserIdAndMarkId(ctx context.Context, userId int, markId int) (models.Task, error) {
-	ret := _mock.Called(ctx, userId, markId)
+func (_mock *MockTaskerTasksRepository) GetTaskByUserIdAndMarkId(ctx context.Context, userId int, markId int, statusId models.TaskStatusType) (models.Task, error) {
+	ret := _mock.Called(ctx, userId, markId, statusId)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetTaskByUserIdAndMarkId")
@@ -2404,16 +2404,16 @@ func (_mock *MockTaskerTasksRepository) GetTaskByUserIdAndMarkId(ctx context.Con
 
 	var r0 models.Task
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) (models.Task, error)); ok {
-		return returnFunc(ctx, userId, markId)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int, models.TaskStatusType) (models.Task, error)); ok {
+		return returnFunc(ctx, userId, markId, statusId)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) models.Task); ok {
-		r0 = returnFunc(ctx, userId, markId)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int, models.TaskStatusType) models.Task); ok {
+		r0 = returnFunc(ctx, userId, markId, statusId)
 	} else {
 		r0 = ret.Get(0).(models.Task)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, int, int) error); ok {
-		r1 = returnFunc(ctx, userId, markId)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, int, models.TaskStatusType) error); ok {
+		r1 = returnFunc(ctx, userId, markId, statusId)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -2429,11 +2429,12 @@ type MockTaskerTasksRepository_GetTaskByUserIdAndMarkId_Call struct {
 //   - ctx context.Context
 //   - userId int
 //   - markId int
-func (_e *MockTaskerTasksRepository_Expecter) GetTaskByUserIdAndMarkId(ctx any, userId any, markId any) *MockTaskerTasksRepository_GetTaskByUserIdAndMarkId_Call {
-	return &MockTaskerTasksRepository_GetTaskByUserIdAndMarkId_Call{Call: _e.mock.On("GetTaskByUserIdAndMarkId", ctx, userId, markId)}
+//   - statusId models.TaskStatusType
+func (_e *MockTaskerTasksRepository_Expecter) GetTaskByUserIdAndMarkId(ctx any, userId any, markId any, statusId any) *MockTaskerTasksRepository_GetTaskByUserIdAndMarkId_Call {
+	return &MockTaskerTasksRepository_GetTaskByUserIdAndMarkId_Call{Call: _e.mock.On("GetTaskByUserIdAndMarkId", ctx, userId, markId, statusId)}
 }
 
-func (_c *MockTaskerTasksRepository_GetTaskByUserIdAndMarkId_Call) Run(run func(ctx context.Context, userId int, markId int)) *MockTaskerTasksRepository_GetTaskByUserIdAndMarkId_Call {
+func (_c *MockTaskerTasksRepository_GetTaskByUserIdAndMarkId_Call) Run(run func(ctx context.Context, userId int, markId int, statusId models.TaskStatusType)) *MockTaskerTasksRepository_GetTaskByUserIdAndMarkId_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -2447,10 +2448,15 @@ func (_c *MockTaskerTasksRepository_GetTaskByUserIdAndMarkId_Call) Run(run func(
 		if args[2] != nil {
 			arg2 = args[2].(int)
 		}
+		var arg3 models.TaskStatusType
+		if args[3] != nil {
+			arg3 = args[3].(models.TaskStatusType)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -2461,7 +2467,7 @@ func (_c *MockTaskerTasksRepository_GetTaskByUserIdAndMarkId_Call) Return(task m
 	return _c
 }
 
-func (_c *MockTaskerTasksRepository_GetTaskByUserIdAndMarkId_Call) RunAndReturn(run func(ctx context.Context, userId int, markId int) (models.Task, error)) *MockTaskerTasksRepository_GetTaskByUserIdAndMarkId_Call {
+func (_c *MockTaskerTasksRepository_GetTaskByUserIdAndMarkId_Call) RunAndReturn(run func(ctx context.Context, userId int, markId int, statusId models.TaskStatusType) (models.Task, error)) *MockTaskerTasksRepository_GetTaskByUserIdAndMarkId_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -2831,8 +2837,8 @@ func (_c *MockTasksRepository_GetTaskById_Call) RunAndReturn(run func(ctx contex
 }
 
 // GetTaskByUserIdAndMarkId provides a mock function for the type MockTasksRepository
-func (_mock *MockTasksRepository) GetTaskByUserIdAndMarkId(ctx context.Context, userId int, markId int) (models.Task, error) {
-	ret := _mock.Called(ctx, userId, markId)
+func (_mock *MockTasksRepository) GetTaskByUserIdAndMarkId(ctx context.Context, userId int, markId int, statusId models.TaskStatusType) (models.Task, error) {
+	ret := _mock.Called(ctx, userId, markId, statusId)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetTaskByUserIdAndMarkId")
@@ -2840,16 +2846,16 @@ func (_mock *MockTasksRepository) GetTaskByUserIdAndMarkId(ctx context.Context, 
 
 	var r0 models.Task
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) (models.Task, error)); ok {
-		return returnFunc(ctx, userId, markId)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int, models.TaskStatusType) (models.Task, error)); ok {
+		return returnFunc(ctx, userId, markId, statusId)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) models.Task); ok {
-		r0 = returnFunc(ctx, userId, markId)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int, models.TaskStatusType) models.Task); ok {
+		r0 = returnFunc(ctx, userId, markId, statusId)
 	} else {
 		r0 = ret.Get(0).(models.Task)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, int, int) error); ok {
-		r1 = returnFunc(ctx, userId, markId)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, int, models.TaskStatusType) error); ok {
+		r1 = returnFunc(ctx, userId, markId, statusId)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -2865,11 +2871,12 @@ type MockTasksRepository_GetTaskByUserIdAndMarkId_Call struct {
 //   - ctx context.Context
 //   - userId int
 //   - markId int
-func (_e *MockTasksRepository_Expecter) GetTaskByUserIdAndMarkId(ctx any, userId any, markId any) *MockTasksRepository_GetTaskByUserIdAndMarkId_Call {
-	return &MockTasksRepository_GetTaskByUserIdAndMarkId_Call{Call: _e.mock.On("GetTaskByUserIdAndMarkId", ctx, userId, markId)}
+//   - statusId models.TaskStatusType
+func (_e *MockTasksRepository_Expecter) GetTaskByUserIdAndMarkId(ctx any, userId any, markId any, statusId any) *MockTasksRepository_GetTaskByUserIdAndMarkId_Call {
+	return &MockTasksRepository_GetTaskByUserIdAndMarkId_Call{Call: _e.mock.On("GetTaskByUserIdAndMarkId", ctx, userId, markId, statusId)}
 }
 
-func (_c *MockTasksRepository_GetTaskByUserIdAndMarkId_Call) Run(run func(ctx context.Context, userId int, markId int)) *MockTasksRepository_GetTaskByUserIdAndMarkId_Call {
+func (_c *MockTasksRepository_GetTaskByUserIdAndMarkId_Call) Run(run func(ctx context.Context, userId int, markId int, statusId models.TaskStatusType)) *MockTasksRepository_GetTaskByUserIdAndMarkId_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -2883,10 +2890,15 @@ func (_c *MockTasksRepository_GetTaskByUserIdAndMarkId_Call) Run(run func(ctx co
 		if args[2] != nil {
 			arg2 = args[2].(int)
 		}
+		var arg3 models.TaskStatusType
+		if args[3] != nil {
+			arg3 = args[3].(models.TaskStatusType)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -2897,7 +2909,7 @@ func (_c *MockTasksRepository_GetTaskByUserIdAndMarkId_Call) Return(task models.
 	return _c
 }
 
-func (_c *MockTasksRepository_GetTaskByUserIdAndMarkId_Call) RunAndReturn(run func(ctx context.Context, userId int, markId int) (models.Task, error)) *MockTasksRepository_GetTaskByUserIdAndMarkId_Call {
+func (_c *MockTasksRepository_GetTaskByUserIdAndMarkId_Call) RunAndReturn(run func(ctx context.Context, userId int, markId int, statusId models.TaskStatusType) (models.Task, error)) *MockTasksRepository_GetTaskByUserIdAndMarkId_Call {
 	_c.Call.Return(run)
 	return _c
 }

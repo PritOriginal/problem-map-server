@@ -101,14 +101,22 @@ func (r *TasksRepository) GetTasksByUserId(ctx context.Context, userId int, filt
 	return tasks, nil
 }
 
-func (r *TasksRepository) GetTaskByUserIdAndMarkId(ctx context.Context, userId int, markId int) (models.Task, error) {
+// GetTaskByUserIdAndMarkId returns the user's task for the mark in the given
+// status. With UnfulfilledStatus that is the single issued task
+// (uq_tasks_issued_user_mark); for other statuses the latest one is returned.
+func (r *TasksRepository) GetTaskByUserIdAndMarkId(ctx context.Context, userId int, markId int, statusId models.TaskStatusType) (models.Task, error) {
 	const op = "storage.postgres.GetTaskByUserIdAndMarkId"
 
 	var task models.Task
 
-	query := "SELECT * FROM tasks WHERE user_id = $1 AND mark_id = $2"
+	query := `
+			SELECT * FROM tasks
+			WHERE user_id = $1 AND mark_id = $2 AND status_id = $3
+			ORDER BY created_at DESC
+			LIMIT 1
+			`
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	if err := tr.GetContext(ctx, &task, query, userId, markId); err != nil {
+	if err := tr.GetContext(ctx, &task, query, userId, markId, statusId); err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 			return task, repository.ErrNotFound

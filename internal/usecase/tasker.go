@@ -224,6 +224,12 @@ func (uc *Tasker) plan(
 		}
 	}
 
+	// authorByMark[markId] — the mark's author never verifies their own mark.
+	authorByMark := make(map[int]int, len(marks))
+	for _, mark := range marks {
+		authorByMark[mark.ID] = mark.UserID
+	}
+
 	// distanceKm[userId][markId]; unknown pairs fall back to the radius so
 	// that they are never over-estimated.
 	distanceKm := make(map[int]map[int]float64)
@@ -231,6 +237,9 @@ func (uc *Tasker) plan(
 	free := make(map[int]map[int]bool)
 	for _, d := range distances {
 		if _, ok := userStatsById[d.UserId]; !ok {
+			continue
+		}
+		if author, ok := authorByMark[d.MarkId]; ok && author == d.UserId {
 			continue
 		}
 		if _, ok := distanceKm[d.UserId]; !ok {

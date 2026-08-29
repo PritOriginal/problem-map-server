@@ -158,6 +158,20 @@ func (suite *TaskerSuite) TestUpdate() {
 			wantStats: usecase.TaskerStats{Marks: 1, Users: 3, Candidates: 1, Assigned: 1, Covered: 0, Iterations: 2},
 		},
 		{
+			name: "never assigns a mark to its author",
+			// User 1 authored mark 1: they are the closest candidate but must
+			// not be asked to verify their own mark.
+			marks:     method[[]models.Mark]{data: []models.Mark{{ID: 1, UserID: 1}}},
+			users:     method[[]models.User]{data: users},
+			tasks:     method[[]models.Task]{data: []models.Task{}},
+			distances: method[[]models.DistanceFromMarkToPoint]{data: distances[:3]},
+			addTask:   method[int64]{data: 1},
+			wantAssigned: []assigned{
+				{2, 1}, {3, 1},
+			},
+			wantStats: usecase.TaskerStats{Marks: 1, Users: 3, Candidates: 2, Assigned: 2, Covered: 0, Iterations: 3},
+		},
+		{
 			name:    "marks error",
 			marks:   method[[]models.Mark]{err: errors.New("db")},
 			wantErr: true,
