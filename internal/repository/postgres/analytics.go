@@ -12,8 +12,9 @@ import (
 )
 
 // AnalyticsRepository computes aggregates over marks and their status
-// history. Timestamps are stored as TIMESTAMP (without zone) in UTC, so every
-// bound is normalized to UTC and bound as ::timestamp.
+// history. Timestamps are TIMESTAMPTZ, so bounds are bound as instants; the
+// periods of the timeline are truncated in the session time zone, which the
+// DSN pins to UTC (config.DatabaseConfig.DSN).
 type AnalyticsRepository struct {
 	db     *sqlx.DB
 	getter *trmsqlx.CtxGetter
@@ -41,12 +42,12 @@ func markConds(args *[]any, boundaryID, markTypeID int, r models.DateRange) []st
 		conds = append(conds, fmt.Sprintf("m.type_mark_id = $%d", len(*args)))
 	}
 	if !r.From.IsZero() {
-		*args = append(*args, r.From.UTC())
-		conds = append(conds, fmt.Sprintf("m.created_at >= $%d::timestamp", len(*args)))
+		*args = append(*args, r.From)
+		conds = append(conds, fmt.Sprintf("m.created_at >= $%d", len(*args)))
 	}
 	if !r.To.IsZero() {
-		*args = append(*args, r.To.UTC())
-		conds = append(conds, fmt.Sprintf("m.created_at <= $%d::timestamp", len(*args)))
+		*args = append(*args, r.To)
+		conds = append(conds, fmt.Sprintf("m.created_at <= $%d", len(*args)))
 	}
 	return conds
 }
@@ -158,14 +159,14 @@ func (r *AnalyticsRepository) GetTimeseries(ctx context.Context, filters models.
 
 	// The range bounds the events (creation / transition time), not the
 	// marks' creation, so the mark set is filtered by boundary and type only.
-	args := []any{filters.From.UTC(), filters.To.UTC()}
+	args := []any{filters.From, filters.To}
 	where := strings.Join(markConds(&args, filters.BoundaryID, filters.MarkTypeID, models.DateRange{}), " AND ")
 
 	query := fmt.Sprintf(`
 		WITH periods AS (
 			SELECT generate_series(
-				date_trunc('%[1]s', $1::timestamp),
-				date_trunc('%[1]s', $2::timestamp),
+				date_trunc('%[1]s', $1::timestamptz),
+				date_trunc('%[1]s', $2::timestamptz),
 				INTERVAL '%[2]s'
 			) AS period
 		),
@@ -177,7 +178,7 @@ func (r *AnalyticsRepository) GetTimeseries(ctx context.Context, filters models.
 		created AS (
 			SELECT date_trunc('%[1]s', created_at) AS period, COUNT(*) AS created
 			FROM fm
-			WHERE created_at >= $1::timestamp AND created_at <= $2::timestamp
+			WHERE created_at >= $1 AND created_at <= $2
 			GROUP BY 1
 		),
 		transitions AS (
@@ -188,7 +189,7 @@ func (r *AnalyticsRepository) GetTimeseries(ctx context.Context, filters models.
 				COUNT(*) FILTER (WHERE h.new_mark_status_id = %[6]d) AS refuted
 			FROM mark_status_history h
 			JOIN fm ON fm.mark_id = h.mark_id
-			WHERE h.changed_at >= $1::timestamp AND h.changed_at <= $2::timestamp
+			WHERE h.changed_at >= $1 AND h.changed_at <= $2
 			GROUP BY 1
 		)
 		SELECT

@@ -183,9 +183,7 @@ func (r *ChecksRepository) CountChecksByUserIdSince(ctx context.Context, userId 
 
 	var n int
 
-	// checks.created_at is a plain TIMESTAMP; the explicit cast keeps the
-	// client's offset from being dropped when the parameter is inferred.
-	query := `SELECT COUNT(*) FROM checks WHERE user_id = $1 AND created_at > $2::timestamptz`
+	query := `SELECT COUNT(*) FROM checks WHERE user_id = $1 AND created_at > $2`
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &n, query, userId, since); err != nil {

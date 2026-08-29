@@ -25,12 +25,12 @@ func (suite *ConfigSuite) TestDatabaseConfigDSN() {
 		{
 			name: "Plain",
 			cfg:  config.DatabaseConfig{Host: "localhost", Port: 5432, Username: "postgres", Password: "postgres", Name: "problem_map", SSLMode: "require"},
-			want: "postgres://postgres:postgres@localhost:5432/problem_map?sslmode=require",
+			want: "postgres://postgres:postgres@localhost:5432/problem_map?sslmode=require&timezone=UTC",
 		},
 		{
 			name: "EscapesReservedCharacters",
 			cfg:  config.DatabaseConfig{Host: "db", Port: 5432, Username: "us er", Password: "p@ss/w#rd", Name: "pm", SSLMode: "disable"},
-			want: "postgres://us%20er:p%40ss%2Fw%23rd@db:5432/pm?sslmode=disable",
+			want: "postgres://us%20er:p%40ss%2Fw%23rd@db:5432/pm?sslmode=disable&timezone=UTC",
 		},
 	}
 	for _, tt := range tests {

@@ -67,12 +67,12 @@ func (r *MapRepository) GetAdminBoundariesMarksCount(ctx context.Context, filter
 		joinConditions = append(joinConditions, fmt.Sprintf("m.mark_status_id = ANY($%d)", len(args)))
 	}
 	if !filters.From.IsZero() {
-		args = append(args, filters.From.UTC())
-		joinConditions = append(joinConditions, fmt.Sprintf("m.created_at >= $%d::timestamp", len(args)))
+		args = append(args, filters.From)
+		joinConditions = append(joinConditions, fmt.Sprintf("m.created_at >= $%d", len(args)))
 	}
 	if !filters.To.IsZero() {
-		args = append(args, filters.To.UTC())
-		joinConditions = append(joinConditions, fmt.Sprintf("m.created_at <= $%d::timestamp", len(args)))
+		args = append(args, filters.To)
+		joinConditions = append(joinConditions, fmt.Sprintf("m.created_at <= $%d", len(args)))
 	}
 
 	query := fmt.Sprintf(`
