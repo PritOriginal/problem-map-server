@@ -10,17 +10,13 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"math/rand/v2"
 	"net/http"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/push"
-	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 )
@@ -31,8 +27,6 @@ const (
 	// DefaultBaseURL is the FCM API host.
 	DefaultBaseURL = "https://fcm.googleapis.com"
 
-	defaultBackoff = 500 * time.Millisecond
-	maxBackoff     = 10 * time.Second
 	// maxErrorBody bounds how much of an error response is read.
 	maxErrorBody = 64 << 10
 )
@@ -81,7 +75,7 @@ func New(log *slog.Logger, cfg config.FCMConfig, opts ...Option) (*Sender, error
 		sem:        make(chan struct{}, cfg.Concurrency),
 		timeout:    cfg.Timeout,
 		maxRetries: cfg.MaxRetries,
-		backoff:    defaultBackoff,
+		backoff:    push.DefaultBackoff,
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -221,24 +215,13 @@ func (s *Sender) Send(ctx context.Context, device models.UserDevice, n models.No
 		return fmt.Errorf("fcm: %w", ctx.Err())
 	}
 
-	for attempt := 0; ; attempt++ {
-		retryAfter, retry, err := s.attempt(ctx, body)
-		if err == nil {
-			return nil
-		}
-		if !retry || attempt >= s.maxRetries {
-			return err
-		}
-
-		delay := s.delay(attempt, retryAfter)
-		s.log.Debug("fcm request failed, retrying",
-			slog.Int("attempt", attempt+1), slog.Duration("delay", delay), slogger.Err(err))
-		select {
-		case <-time.After(delay):
-		case <-ctx.Done():
-			return fmt.Errorf("fcm: %w", ctx.Err())
-		}
+	err = push.Retry(ctx, s.log, s.maxRetries, s.backoff, func(ctx context.Context) (time.Duration, bool, error) {
+		return s.attempt(ctx, body)
+	})
+	if err != nil && ctx.Err() != nil && errors.Is(err, ctx.Err()) {
+		return fmt.Errorf("fcm: %w", ctx.Err())
 	}
+	return err
 }
 
 // attempt performs one request; retry reports whether the error is
@@ -284,36 +267,8 @@ func (s *Sender) attempt(ctx context.Context, body []byte) (retryAfter time.Dura
 	case code == "UNREGISTERED", code == "INVALID_ARGUMENT", resp.StatusCode == http.StatusNotFound:
 		return 0, false, fmt.Errorf("%w: %w", push.ErrInvalidToken, err)
 	case resp.StatusCode == http.StatusTooManyRequests, resp.StatusCode >= 500:
-		return parseRetryAfter(resp.Header.Get("Retry-After")), true, err
+		return push.ParseRetryAfter(resp.Header.Get("Retry-After")), true, err
 	default:
 		return 0, false, err
 	}
-}
-
-// delay returns the backoff before retry number attempt+1: base doubled on
-// every attempt with up to 50% random jitter (so retries of concurrent
-// sends do not align), or the server's Retry-After when it is larger; capped.
-func (s *Sender) delay(attempt int, retryAfter time.Duration) time.Duration {
-	d := s.backoff << uint(attempt)
-	if d <= 0 || d > maxBackoff {
-		d = maxBackoff
-	}
-	d += time.Duration(rand.Int64N(int64(d)/2 + 1)) //nolint:gosec // jitter, not security
-	return min(max(d, retryAfter), maxBackoff)
-}
-
-// parseRetryAfter reads a Retry-After header, either delay-seconds or an
-// HTTP-date (RFC 9110); garbage and moments in the past give 0.
-func parseRetryAfter(header string) time.Duration {
-	header = strings.TrimSpace(header)
-	if header == "" {
-		return 0
-	}
-	if secs, err := strconv.Atoi(header); err == nil {
-		return max(time.Duration(secs)*time.Second, 0)
-	}
-	if at, err := http.ParseTime(header); err == nil {
-		return max(time.Until(at), 0)
-	}
-	return 0
 }
