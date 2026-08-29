@@ -195,7 +195,8 @@ fatigue(o)  = 1 / (1 + β·o)                    o — просроченных 
 ### Push-уведомления (cmd/notifier)
 
 `cmd/notifier` подписывается на доменные события в NATS
-(`mark.status_changed`, `task.assigned`, `check.added`), сохраняет
+(`mark.status_changed`, `task.assigned`, `check.added`, `mark.assigned`,
+`mark.sla_breached`, `mark.comment_added`), сохраняет
 уведомление каждому адресату в `notifications` и отправляет push на его
 устройства из `user_devices` (токены регистрирует клиент через
 `POST /users/me/devices`, см. Swagger).
@@ -266,6 +267,7 @@ Notifier получает OAuth2-токен по JWT сервисного акк
 | `mark.status_changed` | метка сменила статус | автору метки |
 | `task.assigned` | выдано задание на проверку | исполнителю |
 | `check.added` | добавлена проверка метки | автору метки |
+| `mark.comment_added` | добавлен комментарий к метке | автору метки, автору родительского комментария (для ответа) и подписчикам метки, без дублей и не самому автору комментария (тип уведомления `comment_added`) |
 
 Запуск (нужны `db` и `nats.url`):
 
@@ -533,6 +535,23 @@ error, `readyz` показывает `redis: error`), клиент перепо�
 - `POST /organizations/{id}/members {user_id}`, `DELETE /organizations/{id}/members/{user_id}` — участники (роль `service` ставится/снимается, сессии пользователя отзываются);
 - `POST|DELETE /organizations/{id}/responsibilities {mark_type_id, boundary_id}` — зоны ответственности;
 - `GET /analytics/kpi` дополнительно возвращает `sla_breach_share` (доля просроченных среди назначенных) и `by_organization[{organization_id, name, total, overdue}]`.
+## Комментарии к меткам
+
+- `GET /marks/{id}/comments?limit&offset` — публично; с Bearer-токеном в
+  каждом комментарии заполняется `is_mine`. Удалённые комментарии
+  возвращаются с `deleted=true` и пустым `body`, чтобы ответы (`parent_id`)
+  не осиротели. У метки есть `comments_count` (только не удалённые).
+- `POST /marks/{id}/comments {body, parent_id?}` — JWT; `parent_id`
+  указывает на комментарий верхнего уровня той же метки (один уровень
+  ответов). Тело обрезается по пробелам, пустое отклоняется (400), длина —
+  до 2000 символов. Антиспам: тот же текст от того же пользователя на ту же
+  метку в течение минуты — 409; больше `comments.max-per-day` (по умолчанию
+  100) комментариев за скользящие сутки — 429.
+- `PATCH /comments/{id} {body}` — только владелец и только в течение
+  `comments.edit-window` (15 минут) после создания, иначе 409.
+- `DELETE /comments/{id}` — владелец, `moderator` или `admin`; мягкое
+  удаление (`deleted_at`).
+
 ## Экспорт
 
 `GET /marks/export?format=geojson|csv` отдаёт все метки, подходящие под те же
