@@ -206,3 +206,82 @@ func (s *RedisSuite) TestIncr_IndependentKeys() {
 	s.Require().NoError(err)
 	s.Equal(int64(1), n)
 }
+
+func (s *RedisSuite) TestRefresh() {
+	const user = 7
+
+	s.Require().NoError(s.repo.SaveRefresh(s.ctx, user, "a", time.Minute))
+	s.Require().NoError(s.repo.SaveRefresh(s.ctx, user, "b", time.Minute))
+	s.Require().NoError(s.repo.SaveRefresh(s.ctx, 8, "c", time.Minute))
+
+	ttl, err := s.repo.Client.TTL(s.ctx, "refresh:7:a").Result()
+	s.Require().NoError(err)
+	s.Greater(ttl, 50*time.Second, "refresh id expires with the token")
+
+	ok, err := s.repo.DeleteRefresh(s.ctx, user, "a")
+	s.Require().NoError(err)
+	s.True(ok, "first use consumes the id")
+
+	ok, err = s.repo.DeleteRefresh(s.ctx, user, "a")
+	s.Require().NoError(err)
+	s.False(ok, "second use is detected")
+
+	ok, err = s.repo.DeleteRefresh(s.ctx, user, "never-saved")
+	s.Require().NoError(err)
+	s.False(ok)
+
+	s.Require().NoError(s.repo.DeleteAllRefresh(s.ctx, user))
+	ok, err = s.repo.DeleteRefresh(s.ctx, user, "b")
+	s.Require().NoError(err)
+	s.False(ok, "revoked by DeleteAllRefresh")
+
+	ok, err = s.repo.DeleteRefresh(s.ctx, 8, "c")
+	s.Require().NoError(err)
+	s.True(ok, "other users are untouched")
+
+	s.NoError(s.repo.DeleteAllRefresh(s.ctx, 9), "no ids is not an error")
+}
+
+func (s *RedisSuite) TestRefresh_Expires() {
+	s.Require().NoError(s.repo.SaveRefresh(s.ctx, 1, "short", 50*time.Millisecond))
+
+	s.Eventually(func() bool {
+		ok, err := s.repo.DeleteRefresh(s.ctx, 1, "short")
+		return err == nil && !ok
+	}, 2*time.Second, 10*time.Millisecond)
+}
+
+func (s *RedisSuite) TestAuthVersion() {
+	v, err := s.repo.AuthVersion(s.ctx, 5)
+	s.Require().NoError(err)
+	s.Equal(int64(0), v, "unknown user is at version 0")
+
+	v, err = s.repo.IncrAuthVersion(s.ctx, 5)
+	s.Require().NoError(err)
+	s.Equal(int64(1), v)
+
+	v, err = s.repo.IncrAuthVersion(s.ctx, 5)
+	s.Require().NoError(err)
+	s.Equal(int64(2), v)
+
+	v, err = s.repo.AuthVersion(s.ctx, 5)
+	s.Require().NoError(err)
+	s.Equal(int64(2), v)
+
+	v, err = s.repo.AuthVersion(s.ctx, 6)
+	s.Require().NoError(err)
+	s.Equal(int64(0), v, "versions are per user")
+
+	ttl, err := s.repo.Client.TTL(s.ctx, "user:5:auth_version").Result()
+	s.Require().NoError(err)
+	s.Equal(time.Duration(-1), ttl, "the version never expires")
+}
+
+func (s *RedisSuite) TestAuthVersion_NonInteger() {
+	s.Require().NoError(s.repo.Set(s.ctx, "user:5:auth_version", "abc", 0))
+
+	_, err := s.repo.AuthVersion(s.ctx, 5)
+	s.Error(err)
+	_, err = s.repo.IncrAuthVersion(s.ctx, 5)
+	s.Error(err)
+}

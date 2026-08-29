@@ -188,3 +188,27 @@ func (s *PostgresSuite) assertUser(want, got models.User) {
 	s.InDelta(want.HomePoint.Ewkb.Y(), got.HomePoint.Ewkb.Y(), 1e-6)
 	s.Equal(4326, got.HomePoint.Ewkb.SRID())
 }
+
+func (s *PostgresSuite) TestUsers_UpdatePassword() {
+	s.Require().NoError(s.users.UpdatePassword(s.ctx, fxUserAlice, "hash-new"))
+
+	got, err := s.users.GetUserById(s.ctx, fxUserAlice)
+	s.Require().NoError(err)
+	s.Equal("hash-new", got.PasswordHash)
+
+	bob, err := s.users.GetUserById(s.ctx, fxUserBob)
+	s.Require().NoError(err)
+	s.Equal("hash-bob", bob.PasswordHash, "other users are untouched")
+
+	s.ErrorIs(s.users.UpdatePassword(s.ctx, 999, "hash"), repository.ErrNotFound)
+}
+
+func (s *PostgresSuite) TestUsers_UpdateRole() {
+	s.Require().NoError(s.users.UpdateRole(s.ctx, fxUserAlice, models.RoleAdmin))
+
+	got, err := s.users.GetUserById(s.ctx, fxUserAlice)
+	s.Require().NoError(err)
+	s.Equal(models.RoleAdmin, got.Role)
+
+	s.ErrorIs(s.users.UpdateRole(s.ctx, 999, models.RoleAdmin), repository.ErrNotFound)
+}

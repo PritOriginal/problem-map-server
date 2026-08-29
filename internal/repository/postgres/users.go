@@ -116,3 +116,37 @@ func (r *UsersRepository) AddUser(ctx context.Context, user models.User) (int64,
 
 	return id, nil
 }
+
+// UpdatePassword stores a new password hash for the user.
+func (r *UsersRepository) UpdatePassword(ctx context.Context, id int, passwordHash string) error {
+	const op = "storage.postgres.UpdatePassword"
+
+	return r.updateUser(ctx, op, `UPDATE users SET password_hash = $1 WHERE user_id = $2`, passwordHash, id)
+}
+
+// UpdateRole changes the user's role.
+func (r *UsersRepository) UpdateRole(ctx context.Context, id int, role models.Role) error {
+	const op = "storage.postgres.UpdateRole"
+
+	return r.updateUser(ctx, op, `UPDATE users SET role = $1 WHERE user_id = $2`, role, id)
+}
+
+// updateUser runs an UPDATE that must touch exactly one user and reports
+// repository.ErrNotFound when no row matched.
+func (r *UsersRepository) updateUser(ctx context.Context, op, query string, args ...any) error {
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	res, err := tr.ExecContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	if n == 0 {
+		return repository.ErrNotFound
+	}
+
+	return nil
+}
