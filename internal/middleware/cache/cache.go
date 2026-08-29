@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
@@ -29,7 +30,9 @@ func New(cacher Cacher, ttl time.Duration) gin.HandlerFunc {
 	}
 
 	return func(c *gin.Context) {
-		c.Writer.Header().Add("Vary", "Accept-Language")
+		if !slices.Contains(c.Writer.Header().Values("Vary"), "Accept-Language") {
+			c.Writer.Header().Add("Vary", "Accept-Language")
+		}
 
 		cacheKey := Key(c.Request.Method, c.Request.URL.String(), models.LangFromContext(c.Request.Context()))
 
