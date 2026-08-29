@@ -3,11 +3,12 @@
 package postgres_test
 
 import (
+	"time"
+
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/google/uuid"
 	"github.com/guregu/null/v6"
-	"time"
 )
 
 func (s *PostgresSuite) newNotification(userID int, eventID string) models.Notification {
