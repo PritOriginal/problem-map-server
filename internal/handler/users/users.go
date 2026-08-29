@@ -22,7 +22,7 @@ type Users interface {
 	ChangePassword(ctx context.Context, id int, oldPassword, newPassword string) error
 	SetRole(ctx context.Context, actorID, id int, role models.Role) error
 	GetUserStats(ctx context.Context, id int) (models.UserStats, error)
-	ListLeaderboard(ctx context.Context, p models.Pagination) (models.Page[models.User], error)
+	ListLeaderboard(ctx context.Context, f models.LeaderboardFilters, p models.Pagination) (models.Page[models.LeaderboardEntry], error)
 	ListRatingEvents(ctx context.Context, requester usecase.Requester, userId int, p models.Pagination) (models.Page[models.RatingEvent], error)
 }
 
@@ -118,31 +118,36 @@ func (h *handler) respondStats(c *gin.Context, op string, id int) {
 // GetLeaderboard lists users by rating
 //
 //	@Summary		Leaderboard
-//	@Description	get users ordered by rating (highest first); pagination info is returned in the top-level `meta` field ({limit, offset, total})
+//	@Description	get users ordered by rating (highest first) with their level and number of badges. With `boundary_id` the rating is the sum of the rating events whose mark lies inside the admin boundary, with `period` the sum of the events of the last 7 (`week`) or 30 (`month`) days; with any filter only users with such events are listed. The level name is localised by `Accept-Language`. Pagination info is returned in the top-level `meta` field ({limit, offset, total})
 //	@Tags			users
 //	@Produce		json
-//	@Param			limit	query		int	false	"page size, 1..500"	default(100)
-//	@Param			offset	query		int	false	"page offset"		default(0)
-//	@Success		200		{object}	responses.Response[usersrest.GetLeaderboardResponse]
-//	@Failure		400		{object}	responses.Response[any]
-//	@Failure		500		{object}	responses.Response[any]
+//	@Param			Accept-Language	header		string	false	"ru (default) or en"
+//	@Param			boundary_id		query		int		false	"admin boundary id (see GET /map/boundaries)"
+//	@Param			period			query		string	false	"rating events period"	Enums(all, month, week)	default(all)
+//	@Param			limit			query		int		false	"page size, 1..500"		default(100)
+//	@Param			offset			query		int		false	"page offset"			default(0)
+//	@Success		200				{object}	responses.Response[usersrest.GetLeaderboardResponse]
+//	@Failure		400				{object}	responses.Response[any]
+//	@Failure		500				{object}	responses.Response[any]
 //	@Router			/leaderboard [get]
 func (h *handler) GetLeaderboard() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		const op = "usersrest.GetLeaderboard"
 
-		p, ok := listquery.BindPagination(c, h.log)
-		if !ok {
+		var q GetLeaderboardQuery
+		if !listquery.Bind(c, h.log, &q) {
 			return
 		}
+		p := q.Model()
 
-		page, err := h.uc.ListLeaderboard(c.Request.Context(), p)
+		page, err := h.uc.ListLeaderboard(c.Request.Context(), q.Filters(), p)
 		if err != nil {
 			responses.FromError(c, h.log, op, err)
 			return
 		}
 
-		listquery.OK(c, GetLeaderboardResponse{Leaderboard: NewLeaderboardEntries(page.Items)}, p, page.Total)
+		lang := models.LangFromContext(c.Request.Context())
+		listquery.OK(c, GetLeaderboardResponse{Leaderboard: NewLeaderboardEntries(page.Items, lang)}, p, page.Total)
 	}
 }
 

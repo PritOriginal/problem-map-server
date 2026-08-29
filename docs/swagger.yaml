@@ -27,6 +27,37 @@ definitions:
       under_review_count:
         type: integer
     type: object
+  github_com_PritOriginal_problem-map-server_internal_models.Badge:
+    properties:
+      code:
+        type: string
+      description:
+        type: string
+      icon:
+        type: string
+      metric:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.BadgeMetric'
+      name:
+        type: string
+      threshold:
+        type: integer
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.BadgeMetric:
+    enum:
+    - marks_total
+    - marks_confirmed
+    - checks_correct
+    - check_streak_days
+    - tasks_completed
+    - marks_closed
+    type: string
+    x-enum-varnames:
+    - MetricMarksTotal
+    - MetricMarksConfirmed
+    - MetricChecksCorrect
+    - MetricCheckStreakDays
+    - MetricTasksCompleted
+    - MetricMarksClosed
   github_com_PritOriginal_problem-map-server_internal_models.Check:
     properties:
       check_id:
@@ -124,6 +155,18 @@ definitions:
           (0 when no mark is assigned).
         type: number
       total:
+        type: integer
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.Level:
+    properties:
+      name:
+        type: string
+      next_threshold:
+        description: |-
+          NextThreshold is the rating that starts the next level; nil at the
+          last level.
+        type: integer
+      number:
         type: integer
     type: object
   github_com_PritOriginal_problem-map-server_internal_models.Mark:
@@ -328,6 +371,7 @@ definitions:
     - mark.assigned
     - mark.sla_breached
     - webhook.disabled
+    - badge_earned
     type: string
     x-enum-varnames:
     - NotificationMarkStatusChanged
@@ -336,6 +380,7 @@ definitions:
     - NotificationMarkAssigned
     - NotificationMarkSLABreached
     - NotificationWebhookDisabled
+    - NotificationBadgeEarned
   github_com_PritOriginal_problem-map-server_internal_models.Organization:
     properties:
       created_at:
@@ -538,6 +583,9 @@ definitions:
     type: object
   github_com_PritOriginal_problem-map-server_internal_models.User:
     properties:
+      created_at:
+        description: CreatedAt is the sign-up time (users.created_at).
+        type: string
       home_point:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON'
       login:
@@ -676,6 +724,28 @@ definitions:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.HealthReport'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_achievements_GetBadgesResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_achievements.GetBadgesResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_achievements_GetProfileResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_achievements.GetProfileResponse'
       success:
         type: boolean
     type: object
@@ -1350,6 +1420,63 @@ definitions:
       success:
         type: boolean
     type: object
+  internal_handler_achievements.GetBadgesResponse:
+    properties:
+      badges:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Badge'
+        type: array
+    type: object
+  internal_handler_achievements.GetProfileResponse:
+    properties:
+      profile:
+        $ref: '#/definitions/internal_handler_achievements.Profile'
+    type: object
+  internal_handler_achievements.Profile:
+    properties:
+      badges:
+        items:
+          $ref: '#/definitions/internal_handler_achievements.ProfileBadge'
+        type: array
+      level:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Level'
+      member_since:
+        type: string
+      rating:
+        type: integer
+      stats:
+        $ref: '#/definitions/internal_handler_achievements.ProfileStats'
+      user_id:
+        type: integer
+      username:
+        type: string
+    type: object
+  internal_handler_achievements.ProfileBadge:
+    properties:
+      code:
+        type: string
+      description:
+        type: string
+      earned_at:
+        type: string
+      icon:
+        type: string
+      name:
+        type: string
+    type: object
+  internal_handler_achievements.ProfileStats:
+    properties:
+      checks_correct:
+        type: integer
+      checks_total:
+        type: integer
+      marks_confirmed:
+        type: integer
+      marks_total:
+        type: integer
+      tasks_completed:
+        type: integer
+    type: object
   internal_handler_analytics.GetTimeseriesResponse:
     properties:
       timeseries:
@@ -1883,6 +2010,10 @@ definitions:
     type: object
   internal_handler_users.LeaderboardEntry:
     properties:
+      badges_count:
+        type: integer
+      level:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Level'
       rating:
         type: integer
       user_id:
@@ -2302,6 +2433,29 @@ paths:
       summary: Refresh tokens
       tags:
       - auth
+  /badges:
+    get:
+      description: get every badge that can be earned; names and descriptions are
+        localised by `Accept-Language`
+      parameters:
+      - description: ru (default) or en
+        in: header
+        name: Accept-Language
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_achievements_GetBadgesResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: Badge catalogue
+      tags:
+      - achievements
   /checks:
     post:
       consumes:
@@ -2469,9 +2623,31 @@ paths:
       - health
   /leaderboard:
     get:
-      description: get users ordered by rating (highest first); pagination info is
-        returned in the top-level `meta` field ({limit, offset, total})
+      description: get users ordered by rating (highest first) with their level and
+        number of badges. With `boundary_id` the rating is the sum of the rating events
+        whose mark lies inside the admin boundary, with `period` the sum of the events
+        of the last 7 (`week`) or 30 (`month`) days; with any filter only users with
+        such events are listed. The level name is localised by `Accept-Language`.
+        Pagination info is returned in the top-level `meta` field ({limit, offset,
+        total})
       parameters:
+      - description: ru (default) or en
+        in: header
+        name: Accept-Language
+        type: string
+      - description: admin boundary id (see GET /map/boundaries)
+        in: query
+        name: boundary_id
+        type: integer
+      - default: all
+        description: rating events period
+        enum:
+        - all
+        - month
+        - week
+        in: query
+        name: period
+        type: string
       - default: 100
         description: page size, 1..500
         in: query
@@ -4465,6 +4641,42 @@ paths:
       summary: Get user by id
       tags:
       - users
+  /users/{id}/profile:
+    get:
+      description: 'get the public profile of a user: rating, level, earned badges
+        and activity counters; level and badge texts are localised by `Accept-Language`'
+      parameters:
+      - description: ru (default) or en
+        in: header
+        name: Accept-Language
+        type: string
+      - description: user id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_achievements_GetProfileResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: Get user profile
+      tags:
+      - achievements
   /users/{id}/rating-events:
     get:
       description: get the rating history of a user, newest first; available to the
@@ -4768,6 +4980,39 @@ paths:
       summary: Change password
       tags:
       - users
+  /users/me/profile:
+    get:
+      description: 'get the profile of the authenticated user: rating, level, earned
+        badges and activity counters'
+      parameters:
+      - description: ru (default) or en
+        in: header
+        name: Accept-Language
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_achievements_GetProfileResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Get current user profile
+      tags:
+      - achievements
   /users/me/stats:
     get:
       description: get rating and activity counters of the authenticated user

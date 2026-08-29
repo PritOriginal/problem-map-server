@@ -438,6 +438,40 @@
                 }
             }
         },
+        "/badges": {
+            "get": {
+                "description": "get every badge that can be earned; names and descriptions are localised by `Accept-Language`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "achievements"
+                ],
+                "summary": "Badge catalogue",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ru (default) or en",
+                        "name": "Accept-Language",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_achievements_GetBadgesResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
         "/checks": {
             "post": {
                 "security": [
@@ -687,7 +721,7 @@
         },
         "/leaderboard": {
             "get": {
-                "description": "get users ordered by rating (highest first); pagination info is returned in the top-level `meta` field ({limit, offset, total})",
+                "description": "get users ordered by rating (highest first) with their level and number of badges. With `boundary_id` the rating is the sum of the rating events whose mark lies inside the admin boundary, with `period` the sum of the events of the last 7 (`week`) or 30 (`month`) days; with any filter only users with such events are listed. The level name is localised by `Accept-Language`. Pagination info is returned in the top-level `meta` field ({limit, offset, total})",
                 "produces": [
                     "application/json"
                 ],
@@ -696,6 +730,30 @@
                 ],
                 "summary": "Leaderboard",
                 "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ru (default) or en",
+                        "name": "Accept-Language",
+                        "in": "header"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "admin boundary id (see GET /map/boundaries)",
+                        "name": "boundary_id",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "all",
+                            "month",
+                            "week"
+                        ],
+                        "type": "string",
+                        "default": "all",
+                        "description": "rating events period",
+                        "name": "period",
+                        "in": "query"
+                    },
                     {
                         "type": "integer",
                         "default": 100,
@@ -3880,6 +3938,57 @@
                 }
             }
         },
+        "/users/me/profile": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "get the profile of the authenticated user: rating, level, earned badges and activity counters",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "achievements"
+                ],
+                "summary": "Get current user profile",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ru (default) or en",
+                        "name": "Accept-Language",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_achievements_GetProfileResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
         "/users/me/stats": {
             "get": {
                 "security": [
@@ -3947,6 +4056,59 @@
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_users_GetUserByIdResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
+        "/users/{id}/profile": {
+            "get": {
+                "description": "get the public profile of a user: rating, level, earned badges and activity counters; level and badge texts are localised by `Accept-Language`",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "achievements"
+                ],
+                "summary": "Get user profile",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ru (default) or en",
+                        "name": "Accept-Language",
+                        "in": "header"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "user id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_achievements_GetProfileResponse"
                         }
                     },
                     "400": {
@@ -4579,6 +4741,48 @@
                 }
             }
         },
+        "github_com_PritOriginal_problem-map-server_internal_models.Badge": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "metric": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.BadgeMetric"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "threshold": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_internal_models.BadgeMetric": {
+            "type": "string",
+            "enum": [
+                "marks_total",
+                "marks_confirmed",
+                "checks_correct",
+                "check_streak_days",
+                "tasks_completed",
+                "marks_closed"
+            ],
+            "x-enum-varnames": [
+                "MetricMarksTotal",
+                "MetricMarksConfirmed",
+                "MetricChecksCorrect",
+                "MetricCheckStreakDays",
+                "MetricTasksCompleted",
+                "MetricMarksClosed"
+            ]
+        },
         "github_com_PritOriginal_problem-map-server_internal_models.Check": {
             "type": "object",
             "properties": {
@@ -4708,6 +4912,21 @@
                     "type": "number"
                 },
                 "total": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_internal_models.Level": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "type": "string"
+                },
+                "next_threshold": {
+                    "description": "NextThreshold is the rating that starts the next level; nil at the\nlast level.",
+                    "type": "integer"
+                },
+                "number": {
                     "type": "integer"
                 }
             }
@@ -4972,7 +5191,8 @@
                 "check.added",
                 "mark.assigned",
                 "mark.sla_breached",
-                "webhook.disabled"
+                "webhook.disabled",
+                "badge_earned"
             ],
             "x-enum-varnames": [
                 "NotificationMarkStatusChanged",
@@ -4980,7 +5200,8 @@
                 "NotificationCheckAdded",
                 "NotificationMarkAssigned",
                 "NotificationMarkSLABreached",
-                "NotificationWebhookDisabled"
+                "NotificationWebhookDisabled",
+                "NotificationBadgeEarned"
             ]
         },
         "github_com_PritOriginal_problem-map-server_internal_models.Organization": {
@@ -5279,6 +5500,10 @@
         "github_com_PritOriginal_problem-map-server_internal_models.User": {
             "type": "object",
             "properties": {
+                "created_at": {
+                    "description": "CreatedAt is the sign-up time (users.created_at).",
+                    "type": "string"
+                },
                 "home_point": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON"
                 },
@@ -5484,6 +5709,40 @@
                 },
                 "payload": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.HealthReport"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_achievements_GetBadgesResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_achievements.GetBadgesResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_achievements_GetProfileResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_achievements.GetProfileResponse"
                 },
                 "success": {
                     "type": "boolean"
@@ -6527,6 +6786,94 @@
                 }
             }
         },
+        "internal_handler_achievements.GetBadgesResponse": {
+            "type": "object",
+            "properties": {
+                "badges": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Badge"
+                    }
+                }
+            }
+        },
+        "internal_handler_achievements.GetProfileResponse": {
+            "type": "object",
+            "properties": {
+                "profile": {
+                    "$ref": "#/definitions/internal_handler_achievements.Profile"
+                }
+            }
+        },
+        "internal_handler_achievements.Profile": {
+            "type": "object",
+            "properties": {
+                "badges": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_handler_achievements.ProfileBadge"
+                    }
+                },
+                "level": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Level"
+                },
+                "member_since": {
+                    "type": "string"
+                },
+                "rating": {
+                    "type": "integer"
+                },
+                "stats": {
+                    "$ref": "#/definitions/internal_handler_achievements.ProfileStats"
+                },
+                "user_id": {
+                    "type": "integer"
+                },
+                "username": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handler_achievements.ProfileBadge": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "earned_at": {
+                    "type": "string"
+                },
+                "icon": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_handler_achievements.ProfileStats": {
+            "type": "object",
+            "properties": {
+                "checks_correct": {
+                    "type": "integer"
+                },
+                "checks_total": {
+                    "type": "integer"
+                },
+                "marks_confirmed": {
+                    "type": "integer"
+                },
+                "marks_total": {
+                    "type": "integer"
+                },
+                "tasks_completed": {
+                    "type": "integer"
+                }
+            }
+        },
         "internal_handler_analytics.GetTimeseriesResponse": {
             "type": "object",
             "properties": {
@@ -7345,6 +7692,12 @@
         "internal_handler_users.LeaderboardEntry": {
             "type": "object",
             "properties": {
+                "badges_count": {
+                    "type": "integer"
+                },
+                "level": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Level"
+                },
                 "rating": {
                     "type": "integer"
                 },
