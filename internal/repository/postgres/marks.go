@@ -241,6 +241,9 @@ func (r *MarksRepository) UpdateMark(ctx context.Context, markId int, upd models
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	res, err := tr.ExecContext(ctx, query, markId, upd.Description, upd.MarkTypeID)
 	if err != nil {
+		if isForeignKeyViolation(err) {
+			return fmt.Errorf("%s: %w: unknown mark type", op, repository.ErrInvalidReference)
+		}
 		return fmt.Errorf("%s: %w", op, err)
 	}
 	if n, err := res.RowsAffected(); err == nil && n == 0 {

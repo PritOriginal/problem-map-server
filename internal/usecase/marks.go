@@ -8,6 +8,7 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/avito-tech/go-transaction-manager/trm/v2"
 )
 
@@ -310,16 +311,20 @@ func (uc *Marks) DeleteMark(ctx context.Context, actor models.Actor, markId int)
 	}
 
 	err = uc.trManager.Do(ctx, func(ctx context.Context) error {
-		if err := uc.repos.Marks.DeleteMark(ctx, markId); err != nil {
-			return err
-		}
-		return uc.repos.Photos.DeletePhotos(ctx, markId)
+		return uc.repos.Marks.DeleteMark(ctx, markId)
 	})
 	if err != nil {
 		return mapRepoErr(op, err)
 	}
-
 	uc.log.Info("mark deleted", slog.Int("mark_id", markId), slog.Int("user_id", actor.UserID))
+
+	// Photos live outside the database, so they are removed only after the
+	// rows are committed: a rollback must not leave a mark without photos.
+	// The mark is already gone, so a failure here only leaves orphaned
+	// objects behind and is logged instead of failing the request.
+	if err := uc.repos.Photos.DeletePhotos(ctx, markId); err != nil {
+		uc.log.Warn("failed to delete mark photos", slog.Int("mark_id", markId), logger.Err(err))
+	}
 	return nil
 }
 

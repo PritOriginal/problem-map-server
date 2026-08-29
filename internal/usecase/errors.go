@@ -31,6 +31,8 @@ func mapRepoErr(op string, err error) error {
 		return fmt.Errorf("%s: %w", op, ErrNotFound)
 	case errors.Is(err, repository.ErrExists):
 		return fmt.Errorf("%s: %w", op, ErrConflict)
+	case errors.Is(err, repository.ErrInvalidReference):
+		return fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
 	default:
 		return fmt.Errorf("%s: %w", op, err)
 	}

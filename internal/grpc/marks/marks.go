@@ -2,9 +2,11 @@ package marksgrpc
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
 	"math"
+	"strconv"
 	"unicode/utf8"
 
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
@@ -12,9 +14,14 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/grpc/interceptors"
 	"github.com/PritOriginal/problem-map-server/internal/grpc/pbconv"
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/twpayne/go-geom"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/protoadapt"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -92,6 +99,22 @@ func (s *server) GetMarksByUserId(ctx context.Context, in *pb.GetMarksByUserIdRe
 	}, nil
 }
 
+// forceMetadataKey is the incoming metadata key that skips duplicate
+// detection in AddMark ("force: true"), mirroring REST's ?force=true; the
+// protobuf request has no field for it.
+const forceMetadataKey = "force"
+
+// forceFromMetadata reports whether the caller asked to skip duplicate
+// detection; any unparsable value counts as false.
+func forceFromMetadata(ctx context.Context) bool {
+	vals := metadata.ValueFromIncomingContext(ctx, forceMetadataKey)
+	if len(vals) == 0 {
+		return false
+	}
+	force, err := strconv.ParseBool(vals[len(vals)-1])
+	return err == nil && force
+}
+
 // AddMark creates a mark for the authenticated user. The protobuf request
 // carries no photo payload, so the mark is created without photos (unlike
 // the REST endpoint, where photos are required).
@@ -114,8 +137,13 @@ func (s *server) AddMark(ctx context.Context, in *pb.AddMarkRequest) (*pb.AddMar
 		Description: in.GetDescription(),
 	}
 
-	markId, err := s.uc.AddMark(ctx, newMark, nil, false)
+	markId, err := s.uc.AddMark(ctx, newMark, nil, forceFromMetadata(ctx))
 	if err != nil {
+		var similar *usecase.SimilarMarksError
+		if errors.As(err, &similar) {
+			s.log.Debug("similar marks nearby", slog.Int("user_id", claims.UserID), logger.Err(err))
+			return nil, similarMarksStatus(similar)
+		}
 		return nil, grpcerr.Map(s.log, err, "error add mark", slog.Int("user_id", claims.UserID))
 	}
 
@@ -129,6 +157,20 @@ func (s *server) AddMark(ctx context.Context, in *pb.AddMarkRequest) (*pb.AddMar
 	return &pb.AddMarkResponse{
 		MarkId: markId,
 	}, nil
+}
+
+// similarMarksStatus builds the AlreadyExists status for a duplicate mark,
+// attaching the candidates as pb.Mark details (the REST 409 payload).
+func similarMarksStatus(similar *usecase.SimilarMarksError) error {
+	st := status.New(codes.AlreadyExists, "similar marks nearby")
+	details := make([]protoadapt.MessageV1, 0, len(similar.Marks))
+	for i := range similar.Marks {
+		details = append(details, similar.Marks[i].ToProtobufObject())
+	}
+	if withDetails, err := st.WithDetails(details...); err == nil {
+		st = withDetails
+	}
+	return st.Err()
 }
 
 // validateAddMark mirrors the REST AddMarkRequest binding rules and returns

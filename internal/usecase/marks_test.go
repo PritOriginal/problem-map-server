@@ -678,6 +678,7 @@ func (suite *MarksSuite) TestUpdateMark() {
 		{name: "NotFound", actor: actorOwner, upd: upd, getMark: method[models.Mark]{err: repository.ErrNotFound}, wantErr: usecase.ErrNotFound},
 		{name: "EmptyUpdate", actor: actorOwner, wantErrArg: true},
 		{name: "ErrUpdate", actor: actorOwner, upd: upd, getMark: method[models.Mark]{data: unconfirmed}, wantUpdate: true, update: errRepo, wantErr: errRepo},
+		{name: "UnknownType400", actor: actorOwner, upd: upd, getMark: method[models.Mark]{data: unconfirmed}, wantUpdate: true, update: repository.ErrInvalidReference, wantErr: usecase.ErrInvalidArgument},
 	}
 
 	for _, tt := range tests {
@@ -734,7 +735,8 @@ func (suite *MarksSuite) TestDeleteMark() {
 		{name: "NotFound", actor: actorOwner, getMark: method[models.Mark]{err: repository.ErrNotFound}, wantErr: usecase.ErrNotFound},
 		{name: "ErrChecks", actor: actorOwner, getMark: method[models.Mark]{data: unconfirmed}, wantChecks: true, checks: method[[]models.Check]{err: errRepo}, wantErr: errRepo},
 		{name: "ErrDeleteMark", actor: actorModerator, getMark: method[models.Mark]{data: confirmed}, wantDelete: true, deleteMark: errRepo, wantErr: errRepo},
-		{name: "ErrDeletePhotos", actor: actorModerator, getMark: method[models.Mark]{data: confirmed}, wantDelete: true, deletePhotos: errRepo, wantErr: errRepo},
+		// Photos are removed after the commit; a storage failure is only logged.
+		{name: "ErrDeletePhotosIgnored", actor: actorModerator, getMark: method[models.Mark]{data: confirmed}, wantDelete: true, deletePhotos: errRepo},
 	}
 
 	for _, tt := range tests {
