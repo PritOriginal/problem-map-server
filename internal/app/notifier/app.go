@@ -138,8 +138,8 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 }
 
 // newPushSender wires the providers configured in cfg: FCM for android and
-// web, the APNs stub for ios. Without any credentials every push is only
-// logged (push.LogSender).
+// web, APNs for ios. A platform without credentials (and, without any, every
+// push) is only logged (push.LogSender).
 func newPushSender(log *slog.Logger, cfg config.PushConfig) usecase.PushSender {
 	if !cfg.FCM.Enabled() && !cfg.APNs.Enabled() {
 		log.Warn("push credentials are not configured: notifications are only logged, not delivered")
@@ -160,8 +160,16 @@ func newPushSender(log *slog.Logger, cfg config.PushConfig) usecase.PushSender {
 		log.Warn("FCM is not configured: android and web pushes are only logged")
 	}
 	if cfg.APNs.Enabled() {
-		senders[models.PlatformIOS] = apns.New(log, cfg.APNs)
-		log.Warn("APNs push sender is a stub: ios pushes are only logged")
+		apnsSender, err := apns.New(log, cfg.APNs)
+		if err != nil {
+			log.Error("failed to init APNs sender", slogger.Err(err))
+			panic(err)
+		}
+		senders[models.PlatformIOS] = apnsSender
+		log.Info("APNs push sender enabled",
+			slog.String("bundle_id", cfg.APNs.BundleID), slog.String("environment", string(cfg.APNs.Environment)))
+	} else {
+		log.Warn("APNs is not configured: ios pushes are only logged")
 	}
 
 	return push.NewMulti(push.NewLogSender(log), senders)
