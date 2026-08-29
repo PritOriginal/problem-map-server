@@ -40,3 +40,12 @@ type GetUserByIdResponse struct {
 type GetMeResponse struct {
 	User models.User `json:"user"`
 }
+
+type ChangePasswordRequest struct {
+	OldPassword string `json:"old_password" binding:"required,min=8,max=64"`
+	NewPassword string `json:"new_password" binding:"required,min=8,max=64"`
+}
+
+type SetRoleRequest struct {
+	Role models.Role `json:"role" binding:"required,oneof=user moderator admin" enums:"user,moderator,admin"`
+}

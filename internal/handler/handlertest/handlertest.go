@@ -31,6 +31,11 @@ func AssertResponse(t *testing.T, w *httptest.ResponseRecorder, wantStatus int) 
 
 	require.Equal(t, wantStatus, w.Code, "body: %s", w.Body.String())
 
+	if wantStatus == http.StatusNoContent {
+		require.Empty(t, w.Body.String())
+		return
+	}
+
 	var body responses.Response[json.RawMessage]
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body), "body: %s", w.Body.String())
 

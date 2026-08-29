@@ -38,6 +38,75 @@ func (_m *MockUsers) EXPECT() *MockUsers_Expecter {
 	return &MockUsers_Expecter{mock: &_m.Mock}
 }
 
+// ChangePassword provides a mock function for the type MockUsers
+func (_mock *MockUsers) ChangePassword(ctx context.Context, id int, oldPassword string, newPassword string) error {
+	ret := _mock.Called(ctx, id, oldPassword, newPassword)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ChangePassword")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, string, string) error); ok {
+		r0 = returnFunc(ctx, id, oldPassword, newPassword)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockUsers_ChangePassword_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ChangePassword'
+type MockUsers_ChangePassword_Call struct {
+	*mock.Call
+}
+
+// ChangePassword is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id int
+//   - oldPassword string
+//   - newPassword string
+func (_e *MockUsers_Expecter) ChangePassword(ctx any, id any, oldPassword any, newPassword any) *MockUsers_ChangePassword_Call {
+	return &MockUsers_ChangePassword_Call{Call: _e.mock.On("ChangePassword", ctx, id, oldPassword, newPassword)}
+}
+
+func (_c *MockUsers_ChangePassword_Call) Run(run func(ctx context.Context, id int, oldPassword string, newPassword string)) *MockUsers_ChangePassword_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		var arg3 string
+		if args[3] != nil {
+			arg3 = args[3].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUsers_ChangePassword_Call) Return(err error) *MockUsers_ChangePassword_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockUsers_ChangePassword_Call) RunAndReturn(run func(ctx context.Context, id int, oldPassword string, newPassword string) error) *MockUsers_ChangePassword_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetUserById provides a mock function for the type MockUsers
 func (_mock *MockUsers) GetUserById(ctx context.Context, id int) (models.User, error) {
 	ret := _mock.Called(ctx, id)
@@ -166,6 +235,69 @@ func (_c *MockUsers_ListUsers_Call) Return(page models.Page[models.User], err er
 }
 
 func (_c *MockUsers_ListUsers_Call) RunAndReturn(run func(ctx context.Context, p models.Pagination) (models.Page[models.User], error)) *MockUsers_ListUsers_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SetRole provides a mock function for the type MockUsers
+func (_mock *MockUsers) SetRole(ctx context.Context, id int, role models.Role) error {
+	ret := _mock.Called(ctx, id, role)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetRole")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, models.Role) error); ok {
+		r0 = returnFunc(ctx, id, role)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockUsers_SetRole_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetRole'
+type MockUsers_SetRole_Call struct {
+	*mock.Call
+}
+
+// SetRole is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id int
+//   - role models.Role
+func (_e *MockUsers_Expecter) SetRole(ctx any, id any, role any) *MockUsers_SetRole_Call {
+	return &MockUsers_SetRole_Call{Call: _e.mock.On("SetRole", ctx, id, role)}
+}
+
+func (_c *MockUsers_SetRole_Call) Run(run func(ctx context.Context, id int, role models.Role)) *MockUsers_SetRole_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 models.Role
+		if args[2] != nil {
+			arg2 = args[2].(models.Role)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUsers_SetRole_Call) Return(err error) *MockUsers_SetRole_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockUsers_SetRole_Call) RunAndReturn(run func(ctx context.Context, id int, role models.Role) error) *MockUsers_SetRole_Call {
 	_c.Call.Return(run)
 	return _c
 }

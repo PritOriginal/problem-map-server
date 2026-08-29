@@ -1,8 +1,10 @@
 package usersrest_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
@@ -276,6 +278,111 @@ func (suite *UsersSuite) TestGetUsersPagination() {
 			suite.r.ServeHTTP(w, req)
 
 			suite.Equal(tt.statusCode, w.Code)
+		})
+	}
+}
+
+// bearer returns an Authorization header value for user 1 with the role.
+func (suite *UsersSuite) bearer(role models.Role) string {
+	accessToken, err := token.CreateToken(time.Minute, 1, string(role), "1234")
+	suite.Require().NoError(err)
+	return "Bearer " + accessToken
+}
+
+func (suite *UsersSuite) TestChangePassword() {
+	tests := []struct {
+		name       string
+		noToken    bool
+		rawReq     string
+		req        usersrest.ChangePasswordRequest
+		wantUCCall bool
+		errChange  error
+		statusCode int
+	}{
+		{name: "Ok204", req: usersrest.ChangePasswordRequest{OldPassword: "oldpassword", NewPassword: "newpassword"}, wantUCCall: true, statusCode: http.StatusNoContent},
+		{name: "Err401NoToken", noToken: true, req: usersrest.ChangePasswordRequest{OldPassword: "oldpassword", NewPassword: "newpassword"}, statusCode: http.StatusUnauthorized},
+		{name: "Err400InvalidJSON", rawReq: "{", statusCode: http.StatusBadRequest},
+		{name: "Err400ShortNew", req: usersrest.ChangePasswordRequest{OldPassword: "oldpassword", NewPassword: "short"}, statusCode: http.StatusBadRequest},
+		{name: "Err400MissingOld", req: usersrest.ChangePasswordRequest{NewPassword: "newpassword"}, statusCode: http.StatusBadRequest},
+		{name: "Err403WrongOld", req: usersrest.ChangePasswordRequest{OldPassword: "oldpassword", NewPassword: "newpassword"}, wantUCCall: true, errChange: usecase.ErrForbidden, statusCode: http.StatusForbidden},
+		{name: "Err404", req: usersrest.ChangePasswordRequest{OldPassword: "oldpassword", NewPassword: "newpassword"}, wantUCCall: true, errChange: usecase.ErrNotFound, statusCode: http.StatusNotFound},
+		{name: "Err500", req: usersrest.ChangePasswordRequest{OldPassword: "oldpassword", NewPassword: "newpassword"}, wantUCCall: true, errChange: errors.New(""), statusCode: http.StatusInternalServerError},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if tt.wantUCCall {
+				suite.uc.On("ChangePassword", mock.Anything, 1, tt.req.OldPassword, tt.req.NewPassword).Once().Return(tt.errChange)
+			}
+
+			var buf *bytes.Buffer
+			if tt.rawReq == "" {
+				body, err := json.Marshal(tt.req)
+				suite.NoError(err)
+				buf = bytes.NewBuffer(body)
+			} else {
+				buf = bytes.NewBufferString(tt.rawReq)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "/users/me/password", buf)
+			if !tt.noToken {
+				req.Header.Set("Authorization", suite.bearer(models.RoleUser))
+			}
+
+			suite.r.ServeHTTP(w, req)
+
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+		})
+	}
+}
+
+func (suite *UsersSuite) TestSetRole() {
+	tests := []struct {
+		name       string
+		noToken    bool
+		role       models.Role
+		id         string
+		rawReq     string
+		req        usersrest.SetRoleRequest
+		wantUCCall bool
+		errSetRole error
+		statusCode int
+	}{
+		{name: "Ok204", role: models.RoleAdmin, id: "2", req: usersrest.SetRoleRequest{Role: models.RoleModerator}, wantUCCall: true, statusCode: http.StatusNoContent},
+		{name: "Err401NoToken", noToken: true, id: "2", req: usersrest.SetRoleRequest{Role: models.RoleModerator}, statusCode: http.StatusUnauthorized},
+		{name: "Err403User", role: models.RoleUser, id: "2", req: usersrest.SetRoleRequest{Role: models.RoleModerator}, statusCode: http.StatusForbidden},
+		{name: "Err403Moderator", role: models.RoleModerator, id: "2", req: usersrest.SetRoleRequest{Role: models.RoleModerator}, statusCode: http.StatusForbidden},
+		{name: "Err400BadId", role: models.RoleAdmin, id: "abc", req: usersrest.SetRoleRequest{Role: models.RoleModerator}, statusCode: http.StatusBadRequest},
+		{name: "Err400InvalidJSON", role: models.RoleAdmin, id: "2", rawReq: "{", statusCode: http.StatusBadRequest},
+		{name: "Err400UnknownRole", role: models.RoleAdmin, id: "2", req: usersrest.SetRoleRequest{Role: "root"}, statusCode: http.StatusBadRequest},
+		{name: "Err400EmptyRole", role: models.RoleAdmin, id: "2", req: usersrest.SetRoleRequest{}, statusCode: http.StatusBadRequest},
+		{name: "Err404", role: models.RoleAdmin, id: "2", req: usersrest.SetRoleRequest{Role: models.RoleUser}, wantUCCall: true, errSetRole: usecase.ErrNotFound, statusCode: http.StatusNotFound},
+		{name: "Err500", role: models.RoleAdmin, id: "2", req: usersrest.SetRoleRequest{Role: models.RoleUser}, wantUCCall: true, errSetRole: errors.New(""), statusCode: http.StatusInternalServerError},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if tt.wantUCCall {
+				suite.uc.On("SetRole", mock.Anything, 2, tt.req.Role).Once().Return(tt.errSetRole)
+			}
+
+			var buf *bytes.Buffer
+			if tt.rawReq == "" {
+				body, err := json.Marshal(tt.req)
+				suite.NoError(err)
+				buf = bytes.NewBuffer(body)
+			} else {
+				buf = bytes.NewBufferString(tt.rawReq)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPatch, "/users/"+tt.id+"/role", buf)
+			if !tt.noToken {
+				req.Header.Set("Authorization", suite.bearer(tt.role))
+			}
+
+			suite.r.ServeHTTP(w, req)
+
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }

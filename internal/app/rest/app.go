@@ -19,13 +19,13 @@ import (
 	marksrest "github.com/PritOriginal/problem-map-server/internal/handler/marks"
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
+	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/ratelimit"
 	"github.com/PritOriginal/problem-map-server/internal/repository/postgres"
 	"github.com/PritOriginal/problem-map-server/internal/repository/redis"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
-	jwt "github.com/appleboy/gin-jwt/v3"
 	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
 )
@@ -52,25 +52,24 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	closers.Add("database", postgresDB)
 	trManager := manager.Must(trmsqlx.NewDefaultFactory(postgresDB.DB))
 
+	// Redis is optional: the cache, the rate limiter, the refresh-token
+	// store and the auth-version check all fail open without it. The client
+	// reconnects on its own, and readyz reports "redis: error" meanwhile.
 	redisClient, err := redis.New(cfg.Redis)
 	if err != nil {
-		log.Error("failed connection to redis", slogger.Err(err))
-		panic(err)
+		log.Error("failed connection to redis, continuing without it", slogger.Err(err))
+	} else {
+		log.Info("Redis connected!")
 	}
-	log.Info("Redis connected!")
 	closers.Add("redis", redisClient)
 
-	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
-		Key: []byte(cfg.Auth.JWT.Access.Key),
+	authMiddleware, err := middleware.NewJWT(log, middleware.JWTParams{
+		Key:      cfg.Auth.JWT.Access.Key,
+		Versions: redisClient,
 	})
 	if err != nil {
 		log.Error("failed create auth middleware", slogger.Err(err))
 		panic(err)
-	}
-	errInit := authMiddleware.MiddlewareInit()
-	if errInit != nil {
-		log.Error("failed init auth middleware", slogger.Err(errInit))
-		panic(errInit)
 	}
 
 	router := handler.GetRouter(log, cfg.Env, cfg.REST.TrustedProxies, metrics.New())
@@ -124,18 +123,22 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 	usersRepo := postgres.NewUsers(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	usersUseCase := usecase.NewUsers(log, usecase.UsersRepositories{
-		Users: usersRepo,
+		Users:         usersRepo,
+		RefreshTokens: redisClient,
+		AuthVersions:  redisClient,
 	})
 	usersrest.Register(router, log, authMiddleware, usersUseCase)
 
 	authUseCase := usecase.NewAuth(log, cfg.Auth, usecase.AuthRepositories{
-		Users: usersRepo,
+		Users:         usersRepo,
+		RefreshTokens: redisClient,
+		AuthVersions:  redisClient,
 	})
 	authRateLimit := ratelimit.New(log, redisClient, ratelimit.Config{
 		Requests: cfg.REST.RateLimit.Requests,
 		Window:   cfg.REST.RateLimit.Window,
 	})
-	authrest.Register(router, log, authUseCase, authRateLimit)
+	authrest.Register(router, log, authUseCase, authMiddleware, authRateLimit)
 
 	tasksUseCase := usecase.NewTasks(log, usecase.TasksRepositories{
 		Tasks: tasksRepo,
