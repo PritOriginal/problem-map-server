@@ -153,7 +153,8 @@ func (uc *Tasker) Update(ctx context.Context) (TaskerStats, error) {
 		return TaskerStats{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	log.Info("tasks assigned",
+	// The pass summary is logged by cmd/tasker; this is a trace of the run.
+	log.Debug("tasks assigned",
 		slog.Int("marks", stats.Marks),
 		slog.Int("users", stats.Users),
 		slog.Int("candidates", stats.Candidates),
@@ -210,8 +211,13 @@ func (uc *Tasker) plan(
 		}
 		taken[task.UserID][task.MarkID] = true
 
+		// GetUsers, GetTasks and GetDistancesFromMarkToPoint are separate
+		// reads, so a user may appear in tasks or distances but not in
+		// users (deleted in between); such users are never candidates.
 		us, ok := userStatsById[task.UserID]
 		if !ok {
+			uc.log.Debug("task of unknown user skipped",
+				slog.Int("user_id", task.UserID), slog.Int("task_id", task.ID))
 			continue
 		}
 		switch task.StatusID {
@@ -237,6 +243,8 @@ func (uc *Tasker) plan(
 	free := make(map[int]map[int]bool)
 	for _, d := range distances {
 		if _, ok := userStatsById[d.UserId]; !ok {
+			uc.log.Debug("distance of unknown user skipped",
+				slog.Int("user_id", d.UserId), slog.Int("mark_id", d.MarkId))
 			continue
 		}
 		if author, ok := authorByMark[d.MarkId]; ok && author == d.UserId {
@@ -266,8 +274,10 @@ func (uc *Tasker) plan(
 	}
 
 	// assignees[markId] — existing issued users plus new assignments;
+	// marksOf[userId] — the inverse, to refresh only the affected marks;
 	// coverage[markId] — P(at least RequiredChecks of them verify the mark).
 	assignees := make(map[int][]int, len(marks))
+	marksOf := make(map[int][]int)
 	coverage := make(map[int]float64, len(marks))
 	recompute := func(markId int) {
 		probs := make([]float64, 0, len(assignees[markId]))
@@ -281,6 +291,9 @@ func (uc *Tasker) plan(
 	for _, mark := range marks {
 		markIds = append(markIds, mark.ID)
 		assignees[mark.ID] = existing[mark.ID]
+		for _, userId := range existing[mark.ID] {
+			marksOf[userId] = append(marksOf[userId], mark.ID)
+		}
 		recompute(mark.ID)
 	}
 	// Deterministic order makes runs reproducible and testable.
@@ -316,12 +329,11 @@ func (uc *Tasker) plan(
 			delete(free[markId], bestUserId)
 			userStatsById[bestUserId].issued++
 			assignees[markId] = append(assignees[markId], bestUserId)
+			marksOf[bestUserId] = append(marksOf[bestUserId], markId)
 
 			// The user's load changed: refresh every mark they are part of.
-			for id, users := range assignees {
-				if slices.Contains(users, bestUserId) {
-					recompute(id)
-				}
+			for _, id := range marksOf[bestUserId] {
+				recompute(id)
 			}
 		}
 

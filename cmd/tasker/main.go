@@ -58,22 +58,22 @@ func main() {
 }
 
 func run(ctx context.Context) error {
-	if configPath == "" {
-		configPath = os.Getenv("CONFIG_PATH")
-	}
+	configPath = config.ResolveConfigPath(configPath)
 	if configPath == "" {
 		return errors.New("config path is empty: pass --config or set CONFIG_PATH")
 	}
 
-	cfg, err := config.LoadPath(configPath)
+	// Like the migrator, the tasker validates only the sections it uses
+	// (no JWT keys), so it starts with a minimal config.
+	cfg, err := config.ReadPath(configPath)
 	if err != nil {
 		return err
 	}
 	if interval > 0 {
 		cfg.Tasker.Interval = interval
 	}
-	if err := cfg.Tasker.Validate(); err != nil {
-		return err
+	if err := errors.Join(cfg.DB.Validate(), cfg.Tasker.Validate()); err != nil {
+		return fmt.Errorf("invalid config: %w", err)
 	}
 
 	logger, err := slogger.SetupLogger(cfg.Env)

@@ -172,6 +172,21 @@ func (suite *TaskerSuite) TestUpdate() {
 			wantStats: usecase.TaskerStats{Marks: 1, Users: 3, Candidates: 2, Assigned: 2, Covered: 0, Iterations: 3},
 		},
 		{
+			name:  "skips users present in tasks or distances but missing from users",
+			marks: method[[]models.Mark]{data: marks[:1]},
+			// Only user 1 is registered; users 2 and 3 still have rows in
+			// tasks/distances (read outside a single transaction).
+			users: method[[]models.User]{data: users[:1]},
+			tasks: method[[]models.Task]{data: []models.Task{
+				{ID: 1, UserID: 2, MarkID: 1, StatusID: models.UnfulfilledStatus},
+				{ID: 2, UserID: 3, MarkID: 1, StatusID: models.OverdueStatus},
+			}},
+			distances:    method[[]models.DistanceFromMarkToPoint]{data: distances[:3]},
+			addTask:      method[int64]{data: 1},
+			wantAssigned: []assigned{{1, 1}},
+			wantStats:    usecase.TaskerStats{Marks: 1, Users: 1, Candidates: 1, Assigned: 1, Covered: 0, Iterations: 2},
+		},
+		{
 			name:    "marks error",
 			marks:   method[[]models.Mark]{err: errors.New("db")},
 			wantErr: true,

@@ -142,10 +142,7 @@ func (r *TasksRepository) AddTask(ctx context.Context, task models.Task) (int64,
 			`
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &id, query, task.Name, task.UserID, task.MarkID, task.DueAt); err != nil {
-		if err := wrapUniqueViolation(err); errors.Is(err, repository.ErrExists) {
-			return 0, err
-		}
-		return 0, fmt.Errorf("%s: %w", op, err)
+		return 0, fmt.Errorf("%s: %w", op, wrapUniqueViolation(err))
 	}
 
 	return id, nil

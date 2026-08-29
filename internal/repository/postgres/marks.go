@@ -274,7 +274,6 @@ func (r *MarksRepository) GetDistancesFromMarkToPoint(ctx context.Context, filte
 			users u ON ST_DWithin(m.geom::geography, u.home_point::geography, $2)
 		WHERE
 			m.mark_status_id = ANY($1)
-			AND u.user_id <> m.user_id
 		ORDER BY m.mark_id, u.user_id
 		`
 

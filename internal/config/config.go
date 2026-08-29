@@ -174,10 +174,7 @@ func (t TaskerConfig) Validate() error {
 	if t.DistanceLambda < 0 || t.LoadDelta < 0 || t.FatigueBeta < 0 {
 		errs = append(errs, errors.New("tasker.distance-lambda, load-delta and fatigue-beta must not be negative"))
 	}
-	if len(errs) > 0 {
-		return fmt.Errorf("invalid tasker config: %w", errors.Join(errs...))
-	}
-	return nil
+	return errors.Join(errs...)
 }
 
 type NatsConfig struct {
@@ -251,7 +248,7 @@ const MinJWTKeyLength = 32
 
 // Validate checks that security-sensitive settings are present and sane.
 func (c *Config) Validate() error {
-	if err := errors.Join(c.Auth.Validate(), c.DB.Validate()); err != nil {
+	if err := errors.Join(c.Auth.Validate(), c.DB.Validate(), c.Tasker.Validate()); err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 	return nil
@@ -293,9 +290,14 @@ func fetchConfigPath() string {
 	flag.StringVar(&res, "config", "", "path to config file")
 	flag.Parse()
 
-	if res == "" {
-		res = os.Getenv("CONFIG_PATH")
-	}
+	return ResolveConfigPath(res)
+}
 
-	return res
+// ResolveConfigPath applies the shared priority rule for the config path:
+// the explicit (flag) value wins, otherwise CONFIG_PATH is used.
+func ResolveConfigPath(flagValue string) string {
+	if flagValue == "" {
+		return os.Getenv("CONFIG_PATH")
+	}
+	return flagValue
 }
