@@ -44,7 +44,7 @@ type NotifierConfig struct {
 	MetricsPort int `yaml:"metrics-port" env:"NOTIFIER_METRICS_PORT" env-default:"0"`
 }
 
-// PushConfig configures push delivery in cmd/notifier. Without FCM
+// PushConfig configures push delivery in cmd/notifier. Without FCM/APNs
 // credentials the worker only logs what would be sent.
 type PushConfig struct {
 	// SendTimeout bounds the delivery of one notification to all devices of
@@ -94,24 +94,79 @@ func (f FCMConfig) Validate() error {
 	return errors.Join(errs...)
 }
 
-// APNsConfig configures Apple Push Notification service (token-based auth)
-// for ios devices. The APNs sender is not implemented yet (see
-// internal/push/apns); the settings are reserved so that deployments can be
-// prepared ahead of time.
+// APNsConfig configures Apple Push Notification service (token-based auth,
+// HTTP/2) for ios devices. The signing key is the .p8 file from the Apple
+// developer account: either a path to it or its PEM contents (handy for
+// containers).
 type APNsConfig struct {
-	// KeyFile is the path to the .p8 signing key from the Apple developer
-	// account; empty disables APNs.
-	KeyFile  string `yaml:"key-file" env:"APNS_KEY_FILE"`
+	// KeyFile is the path to the .p8 signing key; empty (together with
+	// KeyP8) disables APNs.
+	KeyFile string `yaml:"key-file" env:"APNS_KEY_FILE"`
+	// KeyP8 is the PEM contents of the .p8 key (alternative to KeyFile).
+	KeyP8 string `yaml:"key-p8" env:"APNS_KEY_P8"`
+	// KeyID is the 10-character id of the key (Keys page of the developer
+	// account), TeamID the 10-character team id, BundleID the app id that
+	// becomes apns-topic.
 	KeyID    string `yaml:"key-id" env:"APNS_KEY_ID"`
 	TeamID   string `yaml:"team-id" env:"APNS_TEAM_ID"`
 	BundleID string `yaml:"bundle-id" env:"APNS_BUNDLE_ID"`
-	// Sandbox selects the development APNs environment.
-	Sandbox bool `yaml:"sandbox" env:"APNS_SANDBOX" env-default:"false"`
+	// Environment selects the APNs host: production (api.push.apple.com)
+	// or sandbox (api.sandbox.push.apple.com, development builds).
+	Environment APNsEnvironment `yaml:"environment" env:"APNS_ENVIRONMENT" env-default:"production"`
+	// Timeout bounds a single HTTP request to APNs.
+	Timeout time.Duration `yaml:"timeout" env:"APNS_TIMEOUT" env-default:"5s"`
+	// MaxRetries is how many times a request is repeated on 5xx/429 (0-3).
+	MaxRetries int `yaml:"max-retries" env:"APNS_MAX_RETRIES" env-default:"3"`
+	// Concurrency caps simultaneous requests to APNs.
+	Concurrency int `yaml:"concurrency" env:"APNS_CONCURRENCY" env-default:"8"`
 }
 
-// Enabled reports whether APNs credentials are configured.
+// APNsEnvironment is the APNs environment: production or sandbox.
+type APNsEnvironment string
+
+const (
+	APNsProduction APNsEnvironment = "production"
+	APNsSandbox    APNsEnvironment = "sandbox"
+)
+
+// Enabled reports whether an APNs signing key is configured.
 func (a APNsConfig) Enabled() bool {
-	return a.KeyFile != ""
+	return a.KeyFile != "" || a.KeyP8 != ""
+}
+
+// Validate checks the APNs settings; an unconfigured APNs is valid, a
+// configured one needs key-id, team-id and bundle-id.
+func (a APNsConfig) Validate() error {
+	var errs []error
+	if a.KeyFile != "" && a.KeyP8 != "" {
+		errs = append(errs, errors.New("push.apns: set either key-file (APNS_KEY_FILE) or key-p8 (APNS_KEY_P8), not both"))
+	}
+	if a.Enabled() {
+		if a.KeyID == "" {
+			errs = append(errs, errors.New("push.apns.key-id (APNS_KEY_ID) is required"))
+		}
+		if a.TeamID == "" {
+			errs = append(errs, errors.New("push.apns.team-id (APNS_TEAM_ID) is required"))
+		}
+		if a.BundleID == "" {
+			errs = append(errs, errors.New("push.apns.bundle-id (APNS_BUNDLE_ID) is required"))
+		}
+	}
+	switch a.Environment {
+	case APNsProduction, APNsSandbox:
+	default:
+		errs = append(errs, errors.New("push.apns.environment (APNS_ENVIRONMENT) must be production or sandbox"))
+	}
+	if a.Timeout <= 0 {
+		errs = append(errs, errors.New("push.apns.timeout (APNS_TIMEOUT) must be positive"))
+	}
+	if a.MaxRetries < 0 || a.MaxRetries > 3 {
+		errs = append(errs, errors.New("push.apns.max-retries (APNS_MAX_RETRIES) must be in [0, 3]"))
+	}
+	if a.Concurrency <= 0 {
+		errs = append(errs, errors.New("push.apns.concurrency (APNS_CONCURRENCY) must be positive"))
+	}
+	return errors.Join(errs...)
 }
 
 // Validate checks that the push settings are sane.
@@ -120,7 +175,7 @@ func (p PushConfig) Validate() error {
 	if p.SendTimeout <= 0 {
 		errs = append(errs, errors.New("push.send-timeout (PUSH_SEND_TIMEOUT) must be positive"))
 	}
-	errs = append(errs, p.FCM.Validate())
+	errs = append(errs, p.FCM.Validate(), p.APNs.Validate())
 	return errors.Join(errs...)
 }
 

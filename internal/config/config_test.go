@@ -67,7 +67,11 @@ func (suite *ConfigSuite) TestValidate() {
 		}
 		c.Marks = config.MarksConfig{DedupRadiusM: 50}
 		c.Rating = config.RatingConfig{CheckCorrect: 2, CheckWrong: -1, MarkConfirmed: 3, MarkRefuted: -2, TaskCompleted: 1, MaxChecksPerDay: 50}
-		c.Push = config.PushConfig{SendTimeout: 15 * time.Second, FCM: config.FCMConfig{Timeout: 5 * time.Second, MaxRetries: 3, Concurrency: 8}}
+		c.Push = config.PushConfig{
+			SendTimeout: 15 * time.Second,
+			FCM:         config.FCMConfig{Timeout: 5 * time.Second, MaxRetries: 3, Concurrency: 8},
+			APNs:        config.APNsConfig{Environment: config.APNsProduction, Timeout: 5 * time.Second, MaxRetries: 3, Concurrency: 8},
+		}
 		c.Export.MaxRows = 50_000
 		c.Export.RateLimit.Requests = 2
 		c.Export.RateLimit.Window = time.Minute
@@ -102,6 +106,15 @@ func (suite *ConfigSuite) TestValidate() {
 		}, wantErr: "FCM_CREDENTIALS_FILE"},
 		{name: "too many fcm retries", mutate: func(c *config.Config) { c.Push.FCM.MaxRetries = 4 }, wantErr: "FCM_MAX_RETRIES"},
 		{name: "zero fcm concurrency", mutate: func(c *config.Config) { c.Push.FCM.Concurrency = 0 }, wantErr: "FCM_CONCURRENCY"},
+		{name: "apns key file and p8 together", mutate: func(c *config.Config) {
+			c.Push.APNs.KeyFile = "key.p8"
+			c.Push.APNs.KeyP8 = "-----BEGIN PRIVATE KEY-----"
+			c.Push.APNs.KeyID, c.Push.APNs.TeamID, c.Push.APNs.BundleID = "K", "T", "b"
+		}, wantErr: "APNS_KEY_P8"},
+		{name: "apns key without ids", mutate: func(c *config.Config) { c.Push.APNs.KeyFile = "key.p8" }, wantErr: "APNS_KEY_ID"},
+		{name: "apns unknown environment", mutate: func(c *config.Config) { c.Push.APNs.Environment = "staging" }, wantErr: "APNS_ENVIRONMENT"},
+		{name: "too many apns retries", mutate: func(c *config.Config) { c.Push.APNs.MaxRetries = 4 }, wantErr: "APNS_MAX_RETRIES"},
+		{name: "zero apns concurrency", mutate: func(c *config.Config) { c.Push.APNs.Concurrency = 0 }, wantErr: "APNS_CONCURRENCY"},
 		{name: "CoreDelivery", mutate: func(c *config.Config) { c.Nats.Delivery = config.NatsDeliveryCore }},
 		{name: "UnknownDelivery", mutate: func(c *config.Config) { c.Nats.Delivery = "rabbit" }, wantErr: "NATS_DELIVERY"},
 		{name: "zero export rows", mutate: func(c *config.Config) { c.Export.MaxRows = 0 }, wantErr: "EXPORT_MAX_ROWS"},

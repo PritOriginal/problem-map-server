@@ -218,7 +218,7 @@ func (s *Sender) Send(ctx context.Context, device models.UserDevice, n models.No
 	err = push.Retry(ctx, s.log, s.maxRetries, s.backoff, func(ctx context.Context) (time.Duration, bool, error) {
 		return s.attempt(ctx, body)
 	})
-	if err != nil && ctx.Err() != nil && errors.Is(err, ctx.Err()) {
+	if err != nil && errors.Is(err, ctx.Err()) {
 		return fmt.Errorf("fcm: %w", ctx.Err())
 	}
 	return err
