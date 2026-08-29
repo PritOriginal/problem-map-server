@@ -47,6 +47,17 @@ func ClaimsFromContext(ctx context.Context) (Claims, bool) {
 	return claims, ok
 }
 
+// RequireClaims returns the claims put into ctx by the Auth interceptor or
+// a codes.Unauthenticated status when the request is anonymous.
+func RequireClaims(ctx context.Context) (Claims, error) {
+	claims, ok := ClaimsFromContext(ctx)
+	if !ok {
+		return Claims{}, status.Error(codes.Unauthenticated, "authentication required")
+	}
+
+	return claims, nil
+}
+
 // Auth validates the "authorization: Bearer <jwt>" metadata with the given
 // signing key and stores the claims in the context. A request without the
 // header is passed through unauthenticated; a request with an invalid token
@@ -83,12 +94,7 @@ func (a *Auth) AuthFunc(ctx context.Context) (context.Context, error) {
 		return ctx, status.Error(codes.Unauthenticated, "invalid token")
 	}
 
-	role := models.Role(claims.Role)
-	if role == "" {
-		role = models.RoleUser
-	}
-
-	return ContextWithClaims(ctx, Claims{UserID: claims.UserID, Role: role}), nil
+	return ContextWithClaims(ctx, Claims{UserID: claims.UserID, Role: models.ParseRole(claims.Role)}), nil
 }
 
 // Unary returns the unary interceptor that authenticates every call.
@@ -122,8 +128,8 @@ func RequireAuth(methods ...string) grpc.UnaryServerInterceptor {
 }
 
 func requireAuth(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-	if _, ok := ClaimsFromContext(ctx); !ok {
-		return nil, status.Error(codes.Unauthenticated, "authentication required")
+	if _, err := RequireClaims(ctx); err != nil {
+		return nil, err
 	}
 
 	return handler(ctx, req)
@@ -140,9 +146,9 @@ func RequireRole(roles []models.Role, methods ...string) grpc.UnaryServerInterce
 	}
 
 	requireRole := func(ctx context.Context, req any, _ *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
-		claims, ok := ClaimsFromContext(ctx)
-		if !ok {
-			return nil, status.Error(codes.Unauthenticated, "authentication required")
+		claims, err := RequireClaims(ctx)
+		if err != nil {
+			return nil, err
 		}
 		if _, ok := allowed[claims.Role]; !ok {
 			return nil, status.Error(codes.PermissionDenied, "forbidden")

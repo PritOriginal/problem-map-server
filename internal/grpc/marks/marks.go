@@ -15,8 +15,6 @@ import (
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/twpayne/go-geom"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -98,9 +96,9 @@ func (s *server) GetMarksByUserId(ctx context.Context, in *pb.GetMarksByUserIdRe
 // carries no photo payload, so the mark is created without photos (unlike
 // the REST endpoint, where photos are required).
 func (s *server) AddMark(ctx context.Context, in *pb.AddMarkRequest) (*pb.AddMarkResponse, error) {
-	claims, ok := interceptors.ClaimsFromContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "authentication required")
+	claims, err := interceptors.RequireClaims(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	if err := validateAddMark(in); err != nil {

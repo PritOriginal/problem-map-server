@@ -35,12 +35,9 @@ func UserIDFromClaims(c *gin.Context) (int, error) {
 func RoleFromClaims(c *gin.Context) models.Role {
 	claims := jwt.ExtractClaims(c)
 
-	role, ok := claims[token.RoleClaim].(string)
-	if !ok || role == "" {
-		return models.RoleUser
-	}
+	role, _ := claims[token.RoleClaim].(string)
 
-	return models.Role(role)
+	return models.ParseRole(role)
 }
 
 // RequireRole allows the request to continue only if the role from the JWT

@@ -11,8 +11,6 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/grpc/pbconv"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -89,9 +87,9 @@ func (s *server) GetTasksByUserId(ctx context.Context, in *pb.GetTasksByUserIdRe
 // As in REST, the task owner is taken from the token; the request user_id
 // is ignored. Role checks are enforced by the interceptors.
 func (s *server) AddTask(ctx context.Context, in *pb.AddTaskRequest) (*pb.AddTaskResponse, error) {
-	claims, ok := interceptors.ClaimsFromContext(ctx)
-	if !ok {
-		return nil, status.Error(codes.Unauthenticated, "authentication required")
+	claims, err := interceptors.RequireClaims(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	if strings.TrimSpace(in.GetName()) == "" {

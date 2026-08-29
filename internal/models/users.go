@@ -15,6 +15,16 @@ const (
 	RoleAdmin     Role = "admin"
 )
 
+// ParseRole converts a raw role claim to a Role. Tokens without the role
+// claim (empty string) are treated as plain users.
+func ParseRole(raw string) Role {
+	if raw == "" {
+		return RoleUser
+	}
+
+	return Role(raw)
+}
+
 type User struct {
 	Id           int    `json:"user_id" db:"user_id"`
 	Name         string `json:"username" db:"name"`
