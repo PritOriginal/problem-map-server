@@ -292,6 +292,152 @@ Redis недоступен:
 - `GET /leaderboard?limit=&offset=` — `{user_id, username, rating}` по убыванию рейтинга;
 - `GET /users/{id}/rating-events?limit=&offset=` — журнал начислений (владельцу и модератору).
 
+## Экспорт
+
+`GET /marks/export?format=geojson|csv` отдаёт все метки, подходящие под те же
+фильтры, что и `GET /marks` (`bbox`, `mark_type_ids`, `mark_status_ids`,
+`user_id`, `created_from`, `created_to`, `sort`, `order`), одним файлом без
+пагинации. Ответ стримится построчно (`json.Encoder` по фиче /
+`csv.Writer` по строке поверх курсора БД), поэтому память сервера не зависит от
+размера выборки.
+
+| Формат | `Content-Type` | Содержимое |
+|---|---|---|
+| `geojson` | `application/geo+json` | `FeatureCollection`; каждая `Feature` — `Point` (lon, lat) и `properties` `{mark_id, description, mark_type_id, mark_status_id, user_id, followers_count, created_at, updated_at}` |
+| `csv` | `text/csv; charset=utf-8` | UTF-8 с BOM (для Excel), CRLF; колонки `mark_id, longitude, latitude, description, mark_type_id, mark_status_id, user_id, followers_count, created_at, updated_at` |
+
+Заголовок `Content-Disposition: attachment; filename="marks-<UTC-время>.geojson|csv"`.
+
+Ограничения (секция `export:` в YAML, переменные `EXPORT_*`):
+
+| Параметр | Env | По умолчанию | Что делает |
+|---|---|---|---|
+| `max-rows` | `EXPORT_MAX_ROWS` | `50000` | максимум строк в одном экспорте; если фильтрам соответствует больше — `400 "too many rows to export, narrow the filters"` (до отправки заголовков) |
+| `rate-limit.requests` / `.window` | `EXPORT_RATE_LIMIT_REQUESTS` / `_WINDOW` | `2` / `1m` | лимит запросов экспорта на IP (тот же Redis-лимитер, что и у `/auth`; без Redis не ограничивает), при превышении `429` + `Retry-After` |
+
+`GET /map/admin-boundaries/{id}.geojson` — одна административная граница как
+GeoJSON `Feature` с `MultiPolygon`-геометрией и `properties {name, admin_level}`
+(`application/geo+json`, кэшируется клиентом на сутки).
+
+```bash
+curl -o marks.geojson 'http://localhost:3333/marks/export?format=geojson&bbox=41.3,52.6,41.6,52.8&mark_status_ids=2'
+curl -o marks.csv     'http://localhost:3333/marks/export?format=csv&created_from=2026-01-01T00:00:00Z'
+curl -o center.geojson 'http://localhost:3333/map/admin-boundaries/1.geojson'
+```
+
+Экспорт большого файла должен уложиться в `rest.timeout.write`; при
+необходимости увеличьте его или сузьте фильтры.
+
+## Вебхуки
+
+Вебхук — HTTPS-подписка на доменные события (`mark.*`, `task.*`, `check.*`),
+которые сервисы публикуют в NATS (см. `internal/events`). Доставку выполняет
+`cmd/notifier`: он подписан на `mark.>`, `task.>`, `check.>` в отдельной
+queue-группе `webhooks`, поэтому каждое событие и превращается в уведомление,
+и уходит в вебхуки ровно один раз. Управлять вебхуками могут пользователи с
+ролью `moderator` или `admin` (владелец видит и правит только свои, `admin` —
+любые).
+
+| Метод | Путь | Что делает |
+|---|---|---|
+| `POST` | `/webhooks` | создать: `{url (только https), events[], secret?}`; `secret` генерируется, если не передан, и **возвращается один раз** в ответе (`payload.secret`) |
+| `GET` | `/webhooks` | свои вебхуки (без секретов) |
+| `PATCH` | `/webhooks/{id}` | `{active?, events?}` — включить/выключить, сменить события |
+| `DELETE` | `/webhooks/{id}` | удалить вместе с журналом доставок |
+| `GET` | `/webhooks/{id}/deliveries?limit&offset` | журнал доставок: `attempt`, `status_code`, `error`, `delivered_at`, `next_attempt_at`, `payload` |
+| `POST` | `/webhooks/{id}/test` | отправить событие `webhook.test` один раз (без ретраев) и вернуть результат; работает и для выключенного вебхука |
+
+`events` — точные темы (`mark.status_changed`, `task.assigned`,
+`check.added`), маски по домену (`mark.*`) или `*`.
+
+### Формат доставки
+
+`POST <url>` с телом:
+
+```json
+{
+  "event_id": "5e6b1d2c-…",
+  "subject": "mark.status_changed",
+  "occurred_at": "2026-08-29T10:15:00Z",
+  "data": {"v": 1, "event_id": "5e6b1d2c-…", "mark_id": 42, "old_status": 1, "new_status": 2, "author_id": 7}
+}
+```
+
+`data` — событие в том виде, в каком оно опубликовано в NATS. Заголовки:
+
+| Заголовок | Значение |
+|---|---|
+| `Content-Type` | `application/json` |
+| `X-Webhook-Id` | id вебхука |
+| `X-Event-Id` | `event_id` — используйте для дедупликации: при ретраях тело и id не меняются |
+| `X-Timestamp` | unix-время отправки (секунды) |
+| `X-Signature` | `sha256=<hex HMAC-SHA256(secret, body)>` — HMAC считается от **байтов тела как есть** |
+
+Приёмник должен ответить `2xx` в течение `webhooks.timeout` (10 с);
+редиректы не выполняются (3xx — ошибка). Любой другой ответ или сетевая
+ошибка — неудачная попытка. Ретраи планирует тикер notifier'а
+(`webhooks.retry-interval`) по `webhook_deliveries.next_attempt_at`
+с задержками **1 мин → 5 мин → 30 мин → 2 ч → 12 ч**; если и шестая
+попытка не удалась, вебхук переводится в `active=false`, а владельцу
+создаётся уведомление `webhook.disabled`. Тестовые события не ретраятся.
+
+Защита от SSRF: URL должен быть `https`, без учётных данных; хост
+резолвится и при создании, и перед каждой отправкой — loopback, приватные
+(RFC 1918/ULA), link-local (в том числе `169.254.169.254`), CGNAT и прочие
+незамаршрутизируемые адреса отклоняются, соединение устанавливается только
+на проверенные IP. `webhooks.allow-private-urls: true` отключает проверку
+адресов **только для локальной разработки**.
+
+Настройки (секция `webhooks:` в YAML, переменные `WEBHOOKS_*`): `timeout`
+(`10s`), `retry-interval` (`30s`), `retry-batch` (`100`),
+`allow-private-urls` (`false`).
+
+### Проверка подписи
+
+Go:
+
+```go
+func verify(secret string, body []byte, signature string) bool {
+	const prefix = "sha256="
+	if !strings.HasPrefix(signature, prefix) {
+		return false
+	}
+	want, err := hex.DecodeString(strings.TrimPrefix(signature, prefix))
+	if err != nil {
+		return false
+	}
+	mac := hmac.New(sha256.New, []byte(secret))
+	mac.Write(body)
+	return hmac.Equal(mac.Sum(nil), want)
+}
+
+// в хендлере:
+body, _ := io.ReadAll(r.Body)
+if !verify(os.Getenv("WEBHOOK_SECRET"), body, r.Header.Get("X-Signature")) {
+	http.Error(w, "bad signature", http.StatusUnauthorized)
+	return
+}
+```
+
+Python:
+
+```python
+import hashlib, hmac
+
+def verify(secret: str, body: bytes, signature: str) -> bool:
+    if not signature.startswith("sha256="):
+        return False
+    expected = hmac.new(secret.encode(), body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(signature[len("sha256="):], expected)
+
+# Flask:
+# if not verify(SECRET, request.get_data(), request.headers.get("X-Signature", "")):
+#     abort(401)
+```
+
+Та же функция есть в сервере: `webhooks.VerifySignature` в
+`internal/webhooks`.
+
 ## Тесты
 
 ### Unit-тесты
