@@ -242,7 +242,9 @@ func (uc *Reports) ListMine(ctx context.Context, reporterId int, p models.Pagina
 
 // Resolve is the moderator's decision on an open report: status must be
 // resolved or dismissed (ErrInvalidArgument); a report that is already
-// decided is ErrConflict.
+// decided is ErrConflict. The decision does not touch the target: a mark
+// that was auto-hidden stays hidden even when every report on it is
+// dismissed, the moderator shows it again with Marks.SetHidden.
 func (uc *Reports) Resolve(ctx context.Context, actor models.Actor, id int, status models.ReportStatus) (models.Report, error) {
 	const op = "usecase.Reports.Resolve"
 

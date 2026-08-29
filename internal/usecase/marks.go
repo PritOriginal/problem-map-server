@@ -227,7 +227,9 @@ func (uc *Marks) SetHidden(ctx context.Context, actor models.Actor, markId int, 
 
 // MergeInto merges the mark into target as a duplicate; only moderators
 // may do it (ErrForbidden). Both marks must exist (ErrNotFound), be
-// different and active (ErrConflict). In one transaction the followers,
+// different (ErrInvalidArgument) and active (ErrConflict); a target that
+// is itself a duplicate is ErrInvalidArgument (chains are not followed).
+// In one transaction the followers,
 // the issued tasks and the reports of the mark move to the target and the
 // mark gets DuplicateStatus with merged_into_id; mark.merged is published
 // after the commit with the followers the mark had.
@@ -264,6 +266,11 @@ func (uc *Marks) MergeInto(ctx context.Context, actor models.Actor, markId, targ
 		}
 		if !isActiveMark(mark) {
 			return fmt.Errorf("%w: mark is not active", ErrConflict)
+		}
+		// Chains of duplicates are not followed: the moderator must pick
+		// the mark the target itself was merged into.
+		if target.MergedIntoID.Valid {
+			return fmt.Errorf("%w: target mark is itself a duplicate of mark %d", ErrInvalidArgument, target.MergedIntoID.Int64)
 		}
 		if !isActiveMark(target) {
 			return fmt.Errorf("%w: target mark is not active", ErrConflict)
@@ -584,8 +591,16 @@ func (uc *Marks) GetMarkStatuses(ctx context.Context, lang models.Lang) ([]model
 	return statuses, nil
 }
 
+// GetMarkStatusHistoryByMarkId returns the status history of the mark. The
+// mark itself must be visible to the viewer (see GetMarkById): the history
+// of a hidden mark is ErrNotFound for everybody but the author and the
+// moderators.
 func (uc *Marks) GetMarkStatusHistoryByMarkId(ctx context.Context, markId int, withChecks bool) ([]models.MarkStatusHistoryItem, error) {
 	const op = "usecase.Marks.GetMarkStatusHistoryByMarkId"
+
+	if _, err := uc.GetMarkById(ctx, markId); err != nil {
+		return nil, err
+	}
 
 	historyItems, err := uc.repos.Marks.GetMarkStatusHistoryByMarkId(ctx, markId)
 	if err != nil {

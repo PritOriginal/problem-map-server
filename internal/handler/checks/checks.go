@@ -30,7 +30,9 @@ type handler struct {
 func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddleware, uc Checks) {
 	handler := &handler{log: log, uc: uc}
 
-	checks := r.Group("/checks")
+	// The viewer is recorded so that the checks of a hidden mark stay
+	// visible to its author and to moderators; anonymous requests still pass.
+	checks := r.Group("/checks", middleware.OptionalAuth(authMiddleware))
 	{
 		checks.GET(":id", handler.GetCheckById())
 		checks.GET("mark/:markId", handler.GetChecksByMarkId())
@@ -79,7 +81,7 @@ func (h *handler) GetCheckById() gin.HandlerFunc {
 // GetChecksByMarkId get check by mark id
 //
 //	@Summary		Get check by mark id
-//	@Description	get check by mark id
+//	@Description	get check by mark id; a hidden mark is 404 for everybody but its author and moderators
 //	@Tags			checks
 //	@Produce		json
 //	@Param			id		path		int	true	"mark id"
@@ -87,6 +89,7 @@ func (h *handler) GetCheckById() gin.HandlerFunc {
 //	@Param			offset	query		int	false	"page offset"		default(0)
 //	@Success		200		{object}	responses.Response[checksrest.GetChecksByMarkIdResponse]
 //	@Failure		400		{object}	responses.Response[any]
+//	@Failure		404		{object}	responses.Response[any]
 //	@Failure		500		{object}	responses.Response[any]
 //	@Router			/checks/mark/{id} [get]
 func (h *handler) GetChecksByMarkId() gin.HandlerFunc {

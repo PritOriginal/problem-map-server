@@ -241,12 +241,23 @@ func (uc *Checks) GetCheckById(ctx context.Context, id int) (models.Check, error
 	return check, nil
 }
 
-// ListChecksByMarkId returns a page of the mark's checks (with photos) and the total count.
+// ListChecksByMarkId returns a page of the mark's checks (with photos) and
+// the total count. A hidden mark is visible to its author and to
+// moderators only (models.ActorFromContext); everybody else gets
+// ErrNotFound, as GET /marks/{id} does.
 func (uc *Checks) ListChecksByMarkId(ctx context.Context, markId int, p models.Pagination) (models.Page[models.Check], error) {
 	const op = "usecase.Checks.ListChecksByMarkId"
 
 	if err := p.Validate(); err != nil {
 		return models.Page[models.Check]{}, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
+	}
+
+	mark, err := uc.repos.Marks.GetMarkById(ctx, markId)
+	if err != nil {
+		return models.Page[models.Check]{}, mapRepoErr(op, err)
+	}
+	if !mark.VisibleTo(models.ActorFromContext(ctx)) {
+		return models.Page[models.Check]{}, fmt.Errorf("%s: %w: mark is hidden", op, ErrNotFound)
 	}
 
 	page, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId, p)

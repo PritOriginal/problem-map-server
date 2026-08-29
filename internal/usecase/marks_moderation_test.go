@@ -10,6 +10,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
+	"github.com/guregu/null/v6"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
@@ -218,6 +219,17 @@ func (suite *MarksModerationSuite) TestMergeInto() {
 			wantErr: usecase.ErrConflict,
 		},
 		{
+			name: "ErrTargetIsDuplicate", actor: modActor, markId: 5, targetId: 2,
+			setup: func() {
+				suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runTx(nil))
+				lockBoth()
+				suite.marks.On("GetMarkById", mock.Anything, 5).Once().Return(source, nil)
+				suite.marks.On("GetMarkById", mock.Anything, 2).Once().
+					Return(models.Mark{ID: 2, UserID: 4, MarkStatusID: models.DuplicateStatus, MergedIntoID: null.IntFrom(9)}, nil)
+			},
+			wantErr: usecase.ErrInvalidArgument,
+		},
+		{
 			name: "OkMovesEverythingAndPublishes", actor: modActor, markId: 5, targetId: 2,
 			setup: func() {
 				suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runTx(nil))
@@ -309,4 +321,21 @@ func (suite *MarksModerationSuite) TestMergeInto_WithoutOptionalRepos() {
 
 	suite.Require().NoError(err)
 	suite.Equal(models.DuplicateStatus, got.MarkStatusID)
+}
+
+// TestGetMarkStatusHistoryByMarkId_Hidden: the history of a hidden mark is
+// ErrNotFound for a stranger and readable by the author.
+func (suite *MarksModerationSuite) TestGetMarkStatusHistoryByMarkId_Hidden() {
+	hidden := models.Mark{ID: 5, UserID: 3, Hidden: true}
+
+	suite.marks.On("GetMarkById", mock.Anything, 5).Once().Return(hidden, nil)
+	_, err := suite.uc.GetMarkStatusHistoryByMarkId(models.ContextWithActor(context.Background(), userActor), 5, false)
+	suite.ErrorIs(err, usecase.ErrNotFound)
+	suite.marks.AssertNotCalled(suite.T(), "GetMarkStatusHistoryByMarkId", mock.Anything, mock.Anything)
+
+	suite.marks.On("GetMarkById", mock.Anything, 5).Once().Return(hidden, nil)
+	suite.marks.On("GetMarkStatusHistoryByMarkId", mock.Anything, 5).Once().Return([]models.MarkStatusHistoryItem{{ID: 1}}, nil)
+	items, err := suite.uc.GetMarkStatusHistoryByMarkId(models.ContextWithViewer(context.Background(), 3), 5, false)
+	suite.NoError(err)
+	suite.Len(items, 1)
 }

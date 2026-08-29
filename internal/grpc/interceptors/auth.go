@@ -107,6 +107,9 @@ func (a *Auth) AuthFunc(ctx context.Context) (context.Context, error) {
 		return ctx, status.Error(codes.Unauthenticated, "invalid token")
 	}
 
+	// The viewer is recorded for the use cases too (models.ActorFromContext):
+	// hidden marks are visible to their author and to moderators only.
+	ctx = models.ContextWithActor(ctx, models.Actor{UserID: id.UserID, Role: id.Role})
 	return ContextWithClaims(ctx, Claims{UserID: id.UserID, Role: id.Role}), nil
 }
 

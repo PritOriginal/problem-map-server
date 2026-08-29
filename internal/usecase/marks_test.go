@@ -1017,6 +1017,7 @@ func (suite *MarksSuite) TestGetMarkStatusHistoryByMarkId() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			func() {
+				suite.marksRepo.On("GetMarkById", mock.Anything, 1).Once().Return(models.Mark{ID: 1}, nil)
 				suite.marksRepo.On("GetMarkStatusHistoryByMarkId", mock.Anything, mock.AnythingOfType("int")).Once().
 					Return(tt.getMarkStatusHistoryByMarkId.data, tt.getMarkStatusHistoryByMarkId.err)
 				if tt.getMarkStatusHistoryByMarkId.err != nil {

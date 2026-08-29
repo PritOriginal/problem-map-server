@@ -2655,7 +2655,8 @@ paths:
       - checks
   /checks/mark/{id}:
     get:
-      description: get check by mark id
+      description: get check by mark id; a hidden mark is 404 for everybody but its
+        author and moderators
       parameters:
       - description: mark id
         in: path
@@ -2681,6 +2682,10 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_checks_GetChecksByMarkIdResponse'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "500":
@@ -3708,7 +3713,7 @@ paths:
       consumes:
       - application/json
       description: displays the entire list of status changes history for a specific
-        marker by markId
+        marker by markId; a hidden mark is 404 for everybody but its author and moderators
       parameters:
       - description: mark id
         in: path
@@ -3728,6 +3733,10 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkStatusHistoryByMarkIdResponse'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "500":

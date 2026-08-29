@@ -692,7 +692,7 @@ func (h *handler) GetMarkStatuses() gin.HandlerFunc {
 // GetMarkStatusHistoryByMarkId displays the entire list of status changes history
 //
 //	@Summary		List mark statuses
-//	@Description	displays the entire list of status changes history for a specific marker by markId
+//	@Description	displays the entire list of status changes history for a specific marker by markId; a hidden mark is 404 for everybody but its author and moderators
 //	@Tags			marks
 //	@Accept			json
 //	@Produce		json
@@ -700,6 +700,7 @@ func (h *handler) GetMarkStatuses() gin.HandlerFunc {
 //	@Param			withChecks	query		boolean	false	"with checks"
 //	@Success		200			{object}	responses.Response[marksrest.GetMarkStatusHistoryByMarkIdResponse]
 //	@Failure		400			{object}	responses.Response[any]
+//	@Failure		404			{object}	responses.Response[any]
 //	@Failure		500			{object}	responses.Response[any]
 //	@Router			/marks/{id}/status-history [get]
 func (h *handler) GetMarkStatusHistoryByMarkId() gin.HandlerFunc {

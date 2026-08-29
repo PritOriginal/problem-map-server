@@ -518,7 +518,7 @@ const docTemplate = `{
         },
         "/checks/mark/{id}": {
             "get": {
-                "description": "get check by mark id",
+                "description": "get check by mark id; a hidden mark is 404 for everybody but its author and moderators",
                 "produces": [
                     "application/json"
                 ],
@@ -558,6 +558,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
@@ -2515,7 +2521,7 @@ const docTemplate = `{
         },
         "/marks/{id}/status-history": {
             "get": {
-                "description": "displays the entire list of status changes history for a specific marker by markId",
+                "description": "displays the entire list of status changes history for a specific marker by markId; a hidden mark is 404 for everybody but its author and moderators",
                 "consumes": [
                     "application/json"
                 ],
@@ -2550,6 +2556,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
