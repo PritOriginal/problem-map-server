@@ -190,6 +190,71 @@ fatigue(o)  = 1 / (1 + β·o)                    o — просроченных 
 частичный уникальный индекс `tasks(user_id, mark_id) WHERE status_id = 1`
 защищает от гонки двух одновременных прогонов).
 
+### Push-уведомления (cmd/notifier)
+
+`cmd/notifier` подписывается на доменные события в NATS
+(`mark.status_changed`, `task.assigned`, `check.added`), сохраняет
+уведомление каждому адресату в `notifications` и отправляет push на его
+устройства из `user_devices` (токены регистрирует клиент через
+`POST /users/me/devices`, см. Swagger).
+
+```bash
+go run ./cmd/notifier --config=configs/config.yaml
+```
+
+Провайдеры (`internal/push`):
+
+| Платформа | Провайдер | Состояние |
+|---|---|---|
+| `android`, `web` | Firebase Cloud Messaging, HTTP v1 (`internal/push/fcm`) | реализовано |
+| `ios` | Apple Push Notification service (`internal/push/apns`) | заглушка: пуши только логируются, конфиг зарезервирован |
+
+Без креденшелов FCM notifier стартует с предупреждением и только пишет в лог,
+что было бы отправлено.
+
+**Как получить service account для FCM:**
+
+1. В [Firebase Console](https://console.firebase.google.com/) откройте проект
+   → *Project settings* → *Service accounts* → *Generate new private key*.
+   Скачается JSON-ключ (`type: service_account`, `project_id`, `client_email`,
+   `private_key`).
+2. Убедитесь, что в Google Cloud проекта включён *Firebase Cloud Messaging API
+   (V1)*; сервисный аккаунт должен иметь роль *Firebase Cloud Messaging API
+   Admin* (у сгенерированного в консоли ключа она есть).
+3. Передайте ключ notifier'у одним из двух способов: путём к файлу
+   (`push.fcm.credentials-file` / `FCM_CREDENTIALS_FILE`) или содержимым JSON
+   в переменной окружения (`FCM_CREDENTIALS_JSON`, удобно для контейнеров).
+   Ключ — секрет: не коммитьте его и не кладите в образ.
+
+Notifier получает OAuth2-токен по JWT сервисного аккаунта (scope
+`https://www.googleapis.com/auth/firebase.messaging`) и шлёт
+`POST https://fcm.googleapis.com/v1/projects/{project}/messages:send` с
+`notification{title, body}` и `data{type, mark_id, task_id, notification_id}`
+(для `web` дополнительно секция `webpush`). Ответы 5xx/429 повторяются с
+экспоненциальной задержкой (`Retry-After` учитывается), остальные 4xx — нет.
+Токен, который FCM отверг как `UNREGISTERED` / `INVALID_ARGUMENT`,
+удаляется из `user_devices`. Ошибка доставки не отменяет сохранённое
+уведомление: она логируется и попадает в метрику
+`push_sent_total{platform,result}` (`result` — `ok`, `invalid_token`,
+`error`, `unsupported`), которую notifier отдаёт на
+`http://:<notifier.metrics-port>/metrics`.
+
+Конфигурация (`push:` / `notifier:` в YAML):
+
+| Параметр | Env | По умолчанию | Описание |
+|---|---|---|---|
+| `push.send-timeout` | `PUSH_SEND_TIMEOUT` | `15s` | доставка одного уведомления на все устройства адресата, включая ретраи |
+| `push.fcm.project-id` | `FCM_PROJECT_ID` | из ключа | id проекта Firebase |
+| `push.fcm.credentials-file` | `FCM_CREDENTIALS_FILE` | — | путь к JSON-ключу сервисного аккаунта |
+| `push.fcm.credentials-json` | `FCM_CREDENTIALS_JSON` | — | сам JSON-ключ (взаимоисключимо с файлом) |
+| `push.fcm.timeout` | `FCM_TIMEOUT` | `5s` | таймаут одного HTTP-запроса |
+| `push.fcm.max-retries` | `FCM_MAX_RETRIES` | `3` | повторов на 5xx/429 (0–3) |
+| `push.fcm.concurrency` | `FCM_CONCURRENCY` | `8` | одновременных запросов к FCM |
+| `push.apns.key-file` | `APNS_KEY_FILE` | — | `.p8`-ключ APNs (зарезервировано) |
+| `push.apns.key-id` / `team-id` / `bundle-id` | `APNS_KEY_ID` / `APNS_TEAM_ID` / `APNS_BUNDLE_ID` | — | параметры APNs (зарезервировано) |
+| `push.apns.sandbox` | `APNS_SANDBOX` | `false` | dev-окружение APNs |
+| `notifier.metrics-port` | `NOTIFIER_METRICS_PORT` | `0` | порт `/metrics` notifier'а (0 — выключено) |
+
 ## Аутентификация
 
 Сервер выдаёт пару JWT (HS256): **access** (`typ=access`) для заголовка
