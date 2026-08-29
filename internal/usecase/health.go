@@ -3,12 +3,12 @@ package usecase
 import (
 	"context"
 	"log/slog"
-	"reflect"
 	"sync"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
+	"github.com/PritOriginal/problem-map-server/pkg/reflectutil"
 )
 
 const (
@@ -70,13 +70,13 @@ type healthCall struct {
 func NewHealth(log *slog.Logger, cfg config.HealthConfig, deps HealthDependencies) *Health {
 	live := make(map[string]healthDep, len(deps.Required)+len(deps.Optional))
 	for name, p := range deps.Optional {
-		if !isNil(p) {
+		if !reflectutil.IsNil(p) {
 			live[name] = healthDep{pinger: p, optional: true}
 		}
 	}
 	// Required wins if a name is listed in both.
 	for name, p := range deps.Required {
-		if !isNil(p) {
+		if !reflectutil.IsNil(p) {
 			live[name] = healthDep{pinger: p}
 		}
 	}
@@ -180,12 +180,4 @@ func (uc *Health) ping(ctx context.Context) (HealthReport, error) {
 		err = ErrUnavailable
 	}
 	return report, err
-}
-
-func isNil(p Pinger) bool {
-	if p == nil {
-		return true
-	}
-	v := reflect.ValueOf(p)
-	return v.Kind() == reflect.Pointer && v.IsNil()
 }
