@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/gin-gonic/gin"
 )
 
@@ -18,13 +19,19 @@ type Cacher interface {
 
 // New returns a middleware caching successful JSON responses. A nil cacher
 // disables caching: the middleware just passes the request through.
+//
+// The cache key includes the language resolved by the lang middleware
+// (models.LangFromContext) because the cached payload is localised; the
+// response is marked Vary: Accept-Language for the same reason.
 func New(cacher Cacher, ttl time.Duration) gin.HandlerFunc {
 	if cacher == nil {
 		return func(c *gin.Context) { c.Next() }
 	}
 
 	return func(c *gin.Context) {
-		cacheKey := fmt.Sprintf("http:%s:%s", c.Request.Method, c.Request.URL.String())
+		c.Writer.Header().Add("Vary", "Accept-Language")
+
+		cacheKey := Key(c.Request.Method, c.Request.URL.String(), models.LangFromContext(c.Request.Context()))
 
 		cachedResponse, err := cacher.GetBytes(c.Request.Context(), cacheKey)
 		if err == nil {
@@ -45,6 +52,11 @@ func New(cacher Cacher, ttl time.Duration) gin.HandlerFunc {
 			_ = cacher.Set(c.Request.Context(), cacheKey, blw.body.Bytes(), ttl)
 		}
 	}
+}
+
+// Key builds the cache key of a request: method, full URL and language.
+func Key(method, url string, lang models.Lang) string {
+	return fmt.Sprintf("http:%s:%s:%s", method, url, lang)
 }
 
 type bodyLogWriter struct {

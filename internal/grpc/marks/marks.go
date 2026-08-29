@@ -28,8 +28,8 @@ type Marks interface {
 	GetMarkById(ctx context.Context, id int) (models.Mark, error)
 	GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error)
 	AddMark(ctx context.Context, mark models.Mark, photos []io.Reader, force bool) (int64, error)
-	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
-	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
+	GetMarkTypes(ctx context.Context, lang models.Lang) ([]models.MarkType, error)
+	GetMarkStatuses(ctx context.Context, lang models.Lang) ([]models.MarkStatus, error)
 }
 
 type server struct {
@@ -193,7 +193,7 @@ func validateAddMark(in *pb.AddMarkRequest) error {
 }
 
 func (s *server) GetMarkTypes(ctx context.Context, in *emptypb.Empty) (*pb.GetMarkTypesResponse, error) {
-	types, err := s.uc.GetMarkTypes(ctx)
+	types, err := s.uc.GetMarkTypes(ctx, langFromMetadata(ctx))
 	if err != nil {
 		return nil, grpcerr.Map(s.log, err, "error get mark types")
 	}
@@ -206,7 +206,7 @@ func (s *server) GetMarkTypes(ctx context.Context, in *emptypb.Empty) (*pb.GetMa
 }
 
 func (s *server) GetMarkStatuses(ctx context.Context, in *emptypb.Empty) (*pb.GetMarkStatusesResponse, error) {
-	statuses, err := s.uc.GetMarkStatuses(ctx)
+	statuses, err := s.uc.GetMarkStatuses(ctx, langFromMetadata(ctx))
 	if err != nil {
 		return nil, grpcerr.Map(s.log, err, "error get mark statuses")
 	}

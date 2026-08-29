@@ -266,9 +266,12 @@ type GetDistanceFromMarkToPointFilters struct {
 	MaxRadius     int
 }
 
+// MarkType is a dictionary entry: Code is the stable machine-readable
+// identifier, Name is localised (see Lang).
 type MarkType struct {
-	ID   int    `json:"mark_type_id" db:"type_mark_id"`
-	Name string `json:"name"`
+	ID   int    `json:"id" db:"type_mark_id"`
+	Code string `json:"code" db:"code"`
+	Name string `json:"name" db:"name"`
 }
 
 func (t *MarkType) ToProtobufObject() *pb.MarkType {
@@ -289,9 +292,12 @@ const (
 	RefutedStatus
 )
 
+// MarkStatus is a dictionary entry: Code is the stable machine-readable
+// identifier, Name is localised (see Lang).
 type MarkStatus struct {
-	ID       int      `json:"mark_status_id" db:"mark_status_id"`
+	ID       int      `json:"id" db:"mark_status_id"`
 	ParentId null.Int `json:"parent_id" db:"parent_id"`
+	Code     string   `json:"code" db:"code"`
 	Name     string   `json:"name" db:"name"`
 }
 

@@ -18,8 +18,8 @@ type MarksRepository interface {
 	GetMarkById(ctx context.Context, id int) (models.Mark, error)
 	GetMarksByUserId(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error)
 	AddMark(ctx context.Context, mark models.Mark) (int64, error)
-	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
-	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
+	GetMarkTypes(ctx context.Context, lang models.Lang) ([]models.MarkType, error)
+	GetMarkStatuses(ctx context.Context, lang models.Lang) ([]models.MarkStatus, error)
 	// LockMark locks the mark row for the rest of the transaction
 	// (repository.ErrNotFound when the mark does not exist).
 	LockMark(ctx context.Context, markId int) error
@@ -385,10 +385,11 @@ func (uc *Marks) ListFollowedMarks(ctx context.Context, userId int, p models.Pag
 	return page, nil
 }
 
-func (uc *Marks) GetMarkTypes(ctx context.Context) ([]models.MarkType, error) {
+// GetMarkTypes lists the mark types with names localised to lang.
+func (uc *Marks) GetMarkTypes(ctx context.Context, lang models.Lang) ([]models.MarkType, error) {
 	const op = "usecase.Marks.GetMarkTypes"
 
-	types, err := uc.repos.Marks.GetMarkTypes(ctx)
+	types, err := uc.repos.Marks.GetMarkTypes(ctx, lang)
 	if err != nil {
 		return types, mapRepoErr(op, err)
 	}
@@ -396,10 +397,11 @@ func (uc *Marks) GetMarkTypes(ctx context.Context) ([]models.MarkType, error) {
 	return types, nil
 }
 
-func (uc *Marks) GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error) {
-	const op = "usecase.Marks.GetMarkTypes"
+// GetMarkStatuses lists the mark statuses with names localised to lang.
+func (uc *Marks) GetMarkStatuses(ctx context.Context, lang models.Lang) ([]models.MarkStatus, error) {
+	const op = "usecase.Marks.GetMarkStatuses"
 
-	statuses, err := uc.repos.Marks.GetMarkStatuses(ctx)
+	statuses, err := uc.repos.Marks.GetMarkStatuses(ctx, lang)
 	if err != nil {
 		return statuses, mapRepoErr(op, err)
 	}

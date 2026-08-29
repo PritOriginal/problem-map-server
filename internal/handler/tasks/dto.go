@@ -49,3 +49,7 @@ type AddTaskRequest struct {
 type AddTaskResponse struct {
 	TaskId int `json:"task_id"`
 }
+
+type GetTaskStatusesResponse struct {
+	TaskStatuses []models.TaskStatus `json:"task_statuses"`
+}

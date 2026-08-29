@@ -170,6 +170,74 @@ func (_c *MockTasks_GetTaskById_Call) RunAndReturn(run func(ctx context.Context,
 	return _c
 }
 
+// GetTaskStatuses provides a mock function for the type MockTasks
+func (_mock *MockTasks) GetTaskStatuses(ctx context.Context, lang models.Lang) ([]models.TaskStatus, error) {
+	ret := _mock.Called(ctx, lang)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetTaskStatuses")
+	}
+
+	var r0 []models.TaskStatus
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Lang) ([]models.TaskStatus, error)); ok {
+		return returnFunc(ctx, lang)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Lang) []models.TaskStatus); ok {
+		r0 = returnFunc(ctx, lang)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]models.TaskStatus)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.Lang) error); ok {
+		r1 = returnFunc(ctx, lang)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockTasks_GetTaskStatuses_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetTaskStatuses'
+type MockTasks_GetTaskStatuses_Call struct {
+	*mock.Call
+}
+
+// GetTaskStatuses is a helper method to define mock.On call
+//   - ctx context.Context
+//   - lang models.Lang
+func (_e *MockTasks_Expecter) GetTaskStatuses(ctx any, lang any) *MockTasks_GetTaskStatuses_Call {
+	return &MockTasks_GetTaskStatuses_Call{Call: _e.mock.On("GetTaskStatuses", ctx, lang)}
+}
+
+func (_c *MockTasks_GetTaskStatuses_Call) Run(run func(ctx context.Context, lang models.Lang)) *MockTasks_GetTaskStatuses_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 models.Lang
+		if args[1] != nil {
+			arg1 = args[1].(models.Lang)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockTasks_GetTaskStatuses_Call) Return(taskStatuss []models.TaskStatus, err error) *MockTasks_GetTaskStatuses_Call {
+	_c.Call.Return(taskStatuss, err)
+	return _c
+}
+
+func (_c *MockTasks_GetTaskStatuses_Call) RunAndReturn(run func(ctx context.Context, lang models.Lang) ([]models.TaskStatus, error)) *MockTasks_GetTaskStatuses_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListTasks provides a mock function for the type MockTasks
 func (_mock *MockTasks) ListTasks(ctx context.Context, filters models.GetTasksFilters) (models.Page[models.Task], error) {
 	ret := _mock.Called(ctx, filters)

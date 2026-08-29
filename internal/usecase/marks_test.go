@@ -881,14 +881,14 @@ func (suite *MarksSuite) TestGetMarkTypes() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			func() {
-				suite.marksRepo.On("GetMarkTypes", mock.Anything).Once().
+				suite.marksRepo.On("GetMarkTypes", mock.Anything, models.LangEN).Once().
 					Return(tt.getMarkTypes.data, tt.getMarkTypes.err)
 				if tt.getMarkTypes.err != nil {
 					return
 				}
 			}()
 
-			_, gotErr := suite.uc.GetMarkTypes(context.Background())
+			_, gotErr := suite.uc.GetMarkTypes(context.Background(), models.LangEN)
 
 			if tt.getMarkTypes.err == nil {
 				suite.NoError(gotErr)
@@ -924,14 +924,14 @@ func (suite *MarksSuite) TestGetMarkStatuses() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			func() {
-				suite.marksRepo.On("GetMarkStatuses", mock.Anything).Once().
+				suite.marksRepo.On("GetMarkStatuses", mock.Anything, models.LangEN).Once().
 					Return(tt.getMarkStatuses.data, tt.getMarkStatuses.err)
 				if tt.getMarkStatuses.err != nil {
 					return
 				}
 			}()
 
-			_, gotErr := suite.uc.GetMarkStatuses(context.Background())
+			_, gotErr := suite.uc.GetMarkStatuses(context.Background(), models.LangEN)
 
 			if tt.getMarkStatuses.err == nil {
 				suite.NoError(gotErr)

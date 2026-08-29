@@ -225,3 +225,39 @@ func (suite *TasksSuite) TestAddTask() {
 		})
 	}
 }
+
+func (suite *TasksSuite) TestGetTaskStatuses() {
+	tests := []struct {
+		name string
+		lang models.Lang
+		data []models.TaskStatus
+		err  error
+	}{
+		{
+			name: "OkEN",
+			lang: models.LangEN,
+			data: []models.TaskStatus{{ID: 1, Code: "issued", Name: "Issued"}},
+		},
+		{
+			name: "Err",
+			lang: models.LangRU,
+			err:  errRepo,
+		},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			suite.tasksRepo.On("GetTaskStatuses", mock.Anything, tt.lang).Once().
+				Return(tt.data, tt.err)
+
+			got, gotErr := suite.uc.GetTaskStatuses(context.Background(), tt.lang)
+
+			if tt.err == nil {
+				suite.NoError(gotErr)
+				suite.Equal(tt.data, got)
+			} else {
+				assertRepoErr(&suite.Suite, gotErr, tt.err)
+			}
+		})
+	}
+}

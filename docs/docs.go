@@ -1370,7 +1370,7 @@ const docTemplate = `{
         },
         "/marks/statuses": {
             "get": {
-                "description": "get mark statuses",
+                "description": "get mark statuses; ` + "`" + `name` + "`" + ` is localised by the Accept-Language header (ru, en; default ru), ` + "`" + `code` + "`" + ` is a stable identifier",
                 "consumes": [
                     "application/json"
                 ],
@@ -1381,6 +1381,19 @@ const docTemplate = `{
                     "marks"
                 ],
                 "summary": "List mark statuses",
+                "parameters": [
+                    {
+                        "enum": [
+                            "ru",
+                            "en"
+                        ],
+                        "type": "string",
+                        "default": "ru",
+                        "description": "response language",
+                        "name": "Accept-Language",
+                        "in": "header"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1399,7 +1412,7 @@ const docTemplate = `{
         },
         "/marks/types": {
             "get": {
-                "description": "get mark types",
+                "description": "get mark types; ` + "`" + `name` + "`" + ` is localised by the Accept-Language header (ru, en; default ru), ` + "`" + `code` + "`" + ` is a stable identifier",
                 "consumes": [
                     "application/json"
                 ],
@@ -1410,6 +1423,19 @@ const docTemplate = `{
                     "marks"
                 ],
                 "summary": "List mark types",
+                "parameters": [
+                    {
+                        "enum": [
+                            "ru",
+                            "en"
+                        ],
+                        "type": "string",
+                        "default": "ru",
+                        "description": "response language",
+                        "name": "Accept-Language",
+                        "in": "header"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2316,6 +2342,45 @@ const docTemplate = `{
                         "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
+        "/tasks/statuses": {
+            "get": {
+                "description": "get task statuses; ` + "`" + `name` + "`" + ` is localised by the Accept-Language header (ru, en; default ru), ` + "`" + `code` + "`" + ` is a stable identifier",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tasks"
+                ],
+                "summary": "List task statuses",
+                "parameters": [
+                    {
+                        "enum": [
+                            "ru",
+                            "en"
+                        ],
+                        "type": "string",
+                        "default": "ru",
+                        "description": "response language",
+                        "name": "Accept-Language",
+                        "in": "header"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_GetTaskStatusesResponse"
                         }
                     },
                     "500": {
@@ -3243,7 +3308,10 @@ const docTemplate = `{
         "github_com_PritOriginal_problem-map-server_internal_models.MarkStatus": {
             "type": "object",
             "properties": {
-                "mark_status_id": {
+                "code": {
+                    "type": "string"
+                },
+                "id": {
                     "type": "integer"
                 },
                 "name": {
@@ -3305,7 +3373,10 @@ const docTemplate = `{
         "github_com_PritOriginal_problem-map-server_internal_models.MarkType": {
             "type": "object",
             "properties": {
-                "mark_type_id": {
+                "code": {
+                    "type": "string"
+                },
+                "id": {
                     "type": "integer"
                 },
                 "name": {
@@ -3555,6 +3626,20 @@ const docTemplate = `{
                 },
                 "user_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_internal_models.TaskStatus": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
                 }
             }
         },
@@ -4383,6 +4468,23 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_GetTaskStatusesResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_tasks.GetTaskStatusesResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
         "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_GetTasksByUserIdResponse": {
             "type": "object",
             "properties": {
@@ -5057,6 +5159,17 @@ const docTemplate = `{
             "properties": {
                 "task": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Task"
+                }
+            }
+        },
+        "internal_handler_tasks.GetTaskStatusesResponse": {
+            "type": "object",
+            "properties": {
+                "task_statuses": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.TaskStatus"
+                    }
                 }
             }
         },

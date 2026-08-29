@@ -102,6 +102,14 @@ const (
 	OverdueStatus
 )
 
+// TaskStatus is a dictionary entry: Code is the stable machine-readable
+// identifier, Name is localised (see Lang).
+type TaskStatus struct {
+	ID   int    `json:"id" db:"status_id"`
+	Code string `json:"code" db:"code"`
+	Name string `json:"name" db:"name"`
+}
+
 type GetTasksFilters struct {
 	Statuses []int
 	// MarkStatusIds, when set, keeps only tasks whose mark is in one of the
