@@ -151,7 +151,7 @@ func (s *PostgresSuite) truncate() {
 		TRUNCATE TABLE
 			organization_responsibilities, organization_members, organizations,
 			webhook_deliveries, webhooks, notifications, user_devices,
-			rating_events, checks, tasks, mark_status_history, mark_followers, marks, users, admin_boundaries, types_marks,
+			rating_events, checks, tasks, mark_status_history, mark_followers, mark_tombstones, marks, users, admin_boundaries, types_marks,
 			districts, cities, regions
 		RESTART IDENTITY CASCADE
 	`)

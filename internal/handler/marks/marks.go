@@ -32,6 +32,7 @@ type Marks interface {
 	FollowMark(ctx context.Context, userId, markId int) error
 	UnfollowMark(ctx context.Context, userId, markId int) error
 	ListFollowedMarks(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error)
+	GetMarkChanges(ctx context.Context, filters models.MarkChangesFilters) (models.MarkChanges, error)
 	GetMarkTypes(ctx context.Context, lang models.Lang) ([]models.MarkType, error)
 	GetMarkStatuses(ctx context.Context, lang models.Lang) ([]models.MarkStatus, error)
 	GetMarkStatusHistoryByMarkId(ctx context.Context, markId int, withChecks bool) ([]models.MarkStatusHistoryItem, error)
@@ -78,6 +79,7 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 		marks.GET("", handler.GetMarks())
 		marks.GET("nearby", handler.GetMarksNearby())
 		marks.GET("similar", handler.GetSimilarMarks())
+		marks.GET("changes", handler.GetMarkChanges())
 		if params.Exporter != nil {
 			export := marks.Group("")
 			if params.ExportRateLimit != nil {
@@ -159,6 +161,7 @@ func viewerContext(c *gin.Context, userId int) context.Context {
 //	@Param			bbox			query		string	false	"bounding box minLon,minLat,maxLon,maxLat (WGS84)"
 //	@Param			created_from	query		string	false	"created_at >= (RFC3339)"
 //	@Param			created_to		query		string	false	"created_at <= (RFC3339)"
+//	@Param			updated_since	query		string	false	"updated_at > (RFC3339); for incremental sync combine with sort=updated_at&order=asc"
 //	@Param			sort			query		string	false	"sort column"		Enums(created_at, updated_at)	default(created_at)
 //	@Param			order			query		string	false	"sort order"		Enums(asc, desc)				default(desc)
 //	@Param			limit			query		int		false	"page size, 1..500"	default(100)
@@ -231,6 +234,44 @@ func (h *handler) GetMarksNearby() gin.HandlerFunc {
 		}
 
 		listquery.OK(c, GetMarksNearbyResponse{Marks: page.Items}, filters.Pagination, page.Total)
+	}
+}
+
+// GetMarkChanges lists what changed since an instant, for offline clients
+//
+//	@Summary		Incremental mark changes
+//	@Description	marks updated after `since` (oldest change first; page with limit/offset, total in `meta`), ids of marks deleted after `since` and ids of marks hidden after it (always empty until moderation hides marks). Store `server_time` and pass it as the next `since`
+//	@Tags			marks
+//	@Produce		json
+//	@Param			since	query		string	true	"RFC3339 instant of the previous sync"
+//	@Param			limit	query		int		false	"page size of `marks`, 1..500"	default(100)
+//	@Param			offset	query		int		false	"page offset of `marks`"		default(0)
+//	@Success		200		{object}	responses.Response[marksrest.GetMarkChangesResponse]
+//	@Failure		400		{object}	responses.Response[any]
+//	@Failure		500		{object}	responses.Response[any]
+//	@Router			/marks/changes [get]
+func (h *handler) GetMarkChanges() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "marksrest.GetMarkChanges"
+
+		var req GetMarkChangesRequest
+		if !listquery.Bind(c, h.log, &req) {
+			return
+		}
+		filters, err := req.Filters()
+		if err != nil {
+			h.log.Debug("failed parse filters", logger.Err(err))
+			responses.BadRequest(c, err.Error())
+			return
+		}
+
+		changes, err := h.uc.GetMarkChanges(c.Request.Context(), filters)
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		listquery.OK(c, NewGetMarkChangesResponse(changes), filters.Pagination, changes.Total)
 	}
 }
 

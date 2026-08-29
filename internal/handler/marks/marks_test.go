@@ -171,7 +171,7 @@ func (suite *MarksSuite) TestGetMarksFilters() {
 		},
 		{
 			name:  "AllFilters",
-			query: "?bbox=41.4,52.7,41.5,52.8&limit=50&offset=100&sort=updated_at&order=asc&user_id=7&created_from=2025-01-02T03:04:05Z&created_to=2025-02-01T00:00:00Z&mark_type_ids=1,2",
+			query: "?bbox=41.4,52.7,41.5,52.8&limit=50&offset=100&sort=updated_at&order=asc&user_id=7&created_from=2025-01-02T03:04:05Z&created_to=2025-02-01T00:00:00Z&updated_since=2025-01-10T00:00:00Z&mark_type_ids=1,2",
 			wantFilters: models.GetMarksFilters{
 				MarkTypeIds:   []int{1, 2},
 				MarkStatusIds: []int{},
@@ -179,6 +179,7 @@ func (suite *MarksSuite) TestGetMarksFilters() {
 				BBox:          &models.BBox{MinLon: 41.4, MinLat: 52.7, MaxLon: 41.5, MaxLat: 52.8},
 				CreatedFrom:   createdFrom,
 				CreatedTo:     createdTo,
+				UpdatedSince:  time.Date(2025, 1, 10, 0, 0, 0, 0, time.UTC),
 				Sort:          models.MarksSortUpdatedAt,
 				Order:         models.SortAsc,
 				Pagination:    models.Pagination{Limit: 50, Offset: 100},
@@ -200,6 +201,7 @@ func (suite *MarksSuite) TestGetMarksFilters() {
 		{name: "ErrCreatedFromFormat", query: "?created_from=2025-01-02", statusCode: http.StatusBadRequest},
 		{name: "ErrCreatedToFormat", query: "?created_to=yesterday", statusCode: http.StatusBadRequest},
 		{name: "ErrCreatedRange", query: "?created_from=2025-02-01T00:00:00Z&created_to=2025-01-01T00:00:00Z", statusCode: http.StatusBadRequest},
+		{name: "ErrUpdatedSinceFormat", query: "?updated_since=2025-01-10", statusCode: http.StatusBadRequest},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
@@ -224,6 +226,79 @@ func (suite *MarksSuite) TestGetMarksFilters() {
 					Total:  321,
 				}, resp.Meta)
 			}
+		})
+	}
+}
+
+func (suite *MarksSuite) TestGetMarkChanges() {
+	since := time.Date(2025, 3, 1, 12, 0, 0, 0, time.UTC)
+	serverTime := time.Date(2025, 3, 2, 0, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name        string
+		query       string
+		wantFilters models.MarkChangesFilters
+		changes     models.MarkChanges
+		err         error
+		statusCode  int
+	}{
+		{
+			name:        "Ok200",
+			query:       "?since=2025-03-01T12:00:00Z",
+			wantFilters: models.MarkChangesFilters{Since: since, Pagination: models.Pagination{Limit: models.DefaultLimit}},
+			changes: models.MarkChanges{
+				Marks: []models.Mark{{ID: 1}, {ID: 2}}, Total: 2,
+				DeletedIDs: []int{3}, HiddenIDs: []int{}, ServerTime: serverTime,
+			},
+			statusCode: http.StatusOK,
+		},
+		{
+			name:        "Ok200EmptyArraysNotNull",
+			query:       "?since=2025-03-01T12:00:00Z&limit=10&offset=20",
+			wantFilters: models.MarkChangesFilters{Since: since, Pagination: models.Pagination{Limit: 10, Offset: 20}},
+			changes:     models.MarkChanges{ServerTime: serverTime},
+			statusCode:  http.StatusOK,
+		},
+		{name: "Err400MissingSince", query: "", statusCode: http.StatusBadRequest},
+		{name: "Err400SinceFormat", query: "?since=yesterday", statusCode: http.StatusBadRequest},
+		{name: "Err400Limit", query: "?since=2025-03-01T12:00:00Z&limit=0", statusCode: http.StatusBadRequest},
+		{
+			name:        "Err500",
+			query:       "?since=2025-03-01T12:00:00Z",
+			wantFilters: models.MarkChangesFilters{Since: since, Pagination: models.Pagination{Limit: models.DefaultLimit}},
+			err:         errors.New("db down"),
+			statusCode:  http.StatusInternalServerError,
+		},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if tt.statusCode != http.StatusBadRequest {
+				suite.uc.On("GetMarkChanges", mock.Anything, tt.wantFilters).Once().Return(tt.changes, tt.err)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/marks/changes"+tt.query, nil)
+			suite.r.ServeHTTP(w, req)
+
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+			if tt.statusCode != http.StatusOK {
+				return
+			}
+
+			var resp responses.Response[marksrest.GetMarkChangesResponse]
+			suite.Require().NoError(json.Unmarshal(w.Body.Bytes(), &resp))
+			suite.Len(resp.Payload.Marks, len(tt.changes.Marks))
+			suite.NotNil(resp.Payload.DeletedIDs)
+			suite.NotNil(resp.Payload.HiddenIDs)
+			suite.ElementsMatch(tt.changes.DeletedIDs, resp.Payload.DeletedIDs)
+			suite.True(serverTime.Equal(resp.Payload.ServerTime))
+			suite.Equal(&responses.ListMeta{
+				Limit: tt.wantFilters.Pagination.Limit, Offset: tt.wantFilters.Pagination.Offset, Total: tt.changes.Total,
+			}, resp.Meta)
+			// Raw JSON must carry arrays, never null.
+			suite.Contains(w.Body.String(), `"deleted_ids":[`)
+			suite.Contains(w.Body.String(), `"hidden_ids":[`)
+			suite.Contains(w.Body.String(), `"marks":[`)
 		})
 	}
 }

@@ -88,6 +88,85 @@ func (suite *MarksSuite) TestGetMarks() {
 	}
 }
 
+func (suite *MarksSuite) TestGetMarkChanges() {
+	since := time.Date(2025, 3, 1, 12, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name       string
+		filters    models.MarkChangesFilters
+		getMarks   method[models.Page[models.Mark]]
+		getDeleted method[[]int]
+		wantErrArg bool
+	}{
+		{
+			name:       "Ok",
+			filters:    models.MarkChangesFilters{Since: since, Pagination: models.Pagination{Limit: 50}},
+			getMarks:   method[models.Page[models.Mark]]{data: models.Page[models.Mark]{Items: []models.Mark{{ID: 1}}, Total: 7}},
+			getDeleted: method[[]int]{data: []int{4, 5}},
+		},
+		{
+			name:       "ErrSinceRequired",
+			filters:    models.MarkChangesFilters{Pagination: models.Pagination{Limit: 50}},
+			wantErrArg: true,
+		},
+		{
+			name:       "ErrPagination",
+			filters:    models.MarkChangesFilters{Since: since, Pagination: models.Pagination{Limit: 501}},
+			wantErrArg: true,
+		},
+		{
+			name:     "ErrGetMarks",
+			filters:  models.MarkChangesFilters{Since: since, Pagination: models.Pagination{Limit: 50}},
+			getMarks: method[models.Page[models.Mark]]{err: errRepo},
+		},
+		{
+			name:       "ErrGetDeleted",
+			filters:    models.MarkChangesFilters{Since: since, Pagination: models.Pagination{Limit: 50}},
+			getMarks:   method[models.Page[models.Mark]]{data: models.Page[models.Mark]{}},
+			getDeleted: method[[]int]{err: errRepo},
+		},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if !tt.wantErrArg {
+				suite.marksRepo.On("GetMarks", mock.Anything, models.GetMarksFilters{
+					UpdatedSince: since,
+					Sort:         models.MarksSortUpdatedAt,
+					Order:        models.SortAsc,
+					Pagination:   tt.filters.Pagination,
+				}).Once().Return(tt.getMarks.data, tt.getMarks.err)
+				if tt.getMarks.err == nil {
+					suite.marksRepo.On("GetDeletedMarkIDs", mock.Anything, since).Once().
+						Return(tt.getDeleted.data, tt.getDeleted.err)
+				}
+			}
+
+			before := time.Now()
+			got, err := suite.uc.GetMarkChanges(context.Background(), tt.filters)
+
+			switch {
+			case tt.wantErrArg:
+				suite.ErrorIs(err, usecase.ErrInvalidArgument)
+			case tt.getMarks.err != nil:
+				assertRepoErr(&suite.Suite, err, tt.getMarks.err)
+			case tt.getDeleted.err != nil:
+				assertRepoErr(&suite.Suite, err, tt.getDeleted.err)
+			default:
+				suite.Require().NoError(err)
+				suite.Equal(tt.getMarks.data.Items, got.Marks)
+				suite.Equal(tt.getMarks.data.Total, got.Total)
+				suite.Equal(tt.getDeleted.data, got.DeletedIDs)
+				suite.NotNil(got.HiddenIDs)
+				suite.Empty(got.HiddenIDs)
+				suite.False(got.ServerTime.Before(before.UTC().Truncate(time.Second)))
+				suite.Equal(time.UTC, got.ServerTime.Location())
+			}
+			suite.marksRepo.AssertExpectations(suite.T())
+		})
+	}
+}
+
 func (suite *MarksSuite) TestListMarks() {
 	tests := []struct {
 		name       string

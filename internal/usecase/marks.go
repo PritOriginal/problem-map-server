@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/models"
@@ -31,6 +32,8 @@ type MarksRepository interface {
 	GetSimilarMarks(ctx context.Context, filters models.GetSimilarMarksFilters) ([]models.MarkWithDistance, error)
 	UpdateMark(ctx context.Context, markId int, upd models.MarkUpdate) error
 	DeleteMark(ctx context.Context, markId int) error
+	// GetDeletedMarkIDs lists the tombstones written by DeleteMark after since.
+	GetDeletedMarkIDs(ctx context.Context, since time.Time) ([]int, error)
 	FollowMark(ctx context.Context, userId, markId int) error
 	UnfollowMark(ctx context.Context, userId, markId int) error
 	GetFollowedMarks(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error)
@@ -383,6 +386,40 @@ func (uc *Marks) ListFollowedMarks(ctx context.Context, userId int, p models.Pag
 		return page, mapRepoErr(op, err)
 	}
 	return page, nil
+}
+
+// GetMarkChanges returns what an offline client missed since
+// filters.Since: marks updated after it (oldest change first, paginated)
+// and ids of marks deleted after it. ServerTime is taken before the
+// queries, so using it as the next Since cannot skip a concurrent change.
+func (uc *Marks) GetMarkChanges(ctx context.Context, filters models.MarkChangesFilters) (models.MarkChanges, error) {
+	const op = "usecase.Marks.GetMarkChanges"
+
+	if err := filters.Validate(); err != nil {
+		return models.MarkChanges{}, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
+	}
+
+	changes := models.MarkChanges{ServerTime: time.Now().UTC()}
+
+	page, err := uc.repos.Marks.GetMarks(ctx, models.GetMarksFilters{
+		UpdatedSince: filters.Since,
+		Sort:         models.MarksSortUpdatedAt,
+		Order:        models.SortAsc,
+		Pagination:   filters.Pagination,
+	})
+	if err != nil {
+		return models.MarkChanges{}, mapRepoErr(op, err)
+	}
+	changes.Marks, changes.Total = page.Items, page.Total
+
+	if changes.DeletedIDs, err = uc.repos.Marks.GetDeletedMarkIDs(ctx, filters.Since); err != nil {
+		return models.MarkChanges{}, mapRepoErr(op, err)
+	}
+	// TODO: fill HiddenIDs once marks get a hidden flag (moderation); until
+	// then hidden marks are indistinguishable from visible ones.
+	changes.HiddenIDs = []int{}
+
+	return changes, nil
 }
 
 // GetMarkTypes lists the mark types with names localised to lang.

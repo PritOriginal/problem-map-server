@@ -2109,6 +2109,74 @@ func (_c *MockMarksRepository_FollowMark_Call) RunAndReturn(run func(ctx context
 	return _c
 }
 
+// GetDeletedMarkIDs provides a mock function for the type MockMarksRepository
+func (_mock *MockMarksRepository) GetDeletedMarkIDs(ctx context.Context, since time.Time) ([]int, error) {
+	ret := _mock.Called(ctx, since)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetDeletedMarkIDs")
+	}
+
+	var r0 []int
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time) ([]int, error)); ok {
+		return returnFunc(ctx, since)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time) []int); ok {
+		r0 = returnFunc(ctx, since)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]int)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, time.Time) error); ok {
+		r1 = returnFunc(ctx, since)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMarksRepository_GetDeletedMarkIDs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetDeletedMarkIDs'
+type MockMarksRepository_GetDeletedMarkIDs_Call struct {
+	*mock.Call
+}
+
+// GetDeletedMarkIDs is a helper method to define mock.On call
+//   - ctx context.Context
+//   - since time.Time
+func (_e *MockMarksRepository_Expecter) GetDeletedMarkIDs(ctx any, since any) *MockMarksRepository_GetDeletedMarkIDs_Call {
+	return &MockMarksRepository_GetDeletedMarkIDs_Call{Call: _e.mock.On("GetDeletedMarkIDs", ctx, since)}
+}
+
+func (_c *MockMarksRepository_GetDeletedMarkIDs_Call) Run(run func(ctx context.Context, since time.Time)) *MockMarksRepository_GetDeletedMarkIDs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 time.Time
+		if args[1] != nil {
+			arg1 = args[1].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarksRepository_GetDeletedMarkIDs_Call) Return(ints []int, err error) *MockMarksRepository_GetDeletedMarkIDs_Call {
+	_c.Call.Return(ints, err)
+	return _c
+}
+
+func (_c *MockMarksRepository_GetDeletedMarkIDs_Call) RunAndReturn(run func(ctx context.Context, since time.Time) ([]int, error)) *MockMarksRepository_GetDeletedMarkIDs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetDistancesFromMarkToPoint provides a mock function for the type MockMarksRepository
 func (_mock *MockMarksRepository) GetDistancesFromMarkToPoint(ctx context.Context, filters models.GetDistanceFromMarkToPointFilters) ([]models.DistanceFromMarkToPoint, error) {
 	ret := _mock.Called(ctx, filters)
