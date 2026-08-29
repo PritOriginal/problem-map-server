@@ -209,10 +209,10 @@ go run ./cmd/notifier --config=configs/config.yaml
 | Платформа | Провайдер | Состояние |
 |---|---|---|
 | `android`, `web` | Firebase Cloud Messaging, HTTP v1 (`internal/push/fcm`) | реализовано |
-| `ios` | Apple Push Notification service (`internal/push/apns`) | заглушка: пуши только логируются, конфиг зарезервирован |
+| `ios` | Apple Push Notification service, HTTP/2 + token-based auth (`internal/push/apns`) | реализовано |
 
-Без креденшелов FCM notifier стартует с предупреждением и только пишет в лог,
-что было бы отправлено.
+Без креденшелов провайдера notifier стартует с предупреждением и только
+пишет в лог, что было бы отправлено на устройства этой платформы.
 
 **Как получить service account для FCM:**
 
@@ -241,6 +241,35 @@ Notifier получает OAuth2-токен по JWT сервисного акк
 `error`, `unsupported`), которую notifier отдаёт на
 `http://:<notifier.metrics-port>/metrics`.
 
+**Как получить ключ для APNs:**
+
+1. В [Apple Developer](https://developer.apple.com/account/resources/authkeys/list)
+   → *Certificates, Identifiers & Profiles* → *Keys* → *+*, включите
+   *Apple Push Notifications service (APNs)*. Скачается `AuthKey_<KEY_ID>.p8`
+   (скачать можно один раз); `KEY_ID` — 10 символов из имени файла и
+   страницы ключа, `TEAM_ID` — *Membership* → *Team ID*.
+2. `bundle-id` — идентификатор приложения (`apns-topic`). Один ключ подходит
+   ко всем приложениям команды и к обоим окружениям.
+3. Передайте ключ notifier'у путём к файлу (`push.apns.key-file` /
+   `APNS_KEY_FILE`) или PEM-содержимым (`APNS_KEY_P8`, удобно для
+   контейнеров). Сборки из Xcode (development) регистрируют токены в
+   sandbox-окружении — для них `push.apns.environment: sandbox`; TestFlight
+   и App Store — `production` (по умолчанию). Токен sandbox-устройства в
+   production отвечает `BadDeviceToken` и удаляется.
+
+Notifier подписывает JWT (ES256, `kid` = key-id, `iss` = team-id,
+`iat`) ключом `.p8`, кэширует его 50 минут (Apple требует обновлять не реже
+часа и не чаще 20 минут) и шлёт по HTTP/2
+`POST https://api.push.apple.com/3/device/{token}`
+(`api.sandbox.push.apple.com` для sandbox) с заголовками `apns-topic`,
+`apns-push-type: alert`, `apns-priority: 10`, `apns-expiration` (сутки),
+`apns-collapse-id` (= `notification_id`) и телом
+`{"aps":{"alert":{"title","body"},"sound":"default"},"type","mark_id","task_id","notification_id"}`.
+Ответ `403 ExpiredProviderToken` сбрасывает кэш JWT, и запрос повторяется
+один раз с новым токеном; 5xx/429 повторяются с экспоненциальной задержкой
+как в FCM. Токен, отвергнутый как `BadDeviceToken` / `Unregistered` /
+`DeviceTokenNotForTopic` (400/410), удаляется из `user_devices`.
+
 Конфигурация (`push:` / `notifier:` в YAML):
 
 | Параметр | Env | По умолчанию | Описание |
@@ -252,9 +281,13 @@ Notifier получает OAuth2-токен по JWT сервисного акк
 | `push.fcm.timeout` | `FCM_TIMEOUT` | `5s` | таймаут одного HTTP-запроса |
 | `push.fcm.max-retries` | `FCM_MAX_RETRIES` | `3` | повторов на 5xx/429 (0–3) |
 | `push.fcm.concurrency` | `FCM_CONCURRENCY` | `8` | одновременных запросов к FCM |
-| `push.apns.key-file` | `APNS_KEY_FILE` | — | `.p8`-ключ APNs (зарезервировано) |
-| `push.apns.key-id` / `team-id` / `bundle-id` | `APNS_KEY_ID` / `APNS_TEAM_ID` / `APNS_BUNDLE_ID` | — | параметры APNs (зарезервировано) |
-| `push.apns.sandbox` | `APNS_SANDBOX` | `false` | dev-окружение APNs |
+| `push.apns.key-file` | `APNS_KEY_FILE` | — | путь к `.p8`-ключу APNs |
+| `push.apns.key-p8` | `APNS_KEY_P8` | — | сам PEM-ключ (взаимоисключимо с файлом) |
+| `push.apns.key-id` / `team-id` / `bundle-id` | `APNS_KEY_ID` / `APNS_TEAM_ID` / `APNS_BUNDLE_ID` | — | id ключа, id команды, bundle id приложения (обязательны при заданном ключе) |
+| `push.apns.environment` | `APNS_ENVIRONMENT` | `production` | `production` или `sandbox` |
+| `push.apns.timeout` | `APNS_TIMEOUT` | `5s` | таймаут одного HTTP-запроса |
+| `push.apns.max-retries` | `APNS_MAX_RETRIES` | `3` | повторов на 5xx/429 (0–3) |
+| `push.apns.concurrency` | `APNS_CONCURRENCY` | `8` | одновременных запросов к APNs |
 | `notifier.metrics-port` | `NOTIFIER_METRICS_PORT` | `0` | порт `/metrics` notifier'а (0 — выключено) |
 ### События и доставка (notifier)
 

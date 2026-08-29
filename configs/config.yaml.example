@@ -75,8 +75,9 @@ rating:
   task-completed: 1
   max-checks-per-day: 50
 
-# Push delivery in cmd/notifier (env: PUSH_*, FCM_*, APNS_*). Without FCM
-# credentials pushes are only logged. See README, "Push-уведомления".
+# Push delivery in cmd/notifier (env: PUSH_*, FCM_*, APNS_*). Without the
+# provider's credentials pushes of its platforms are only logged. See README,
+# "Push-уведомления".
 push:
   # Delivery of one notification to all devices of its addressee, including retries.
   send-timeout: 15s
@@ -90,14 +91,20 @@ push:
     timeout: 5s
     max-retries: 3   # on 5xx / 429, 0-3
     concurrency: 8   # simultaneous requests to FCM
-  # Apple Push Notification service: ios devices. Not implemented yet, the
-  # settings are reserved (with key-file set the ios pushes are only logged).
+  # Apple Push Notification service (HTTP/2, token-based auth): ios devices.
+  # Set exactly one of key-file / key-p8 (the .p8 key from the developer
+  # account); key-id, team-id and bundle-id are required with it.
   apns:
     key-file: # /etc/problem-map/AuthKey_XXXXXXXXXX.p8
+    key-p8:
     key-id:
     team-id:
     bundle-id:
-    sandbox: false
+    # production (App Store, TestFlight) | sandbox (Xcode development builds)
+    environment: production
+    timeout: 5s
+    max-retries: 3
+    concurrency: 8
 
 # Notification worker (cmd/notifier): HTTP port serving Prometheus metrics
 # (push_sent_total, events_consumed_total, ...); 0 disables /metrics.
