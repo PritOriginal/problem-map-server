@@ -33,8 +33,16 @@ type AdminBoundaryMarksCount struct {
 }
 
 type GetAdminBoundaryMarksCountFilters struct {
-	AdminLevels []int
-	MarkTypeIds []int
+	AdminLevels   []int
+	MarkTypeIds   []int
+	MarkStatusIds []int
+	// DateRange bounds marks.created_at; zero bounds are ignored.
+	DateRange
+}
+
+// Validate checks the date range.
+func (f GetAdminBoundaryMarksCountFilters) Validate() error {
+	return f.DateRange.Validate()
 }
 
 type Region struct {
