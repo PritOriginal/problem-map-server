@@ -315,15 +315,16 @@ func (suite *OrganizationsSuite) TestStart() {
 		{name: "Ok200", role: models.RoleService, id: "5", statusCode: http.StatusOK},
 		{name: "Err400", role: models.RoleService, id: "x", statusCode: http.StatusBadRequest},
 		{name: "Err403User", role: models.RoleUser, id: "5", statusCode: http.StatusForbidden},
-		{name: "Err403Admin", role: models.RoleAdmin, id: "5", statusCode: http.StatusForbidden},
+		{name: "Ok200Admin", role: models.RoleAdmin, id: "5", statusCode: http.StatusOK},
+		{name: "Err403Moderator", role: models.RoleModerator, id: "5", statusCode: http.StatusForbidden},
 		{name: "Err403NotMember", role: models.RoleService, id: "5", err: usecase.ErrForbidden, statusCode: http.StatusForbidden},
 		{name: "Err409", role: models.RoleService, id: "5", err: usecase.ErrConflict, statusCode: http.StatusConflict},
 		{name: "Err404", role: models.RoleService, id: "5", err: usecase.ErrNotFound, statusCode: http.StatusNotFound},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			if tt.role == models.RoleService && tt.id == "5" {
-				suite.uc.On("Start", mock.Anything, models.Actor{UserID: 1, Role: models.RoleService}, 5).Once().
+			if (tt.role == models.RoleService || tt.role == models.RoleAdmin) && tt.id == "5" {
+				suite.uc.On("Start", mock.Anything, models.Actor{UserID: 1, Role: tt.role}, 5).Once().
 					Return(models.Mark{ID: 5, MarkStatusID: models.InProgressStatus}, tt.err)
 			}
 
@@ -343,13 +344,14 @@ func (suite *OrganizationsSuite) TestResolve() {
 	}{
 		{name: "Ok200", role: models.RoleService, withPhoto: true, statusCode: http.StatusOK},
 		{name: "Err400NoPhotos", role: models.RoleService, statusCode: http.StatusBadRequest},
+		{name: "Ok200Admin", role: models.RoleAdmin, withPhoto: true, statusCode: http.StatusOK},
 		{name: "Err403User", role: models.RoleUser, withPhoto: true, statusCode: http.StatusForbidden},
 		{name: "Err409", role: models.RoleService, withPhoto: true, err: usecase.ErrConflict, statusCode: http.StatusConflict},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			if tt.role == models.RoleService && tt.withPhoto {
-				suite.uc.On("Resolve", mock.Anything, models.Actor{UserID: 1, Role: models.RoleService}, 5, "готово", mock.Anything).Once().
+			if (tt.role == models.RoleService || tt.role == models.RoleAdmin) && tt.withPhoto {
+				suite.uc.On("Resolve", mock.Anything, models.Actor{UserID: 1, Role: tt.role}, 5, "готово", mock.Anything).Once().
 					Return(models.Mark{ID: 5, MarkStatusID: models.UnderReviewStatus}, tt.err)
 			}
 

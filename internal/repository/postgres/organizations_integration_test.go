@@ -160,6 +160,23 @@ func (s *PostgresSuite) TestOrganizations_Queue() {
 	s.Require().NoError(err)
 	s.Len(overdue, 3)
 	s.Equal(b, overdue[0].ID)
+
+	// A reported breach is not listed again until the deadline is reset;
+	// a stamp for a stale deadline changes nothing.
+	s.Require().NoError(s.organizations.MarkSLABreached(s.ctx, b, overdue[0].SLADueAt.Time))
+	s.Require().NoError(s.organizations.MarkSLABreached(s.ctx, a, time.Now().Add(-time.Hour)))
+	overdue, err = s.organizations.GetOverdueMarks(s.ctx, time.Now())
+	s.Require().NoError(err)
+	remaining := ids(overdue, func(m models.Mark) int { return m.ID })
+	s.Len(remaining, 2)
+	s.Contains(remaining, a)
+	s.NotContains(remaining, b)
+
+	_, err = s.organizations.AssignMark(s.ctx, b, org)
+	s.Require().NoError(err)
+	var breachedAt *time.Time
+	s.Require().NoError(s.db.GetContext(s.ctx, &breachedAt, "SELECT sla_breached_at FROM marks WHERE mark_id = $1", b))
+	s.Nil(breachedAt)
 }
 
 func (s *PostgresSuite) TestOrganizations_Members() {

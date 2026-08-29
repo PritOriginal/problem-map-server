@@ -43,12 +43,20 @@ type MarkAssigner interface {
 	AssignConfirmed(ctx context.Context, mark models.Mark) error
 }
 
+// MembershipChecker reports whether a user belongs to an organization.
+type MembershipChecker interface {
+	IsMember(ctx context.Context, orgId, userId int) (bool, error)
+}
+
 type ChecksRepositories struct {
 	Marks  MarksRepository
 	Checks ChecksRepository
 	Tasks  TasksRepository
 	Photos PhotosRepository
 	Users  UsersRepository
+	// Organizations is optional: without it members of the assigned
+	// organization are not barred from voting on their own marks.
+	Organizations MembershipChecker
 }
 
 type Checks struct {
@@ -84,8 +92,11 @@ func (uc *Checks) WithEvents(p events.Publisher) *Checks {
 // AddCheck records a user's vote on the mark's current voting stage.
 //
 // Anti-fraud rules: the author may not check their own mark (ErrForbidden),
-// a user may submit at most cfg.MaxChecksPerDay checks per rolling 24 hours
-// (ErrTooManyRequests), and only one check per voting stage (ErrConflict).
+// neither may a member of the organization the mark is assigned to (the
+// service reports its work through Organizations.Resolve and must not vote
+// on, or earn rating for, the review of that work), a user may submit at
+// most cfg.MaxChecksPerDay checks per rolling 24 hours (ErrTooManyRequests),
+// and only one check per voting stage (ErrConflict).
 func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.Reader) (int64, error) {
 	const op = "usecase.Checks.AddCheck"
 
@@ -110,6 +121,15 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 		}
 		if mark.UserID == check.UserID {
 			return fmt.Errorf("%w: own mark", ErrForbidden)
+		}
+		if uc.repos.Organizations != nil && mark.OrganizationID.Valid {
+			member, err := uc.repos.Organizations.IsMember(ctx, int(mark.OrganizationID.Int64), check.UserID)
+			if err != nil {
+				return err
+			}
+			if member {
+				return fmt.Errorf("%w: member of the assigned organization", ErrForbidden)
+			}
 		}
 
 		historyItem, err := uc.repos.Marks.GetLastMarkStatusHistoryItem(ctx, check.MarkID)

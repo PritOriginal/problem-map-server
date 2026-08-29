@@ -264,7 +264,8 @@ func (r *OrganizationsRepository) FindResponsibleOrganization(ctx context.Contex
 }
 
 // AssignMark sets the organization of the mark and its SLA deadline
-// (now + types_marks.sla_hours) and returns the deadline.
+// (now + types_marks.sla_hours), clears the reported breach and returns
+// the deadline.
 func (r *OrganizationsRepository) AssignMark(ctx context.Context, markId, orgId int) (time.Time, error) {
 	const op = "storage.postgres.AssignMark"
 
@@ -272,6 +273,7 @@ func (r *OrganizationsRepository) AssignMark(ctx context.Context, markId, orgId 
 		UPDATE marks m SET
 			organization_id = $2,
 			sla_due_at = NOW() + make_interval(hours => t.sla_hours),
+			sla_breached_at = NULL,
 			updated_at = NOW()
 		FROM types_marks t
 		WHERE m.mark_id = $1 AND t.type_mark_id = m.type_mark_id
@@ -315,13 +317,15 @@ func (r *OrganizationsRepository) GetOrganizationMarks(ctx context.Context, orgI
 }
 
 // GetOverdueMarks returns every assigned mark whose SLA deadline passed
-// before now while it is still confirmed or in progress.
+// before now while it is still confirmed or in progress and whose breach
+// has not been reported yet (see MarkSLABreached).
 func (r *OrganizationsRepository) GetOverdueMarks(ctx context.Context, now time.Time) ([]models.Mark, error) {
 	const op = "storage.postgres.GetOverdueMarks"
 
 	q := newListQuery(markColumns, "marks").
 		Where("marks.organization_id IS NOT NULL").
 		Where("marks.sla_due_at < ?", now).
+		Where("marks.sla_breached_at IS NULL").
 		Where("mark_status_id IN (?)", models.SLAStatuses()).
 		OrderBy("sla_due_at ASC, marks.mark_id ASC")
 	q.ColumnArgs(models.ViewerFromContext(ctx))
@@ -338,4 +342,20 @@ func (r *OrganizationsRepository) GetOverdueMarks(ctx context.Context, now time.
 	}
 
 	return marks, nil
+}
+
+// MarkSLABreached records that the breach of the deadline dueAt was
+// reported. A mark whose deadline was reset meanwhile is left untouched, so
+// the new deadline is checked again.
+func (r *OrganizationsRepository) MarkSLABreached(ctx context.Context, markId int, dueAt time.Time) error {
+	const op = "storage.postgres.MarkSLABreached"
+
+	query := "UPDATE marks SET sla_breached_at = NOW() WHERE mark_id = $1 AND sla_due_at = $2 AND sla_breached_at IS NULL"
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if _, err := tr.ExecContext(ctx, query, markId, dueAt); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
 }

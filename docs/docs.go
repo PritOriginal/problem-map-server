@@ -2028,7 +2028,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "В работе → На проверке with a report (comment + photos) stored as a check of the service user; only a member of the organization the mark is assigned to (403); a mark in another status is 409",
+                "description": "В работе → На проверке with a report (comment + photos) stored as a check of the service user (not rated); only a member of the organization the mark is assigned to or an admin (403 otherwise); a mark in another status or without an organization is 409",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -2114,7 +2114,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "Подтверждённая → В работе; only a member of the organization the mark is assigned to (403); a mark in another status is 409",
+                "description": "Подтверждённая → В работе; only a member of the organization the mark is assigned to or an admin (403 otherwise); a mark in another status or without an organization is 409",
                 "produces": [
                     "application/json"
                 ],
@@ -4248,6 +4248,10 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "sla_hours": {
+                    "description": "SLAHours is the time an organization has to resolve a mark of the type.",
+                    "type": "integer"
                 }
             }
         },

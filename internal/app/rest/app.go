@@ -144,11 +144,12 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	checksUseCase := usecase.NewChecks(log, cfg.Rating, trManager, markStatusUpdater, usecase.ChecksRepositories{
-		Marks:  marksRepo,
-		Checks: checksRepo,
-		Tasks:  tasksRepo,
-		Photos: photoRepo,
-		Users:  usersRepo,
+		Marks:         marksRepo,
+		Checks:        checksRepo,
+		Tasks:         tasksRepo,
+		Photos:        photoRepo,
+		Users:         usersRepo,
+		Organizations: organizationsRepo,
 	}).WithEvents(publisher)
 	checksrest.Register(router, log, authMiddleware, checksUseCase)
 

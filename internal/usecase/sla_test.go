@@ -42,11 +42,15 @@ func (suite *SLASuite) TestExpireOverdue() {
 	tests := []struct {
 		name    string
 		marks   method[[]models.Mark]
+		publish error
 		want    int
 		wantErr bool
 	}{
 		{name: "Ok", marks: method[[]models.Mark]{data: overdue}, want: 2},
 		{name: "Empty", marks: method[[]models.Mark]{data: []models.Mark{}}, want: 0},
+		// A failed publish leaves the mark unstamped, so it is retried on
+		// the next run; the pass itself succeeds.
+		{name: "PublishFailedNotStamped", marks: method[[]models.Mark]{data: overdue}, publish: errors.New("nats"), want: 0},
 		{name: "ErrRepo", marks: method[[]models.Mark]{err: errors.New("db")}, wantErr: true},
 	}
 
@@ -60,7 +64,10 @@ func (suite *SLASuite) TestExpireOverdue() {
 					return ev.MarkID == m.ID && ev.OrganizationID == int(m.OrganizationID.Int64)
 				})).Once().Run(func(args mock.Arguments) {
 					ids = append(ids, args.Get(2).(events.MarkSLABreached).EventID)
-				}).Return(nil)
+				}).Return(tt.publish)
+				if tt.publish == nil {
+					suite.marks.On("MarkSLABreached", mock.Anything, m.ID, m.SLADueAt.Time).Once().Return(nil)
+				}
 			}
 
 			n, err := suite.uc.ExpireOverdue(context.Background())

@@ -15,6 +15,7 @@ ALTER TABLE types_marks DROP COLUMN IF EXISTS sla_hours;
 
 DROP INDEX IF EXISTS idx_marks_organization_sla_due_at;
 ALTER TABLE marks
+    DROP COLUMN IF EXISTS sla_breached_at,
     DROP COLUMN IF EXISTS sla_due_at,
     DROP COLUMN IF EXISTS organization_id;
 

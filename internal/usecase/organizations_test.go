@@ -74,6 +74,11 @@ func (suite *OrganizationsSuite) TestStart() {
 			mark: assignedMark(models.ConfirmedStatus), member: ptr(true), wantSent: true,
 		},
 		{
+			// Admins act on any assigned mark without a membership lookup.
+			name: "OkAdmin", actor: models.Actor{UserID: testStrangerID, Role: models.RoleAdmin},
+			mark: assignedMark(models.ConfirmedStatus), wantSent: true,
+		},
+		{
 			name: "ErrNotMember", actor: models.Actor{UserID: testStrangerID, Role: models.RoleService},
 			mark: assignedMark(models.ConfirmedStatus), member: ptr(false), wantErr: usecase.ErrForbidden,
 		},

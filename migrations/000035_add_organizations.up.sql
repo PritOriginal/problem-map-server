@@ -46,10 +46,13 @@ CREATE TABLE IF NOT EXISTS organization_responsibilities (
 CREATE INDEX IF NOT EXISTS idx_organization_responsibilities_type_boundary
     ON organization_responsibilities (mark_type_id, boundary_id);
 
--- Assignment of a mark to an organization and its SLA deadline.
+-- Assignment of a mark to an organization, its SLA deadline and the time
+-- the breach of that deadline was reported (NULL until reported; reset on
+-- reassignment).
 ALTER TABLE marks
     ADD COLUMN IF NOT EXISTS organization_id INTEGER NULL REFERENCES organizations(organization_id) ON DELETE SET NULL,
-    ADD COLUMN IF NOT EXISTS sla_due_at TIMESTAMPTZ NULL;
+    ADD COLUMN IF NOT EXISTS sla_due_at TIMESTAMPTZ NULL,
+    ADD COLUMN IF NOT EXISTS sla_breached_at TIMESTAMPTZ NULL;
 
 -- The organization's queue: its marks ordered by deadline.
 CREATE INDEX IF NOT EXISTS idx_marks_organization_sla_due_at

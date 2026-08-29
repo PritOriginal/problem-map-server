@@ -318,7 +318,11 @@ func (uc *Organizations) Start(ctx context.Context, actor models.Actor, markId i
 
 // Resolve reports the mark as fixed: InProgress -> UnderReview. The report
 // (comment + photos) is stored as a check of the service user on the
-// in-progress stage, so it never counts as a vote of the review stage.
+// in-progress stage, so it never counts as a vote of the review stage and
+// is never rated: the updater awards rating only for the checks of the
+// stage it resolves (the review stage), and a service does not earn rating
+// for its own work. Members of the assigned organization are also barred
+// from voting on the review stage (see Checks.AddCheck).
 func (uc *Organizations) Resolve(ctx context.Context, actor models.Actor, markId int, comment string, photos []io.Reader) (models.Mark, error) {
 	const op = "usecase.Organizations.Resolve"
 
@@ -368,7 +372,7 @@ func (uc *Organizations) Resolve(ctx context.Context, actor models.Actor, markId
 
 // lockAssignedMark locks the mark and checks that the actor is a member of
 // the organization it is assigned to (ErrForbidden otherwise; an
-// unassigned mark yields ErrConflict).
+// unassigned mark yields ErrConflict). Admins may act on any assigned mark.
 func (uc *Organizations) lockAssignedMark(ctx context.Context, actor models.Actor, markId int) (models.Mark, error) {
 	if err := uc.repos.Marks.LockMark(ctx, markId); err != nil {
 		return models.Mark{}, err
@@ -379,6 +383,9 @@ func (uc *Organizations) lockAssignedMark(ctx context.Context, actor models.Acto
 	}
 	if !mark.OrganizationID.Valid {
 		return models.Mark{}, fmt.Errorf("%w: mark is not assigned to an organization", ErrConflict)
+	}
+	if actor.Role == models.RoleAdmin {
+		return mark, nil
 	}
 	ok, err := uc.repos.Organizations.IsMember(ctx, int(mark.OrganizationID.Int64), actor.UserID)
 	if err != nil {
@@ -411,7 +418,9 @@ func (uc *Organizations) reload(ctx context.Context, op string, markId int) (mod
 }
 
 // Assign is the manual (re)assignment by a moderator: the mark must be
-// confirmed or in progress (ErrConflict otherwise).
+// confirmed or in progress (ErrConflict otherwise). The SLA deadline is
+// reset; a mark in progress keeps its status, the new organization
+// continues the work.
 func (uc *Organizations) Assign(ctx context.Context, markId, orgId int) (models.Mark, error) {
 	const op = "usecase.Organizations.Assign"
 
@@ -445,8 +454,12 @@ func (uc *Organizations) Assign(ctx context.Context, markId, orgId int) (models.
 // AssignConfirmed is the automatic assignment run by the status updater
 // inside its transaction right after a mark became confirmed: the
 // responsible organization is looked up by the mark's type and location;
-// without one the mark stays unassigned. The event is queued on the
-// context (published after the commit) when a Pending is present.
+// without one the mark stays unassigned (no SLA, no is_overdue) until a
+// moderator assigns it by hand. A mark becomes confirmed only once
+// (Rediscovered resolves straight to UnderReview), so the organization of
+// a rediscovered mark is kept and its SLA is not restarted. The event is
+// queued on the context (published after the commit) when a Pending is
+// present.
 func (uc *Organizations) AssignConfirmed(ctx context.Context, mark models.Mark) error {
 	const op = "usecase.Organizations.AssignConfirmed"
 

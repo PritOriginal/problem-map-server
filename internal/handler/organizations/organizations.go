@@ -67,7 +67,7 @@ func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddlew
 
 	marks := r.Group("/marks/:id", authMiddleware.MiddlewareFunc())
 	{
-		service := marks.Group("", middleware.RequireRole(models.RoleService))
+		service := marks.Group("", middleware.RequireRole(models.RoleService, models.RoleAdmin))
 		{
 			service.POST("start", handler.Start())
 			service.POST("resolve", middleware.MaxBodySize(handlers.MaxUploadBodySize), handler.Resolve())
@@ -489,7 +489,7 @@ func (h *handler) GetMarks() gin.HandlerFunc {
 // Start moves a mark to "in progress"
 //
 //	@Summary		Start work on a mark
-//	@Description	Подтверждённая → В работе; only a member of the organization the mark is assigned to (403); a mark in another status is 409
+//	@Description	Подтверждённая → В работе; only a member of the organization the mark is assigned to or an admin (403 otherwise); a mark in another status or without an organization is 409
 //	@Tags			organizations
 //	@Produce		json
 //	@Security		BearerAuth
@@ -530,7 +530,7 @@ func (h *handler) Start() gin.HandlerFunc {
 // Resolve reports a mark as fixed
 //
 //	@Summary		Resolve a mark
-//	@Description	В работе → На проверке with a report (comment + photos) stored as a check of the service user; only a member of the organization the mark is assigned to (403); a mark in another status is 409
+//	@Description	В работе → На проверке with a report (comment + photos) stored as a check of the service user (not rated); only a member of the organization the mark is assigned to or an admin (403 otherwise); a mark in another status or without an organization is 409
 //	@Tags			organizations
 //	@Accept			mpfd
 //	@Produce		json
