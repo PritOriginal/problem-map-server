@@ -85,7 +85,7 @@ func Register(r *gin.Engine, log *slog.Logger, uc Map, cacher mwcache.Cacher) {
 //	@Param			admin_levels	query		[]number	false	"filter by admin level"
 //	@Param			If-None-Match	header		string		false	"ETag of a previous response; 304 when the data did not change"
 //	@Success		200				{object}	responses.Response[maprest.GetAdminBoundariesResponse]
-//	@Header			200				{string}	ETag		"validator for If-None-Match"
+//	@Header			200				{string}	ETag			"validator for If-None-Match"
 //	@Header			200				{string}	Cache-Control	"public, max-age=60"
 //	@Success		304				"not modified"
 //	@Failure		400				{object}	responses.Response[any]

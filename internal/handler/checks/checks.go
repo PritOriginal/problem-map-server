@@ -170,14 +170,14 @@ func (h *handler) GetChecksByUserId() gin.HandlerFunc {
 //	@Security		BearerAuth
 //	@Param			Idempotency-Key	header		string	false	"UUID chosen by the client; a repeat with the same key within 24h returns the stored response with `Idempotent-Replayed: true` (409 while the first request is in flight, 422 when reused with other form fields)"
 //	@Success		201				{object}	responses.Response[checksrest.AddCheckResponse]
-//	@Failure		400	{object}	responses.Response[any]
-//	@Failure		401	{object}	responses.Response[any]
-//	@Failure		403	{object}	responses.Response[any]
-//	@Failure		404	{object}	responses.Response[any]
-//	@Failure		409	{object}	responses.Response[any]
-//	@Failure		422	{object}	responses.Response[any]	"Idempotency-Key reused with a different payload"
-//	@Failure		429	{object}	responses.Response[any]
-//	@Failure		500	{object}	responses.Response[any]
+//	@Failure		400				{object}	responses.Response[any]
+//	@Failure		401				{object}	responses.Response[any]
+//	@Failure		403				{object}	responses.Response[any]
+//	@Failure		404				{object}	responses.Response[any]
+//	@Failure		409				{object}	responses.Response[any]
+//	@Failure		422				{object}	responses.Response[any]	"Idempotency-Key reused with a different payload"
+//	@Failure		429				{object}	responses.Response[any]
+//	@Failure		500				{object}	responses.Response[any]
 //	@Router			/checks [post]
 func (h *handler) AddCheck() gin.HandlerFunc {
 	return func(c *gin.Context) {

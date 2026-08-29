@@ -69,3 +69,36 @@ func (s *PostgresSuite) TestMigration_I18nDuplicateNames() {
 		`SELECT COUNT(*) FROM translations WHERE entity = 'mark_type' AND lang = 'en' AND entity_id > 4`))
 	s.Equal(0, en)
 }
+
+// tombstonesMigrationVersion is the version of 000044_add_mark_tombstones.
+const tombstonesMigrationVersion = 44
+
+// TestMigration_TombstonesRoundTrip checks that 000044 can be reverted and
+// re-applied: the table disappears with the down migration and comes back
+// with the up one (the numbering leaves a gap before 44 on purpose, so it
+// is addressed by explicit versions).
+func (s *PostgresSuite) TestMigration_TombstonesRoundTrip() {
+	_, file, _, ok := runtime.Caller(0)
+	s.Require().True(ok)
+	migrationsDir := filepath.Join(filepath.Dir(file), "..", "..", "..", "migrations")
+
+	m, err := migrate.New("file://"+migrationsDir, s.dsn)
+	s.Require().NoError(err)
+	defer func() { _, _ = m.Close() }()
+	defer func() {
+		if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+			s.Require().NoError(err, "re-apply 000044")
+		}
+	}()
+
+	version, _, err := m.Version()
+	s.Require().NoError(err)
+	s.Require().EqualValues(tombstonesMigrationVersion, version, "the suite runs on the latest schema")
+
+	s.Require().NoError(m.Steps(-1), "revert 000044")
+	s.Equal(0, s.countRows("pg_tables", "tablename = 'mark_tombstones'"))
+
+	s.Require().NoError(m.Up(), "apply 000044 again")
+	s.Equal(1, s.countRows("pg_tables", "tablename = 'mark_tombstones'"))
+	s.Equal(1, s.countRows("pg_indexes", "indexname = 'idx_mark_tombstones_deleted_at'"))
+}
