@@ -7,6 +7,7 @@ import (
 	"log/slog"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
+	"github.com/PritOriginal/problem-map-server/internal/events"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/avito-tech/go-transaction-manager/trm/v2"
@@ -35,6 +36,30 @@ type MarksRepository interface {
 	UnfollowMark(ctx context.Context, userId, markId int) error
 	GetFollowedMarks(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error)
 	GetFollowerIDs(ctx context.Context, markId int) ([]int, error)
+	// SetMarkHidden shows or hides the mark (repository.ErrNotFound when
+	// the mark does not exist).
+	SetMarkHidden(ctx context.Context, markId int, hidden bool) error
+	// MergeMark sets DuplicateStatus and merged_into_id on the mark.
+	MergeMark(ctx context.Context, markId, targetId int) error
+	// MoveFollowers moves the followers of the mark to target (duplicates
+	// are dropped).
+	MoveFollowers(ctx context.Context, markId, targetId int) error
+	GetMarkBriefs(ctx context.Context, ids []int) (map[int]models.MarkBrief, error)
+}
+
+// MarkTasksRepository is the part of the tasks storage a merge needs.
+type MarkTasksRepository interface {
+	// MoveOpenTasks moves the issued tasks of the mark to target; a task
+	// that cannot be moved (its user already has one on the target, or is
+	// the target's author) is deleted.
+	MoveOpenTasks(ctx context.Context, markId, targetId int) error
+}
+
+// MarkReportsRepository is the part of the reports storage a merge needs.
+type MarkReportsRepository interface {
+	// MoveMarkReports moves the reports on the mark to target (a reporter
+	// keeps a single report).
+	MoveMarkReports(ctx context.Context, markId, targetId int) error
 }
 
 type PhotosRepository interface {
@@ -50,6 +75,16 @@ type Marks struct {
 	cfg       config.MarksConfig
 	trManager trm.Manager
 	repos     MarksRepositories
+	events    events.Publisher
+}
+
+// WithEvents sets the publisher of mark.hidden and mark.merged events.
+// Without it events are dropped.
+func (uc *Marks) WithEvents(p events.Publisher) *Marks {
+	if p != nil {
+		uc.events = p
+	}
+	return uc
 }
 
 // SimilarMarksError is returned by AddMark when active marks of the same
@@ -73,6 +108,10 @@ type MarksRepositories struct {
 	Marks  MarksRepository
 	Checks ChecksRepository
 	Photos PhotosRepository
+	// Tasks and Reports are used by MergeInto; without them the merge
+	// leaves tasks/reports on the source mark.
+	Tasks   MarkTasksRepository
+	Reports MarkReportsRepository
 }
 
 func NewMarks(log *slog.Logger, cfg config.MarksConfig, trManager trm.Manager, repos MarksRepositories) *Marks {
@@ -84,6 +123,7 @@ func NewMarks(log *slog.Logger, cfg config.MarksConfig, trManager trm.Manager, r
 		cfg:       cfg,
 		trManager: trManager,
 		repos:     repos,
+		events:    events.NoopPublisher{},
 	}
 }
 
@@ -136,6 +176,9 @@ func (uc *Marks) GetMarksNearby(ctx context.Context, filters models.GetMarksNear
 	return page, nil
 }
 
+// GetMarkById returns the mark. A hidden mark is visible to its author and
+// to moderators only (models.ActorFromContext); everybody else gets
+// ErrNotFound, as if the mark did not exist.
 func (uc *Marks) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
 	const op = "usecase.Marks.GetMarkById"
 
@@ -143,7 +186,139 @@ func (uc *Marks) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
 	if err != nil {
 		return mark, mapRepoErr(op, err)
 	}
+	if !mark.VisibleTo(models.ActorFromContext(ctx)) {
+		return models.Mark{}, fmt.Errorf("%s: %w: mark is hidden", op, ErrNotFound)
+	}
 	return mark, nil
+}
+
+// SetHidden hides the mark from public lists or shows it again; only
+// moderators may do it (ErrForbidden). Hiding publishes mark.hidden.
+func (uc *Marks) SetHidden(ctx context.Context, actor models.Actor, markId int, hidden bool) (models.Mark, error) {
+	const op = "usecase.Marks.SetHidden"
+
+	if !actor.IsModerator() {
+		return models.Mark{}, fmt.Errorf("%s: %w", op, ErrForbidden)
+	}
+
+	mark, err := uc.repos.Marks.GetMarkById(ctx, markId)
+	if err != nil {
+		return models.Mark{}, mapRepoErr(op, err)
+	}
+	if mark.Hidden == hidden {
+		return mark, nil
+	}
+
+	if err := uc.repos.Marks.SetMarkHidden(ctx, markId, hidden); err != nil {
+		return models.Mark{}, mapRepoErr(op, err)
+	}
+	uc.log.Info("mark visibility changed", slog.Int("mark_id", markId), slog.Bool("hidden", hidden), slog.Int("user_id", actor.UserID))
+
+	if hidden {
+		events.PublishEvent(ctx, uc.log, uc.events, events.NewMarkHidden(markId, mark.UserID, 0, actor.UserID))
+	}
+
+	mark, err = uc.repos.Marks.GetMarkById(ctx, markId)
+	if err != nil {
+		return models.Mark{}, mapRepoErr(op, err)
+	}
+	return mark, nil
+}
+
+// MergeInto merges the mark into target as a duplicate; only moderators
+// may do it (ErrForbidden). Both marks must exist (ErrNotFound), be
+// different and active (ErrConflict). In one transaction the followers,
+// the issued tasks and the reports of the mark move to the target and the
+// mark gets DuplicateStatus with merged_into_id; mark.merged is published
+// after the commit with the followers the mark had.
+func (uc *Marks) MergeInto(ctx context.Context, actor models.Actor, markId, targetId int) (models.Mark, error) {
+	const op = "usecase.Marks.MergeInto"
+
+	if !actor.IsModerator() {
+		return models.Mark{}, fmt.Errorf("%s: %w", op, ErrForbidden)
+	}
+	if markId == targetId {
+		return models.Mark{}, fmt.Errorf("%s: %w: a mark cannot be merged into itself", op, ErrInvalidArgument)
+	}
+
+	var mark models.Mark
+	var followers []int
+	err := uc.trManager.Do(ctx, func(ctx context.Context) error {
+		// Both rows are locked in id order (the same order any other merge
+		// takes them), so two moderators merging the same pair cannot
+		// deadlock and the second one sees the first one's status.
+		for _, id := range sortedPair(markId, targetId) {
+			if err := uc.repos.Marks.LockMark(ctx, id); err != nil {
+				return err
+			}
+		}
+
+		var err error
+		mark, err = uc.repos.Marks.GetMarkById(ctx, markId)
+		if err != nil {
+			return err
+		}
+		target, err := uc.repos.Marks.GetMarkById(ctx, targetId)
+		if err != nil {
+			return err
+		}
+		if !isActiveMark(mark) {
+			return fmt.Errorf("%w: mark is not active", ErrConflict)
+		}
+		if !isActiveMark(target) {
+			return fmt.Errorf("%w: target mark is not active", ErrConflict)
+		}
+
+		followers, err = uc.repos.Marks.GetFollowerIDs(ctx, markId)
+		if err != nil {
+			return err
+		}
+		if err := uc.repos.Marks.MoveFollowers(ctx, markId, targetId); err != nil {
+			return err
+		}
+		if uc.repos.Tasks != nil {
+			if err := uc.repos.Tasks.MoveOpenTasks(ctx, markId, targetId); err != nil {
+				return err
+			}
+		}
+		if uc.repos.Reports != nil {
+			if err := uc.repos.Reports.MoveMarkReports(ctx, markId, targetId); err != nil {
+				return err
+			}
+		}
+		return uc.repos.Marks.MergeMark(ctx, markId, targetId)
+	})
+	if err != nil {
+		return models.Mark{}, mapRepoErr(op, err)
+	}
+	uc.log.Info("mark merged", slog.Int("mark_id", markId), slog.Int("target_id", targetId), slog.Int("user_id", actor.UserID))
+
+	events.PublishEvent(ctx, uc.log, uc.events, events.NewMarkMerged(markId, targetId, mark.UserID, actor.UserID, followers))
+
+	merged, err := uc.repos.Marks.GetMarkById(ctx, markId)
+	if err != nil {
+		return models.Mark{}, mapRepoErr(op, err)
+	}
+	return merged, nil
+}
+
+// isActiveMark reports whether the mark still describes an open problem
+// (see models.ActiveMarkStatuses).
+func isActiveMark(mark models.Mark) bool {
+	for _, s := range models.ActiveMarkStatuses() {
+		if mark.MarkStatusID == s {
+			return true
+		}
+	}
+	return false
+}
+
+// sortedPair returns the two ids in ascending order.
+func sortedPair(a, b int) [2]int {
+	if a > b {
+		return [2]int{b, a}
+	}
+	return [2]int{a, b}
 }
 
 // ListMarksByUserId returns a page of the user's marks with the total count.

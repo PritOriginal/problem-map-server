@@ -2455,6 +2455,74 @@ func (_c *MockMarksRepository_GetLastMarkStatusHistoryItemWithStatus_Call) RunAn
 	return _c
 }
 
+// GetMarkBriefs provides a mock function for the type MockMarksRepository
+func (_mock *MockMarksRepository) GetMarkBriefs(ctx context.Context, ids []int) (map[int]models.MarkBrief, error) {
+	ret := _mock.Called(ctx, ids)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMarkBriefs")
+	}
+
+	var r0 map[int]models.MarkBrief
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []int) (map[int]models.MarkBrief, error)); ok {
+		return returnFunc(ctx, ids)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []int) map[int]models.MarkBrief); ok {
+		r0 = returnFunc(ctx, ids)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[int]models.MarkBrief)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, []int) error); ok {
+		r1 = returnFunc(ctx, ids)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMarksRepository_GetMarkBriefs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetMarkBriefs'
+type MockMarksRepository_GetMarkBriefs_Call struct {
+	*mock.Call
+}
+
+// GetMarkBriefs is a helper method to define mock.On call
+//   - ctx context.Context
+//   - ids []int
+func (_e *MockMarksRepository_Expecter) GetMarkBriefs(ctx any, ids any) *MockMarksRepository_GetMarkBriefs_Call {
+	return &MockMarksRepository_GetMarkBriefs_Call{Call: _e.mock.On("GetMarkBriefs", ctx, ids)}
+}
+
+func (_c *MockMarksRepository_GetMarkBriefs_Call) Run(run func(ctx context.Context, ids []int)) *MockMarksRepository_GetMarkBriefs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []int
+		if args[1] != nil {
+			arg1 = args[1].([]int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarksRepository_GetMarkBriefs_Call) Return(intToMarkBrief map[int]models.MarkBrief, err error) *MockMarksRepository_GetMarkBriefs_Call {
+	_c.Call.Return(intToMarkBrief, err)
+	return _c
+}
+
+func (_c *MockMarksRepository_GetMarkBriefs_Call) RunAndReturn(run func(ctx context.Context, ids []int) (map[int]models.MarkBrief, error)) *MockMarksRepository_GetMarkBriefs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetMarkById provides a mock function for the type MockMarksRepository
 func (_mock *MockMarksRepository) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
 	ret := _mock.Called(ctx, id)
@@ -3054,6 +3122,195 @@ func (_c *MockMarksRepository_LockMark_Call) RunAndReturn(run func(ctx context.C
 	return _c
 }
 
+// MergeMark provides a mock function for the type MockMarksRepository
+func (_mock *MockMarksRepository) MergeMark(ctx context.Context, markId int, targetId int) error {
+	ret := _mock.Called(ctx, markId, targetId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for MergeMark")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) error); ok {
+		r0 = returnFunc(ctx, markId, targetId)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockMarksRepository_MergeMark_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MergeMark'
+type MockMarksRepository_MergeMark_Call struct {
+	*mock.Call
+}
+
+// MergeMark is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markId int
+//   - targetId int
+func (_e *MockMarksRepository_Expecter) MergeMark(ctx any, markId any, targetId any) *MockMarksRepository_MergeMark_Call {
+	return &MockMarksRepository_MergeMark_Call{Call: _e.mock.On("MergeMark", ctx, markId, targetId)}
+}
+
+func (_c *MockMarksRepository_MergeMark_Call) Run(run func(ctx context.Context, markId int, targetId int)) *MockMarksRepository_MergeMark_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarksRepository_MergeMark_Call) Return(err error) *MockMarksRepository_MergeMark_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockMarksRepository_MergeMark_Call) RunAndReturn(run func(ctx context.Context, markId int, targetId int) error) *MockMarksRepository_MergeMark_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// MoveFollowers provides a mock function for the type MockMarksRepository
+func (_mock *MockMarksRepository) MoveFollowers(ctx context.Context, markId int, targetId int) error {
+	ret := _mock.Called(ctx, markId, targetId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for MoveFollowers")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) error); ok {
+		r0 = returnFunc(ctx, markId, targetId)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockMarksRepository_MoveFollowers_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MoveFollowers'
+type MockMarksRepository_MoveFollowers_Call struct {
+	*mock.Call
+}
+
+// MoveFollowers is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markId int
+//   - targetId int
+func (_e *MockMarksRepository_Expecter) MoveFollowers(ctx any, markId any, targetId any) *MockMarksRepository_MoveFollowers_Call {
+	return &MockMarksRepository_MoveFollowers_Call{Call: _e.mock.On("MoveFollowers", ctx, markId, targetId)}
+}
+
+func (_c *MockMarksRepository_MoveFollowers_Call) Run(run func(ctx context.Context, markId int, targetId int)) *MockMarksRepository_MoveFollowers_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarksRepository_MoveFollowers_Call) Return(err error) *MockMarksRepository_MoveFollowers_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockMarksRepository_MoveFollowers_Call) RunAndReturn(run func(ctx context.Context, markId int, targetId int) error) *MockMarksRepository_MoveFollowers_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SetMarkHidden provides a mock function for the type MockMarksRepository
+func (_mock *MockMarksRepository) SetMarkHidden(ctx context.Context, markId int, hidden bool) error {
+	ret := _mock.Called(ctx, markId, hidden)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetMarkHidden")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, bool) error); ok {
+		r0 = returnFunc(ctx, markId, hidden)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockMarksRepository_SetMarkHidden_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetMarkHidden'
+type MockMarksRepository_SetMarkHidden_Call struct {
+	*mock.Call
+}
+
+// SetMarkHidden is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markId int
+//   - hidden bool
+func (_e *MockMarksRepository_Expecter) SetMarkHidden(ctx any, markId any, hidden any) *MockMarksRepository_SetMarkHidden_Call {
+	return &MockMarksRepository_SetMarkHidden_Call{Call: _e.mock.On("SetMarkHidden", ctx, markId, hidden)}
+}
+
+func (_c *MockMarksRepository_SetMarkHidden_Call) Run(run func(ctx context.Context, markId int, hidden bool)) *MockMarksRepository_SetMarkHidden_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 bool
+		if args[2] != nil {
+			arg2 = args[2].(bool)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarksRepository_SetMarkHidden_Call) Return(err error) *MockMarksRepository_SetMarkHidden_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockMarksRepository_SetMarkHidden_Call) RunAndReturn(run func(ctx context.Context, markId int, hidden bool) error) *MockMarksRepository_SetMarkHidden_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UnfollowMark provides a mock function for the type MockMarksRepository
 func (_mock *MockMarksRepository) UnfollowMark(ctx context.Context, userId int, markId int) error {
 	ret := _mock.Called(ctx, userId, markId)
@@ -3239,6 +3496,186 @@ func (_c *MockMarksRepository_UpdateMarkStatus_Call) Return(err error) *MockMark
 }
 
 func (_c *MockMarksRepository_UpdateMarkStatus_Call) RunAndReturn(run func(ctx context.Context, markId int, markStatusId models.MarkStatusType) error) *MockMarksRepository_UpdateMarkStatus_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// NewMockMarkTasksRepository creates a new instance of MockMarkTasksRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+// The first argument is typically a *testing.T value.
+func NewMockMarkTasksRepository(t interface {
+	mock.TestingT
+	Cleanup(func())
+}) *MockMarkTasksRepository {
+	mock := &MockMarkTasksRepository{}
+	mock.Mock.Test(t)
+
+	t.Cleanup(func() { mock.AssertExpectations(t) })
+
+	return mock
+}
+
+// MockMarkTasksRepository is an autogenerated mock type for the MarkTasksRepository type
+type MockMarkTasksRepository struct {
+	mock.Mock
+}
+
+type MockMarkTasksRepository_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *MockMarkTasksRepository) EXPECT() *MockMarkTasksRepository_Expecter {
+	return &MockMarkTasksRepository_Expecter{mock: &_m.Mock}
+}
+
+// MoveOpenTasks provides a mock function for the type MockMarkTasksRepository
+func (_mock *MockMarkTasksRepository) MoveOpenTasks(ctx context.Context, markId int, targetId int) error {
+	ret := _mock.Called(ctx, markId, targetId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for MoveOpenTasks")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) error); ok {
+		r0 = returnFunc(ctx, markId, targetId)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockMarkTasksRepository_MoveOpenTasks_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MoveOpenTasks'
+type MockMarkTasksRepository_MoveOpenTasks_Call struct {
+	*mock.Call
+}
+
+// MoveOpenTasks is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markId int
+//   - targetId int
+func (_e *MockMarkTasksRepository_Expecter) MoveOpenTasks(ctx any, markId any, targetId any) *MockMarkTasksRepository_MoveOpenTasks_Call {
+	return &MockMarkTasksRepository_MoveOpenTasks_Call{Call: _e.mock.On("MoveOpenTasks", ctx, markId, targetId)}
+}
+
+func (_c *MockMarkTasksRepository_MoveOpenTasks_Call) Run(run func(ctx context.Context, markId int, targetId int)) *MockMarkTasksRepository_MoveOpenTasks_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarkTasksRepository_MoveOpenTasks_Call) Return(err error) *MockMarkTasksRepository_MoveOpenTasks_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockMarkTasksRepository_MoveOpenTasks_Call) RunAndReturn(run func(ctx context.Context, markId int, targetId int) error) *MockMarkTasksRepository_MoveOpenTasks_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// NewMockMarkReportsRepository creates a new instance of MockMarkReportsRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+// The first argument is typically a *testing.T value.
+func NewMockMarkReportsRepository(t interface {
+	mock.TestingT
+	Cleanup(func())
+}) *MockMarkReportsRepository {
+	mock := &MockMarkReportsRepository{}
+	mock.Mock.Test(t)
+
+	t.Cleanup(func() { mock.AssertExpectations(t) })
+
+	return mock
+}
+
+// MockMarkReportsRepository is an autogenerated mock type for the MarkReportsRepository type
+type MockMarkReportsRepository struct {
+	mock.Mock
+}
+
+type MockMarkReportsRepository_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *MockMarkReportsRepository) EXPECT() *MockMarkReportsRepository_Expecter {
+	return &MockMarkReportsRepository_Expecter{mock: &_m.Mock}
+}
+
+// MoveMarkReports provides a mock function for the type MockMarkReportsRepository
+func (_mock *MockMarkReportsRepository) MoveMarkReports(ctx context.Context, markId int, targetId int) error {
+	ret := _mock.Called(ctx, markId, targetId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for MoveMarkReports")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) error); ok {
+		r0 = returnFunc(ctx, markId, targetId)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockMarkReportsRepository_MoveMarkReports_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MoveMarkReports'
+type MockMarkReportsRepository_MoveMarkReports_Call struct {
+	*mock.Call
+}
+
+// MoveMarkReports is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markId int
+//   - targetId int
+func (_e *MockMarkReportsRepository_Expecter) MoveMarkReports(ctx any, markId any, targetId any) *MockMarkReportsRepository_MoveMarkReports_Call {
+	return &MockMarkReportsRepository_MoveMarkReports_Call{Call: _e.mock.On("MoveMarkReports", ctx, markId, targetId)}
+}
+
+func (_c *MockMarkReportsRepository_MoveMarkReports_Call) Run(run func(ctx context.Context, markId int, targetId int)) *MockMarkReportsRepository_MoveMarkReports_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarkReportsRepository_MoveMarkReports_Call) Return(err error) *MockMarkReportsRepository_MoveMarkReports_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockMarkReportsRepository_MoveMarkReports_Call) RunAndReturn(run func(ctx context.Context, markId int, targetId int) error) *MockMarkReportsRepository_MoveMarkReports_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -4640,6 +5077,110 @@ func (_c *MockNotifierOrganizationsRepository_GetMemberIDs_Call) RunAndReturn(ru
 	return _c
 }
 
+// NewMockNotifierUsersRepository creates a new instance of MockNotifierUsersRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+// The first argument is typically a *testing.T value.
+func NewMockNotifierUsersRepository(t interface {
+	mock.TestingT
+	Cleanup(func())
+}) *MockNotifierUsersRepository {
+	mock := &MockNotifierUsersRepository{}
+	mock.Mock.Test(t)
+
+	t.Cleanup(func() { mock.AssertExpectations(t) })
+
+	return mock
+}
+
+// MockNotifierUsersRepository is an autogenerated mock type for the NotifierUsersRepository type
+type MockNotifierUsersRepository struct {
+	mock.Mock
+}
+
+type MockNotifierUsersRepository_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *MockNotifierUsersRepository) EXPECT() *MockNotifierUsersRepository_Expecter {
+	return &MockNotifierUsersRepository_Expecter{mock: &_m.Mock}
+}
+
+// GetUserIDsByRole provides a mock function for the type MockNotifierUsersRepository
+func (_mock *MockNotifierUsersRepository) GetUserIDsByRole(ctx context.Context, roles ...models.Role) ([]int, error) {
+	var tmpRet mock.Arguments
+	if len(roles) > 0 {
+		tmpRet = _mock.Called(ctx, roles)
+	} else {
+		tmpRet = _mock.Called(ctx)
+	}
+	ret := tmpRet
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetUserIDsByRole")
+	}
+
+	var r0 []int
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ...models.Role) ([]int, error)); ok {
+		return returnFunc(ctx, roles...)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, ...models.Role) []int); ok {
+		r0 = returnFunc(ctx, roles...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]int)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, ...models.Role) error); ok {
+		r1 = returnFunc(ctx, roles...)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockNotifierUsersRepository_GetUserIDsByRole_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetUserIDsByRole'
+type MockNotifierUsersRepository_GetUserIDsByRole_Call struct {
+	*mock.Call
+}
+
+// GetUserIDsByRole is a helper method to define mock.On call
+//   - ctx context.Context
+//   - roles ...models.Role
+func (_e *MockNotifierUsersRepository_Expecter) GetUserIDsByRole(ctx any, roles ...any) *MockNotifierUsersRepository_GetUserIDsByRole_Call {
+	return &MockNotifierUsersRepository_GetUserIDsByRole_Call{Call: _e.mock.On("GetUserIDsByRole",
+		append([]any{ctx}, roles...)...)}
+}
+
+func (_c *MockNotifierUsersRepository_GetUserIDsByRole_Call) Run(run func(ctx context.Context, roles ...models.Role)) *MockNotifierUsersRepository_GetUserIDsByRole_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []models.Role
+		var variadicArgs []models.Role
+		if len(args) > 1 {
+			variadicArgs = args[1].([]models.Role)
+		}
+		arg1 = variadicArgs
+		run(
+			arg0,
+			arg1...,
+		)
+	})
+	return _c
+}
+
+func (_c *MockNotifierUsersRepository_GetUserIDsByRole_Call) Return(ints []int, err error) *MockNotifierUsersRepository_GetUserIDsByRole_Call {
+	_c.Call.Return(ints, err)
+	return _c
+}
+
+func (_c *MockNotifierUsersRepository_GetUserIDsByRole_Call) RunAndReturn(run func(ctx context.Context, roles ...models.Role) ([]int, error)) *MockNotifierUsersRepository_GetUserIDsByRole_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // NewMockOrganizationsRepository creates a new instance of MockOrganizationsRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func NewMockOrganizationsRepository(t interface {
@@ -5789,6 +6330,818 @@ func (_c *MockOrganizationsRepository_UpdateOrganization_Call) Return(err error)
 }
 
 func (_c *MockOrganizationsRepository_UpdateOrganization_Call) RunAndReturn(run func(ctx context.Context, id int, upd models.OrganizationUpdate) error) *MockOrganizationsRepository_UpdateOrganization_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// NewMockReportsRepository creates a new instance of MockReportsRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+// The first argument is typically a *testing.T value.
+func NewMockReportsRepository(t interface {
+	mock.TestingT
+	Cleanup(func())
+}) *MockReportsRepository {
+	mock := &MockReportsRepository{}
+	mock.Mock.Test(t)
+
+	t.Cleanup(func() { mock.AssertExpectations(t) })
+
+	return mock
+}
+
+// MockReportsRepository is an autogenerated mock type for the ReportsRepository type
+type MockReportsRepository struct {
+	mock.Mock
+}
+
+type MockReportsRepository_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *MockReportsRepository) EXPECT() *MockReportsRepository_Expecter {
+	return &MockReportsRepository_Expecter{mock: &_m.Mock}
+}
+
+// AddReport provides a mock function for the type MockReportsRepository
+func (_mock *MockReportsRepository) AddReport(ctx context.Context, report models.Report) (models.Report, error) {
+	ret := _mock.Called(ctx, report)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AddReport")
+	}
+
+	var r0 models.Report
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Report) (models.Report, error)); ok {
+		return returnFunc(ctx, report)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Report) models.Report); ok {
+		r0 = returnFunc(ctx, report)
+	} else {
+		r0 = ret.Get(0).(models.Report)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.Report) error); ok {
+		r1 = returnFunc(ctx, report)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockReportsRepository_AddReport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddReport'
+type MockReportsRepository_AddReport_Call struct {
+	*mock.Call
+}
+
+// AddReport is a helper method to define mock.On call
+//   - ctx context.Context
+//   - report models.Report
+func (_e *MockReportsRepository_Expecter) AddReport(ctx any, report any) *MockReportsRepository_AddReport_Call {
+	return &MockReportsRepository_AddReport_Call{Call: _e.mock.On("AddReport", ctx, report)}
+}
+
+func (_c *MockReportsRepository_AddReport_Call) Run(run func(ctx context.Context, report models.Report)) *MockReportsRepository_AddReport_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 models.Report
+		if args[1] != nil {
+			arg1 = args[1].(models.Report)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockReportsRepository_AddReport_Call) Return(report1 models.Report, err error) *MockReportsRepository_AddReport_Call {
+	_c.Call.Return(report1, err)
+	return _c
+}
+
+func (_c *MockReportsRepository_AddReport_Call) RunAndReturn(run func(ctx context.Context, report models.Report) (models.Report, error)) *MockReportsRepository_AddReport_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CountOpenReports provides a mock function for the type MockReportsRepository
+func (_mock *MockReportsRepository) CountOpenReports(ctx context.Context, targetType models.ReportTargetType, targetId int) (int, error) {
+	ret := _mock.Called(ctx, targetType, targetId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CountOpenReports")
+	}
+
+	var r0 int
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.ReportTargetType, int) (int, error)); ok {
+		return returnFunc(ctx, targetType, targetId)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.ReportTargetType, int) int); ok {
+		r0 = returnFunc(ctx, targetType, targetId)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.ReportTargetType, int) error); ok {
+		r1 = returnFunc(ctx, targetType, targetId)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockReportsRepository_CountOpenReports_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountOpenReports'
+type MockReportsRepository_CountOpenReports_Call struct {
+	*mock.Call
+}
+
+// CountOpenReports is a helper method to define mock.On call
+//   - ctx context.Context
+//   - targetType models.ReportTargetType
+//   - targetId int
+func (_e *MockReportsRepository_Expecter) CountOpenReports(ctx any, targetType any, targetId any) *MockReportsRepository_CountOpenReports_Call {
+	return &MockReportsRepository_CountOpenReports_Call{Call: _e.mock.On("CountOpenReports", ctx, targetType, targetId)}
+}
+
+func (_c *MockReportsRepository_CountOpenReports_Call) Run(run func(ctx context.Context, targetType models.ReportTargetType, targetId int)) *MockReportsRepository_CountOpenReports_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 models.ReportTargetType
+		if args[1] != nil {
+			arg1 = args[1].(models.ReportTargetType)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockReportsRepository_CountOpenReports_Call) Return(n int, err error) *MockReportsRepository_CountOpenReports_Call {
+	_c.Call.Return(n, err)
+	return _c
+}
+
+func (_c *MockReportsRepository_CountOpenReports_Call) RunAndReturn(run func(ctx context.Context, targetType models.ReportTargetType, targetId int) (int, error)) *MockReportsRepository_CountOpenReports_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// CountReportsByReporterSince provides a mock function for the type MockReportsRepository
+func (_mock *MockReportsRepository) CountReportsByReporterSince(ctx context.Context, reporterId int, since time.Time) (int, error) {
+	ret := _mock.Called(ctx, reporterId, since)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CountReportsByReporterSince")
+	}
+
+	var r0 int
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, time.Time) (int, error)); ok {
+		return returnFunc(ctx, reporterId, since)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, time.Time) int); ok {
+		r0 = returnFunc(ctx, reporterId, since)
+	} else {
+		r0 = ret.Get(0).(int)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, time.Time) error); ok {
+		r1 = returnFunc(ctx, reporterId, since)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockReportsRepository_CountReportsByReporterSince_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountReportsByReporterSince'
+type MockReportsRepository_CountReportsByReporterSince_Call struct {
+	*mock.Call
+}
+
+// CountReportsByReporterSince is a helper method to define mock.On call
+//   - ctx context.Context
+//   - reporterId int
+//   - since time.Time
+func (_e *MockReportsRepository_Expecter) CountReportsByReporterSince(ctx any, reporterId any, since any) *MockReportsRepository_CountReportsByReporterSince_Call {
+	return &MockReportsRepository_CountReportsByReporterSince_Call{Call: _e.mock.On("CountReportsByReporterSince", ctx, reporterId, since)}
+}
+
+func (_c *MockReportsRepository_CountReportsByReporterSince_Call) Run(run func(ctx context.Context, reporterId int, since time.Time)) *MockReportsRepository_CountReportsByReporterSince_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 time.Time
+		if args[2] != nil {
+			arg2 = args[2].(time.Time)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockReportsRepository_CountReportsByReporterSince_Call) Return(n int, err error) *MockReportsRepository_CountReportsByReporterSince_Call {
+	_c.Call.Return(n, err)
+	return _c
+}
+
+func (_c *MockReportsRepository_CountReportsByReporterSince_Call) RunAndReturn(run func(ctx context.Context, reporterId int, since time.Time) (int, error)) *MockReportsRepository_CountReportsByReporterSince_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetReportById provides a mock function for the type MockReportsRepository
+func (_mock *MockReportsRepository) GetReportById(ctx context.Context, id int) (models.Report, error) {
+	ret := _mock.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetReportById")
+	}
+
+	var r0 models.Report
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) (models.Report, error)); ok {
+		return returnFunc(ctx, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) models.Report); ok {
+		r0 = returnFunc(ctx, id)
+	} else {
+		r0 = ret.Get(0).(models.Report)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = returnFunc(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockReportsRepository_GetReportById_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetReportById'
+type MockReportsRepository_GetReportById_Call struct {
+	*mock.Call
+}
+
+// GetReportById is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id int
+func (_e *MockReportsRepository_Expecter) GetReportById(ctx any, id any) *MockReportsRepository_GetReportById_Call {
+	return &MockReportsRepository_GetReportById_Call{Call: _e.mock.On("GetReportById", ctx, id)}
+}
+
+func (_c *MockReportsRepository_GetReportById_Call) Run(run func(ctx context.Context, id int)) *MockReportsRepository_GetReportById_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockReportsRepository_GetReportById_Call) Return(report models.Report, err error) *MockReportsRepository_GetReportById_Call {
+	_c.Call.Return(report, err)
+	return _c
+}
+
+func (_c *MockReportsRepository_GetReportById_Call) RunAndReturn(run func(ctx context.Context, id int) (models.Report, error)) *MockReportsRepository_GetReportById_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetReports provides a mock function for the type MockReportsRepository
+func (_mock *MockReportsRepository) GetReports(ctx context.Context, filters models.GetReportsFilters) (models.Page[models.Report], error) {
+	ret := _mock.Called(ctx, filters)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetReports")
+	}
+
+	var r0 models.Page[models.Report]
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetReportsFilters) (models.Page[models.Report], error)); ok {
+		return returnFunc(ctx, filters)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetReportsFilters) models.Page[models.Report]); ok {
+		r0 = returnFunc(ctx, filters)
+	} else {
+		r0 = ret.Get(0).(models.Page[models.Report])
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.GetReportsFilters) error); ok {
+		r1 = returnFunc(ctx, filters)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockReportsRepository_GetReports_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetReports'
+type MockReportsRepository_GetReports_Call struct {
+	*mock.Call
+}
+
+// GetReports is a helper method to define mock.On call
+//   - ctx context.Context
+//   - filters models.GetReportsFilters
+func (_e *MockReportsRepository_Expecter) GetReports(ctx any, filters any) *MockReportsRepository_GetReports_Call {
+	return &MockReportsRepository_GetReports_Call{Call: _e.mock.On("GetReports", ctx, filters)}
+}
+
+func (_c *MockReportsRepository_GetReports_Call) Run(run func(ctx context.Context, filters models.GetReportsFilters)) *MockReportsRepository_GetReports_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 models.GetReportsFilters
+		if args[1] != nil {
+			arg1 = args[1].(models.GetReportsFilters)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockReportsRepository_GetReports_Call) Return(page models.Page[models.Report], err error) *MockReportsRepository_GetReports_Call {
+	_c.Call.Return(page, err)
+	return _c
+}
+
+func (_c *MockReportsRepository_GetReports_Call) RunAndReturn(run func(ctx context.Context, filters models.GetReportsFilters) (models.Page[models.Report], error)) *MockReportsRepository_GetReports_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ResolveReport provides a mock function for the type MockReportsRepository
+func (_mock *MockReportsRepository) ResolveReport(ctx context.Context, id int, status models.ReportStatus, resolvedBy int) error {
+	ret := _mock.Called(ctx, id, status, resolvedBy)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ResolveReport")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, models.ReportStatus, int) error); ok {
+		r0 = returnFunc(ctx, id, status, resolvedBy)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockReportsRepository_ResolveReport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ResolveReport'
+type MockReportsRepository_ResolveReport_Call struct {
+	*mock.Call
+}
+
+// ResolveReport is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id int
+//   - status models.ReportStatus
+//   - resolvedBy int
+func (_e *MockReportsRepository_Expecter) ResolveReport(ctx any, id any, status any, resolvedBy any) *MockReportsRepository_ResolveReport_Call {
+	return &MockReportsRepository_ResolveReport_Call{Call: _e.mock.On("ResolveReport", ctx, id, status, resolvedBy)}
+}
+
+func (_c *MockReportsRepository_ResolveReport_Call) Run(run func(ctx context.Context, id int, status models.ReportStatus, resolvedBy int)) *MockReportsRepository_ResolveReport_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 models.ReportStatus
+		if args[2] != nil {
+			arg2 = args[2].(models.ReportStatus)
+		}
+		var arg3 int
+		if args[3] != nil {
+			arg3 = args[3].(int)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockReportsRepository_ResolveReport_Call) Return(err error) *MockReportsRepository_ResolveReport_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockReportsRepository_ResolveReport_Call) RunAndReturn(run func(ctx context.Context, id int, status models.ReportStatus, resolvedBy int) error) *MockReportsRepository_ResolveReport_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// NewMockReportsMarksRepository creates a new instance of MockReportsMarksRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+// The first argument is typically a *testing.T value.
+func NewMockReportsMarksRepository(t interface {
+	mock.TestingT
+	Cleanup(func())
+}) *MockReportsMarksRepository {
+	mock := &MockReportsMarksRepository{}
+	mock.Mock.Test(t)
+
+	t.Cleanup(func() { mock.AssertExpectations(t) })
+
+	return mock
+}
+
+// MockReportsMarksRepository is an autogenerated mock type for the ReportsMarksRepository type
+type MockReportsMarksRepository struct {
+	mock.Mock
+}
+
+type MockReportsMarksRepository_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *MockReportsMarksRepository) EXPECT() *MockReportsMarksRepository_Expecter {
+	return &MockReportsMarksRepository_Expecter{mock: &_m.Mock}
+}
+
+// GetMarkBriefs provides a mock function for the type MockReportsMarksRepository
+func (_mock *MockReportsMarksRepository) GetMarkBriefs(ctx context.Context, ids []int) (map[int]models.MarkBrief, error) {
+	ret := _mock.Called(ctx, ids)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMarkBriefs")
+	}
+
+	var r0 map[int]models.MarkBrief
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []int) (map[int]models.MarkBrief, error)); ok {
+		return returnFunc(ctx, ids)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []int) map[int]models.MarkBrief); ok {
+		r0 = returnFunc(ctx, ids)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[int]models.MarkBrief)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, []int) error); ok {
+		r1 = returnFunc(ctx, ids)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockReportsMarksRepository_GetMarkBriefs_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetMarkBriefs'
+type MockReportsMarksRepository_GetMarkBriefs_Call struct {
+	*mock.Call
+}
+
+// GetMarkBriefs is a helper method to define mock.On call
+//   - ctx context.Context
+//   - ids []int
+func (_e *MockReportsMarksRepository_Expecter) GetMarkBriefs(ctx any, ids any) *MockReportsMarksRepository_GetMarkBriefs_Call {
+	return &MockReportsMarksRepository_GetMarkBriefs_Call{Call: _e.mock.On("GetMarkBriefs", ctx, ids)}
+}
+
+func (_c *MockReportsMarksRepository_GetMarkBriefs_Call) Run(run func(ctx context.Context, ids []int)) *MockReportsMarksRepository_GetMarkBriefs_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []int
+		if args[1] != nil {
+			arg1 = args[1].([]int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockReportsMarksRepository_GetMarkBriefs_Call) Return(intToMarkBrief map[int]models.MarkBrief, err error) *MockReportsMarksRepository_GetMarkBriefs_Call {
+	_c.Call.Return(intToMarkBrief, err)
+	return _c
+}
+
+func (_c *MockReportsMarksRepository_GetMarkBriefs_Call) RunAndReturn(run func(ctx context.Context, ids []int) (map[int]models.MarkBrief, error)) *MockReportsMarksRepository_GetMarkBriefs_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetMarkById provides a mock function for the type MockReportsMarksRepository
+func (_mock *MockReportsMarksRepository) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
+	ret := _mock.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetMarkById")
+	}
+
+	var r0 models.Mark
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) (models.Mark, error)); ok {
+		return returnFunc(ctx, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) models.Mark); ok {
+		r0 = returnFunc(ctx, id)
+	} else {
+		r0 = ret.Get(0).(models.Mark)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = returnFunc(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockReportsMarksRepository_GetMarkById_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetMarkById'
+type MockReportsMarksRepository_GetMarkById_Call struct {
+	*mock.Call
+}
+
+// GetMarkById is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id int
+func (_e *MockReportsMarksRepository_Expecter) GetMarkById(ctx any, id any) *MockReportsMarksRepository_GetMarkById_Call {
+	return &MockReportsMarksRepository_GetMarkById_Call{Call: _e.mock.On("GetMarkById", ctx, id)}
+}
+
+func (_c *MockReportsMarksRepository_GetMarkById_Call) Run(run func(ctx context.Context, id int)) *MockReportsMarksRepository_GetMarkById_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockReportsMarksRepository_GetMarkById_Call) Return(mark models.Mark, err error) *MockReportsMarksRepository_GetMarkById_Call {
+	_c.Call.Return(mark, err)
+	return _c
+}
+
+func (_c *MockReportsMarksRepository_GetMarkById_Call) RunAndReturn(run func(ctx context.Context, id int) (models.Mark, error)) *MockReportsMarksRepository_GetMarkById_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// LockMark provides a mock function for the type MockReportsMarksRepository
+func (_mock *MockReportsMarksRepository) LockMark(ctx context.Context, markId int) error {
+	ret := _mock.Called(ctx, markId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LockMark")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) error); ok {
+		r0 = returnFunc(ctx, markId)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockReportsMarksRepository_LockMark_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LockMark'
+type MockReportsMarksRepository_LockMark_Call struct {
+	*mock.Call
+}
+
+// LockMark is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markId int
+func (_e *MockReportsMarksRepository_Expecter) LockMark(ctx any, markId any) *MockReportsMarksRepository_LockMark_Call {
+	return &MockReportsMarksRepository_LockMark_Call{Call: _e.mock.On("LockMark", ctx, markId)}
+}
+
+func (_c *MockReportsMarksRepository_LockMark_Call) Run(run func(ctx context.Context, markId int)) *MockReportsMarksRepository_LockMark_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockReportsMarksRepository_LockMark_Call) Return(err error) *MockReportsMarksRepository_LockMark_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockReportsMarksRepository_LockMark_Call) RunAndReturn(run func(ctx context.Context, markId int) error) *MockReportsMarksRepository_LockMark_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SetMarkHidden provides a mock function for the type MockReportsMarksRepository
+func (_mock *MockReportsMarksRepository) SetMarkHidden(ctx context.Context, markId int, hidden bool) error {
+	ret := _mock.Called(ctx, markId, hidden)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetMarkHidden")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, bool) error); ok {
+		r0 = returnFunc(ctx, markId, hidden)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockReportsMarksRepository_SetMarkHidden_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetMarkHidden'
+type MockReportsMarksRepository_SetMarkHidden_Call struct {
+	*mock.Call
+}
+
+// SetMarkHidden is a helper method to define mock.On call
+//   - ctx context.Context
+//   - markId int
+//   - hidden bool
+func (_e *MockReportsMarksRepository_Expecter) SetMarkHidden(ctx any, markId any, hidden any) *MockReportsMarksRepository_SetMarkHidden_Call {
+	return &MockReportsMarksRepository_SetMarkHidden_Call{Call: _e.mock.On("SetMarkHidden", ctx, markId, hidden)}
+}
+
+func (_c *MockReportsMarksRepository_SetMarkHidden_Call) Run(run func(ctx context.Context, markId int, hidden bool)) *MockReportsMarksRepository_SetMarkHidden_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 bool
+		if args[2] != nil {
+			arg2 = args[2].(bool)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockReportsMarksRepository_SetMarkHidden_Call) Return(err error) *MockReportsMarksRepository_SetMarkHidden_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockReportsMarksRepository_SetMarkHidden_Call) RunAndReturn(run func(ctx context.Context, markId int, hidden bool) error) *MockReportsMarksRepository_SetMarkHidden_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// NewMockReportsChecksRepository creates a new instance of MockReportsChecksRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+// The first argument is typically a *testing.T value.
+func NewMockReportsChecksRepository(t interface {
+	mock.TestingT
+	Cleanup(func())
+}) *MockReportsChecksRepository {
+	mock := &MockReportsChecksRepository{}
+	mock.Mock.Test(t)
+
+	t.Cleanup(func() { mock.AssertExpectations(t) })
+
+	return mock
+}
+
+// MockReportsChecksRepository is an autogenerated mock type for the ReportsChecksRepository type
+type MockReportsChecksRepository struct {
+	mock.Mock
+}
+
+type MockReportsChecksRepository_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *MockReportsChecksRepository) EXPECT() *MockReportsChecksRepository_Expecter {
+	return &MockReportsChecksRepository_Expecter{mock: &_m.Mock}
+}
+
+// GetCheckById provides a mock function for the type MockReportsChecksRepository
+func (_mock *MockReportsChecksRepository) GetCheckById(ctx context.Context, id int) (models.Check, error) {
+	ret := _mock.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetCheckById")
+	}
+
+	var r0 models.Check
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) (models.Check, error)); ok {
+		return returnFunc(ctx, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) models.Check); ok {
+		r0 = returnFunc(ctx, id)
+	} else {
+		r0 = ret.Get(0).(models.Check)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = returnFunc(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockReportsChecksRepository_GetCheckById_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetCheckById'
+type MockReportsChecksRepository_GetCheckById_Call struct {
+	*mock.Call
+}
+
+// GetCheckById is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id int
+func (_e *MockReportsChecksRepository_Expecter) GetCheckById(ctx any, id any) *MockReportsChecksRepository_GetCheckById_Call {
+	return &MockReportsChecksRepository_GetCheckById_Call{Call: _e.mock.On("GetCheckById", ctx, id)}
+}
+
+func (_c *MockReportsChecksRepository_GetCheckById_Call) Run(run func(ctx context.Context, id int)) *MockReportsChecksRepository_GetCheckById_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockReportsChecksRepository_GetCheckById_Call) Return(check models.Check, err error) *MockReportsChecksRepository_GetCheckById_Call {
+	_c.Call.Return(check, err)
+	return _c
+}
+
+func (_c *MockReportsChecksRepository_GetCheckById_Call) RunAndReturn(run func(ctx context.Context, id int) (models.Check, error)) *MockReportsChecksRepository_GetCheckById_Call {
 	_c.Call.Return(run)
 	return _c
 }

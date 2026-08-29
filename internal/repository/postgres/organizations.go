@@ -299,6 +299,7 @@ func (r *OrganizationsRepository) GetOrganizationMarks(ctx context.Context, orgI
 		OrderBy("is_overdue DESC, sla_due_at ASC NULLS LAST, marks.mark_id ASC").
 		Paginate(filters.Pagination)
 	q.ColumnArgs(models.ViewerFromContext(ctx))
+	visibleMarks(ctx, q)
 
 	if len(filters.MarkStatusIds) > 0 {
 		q.Where("mark_status_id IN (?)", filters.MarkStatusIds)

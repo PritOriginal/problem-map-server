@@ -25,9 +25,17 @@ type NotifierOrganizationsRepository interface {
 	GetMemberIDs(ctx context.Context, orgId int) ([]int, error)
 }
 
+// NotifierUsersRepository resolves the moderators (users.role in
+// moderator, admin).
+type NotifierUsersRepository interface {
+	GetUserIDsByRole(ctx context.Context, roles ...models.Role) ([]int, error)
+}
+
 type NotifierRepositories struct {
 	Marks         NotifierMarksRepository
 	Organizations NotifierOrganizationsRepository
+	// Users is needed by HandleMarkHidden (moderators are notified).
+	Users NotifierUsersRepository
 }
 
 // Notifier turns domain events into notifications for their addressees.
@@ -57,6 +65,7 @@ var markStatusNames = map[models.MarkStatusType]string{
 	models.ClosedStatus:       "Закрыта",
 	models.RefutedStatus:      "Опровергнута",
 	models.InProgressStatus:   "В работе",
+	models.DuplicateStatus:    "Дубликат",
 }
 
 func markStatusName(s models.MarkStatusType) string {
@@ -173,6 +182,108 @@ func (uc *Notifier) HandleMarkSLABreached(ctx context.Context, ev events.MarkSLA
 		Title:  "Просрочен срок по метке",
 		Body:   fmt.Sprintf("Срок решения метки #%d истёк %s", ev.MarkID, ev.SLADueAt.Local().Format("02.01.2006 15:04")),
 	})
+}
+
+// HandleMarkHidden notifies the author of the mark and every moderator
+// (users with the moderator or admin role).
+func (uc *Notifier) HandleMarkHidden(ctx context.Context, ev events.MarkHidden) error {
+	const op = "usecase.Notifier.HandleMarkHidden"
+
+	if uc.repos.Users == nil {
+		return fmt.Errorf("%s: users repository is not configured", op)
+	}
+
+	authorID := ev.AuthorID
+	if authorID == 0 {
+		mark, err := uc.repos.Marks.GetMarkById(ctx, ev.MarkID)
+		if err != nil {
+			return mapRepoErr(op, err)
+		}
+		authorID = mark.UserID
+	}
+
+	reason := "скрыта модератором"
+	if ev.ReportsCount > 0 {
+		reason = fmt.Sprintf("скрыта автоматически: %d жалоб", ev.ReportsCount)
+	}
+
+	if _, _, err := uc.notifications.Create(ctx, models.Notification{
+		UserID:  authorID,
+		EventID: ev.EventID,
+		Type:    models.NotificationMarkHidden,
+		MarkID:  null.IntFrom(int64(ev.MarkID)),
+		Title:   "Ваша метка скрыта",
+		Body:    fmt.Sprintf("Метка #%d %s и не показывается другим пользователям", ev.MarkID, reason),
+	}); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	moderators, err := uc.repos.Users.GetUserIDsByRole(ctx, models.RoleModerator, models.RoleAdmin)
+	if err != nil {
+		return mapRepoErr(op, err)
+	}
+	for _, userID := range moderators {
+		if userID == authorID {
+			continue
+		}
+		if _, _, err := uc.notifications.Create(ctx, models.Notification{
+			UserID:  userID,
+			EventID: ev.EventID,
+			Type:    models.NotificationMarkHidden,
+			MarkID:  null.IntFrom(int64(ev.MarkID)),
+			Title:   "Метка скрыта",
+			Body:    fmt.Sprintf("Метка #%d %s", ev.MarkID, reason),
+		}); err != nil {
+			return fmt.Errorf("%s: %w", op, err)
+		}
+	}
+
+	return nil
+}
+
+// HandleMarkMerged notifies the author of the merged mark and the users
+// who followed it (their subscriptions now point at the target mark).
+func (uc *Notifier) HandleMarkMerged(ctx context.Context, ev events.MarkMerged) error {
+	const op = "usecase.Notifier.HandleMarkMerged"
+
+	authorID := ev.AuthorID
+	if authorID == 0 {
+		mark, err := uc.repos.Marks.GetMarkById(ctx, ev.MarkID)
+		if err != nil {
+			return mapRepoErr(op, err)
+		}
+		authorID = mark.UserID
+	}
+
+	body := fmt.Sprintf("Метка #%d объединена с меткой #%d как дубликат", ev.MarkID, ev.TargetMarkID)
+	if _, _, err := uc.notifications.Create(ctx, models.Notification{
+		UserID:  authorID,
+		EventID: ev.EventID,
+		Type:    models.NotificationMarkMerged,
+		MarkID:  null.IntFrom(int64(ev.TargetMarkID)),
+		Title:   "Ваша метка объединена с другой",
+		Body:    body,
+	}); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	for _, userID := range ev.FollowerIDs {
+		if userID == authorID {
+			continue
+		}
+		if _, _, err := uc.notifications.Create(ctx, models.Notification{
+			UserID:  userID,
+			EventID: ev.EventID,
+			Type:    models.NotificationMarkMerged,
+			MarkID:  null.IntFrom(int64(ev.TargetMarkID)),
+			Title:   "Метка объединена с другой",
+			Body:    body + "; ваша подписка перенесена",
+		}); err != nil {
+			return fmt.Errorf("%s: %w", op, err)
+		}
+	}
+
+	return nil
 }
 
 // notifyMembers creates the notification for every member of the
