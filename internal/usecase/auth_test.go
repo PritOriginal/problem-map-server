@@ -142,8 +142,6 @@ func (suite *AuthSuite) TestSignUp() {
 			switch {
 			case errors.Is(tt.getUserByLogin.err, repository.ErrNotFound) && tt.addUser.err == nil:
 				suite.NoError(gotErr)
-			case errors.Is(tt.addUser.err, repository.ErrExists):
-				suite.ErrorIs(gotErr, usecase.ErrConflict)
 			default:
 				assertRepoErr(&suite.Suite, gotErr, tt.addUser.err, tt.getUserByLogin.err)
 			}

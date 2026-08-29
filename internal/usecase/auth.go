@@ -40,7 +40,7 @@ func (uc *Auth) SignUp(ctx context.Context, params SignUpParams) (int64, error) 
 
 	passwordHash, err := passwordUtils.HashPassword(params.Password)
 	if err != nil {
-		return 0, mapRepoErr(op, err)
+		return 0, fmt.Errorf("%s: %w", op, err)
 	}
 
 	user := models.User{
@@ -84,7 +84,7 @@ func (uc *Auth) SignIn(ctx context.Context, login, password string) (string, str
 
 	accessToken, refreshToken, err := uc.generateTokens(user)
 	if err != nil {
-		return "", "", mapRepoErr(op, err)
+		return "", "", fmt.Errorf("%s: %w", op, err)
 	}
 
 	return accessToken, refreshToken, nil
@@ -113,7 +113,7 @@ func (uc *Auth) RefreshTokens(ctx context.Context, refreshToken string) (string,
 
 	accessToken, refreshToken, err := uc.generateTokens(user)
 	if err != nil {
-		return "", "", mapRepoErr(op, err)
+		return "", "", fmt.Errorf("%s: %w", op, err)
 	}
 
 	return accessToken, refreshToken, nil
@@ -129,12 +129,12 @@ func (uc *Auth) generateTokens(user models.User) (string, string, error) {
 
 	accessToken, err := token.CreateToken(uc.authCfg.JWT.Access.ExpiredIn, user.Id, string(role), uc.authCfg.JWT.Access.Key)
 	if err != nil {
-		return "", "", mapRepoErr(op, err)
+		return "", "", fmt.Errorf("%s: %w", op, err)
 	}
 
 	refreshToken, err := token.CreateToken(uc.authCfg.JWT.Refresh.ExpiredIn, user.Id, string(role), uc.authCfg.JWT.Refresh.Key)
 	if err != nil {
-		return "", "", mapRepoErr(op, err)
+		return "", "", fmt.Errorf("%s: %w", op, err)
 	}
 
 	return accessToken, refreshToken, nil
