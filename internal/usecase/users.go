@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
@@ -33,7 +32,7 @@ func (uc *Users) GetUserById(ctx context.Context, id int) (models.User, error) {
 
 	user, err := uc.repos.Users.GetUserById(ctx, id)
 	if err != nil {
-		return user, fmt.Errorf("%s: %w", op, err)
+		return user, mapRepoErr(op, err)
 	}
 
 	return user, nil
@@ -44,7 +43,7 @@ func (uc *Users) GetUsers(ctx context.Context) ([]models.User, error) {
 
 	users, err := uc.repos.Users.GetUsers(ctx)
 	if err != nil {
-		return users, fmt.Errorf("%s: %w", op, err)
+		return users, mapRepoErr(op, err)
 	}
 
 	return users, nil

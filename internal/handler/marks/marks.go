@@ -2,17 +2,13 @@ package marksrest
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log/slog"
-	"strconv"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/repository"
-	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
@@ -100,18 +96,16 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 //	@Router			/marks [get]
 func (h *handler) GetMarks() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		markTypeIdsStr := c.Query("mark_type_ids")
-		markTypeIds, err := handlers.ParseIntArray(markTypeIdsStr)
+		const op = "marksrest.GetMarks"
+
+		markTypeIds, err := handlers.QueryIntArray(c, "mark_type_ids")
 		if err != nil {
-			h.log.Debug("failed parse mark type ids", logger.Err(err))
-			responses.BadRequest(c, "failed parse mark type ids")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
-		markStatusIdsStr := c.Query("mark_status_ids")
-		markStatusIds, err := handlers.ParseIntArray(markStatusIdsStr)
+		markStatusIds, err := handlers.QueryIntArray(c, "mark_status_ids")
 		if err != nil {
-			h.log.Debug("failed parse mark status ids", logger.Err(err))
-			responses.BadRequest(c, "failed parse mark status ids")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -120,8 +114,7 @@ func (h *handler) GetMarks() gin.HandlerFunc {
 			MarkStatusIds: markStatusIds,
 		})
 		if err != nil {
-			h.log.Error("error get marks", logger.Err(err))
-			responses.Internal(c, "error get marks")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -146,22 +139,17 @@ func (h *handler) GetMarks() gin.HandlerFunc {
 //	@Router			/marks/{id} [get]
 func (h *handler) GetMarkById() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
+		const op = "marksrest.GetMarkById"
+
+		id, err := handlers.ParamInt(c, "id")
 		if err != nil {
-			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(c, "failed parse id")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
 		mark, err := h.uc.GetMarkById(c.Request.Context(), id)
 		if err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
-				h.log.Debug("mark not found", slog.Int("id", id))
-				responses.NotFound(c, "mark not found")
-			} else {
-				h.log.Error("error get mark by id", slog.Int("id", id), logger.Err(err))
-				responses.Internal(c, "error get mark by id")
-			}
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -184,17 +172,17 @@ func (h *handler) GetMarkById() gin.HandlerFunc {
 //	@Router			/marks/user/{id} [get]
 func (h *handler) GetMarksByUserId() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userId, err := strconv.Atoi(c.Param("userId"))
+		const op = "marksrest.GetMarksByUserId"
+
+		userId, err := handlers.ParamInt(c, "userId")
 		if err != nil {
-			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(c, "failed parse id")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
 		marks, err := h.uc.GetMarksByUserId(c.Request.Context(), userId)
 		if err != nil {
-			h.log.Error("error get marks by user id", slog.Int("user_id", userId), logger.Err(err))
-			responses.Internal(c, "error get marks by user id")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -224,6 +212,8 @@ func (h *handler) GetMarksByUserId() gin.HandlerFunc {
 //	@Router			/marks [post]
 func (h *handler) AddMark() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		const op = "marksrest.AddMark"
+
 		var req AddMarkRequest
 		if err := c.ShouldBind(&req); err != nil {
 			h.log.Debug("failed binding request", logger.Err(err))
@@ -233,13 +223,7 @@ func (h *handler) AddMark() gin.HandlerFunc {
 
 		photos, err := handlers.ParsePhotos(req.Photos)
 		if err != nil {
-			if errors.Is(err, handlers.ErrInvalidPhoto) {
-				h.log.Debug("invalid photos", logger.Err(err))
-				responses.BadRequest(c, "invalid photos")
-			} else {
-				h.log.Error("error parse photos", logger.Err(err))
-				responses.Internal(c, "error parse photos")
-			}
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -258,8 +242,7 @@ func (h *handler) AddMark() gin.HandlerFunc {
 		}
 		markId, err := h.uc.AddMark(c.Request.Context(), newMark, photos)
 		if err != nil {
-			h.log.Error("error add mark", logger.Err(err))
-			responses.Internal(c, "error add mark")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -288,11 +271,12 @@ func (h *handler) AddMark() gin.HandlerFunc {
 //	@Router			/marks/types [get]
 func (h *handler) GetMarkTypes() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		const op = "marksrest.GetMarkTypes"
+
 		types, err := h.uc.GetMarkTypes(c.Request.Context())
 
 		if err != nil {
-			h.log.Error("error get mark types", logger.Err(err))
-			responses.Internal(c, "error get mark types")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -314,11 +298,12 @@ func (h *handler) GetMarkTypes() gin.HandlerFunc {
 //	@Router			/marks/statuses [get]
 func (h *handler) GetMarkStatuses() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		const op = "marksrest.GetMarkStatuses"
+
 		statuses, err := h.uc.GetMarkStatuses(c.Request.Context())
 
 		if err != nil {
-			h.log.Error("error get mark statuses", logger.Err(err))
-			responses.Internal(c, "error get mark statuses")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -343,6 +328,8 @@ func (h *handler) GetMarkStatuses() gin.HandlerFunc {
 //	@Router			/marks/{id}/status-history [get]
 func (h *handler) GetMarkStatusHistoryByMarkId() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		const op = "marksrest.GetMarkStatusHistoryByMarkId"
+
 		var req GetMarkStatusHistoryByMarkIdRequest
 		if err := c.ShouldBindUri(&req); err != nil {
 			h.log.Debug("failed parse id", logger.Err(err))
@@ -358,8 +345,7 @@ func (h *handler) GetMarkStatusHistoryByMarkId() gin.HandlerFunc {
 
 		historyItems, err := h.uc.GetMarkStatusHistoryByMarkId(c.Request.Context(), req.MarkId, req.WithChecks)
 		if err != nil {
-			h.log.Error("error get mark status history", slog.Int("mark_id", req.MarkId), logger.Err(err))
-			responses.Internal(c, "error get mark status history")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -382,28 +368,23 @@ func (h *handler) GetMarkStatusHistoryByMarkId() gin.HandlerFunc {
 //	@Failure		400	{object}	responses.Response[any]
 //	@Failure		401	{object}	responses.Response[any]
 //	@Failure		403	{object}	responses.Response[any]
+//	@Failure		404	{object}	responses.Response[any]
 //	@Failure		409	{object}	responses.Response[any]
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/marks/{id}/confirm [post]
 func (h *handler) Confirm() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
+		const op = "marksrest.Confirm"
+
+		id, err := handlers.ParamInt(c, "id")
 		if err != nil {
-			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(c, "failed parse id")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
 		newStatusId, err := h.statusUpdater.Confirm(c.Request.Context(), id)
 		if err != nil {
-			switch {
-			case errors.Is(err, usecase.ErrConflict):
-				h.log.Debug("unable to update the mark status", slog.Int("mark_id", id))
-				responses.Conflict(c, "user already exists")
-			default:
-				h.log.Error("error confirm mark", slog.Int("mark_id", id), logger.Err(err))
-				responses.Internal(c, "error confirm mark")
-			}
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -427,28 +408,23 @@ func (h *handler) Confirm() gin.HandlerFunc {
 //	@Failure		400	{object}	responses.Response[any]
 //	@Failure		401	{object}	responses.Response[any]
 //	@Failure		403	{object}	responses.Response[any]
+//	@Failure		404	{object}	responses.Response[any]
 //	@Failure		409	{object}	responses.Response[any]
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/marks/{id}/reject [post]
 func (h *handler) Reject() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
+		const op = "marksrest.Reject"
+
+		id, err := handlers.ParamInt(c, "id")
 		if err != nil {
-			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(c, "failed parse id")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
 		newStatus, err := h.statusUpdater.Reject(c.Request.Context(), id)
 		if err != nil {
-			switch {
-			case errors.Is(err, usecase.ErrConflict):
-				h.log.Debug("unable to update the mark status", slog.Int("mark_id", id))
-				responses.Conflict(c, "user already exists")
-			default:
-				h.log.Error("error confirm mark", slog.Int("mark_id", id), logger.Err(err))
-				responses.Internal(c, "error confirm mark")
-			}
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 

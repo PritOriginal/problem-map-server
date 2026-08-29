@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
@@ -34,7 +33,7 @@ func (uc *Map) GetAdminBoundaries(ctx context.Context, filters models.GetAdminBo
 
 	boundaries, err := uc.repos.Map.GetAdminBoundaries(ctx, filters)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return nil, mapRepoErr(op, err)
 	}
 	return boundaries, nil
 }
@@ -44,7 +43,7 @@ func (uc *Map) GetAdminBoundariesMarksCount(ctx context.Context, filters models.
 
 	boundariesCount, err := uc.repos.Map.GetAdminBoundariesMarksCount(ctx, filters)
 	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+		return nil, mapRepoErr(op, err)
 	}
 	return boundariesCount, nil
 }
@@ -54,7 +53,7 @@ func (uc *Map) GetRegions(ctx context.Context) ([]models.Region, error) {
 
 	regions, err := uc.repos.Map.GetRegions(ctx)
 	if err != nil {
-		return regions, fmt.Errorf("%s: %w", op, err)
+		return regions, mapRepoErr(op, err)
 	}
 	return regions, nil
 }
@@ -64,7 +63,7 @@ func (uc *Map) GetCities(ctx context.Context) ([]models.City, error) {
 
 	cities, err := uc.repos.Map.GetCities(ctx)
 	if err != nil {
-		return cities, fmt.Errorf("%s: %w", op, err)
+		return cities, mapRepoErr(op, err)
 	}
 	return cities, nil
 }
@@ -74,7 +73,7 @@ func (uc *Map) GetDistricts(ctx context.Context) ([]models.District, error) {
 
 	districts, err := uc.repos.Map.GetDistricts(ctx)
 	if err != nil {
-		return districts, fmt.Errorf("%s: %w", op, err)
+		return districts, mapRepoErr(op, err)
 	}
 
 	// var districts []models.District

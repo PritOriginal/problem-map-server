@@ -2,15 +2,11 @@ package checksrest
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log/slog"
-	"strconv"
 
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/repository"
-	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
@@ -59,22 +55,17 @@ func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddlew
 //	@Router			/checks/{id} [get]
 func (h *handler) GetCheckById() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
+		const op = "checksrest.GetCheckById"
+
+		id, err := handlers.ParamInt(c, "id")
 		if err != nil {
-			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(c, "failed parse id")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
 		check, err := h.uc.GetCheckById(c.Request.Context(), id)
 		if err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
-				h.log.Debug("check not found", slog.Int("id", id))
-				responses.NotFound(c, "check not found")
-			} else {
-				h.log.Error("error get check by id", logger.Err(err))
-				responses.Internal(c, "error get check by id")
-			}
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -97,17 +88,17 @@ func (h *handler) GetCheckById() gin.HandlerFunc {
 //	@Router			/checks/mark/{id} [get]
 func (h *handler) GetChecksByMarkId() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		markId, err := strconv.Atoi(c.Param("markId"))
+		const op = "checksrest.GetChecksByMarkId"
+
+		markId, err := handlers.ParamInt(c, "markId")
 		if err != nil {
-			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(c, "failed parse id")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
 		checks, err := h.uc.GetChecksByMarkId(c.Request.Context(), markId)
 		if err != nil {
-			h.log.Error("error get checks by mark id", logger.Err(err))
-			responses.Internal(c, "error get checks by mark id")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -164,17 +155,17 @@ func (h *handler) GetChecksByMarkId() gin.HandlerFunc {
 //	@Router			/checks/user/{id} [get]
 func (h *handler) GetChecksByUserId() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userId, err := strconv.Atoi(c.Param("userId"))
+		const op = "checksrest.GetChecksByUserId"
+
+		userId, err := handlers.ParamInt(c, "userId")
 		if err != nil {
-			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(c, "failed parse id")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
 		checks, err := h.uc.GetChecksByUserId(c.Request.Context(), userId)
 		if err != nil {
-			h.log.Error("error get checks by user id", logger.Err(err))
-			responses.Internal(c, "error get checks by user id")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -195,10 +186,14 @@ func (h *handler) GetChecksByUserId() gin.HandlerFunc {
 //	@Success		201	{object}	responses.Response[checksrest.AddCheckResponse]
 //	@Failure		400	{object}	responses.Response[any]
 //	@Failure		401	{object}	responses.Response[any]
+//	@Failure		404	{object}	responses.Response[any]
+//	@Failure		409	{object}	responses.Response[any]
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/checks [post]
 func (h *handler) AddCheck() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		const op = "checksrest.AddCheck"
+
 		var req AddCheckRequest
 		if err := c.ShouldBind(&req); err != nil {
 			h.log.Debug("failed binding request", logger.Err(err))
@@ -208,13 +203,7 @@ func (h *handler) AddCheck() gin.HandlerFunc {
 
 		photos, err := handlers.ParsePhotos(req.Photos)
 		if err != nil {
-			if errors.Is(err, handlers.ErrInvalidPhoto) {
-				h.log.Debug("invalid photos", logger.Err(err))
-				responses.BadRequest(c, "invalid photos")
-			} else {
-				h.log.Error("error parse photos", logger.Err(err))
-				responses.Internal(c, "error parse photos")
-			}
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -233,18 +222,7 @@ func (h *handler) AddCheck() gin.HandlerFunc {
 		}
 		checkId, err := h.uc.AddCheck(c.Request.Context(), check, photos)
 		if err != nil {
-			switch {
-			case errors.Is(err, usecase.ErrNotFound):
-				h.log.Debug("mark not found", slog.Int("mark_id", req.MarkID))
-				responses.BadRequest(c, "mark not found")
-				return
-			case errors.Is(err, usecase.ErrConflict):
-				h.log.Debug("user has already completed the check", slog.Int("mark_id", req.MarkID), slog.Int("user_id", userId))
-				responses.Conflict(c, "user has already completed the check")
-			default:
-				h.log.Error("error add check", logger.Err(err))
-				responses.Internal(c, "error add check")
-			}
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 

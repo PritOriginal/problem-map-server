@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/PritOriginal/problem-map-server/internal/handler/handlertest"
 	marksrest "github.com/PritOriginal/problem-map-server/internal/handler/marks"
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
@@ -34,7 +34,7 @@ type MarksSuite struct {
 	cacher        *mwcache.MockCacher
 }
 
-func (suite *MarksSuite) SetupSuite() {
+func (suite *MarksSuite) SetupTest() {
 	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
 		Key: []byte("1234"),
 	})
@@ -130,7 +130,7 @@ func (suite *MarksSuite) TestGetMarks() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -168,7 +168,7 @@ func (suite *MarksSuite) TestGetMarkById() {
 			name:           "Err404",
 			id:             "1",
 			wantErrParseId: false,
-			errGetMarkById: repository.ErrNotFound,
+			errGetMarkById: usecase.ErrNotFound,
 			statusCode:     404,
 		},
 	}
@@ -184,7 +184,7 @@ func (suite *MarksSuite) TestGetMarkById() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -231,7 +231,7 @@ func (suite *MarksSuite) TestGetMarksByUserId() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -357,7 +357,7 @@ func (suite *MarksSuite) TestAddMark() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -398,7 +398,7 @@ func (suite *MarksSuite) TestGetMarkTypes() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -439,7 +439,7 @@ func (suite *MarksSuite) TestGetMarkStatuses() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -503,7 +503,7 @@ func (suite *MarksSuite) TestGetMarkStatusHistoryByMarkId() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -584,7 +584,7 @@ func (suite *MarksSuite) TestConfirm() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -638,6 +638,12 @@ func (suite *MarksSuite) TestReject() {
 			statusCode: http.StatusConflict,
 		},
 		{
+			name:       "Err404",
+			id:         "1",
+			errReject:  usecase.ErrNotFound,
+			statusCode: http.StatusNotFound,
+		},
+		{
 			name:       "Err500",
 			id:         "1",
 			errReject:  errors.New(""),
@@ -665,7 +671,7 @@ func (suite *MarksSuite) TestReject() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }

@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
@@ -35,7 +34,7 @@ func (uc *Tasks) GetTasks(ctx context.Context, filters models.GetTasksFilters) (
 
 	tasks, err := uc.repos.Tasks.GetTasks(ctx, filters)
 	if err != nil {
-		return tasks, fmt.Errorf("%s: %w", op, err)
+		return tasks, mapRepoErr(op, err)
 	}
 
 	return tasks, nil
@@ -46,7 +45,7 @@ func (uc *Tasks) GetTaskById(ctx context.Context, id int) (models.Task, error) {
 
 	task, err := uc.repos.Tasks.GetTaskById(ctx, id)
 	if err != nil {
-		return task, fmt.Errorf("%s: %w", op, err)
+		return task, mapRepoErr(op, err)
 	}
 
 	return task, nil
@@ -57,7 +56,7 @@ func (uc *Tasks) GetTasksByUserId(ctx context.Context, userId int, filters model
 
 	tasks, err := uc.repos.Tasks.GetTasksByUserId(ctx, userId, filters)
 	if err != nil {
-		return tasks, fmt.Errorf("%s: %w", op, err)
+		return tasks, mapRepoErr(op, err)
 	}
 
 	return tasks, nil
@@ -68,7 +67,7 @@ func (uc *Tasks) AddTask(ctx context.Context, task models.Task) (int64, error) {
 
 	id, err := uc.repos.Tasks.AddTask(ctx, task)
 	if err != nil {
-		return id, fmt.Errorf("%s: %w", op, err)
+		return id, mapRepoErr(op, err)
 	}
 
 	return id, nil

@@ -11,8 +11,8 @@ import (
 	"time"
 
 	checksrest "github.com/PritOriginal/problem-map-server/internal/handler/checks"
+	"github.com/PritOriginal/problem-map-server/internal/handler/handlertest"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
@@ -29,7 +29,7 @@ type ChecksSuite struct {
 	uc *checksrest.MockChecks
 }
 
-func (suite *ChecksSuite) SetupSuite() {
+func (suite *ChecksSuite) SetupTest() {
 	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
 		Key: []byte("1234"),
 	})
@@ -88,7 +88,7 @@ func (suite *ChecksSuite) TestGetCheckById() {
 			name:            "Err404",
 			id:              "1",
 			wantErrParseId:  false,
-			errGetCheckById: repository.ErrNotFound,
+			errGetCheckById: usecase.ErrNotFound,
 			statusCode:      404,
 		},
 	}
@@ -104,7 +104,7 @@ func (suite *ChecksSuite) TestGetCheckById() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -151,7 +151,7 @@ func (suite *ChecksSuite) TestGetChecksByMarkId() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -198,7 +198,7 @@ func (suite *ChecksSuite) TestGetChecksByUserId() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -234,14 +234,14 @@ func (suite *ChecksSuite) TestAddCheck() {
 			statusCode:      400,
 		},
 		{
-			name: "Err400NotFoundMark",
+			name: "Err404NotFoundMark",
 			req: checksrest.AddCheckRequest{
 				MarkID:  1,
 				Result:  true,
 				Comment: "",
 			},
 			errAddCheck: usecase.ErrNotFound,
-			statusCode:  400,
+			statusCode:  404,
 		},
 		{
 			name: "Err409Conflict",
@@ -311,7 +311,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }

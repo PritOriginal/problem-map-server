@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/PritOriginal/problem-map-server/internal/handler/handlertest"
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/repository"
+	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
@@ -25,7 +26,7 @@ type UsersSuite struct {
 	uc *usersrest.MockUsers
 }
 
-func (suite *UsersSuite) SetupSuite() {
+func (suite *UsersSuite) SetupTest() {
 	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
 		Key: []byte("1234"),
 	})
@@ -87,7 +88,7 @@ func (suite *UsersSuite) TestGetUserById() {
 			name:           "Err404",
 			id:             "1",
 			wantErrParseId: false,
-			errGetUserById: repository.ErrNotFound,
+			errGetUserById: usecase.ErrNotFound,
 			statusCode:     404,
 		},
 		{
@@ -110,7 +111,7 @@ func (suite *UsersSuite) TestGetUserById() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 
 			if tt.statusCode == 200 {
 				var resp responses.Response[map[string]map[string]any]
@@ -142,7 +143,7 @@ func (suite *UsersSuite) TestGetMe() {
 		},
 		{
 			name:           "Err404",
-			errGetUserById: repository.ErrNotFound,
+			errGetUserById: usecase.ErrNotFound,
 			statusCode:     404,
 		},
 		{
@@ -168,7 +169,7 @@ func (suite *UsersSuite) TestGetMe() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 
 			if tt.statusCode == 200 {
 				var resp responses.Response[map[string]map[string]any]
@@ -208,7 +209,7 @@ func (suite *UsersSuite) TestGetUsers() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 
 			if tt.statusCode == 200 {
 				var resp responses.Response[map[string][]map[string]any]

@@ -2,11 +2,11 @@ package usecase_test
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"testing"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/stretchr/testify/mock"
@@ -20,7 +20,7 @@ type UsersSuite struct {
 	usersRepo *usecase.MockUsersRepository
 }
 
-func (suite *UsersSuite) SetupSuite() {
+func (suite *UsersSuite) SetupTest() {
 	suite.log = slogdiscard.NewDiscardLogger()
 	suite.usersRepo = usecase.NewMockUsersRepository(suite.T())
 	suite.uc = usecase.NewUsers(suite.log, usecase.UsersRepositories{
@@ -45,10 +45,17 @@ func (suite *UsersSuite) TestGetUserById() {
 			},
 		},
 		{
-			name: "Err",
+			name: "ErrRepo",
 			getUserById: method[models.User]{
 				data: models.User{},
-				err:  errors.New(""),
+				err:  errRepo,
+			},
+		},
+		{
+			name: "ErrNotFound",
+			getUserById: method[models.User]{
+				data: models.User{},
+				err:  repository.ErrNotFound,
 			},
 		},
 	}
@@ -68,7 +75,7 @@ func (suite *UsersSuite) TestGetUserById() {
 			if tt.getUserById.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getUserById.err)
 			}
 			suite.usersRepo.AssertExpectations(suite.T())
 		})
@@ -91,7 +98,7 @@ func (suite *UsersSuite) TestGetUsers() {
 			name: "Err",
 			getUsers: method[[]models.User]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 	}
@@ -111,7 +118,7 @@ func (suite *UsersSuite) TestGetUsers() {
 			if tt.getUsers.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getUsers.err)
 			}
 			suite.usersRepo.AssertExpectations(suite.T())
 		})

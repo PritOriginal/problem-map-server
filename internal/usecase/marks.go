@@ -2,7 +2,6 @@ package usecase
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log/slog"
 
@@ -56,7 +55,7 @@ func (uc *Marks) GetMarks(ctx context.Context, filters models.GetMarksFilters) (
 
 	marks, err := uc.repos.Marks.GetMarks(ctx, filters)
 	if err != nil {
-		return marks, fmt.Errorf("%s: %w", op, err)
+		return marks, mapRepoErr(op, err)
 	}
 	return marks, nil
 }
@@ -66,7 +65,7 @@ func (uc *Marks) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
 
 	mark, err := uc.repos.Marks.GetMarkById(ctx, id)
 	if err != nil {
-		return mark, fmt.Errorf("%s: %w", op, err)
+		return mark, mapRepoErr(op, err)
 	}
 	return mark, nil
 }
@@ -76,7 +75,7 @@ func (uc *Marks) GetMarksByUserId(ctx context.Context, userId int) ([]models.Mar
 
 	marks, err := uc.repos.Marks.GetMarksByUserId(ctx, userId)
 	if err != nil {
-		return marks, fmt.Errorf("%s: %w", op, err)
+		return marks, mapRepoErr(op, err)
 	}
 	return marks, nil
 }
@@ -118,7 +117,7 @@ func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos []io.Read
 		return nil
 	})
 	if err != nil {
-		return markId, fmt.Errorf("%s: %w", op, err)
+		return markId, mapRepoErr(op, err)
 	}
 
 	return markId, nil
@@ -129,7 +128,7 @@ func (uc *Marks) GetMarkTypes(ctx context.Context) ([]models.MarkType, error) {
 
 	types, err := uc.repos.Marks.GetMarkTypes(ctx)
 	if err != nil {
-		return types, fmt.Errorf("%s: %w", op, err)
+		return types, mapRepoErr(op, err)
 	}
 
 	return types, nil
@@ -140,7 +139,7 @@ func (uc *Marks) GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, erro
 
 	statuses, err := uc.repos.Marks.GetMarkStatuses(ctx)
 	if err != nil {
-		return statuses, fmt.Errorf("%s: %w", op, err)
+		return statuses, mapRepoErr(op, err)
 	}
 
 	return statuses, nil
@@ -151,18 +150,18 @@ func (uc *Marks) GetMarkStatusHistoryByMarkId(ctx context.Context, markId int, w
 
 	historyItems, err := uc.repos.Marks.GetMarkStatusHistoryByMarkId(ctx, markId)
 	if err != nil {
-		return historyItems, fmt.Errorf("%s: %w", op, err)
+		return historyItems, mapRepoErr(op, err)
 	}
 
 	if withChecks {
 		checks, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", op, err)
+			return nil, mapRepoErr(op, err)
 		}
 
 		photosMap, err := uc.repos.Photos.GetPhotosByMarkId(ctx, markId)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", op, err)
+			return nil, mapRepoErr(op, err)
 		}
 
 		for i := range len(checks) {

@@ -2,7 +2,6 @@ package usecase_test
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"testing"
 
@@ -20,7 +19,7 @@ type MapSuite struct {
 	mapRepo *usecase.MockMapRepository
 }
 
-func (suite *MapSuite) SetupSuite() {
+func (suite *MapSuite) SetupTest() {
 	suite.log = slogdiscard.NewDiscardLogger()
 	suite.mapRepo = usecase.NewMockMapRepository(suite.T())
 	suite.uc = usecase.NewMap(suite.log, usecase.MapRepositories{
@@ -48,7 +47,7 @@ func (suite *MapSuite) TestGetAdminBoundaries() {
 			name: "Err",
 			getAdminBoundaries: method[[]models.AdminBoundary]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 	}
@@ -68,7 +67,7 @@ func (suite *MapSuite) TestGetAdminBoundaries() {
 			if tt.getAdminBoundaries.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getAdminBoundaries.err)
 			}
 			suite.mapRepo.AssertExpectations(suite.T())
 		})
@@ -91,7 +90,7 @@ func (suite *MapSuite) TestGetAdminBoundariesMarksCount() {
 			name: "Err",
 			getAdminBoundariesMarksCount: method[[]models.AdminBoundaryMarksCount]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 	}
@@ -111,7 +110,7 @@ func (suite *MapSuite) TestGetAdminBoundariesMarksCount() {
 			if tt.getAdminBoundariesMarksCount.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getAdminBoundariesMarksCount.err)
 			}
 			suite.mapRepo.AssertExpectations(suite.T())
 		})
@@ -134,7 +133,7 @@ func (suite *MapSuite) TestGetRegions() {
 			name: "Err",
 			getRegions: method[[]models.Region]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 	}
@@ -154,7 +153,7 @@ func (suite *MapSuite) TestGetRegions() {
 			if tt.getRegions.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getRegions.err)
 			}
 			suite.mapRepo.AssertExpectations(suite.T())
 		})
@@ -177,7 +176,7 @@ func (suite *MapSuite) TestGetCities() {
 			name: "Err",
 			getCities: method[[]models.City]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 	}
@@ -197,7 +196,7 @@ func (suite *MapSuite) TestGetCities() {
 			if tt.getCities.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getCities.err)
 			}
 			suite.mapRepo.AssertExpectations(suite.T())
 		})
@@ -220,7 +219,7 @@ func (suite *MapSuite) TestGetDistricts() {
 			name: "Err",
 			getDistricts: method[[]models.District]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 	}
@@ -240,7 +239,7 @@ func (suite *MapSuite) TestGetDistricts() {
 			if tt.getDistricts.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getDistricts.err)
 			}
 			suite.mapRepo.AssertExpectations(suite.T())
 		})

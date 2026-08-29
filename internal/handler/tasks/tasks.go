@@ -2,13 +2,10 @@ package tasksrest
 
 import (
 	"context"
-	"errors"
 	"log/slog"
-	"strconv"
 
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
@@ -55,11 +52,11 @@ func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddlew
 //	@Router			/tasks [get]
 func (h *handler) GetTasks() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		statusesStr := c.Query("statuses")
-		statuses, err := handlers.ParseIntArray(statusesStr)
+		const op = "tasksrest.GetTasks"
+
+		statuses, err := handlers.QueryIntArray(c, "statuses")
 		if err != nil {
-			h.log.Debug("failed parse statuses", logger.Err(err))
-			responses.BadRequest(c, "failed parse statuses")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -67,8 +64,7 @@ func (h *handler) GetTasks() gin.HandlerFunc {
 			Statuses: statuses,
 		})
 		if err != nil {
-			h.log.Error("error get tasks", logger.Err(err))
-			responses.Internal(c, "error get tasks")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -92,22 +88,17 @@ func (h *handler) GetTasks() gin.HandlerFunc {
 //	@Router			/tasks/{id} [get]
 func (h *handler) GetTaskById() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
+		const op = "tasksrest.GetTaskById"
+
+		id, err := handlers.ParamInt(c, "id")
 		if err != nil {
-			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(c, "failed parse id")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
 		task, err := h.uc.GetTaskById(c.Request.Context(), id)
 		if err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
-				h.log.Debug("task not found", slog.Int("id", id))
-				responses.NotFound(c, "task not found")
-			} else {
-				h.log.Error("error get task by id", slog.Int("id", id), logger.Err(err))
-				responses.Internal(c, "error get task by id")
-			}
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -130,18 +121,17 @@ func (h *handler) GetTaskById() gin.HandlerFunc {
 //	@Router			/tasks/user/{id} [get]
 func (h *handler) GetTasksByUserId() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userId, err := strconv.Atoi(c.Param("id"))
+		const op = "tasksrest.GetTasksByUserId"
+
+		userId, err := handlers.ParamInt(c, "id")
 		if err != nil {
-			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(c, "failed parse id")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
-		statusesStr := c.Query("statuses")
-		statuses, err := handlers.ParseIntArray(statusesStr)
+		statuses, err := handlers.QueryIntArray(c, "statuses")
 		if err != nil {
-			h.log.Debug("failed parse statuses", logger.Err(err))
-			responses.BadRequest(c, "failed parse statuses")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -149,8 +139,7 @@ func (h *handler) GetTasksByUserId() gin.HandlerFunc {
 			Statuses: statuses,
 		})
 		if err != nil {
-			h.log.Error("error get tasks by user id", slog.Int("user_id", userId), logger.Err(err))
-			responses.Internal(c, "error get tasks by user id")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -177,6 +166,8 @@ func (h *handler) GetTasksByUserId() gin.HandlerFunc {
 //	@Router			/tasks [post]
 func (h *handler) AddTask() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		const op = "tasksrest.AddTask"
+
 		var req AddTaskRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			h.log.Debug("failed binding request", logger.Err(err))
@@ -199,8 +190,7 @@ func (h *handler) AddTask() gin.HandlerFunc {
 
 		taskId, err := h.uc.AddTask(c.Request.Context(), task)
 		if err != nil {
-			h.log.Error("failed add task", logger.Err(err))
-			responses.Internal(c, "failed add task")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 

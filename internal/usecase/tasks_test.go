@@ -2,11 +2,11 @@ package usecase_test
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"testing"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/stretchr/testify/mock"
@@ -20,7 +20,7 @@ type TasksSuite struct {
 	tasksRepo *usecase.MockTasksRepository
 }
 
-func (suite *TasksSuite) SetupSuite() {
+func (suite *TasksSuite) SetupTest() {
 	suite.log = slogdiscard.NewDiscardLogger()
 	suite.tasksRepo = usecase.NewMockTasksRepository(suite.T())
 	suite.uc = usecase.NewTasks(suite.log, usecase.TasksRepositories{
@@ -48,7 +48,7 @@ func (suite *TasksSuite) TestGetTasks() {
 			name: "Err",
 			getTasks: method[[]models.Task]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 	}
@@ -68,7 +68,7 @@ func (suite *TasksSuite) TestGetTasks() {
 			if tt.getTasks.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getTasks.err)
 			}
 			suite.tasksRepo.AssertExpectations(suite.T())
 		})
@@ -88,10 +88,17 @@ func (suite *TasksSuite) TestGetTaskById() {
 			},
 		},
 		{
-			name: "Err",
+			name: "ErrRepo",
 			getTaskById: method[models.Task]{
 				data: models.Task{},
-				err:  errors.New(""),
+				err:  errRepo,
+			},
+		},
+		{
+			name: "ErrNotFound",
+			getTaskById: method[models.Task]{
+				data: models.Task{},
+				err:  repository.ErrNotFound,
 			},
 		},
 	}
@@ -111,7 +118,7 @@ func (suite *TasksSuite) TestGetTaskById() {
 			if tt.getTaskById.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getTaskById.err)
 			}
 			suite.tasksRepo.AssertExpectations(suite.T())
 		})
@@ -134,7 +141,7 @@ func (suite *TasksSuite) TestGetTasksByUserId() {
 			name: "Err",
 			getTasksByUserId: method[[]models.Task]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 	}
@@ -154,7 +161,7 @@ func (suite *TasksSuite) TestGetTasksByUserId() {
 			if tt.getTasksByUserId.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getTasksByUserId.err)
 			}
 			suite.tasksRepo.AssertExpectations(suite.T())
 		})
@@ -174,10 +181,17 @@ func (suite *TasksSuite) TestAddTask() {
 			},
 		},
 		{
-			name: "Err",
+			name: "ErrRepo",
 			addTask: method[int64]{
 				data: int64(0),
-				err:  errors.New(""),
+				err:  errRepo,
+			},
+		},
+		{
+			name: "ErrConflict",
+			addTask: method[int64]{
+				data: int64(0),
+				err:  repository.ErrExists,
 			},
 		},
 	}
@@ -197,7 +211,7 @@ func (suite *TasksSuite) TestAddTask() {
 			if tt.addTask.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.addTask.err)
 			}
 			suite.tasksRepo.AssertExpectations(suite.T())
 		})
