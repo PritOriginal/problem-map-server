@@ -209,3 +209,32 @@ func (s *PostgresSuite) TestTasks_UpdateTaskStatus_UnknownTask() {
 	_, err := s.tasks.GetTaskById(s.ctx, 404)
 	s.ErrorIs(err, repository.ErrNotFound)
 }
+
+// selectPage carries the total in every row (COUNT(*) OVER()); an empty
+// page beyond the end still reports the real total via a separate count.
+func (s *PostgresSuite) TestTasks_GetTasks_PageTotals() {
+	unknown := []int{99}
+
+	tests := []struct {
+		name      string
+		filters   models.GetTasksFilters
+		wantLen   int
+		wantTotal int
+	}{
+		{name: "no window", wantLen: 3, wantTotal: 3},
+		{name: "first page", filters: models.GetTasksFilters{Pagination: models.Pagination{Limit: 2}}, wantLen: 2, wantTotal: 3},
+		{name: "last short page", filters: models.GetTasksFilters{Pagination: models.Pagination{Limit: 2, Offset: 2}}, wantLen: 1, wantTotal: 3},
+		{name: "page beyond the end", filters: models.GetTasksFilters{Pagination: models.Pagination{Limit: 2, Offset: 10}}, wantLen: 0, wantTotal: 3},
+		{name: "no match first page", filters: models.GetTasksFilters{Statuses: unknown, Pagination: models.Pagination{Limit: 2}}, wantLen: 0, wantTotal: 0},
+		{name: "no match beyond the end", filters: models.GetTasksFilters{Statuses: unknown, Pagination: models.Pagination{Limit: 2, Offset: 4}}, wantLen: 0, wantTotal: 0},
+	}
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			page, err := s.tasks.GetTasks(s.ctx, tt.filters)
+			s.Require().NoError(err)
+			s.NotNil(page.Items)
+			s.Len(page.Items, tt.wantLen)
+			s.Equal(tt.wantTotal, page.Total)
+		})
+	}
+}

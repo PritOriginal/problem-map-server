@@ -3,11 +3,13 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/jmoiron/sqlx"
+	"github.com/jmoiron/sqlx/reflectx"
 )
 
 // listQuery assembles a SELECT with optional conditions, ordering and a
@@ -65,9 +67,23 @@ func (q *listQuery) where() string {
 
 // selectQuery renders the item query with placeholders rebound to $n.
 func (q *listQuery) selectQuery() (string, []any, error) {
+	return q.render(false)
+}
+
+// pageQuery renders the item query with an extra trailing "total" column:
+// COUNT(*) OVER() is evaluated before LIMIT/OFFSET, so every row carries
+// the number of rows matching the conditions.
+func (q *listQuery) pageQuery() (string, []any, error) {
+	return q.render(true)
+}
+
+func (q *listQuery) render(withTotal bool) (string, []any, error) {
 	var sb strings.Builder
 	sb.WriteString("SELECT ")
 	sb.WriteString(q.columns)
+	if withTotal {
+		sb.WriteString(", COUNT(*) OVER() AS total")
+	}
 	sb.WriteString(" FROM ")
 	sb.WriteString(q.from)
 	sb.WriteString(q.where())
@@ -99,28 +115,28 @@ func bind(query string, args []any) (string, []any, error) {
 	return sqlx.Rebind(sqlx.DOLLAR, query), args, nil
 }
 
-// selectPage runs the item query and, when a window was requested, a
-// separate count over the same conditions. The count is skipped when the
-// page itself proves the total: no window at all, or a non-empty page
-// shorter than the limit (the last one).
+// selectPage runs the item query with the total carried by every row
+// (COUNT(*) OVER()), so a page costs one round trip. Only an empty page
+// beyond the first (offset > 0) carries no rows to read the total from and
+// needs a separate count.
 func selectPage[T any](ctx context.Context, tr trmsqlx.Tr, q *listQuery) (models.Page[T], error) {
 	page := models.Page[T]{Items: []T{}}
 
-	query, args, err := q.selectQuery()
+	query, args, err := q.pageQuery()
 	if err != nil {
 		return page, err
 	}
-	if err := tr.SelectContext(ctx, &page.Items, query, args...); err != nil {
+
+	total, err := scanPage(ctx, tr, query, args, &page.Items)
+	if err != nil {
 		return page, err
 	}
 
-	n := len(page.Items)
 	switch {
-	case q.page.Limit == 0:
-		page.Total = n
+	case len(page.Items) > 0:
+		page.Total = total
 		return page, nil
-	case n < q.page.Limit && (n > 0 || q.page.Offset == 0):
-		page.Total = q.page.Offset + n
+	case q.page.Limit == 0 || q.page.Offset == 0:
 		return page, nil
 	}
 
@@ -132,4 +148,49 @@ func selectPage[T any](ctx context.Context, tr trmsqlx.Tr, q *listQuery) (models
 		return page, err
 	}
 	return page, nil
+}
+
+// scanPage scans rows into *items the way sqlx.Rows.StructScan does (db
+// tags, embedded structs, nil pointers allocated), except that the last
+// column, total, goes to the returned int instead of a struct field.
+func scanPage[T any](ctx context.Context, tr trmsqlx.Tr, query string, args []any, items *[]T) (int, error) {
+	rows, err := tr.QueryxContext(ctx, query, args...)
+	if err != nil {
+		return 0, err
+	}
+	defer rows.Close()
+
+	cols, err := rows.Columns()
+	if err != nil {
+		return 0, err
+	}
+	last := len(cols) - 1
+	if last < 1 || cols[last] != "total" {
+		return 0, fmt.Errorf("scanPage: total column missing in %q", query)
+	}
+
+	itemType := reflect.TypeFor[T]()
+	traversals := rows.Mapper.TraversalsByName(itemType, cols[:last])
+	for i, t := range traversals {
+		if len(t) == 0 {
+			return 0, fmt.Errorf("scanPage: missing destination name %s in %s", cols[i], itemType)
+		}
+	}
+
+	var total int
+	dest := make([]any, len(cols))
+	dest[last] = &total
+	for rows.Next() {
+		var item T
+		v := reflect.ValueOf(&item).Elem()
+		for i, t := range traversals {
+			dest[i] = reflectx.FieldByIndexes(v, t).Addr().Interface()
+		}
+		if err := rows.Scan(dest...); err != nil {
+			return 0, err
+		}
+		*items = append(*items, item)
+	}
+
+	return total, rows.Err()
 }
