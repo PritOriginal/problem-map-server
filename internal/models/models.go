@@ -340,8 +340,3 @@ func (c *Check) ToProtobufObject() *pb.Check {
 		UpdatedAt: timestamppb.New(c.UpdatedAt),
 	}
 }
-
-type GroupedChecksByMarkStatusHistoryId struct {
-	MarkStatusHistoryId int     `json:"mark_status_history_id"`
-	Сhecks              []Check `json:"checks"`
-}

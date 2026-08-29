@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"maps"
 	"slices"
 	"time"
 
@@ -239,50 +238,6 @@ func (uc *Checks) ListChecksByMarkId(ctx context.Context, markId int, p models.P
 	}
 
 	return page, nil
-}
-
-func (uc *Checks) GetGroupedChecksByMarkStatusHistoryId(ctx context.Context, markId int) ([]models.GroupedChecksByMarkStatusHistoryId, error) {
-	const op = "usecase.Checks.GetGroupedChecksByMarkStatusHistoryId"
-
-	page, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId, models.Pagination{})
-	if err != nil {
-		return nil, mapRepoErr(op, err)
-	}
-	checks := page.Items
-
-	photosMap, err := uc.repos.Photos.GetPhotosByMarkId(ctx, markId)
-	if err != nil {
-		return nil, mapRepoErr(op, err)
-	}
-
-	for i := range len(checks) {
-		checks[i].Photos = photosMap[markId][checks[i].ID]
-	}
-
-	groupedChecks := uc.groupChecks(checks)
-
-	return groupedChecks, nil
-}
-
-func (uc *Checks) groupChecks(checks []models.Check) []models.GroupedChecksByMarkStatusHistoryId {
-	groupedChecksMap := make(map[int][]models.Check, 0)
-	for _, check := range checks {
-		historyItemId := check.MarkStatusHistoryItemId
-		groupedChecksMap[historyItemId] = append(groupedChecksMap[historyItemId], check)
-	}
-
-	keys := slices.Collect(maps.Keys(groupedChecksMap))
-	slices.Sort(keys)
-
-	groupedChecks := make([]models.GroupedChecksByMarkStatusHistoryId, 0, len(groupedChecksMap))
-	for _, k := range keys {
-		groupedChecks = append(groupedChecks, models.GroupedChecksByMarkStatusHistoryId{
-			MarkStatusHistoryId: k,
-			Сhecks:              groupedChecksMap[k],
-		})
-	}
-
-	return groupedChecks
 }
 
 // ListChecksByUserId returns a page of the user's checks (with photos) and the total count.

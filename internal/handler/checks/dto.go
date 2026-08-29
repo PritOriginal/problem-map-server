@@ -14,10 +14,6 @@ type GetChecksByMarkIdResponse struct {
 	Checks []models.Check `json:"checks"`
 }
 
-type GetGroupedChecksByMarkStatusHistoryIdResponse struct {
-	GroupedChecks []models.GroupedChecksByMarkStatusHistoryId `json:"groups"`
-}
-
 type GetChecksByUserIdResponse struct {
 	Checks []models.Check `json:"checks"`
 }
