@@ -99,7 +99,7 @@ func (s *PostgresSuite) TestAnalytics_GetKPI_ClosedAndRefuted() {
 	s.Require().NoError(s.marks.UpdateMarkStatus(s.ctx, fxMarkInside, models.ClosedStatus))
 	s.Require().NoError(s.marks.UpdateMarkStatus(s.ctx, fxMarkFar, models.RefutedStatus))
 	s.Require().NoError(s.marks.UpdateMarkStatus(s.ctx, fxMarkNear, models.ConfirmedStatus))
-	const backdate = `UPDATE mark_status_history SET changed_at = $1::timestamp - $2::interval
+	const backdate = `UPDATE mark_status_history SET changed_at = $1::timestamptz - $2::interval
 		WHERE mark_id = $3 AND new_mark_status_id = $4`
 	_, err := s.db.ExecContext(s.ctx, backdate, s.seedNow, "7 days", fxMarkInside, models.ClosedStatus)
 	s.Require().NoError(err)

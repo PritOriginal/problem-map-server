@@ -184,8 +184,8 @@ func (_c *MockMarks_GetMarkById_Call) RunAndReturn(run func(ctx context.Context,
 }
 
 // GetMarkStatuses provides a mock function for the type MockMarks
-func (_mock *MockMarks) GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error) {
-	ret := _mock.Called(ctx)
+func (_mock *MockMarks) GetMarkStatuses(ctx context.Context, lang models.Lang) ([]models.MarkStatus, error) {
+	ret := _mock.Called(ctx, lang)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetMarkStatuses")
@@ -193,18 +193,18 @@ func (_mock *MockMarks) GetMarkStatuses(ctx context.Context) ([]models.MarkStatu
 
 	var r0 []models.MarkStatus
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]models.MarkStatus, error)); ok {
-		return returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Lang) ([]models.MarkStatus, error)); ok {
+		return returnFunc(ctx, lang)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) []models.MarkStatus); ok {
-		r0 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Lang) []models.MarkStatus); ok {
+		r0 = returnFunc(ctx, lang)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]models.MarkStatus)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.Lang) error); ok {
+		r1 = returnFunc(ctx, lang)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -218,18 +218,24 @@ type MockMarks_GetMarkStatuses_Call struct {
 
 // GetMarkStatuses is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockMarks_Expecter) GetMarkStatuses(ctx any) *MockMarks_GetMarkStatuses_Call {
-	return &MockMarks_GetMarkStatuses_Call{Call: _e.mock.On("GetMarkStatuses", ctx)}
+//   - lang models.Lang
+func (_e *MockMarks_Expecter) GetMarkStatuses(ctx any, lang any) *MockMarks_GetMarkStatuses_Call {
+	return &MockMarks_GetMarkStatuses_Call{Call: _e.mock.On("GetMarkStatuses", ctx, lang)}
 }
 
-func (_c *MockMarks_GetMarkStatuses_Call) Run(run func(ctx context.Context)) *MockMarks_GetMarkStatuses_Call {
+func (_c *MockMarks_GetMarkStatuses_Call) Run(run func(ctx context.Context, lang models.Lang)) *MockMarks_GetMarkStatuses_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
+		var arg1 models.Lang
+		if args[1] != nil {
+			arg1 = args[1].(models.Lang)
+		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -240,14 +246,14 @@ func (_c *MockMarks_GetMarkStatuses_Call) Return(markStatuss []models.MarkStatus
 	return _c
 }
 
-func (_c *MockMarks_GetMarkStatuses_Call) RunAndReturn(run func(ctx context.Context) ([]models.MarkStatus, error)) *MockMarks_GetMarkStatuses_Call {
+func (_c *MockMarks_GetMarkStatuses_Call) RunAndReturn(run func(ctx context.Context, lang models.Lang) ([]models.MarkStatus, error)) *MockMarks_GetMarkStatuses_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetMarkTypes provides a mock function for the type MockMarks
-func (_mock *MockMarks) GetMarkTypes(ctx context.Context) ([]models.MarkType, error) {
-	ret := _mock.Called(ctx)
+func (_mock *MockMarks) GetMarkTypes(ctx context.Context, lang models.Lang) ([]models.MarkType, error) {
+	ret := _mock.Called(ctx, lang)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetMarkTypes")
@@ -255,18 +261,18 @@ func (_mock *MockMarks) GetMarkTypes(ctx context.Context) ([]models.MarkType, er
 
 	var r0 []models.MarkType
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]models.MarkType, error)); ok {
-		return returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Lang) ([]models.MarkType, error)); ok {
+		return returnFunc(ctx, lang)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context) []models.MarkType); ok {
-		r0 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Lang) []models.MarkType); ok {
+		r0 = returnFunc(ctx, lang)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]models.MarkType)
 		}
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
-		r1 = returnFunc(ctx)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.Lang) error); ok {
+		r1 = returnFunc(ctx, lang)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -280,18 +286,24 @@ type MockMarks_GetMarkTypes_Call struct {
 
 // GetMarkTypes is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockMarks_Expecter) GetMarkTypes(ctx any) *MockMarks_GetMarkTypes_Call {
-	return &MockMarks_GetMarkTypes_Call{Call: _e.mock.On("GetMarkTypes", ctx)}
+//   - lang models.Lang
+func (_e *MockMarks_Expecter) GetMarkTypes(ctx any, lang any) *MockMarks_GetMarkTypes_Call {
+	return &MockMarks_GetMarkTypes_Call{Call: _e.mock.On("GetMarkTypes", ctx, lang)}
 }
 
-func (_c *MockMarks_GetMarkTypes_Call) Run(run func(ctx context.Context)) *MockMarks_GetMarkTypes_Call {
+func (_c *MockMarks_GetMarkTypes_Call) Run(run func(ctx context.Context, lang models.Lang)) *MockMarks_GetMarkTypes_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
 			arg0 = args[0].(context.Context)
 		}
+		var arg1 models.Lang
+		if args[1] != nil {
+			arg1 = args[1].(models.Lang)
+		}
 		run(
 			arg0,
+			arg1,
 		)
 	})
 	return _c
@@ -302,7 +314,7 @@ func (_c *MockMarks_GetMarkTypes_Call) Return(markTypes []models.MarkType, err e
 	return _c
 }
 
-func (_c *MockMarks_GetMarkTypes_Call) RunAndReturn(run func(ctx context.Context) ([]models.MarkType, error)) *MockMarks_GetMarkTypes_Call {
+func (_c *MockMarks_GetMarkTypes_Call) RunAndReturn(run func(ctx context.Context, lang models.Lang) ([]models.MarkType, error)) *MockMarks_GetMarkTypes_Call {
 	_c.Call.Return(run)
 	return _c
 }

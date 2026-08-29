@@ -227,39 +227,105 @@ func (s *PostgresSuite) TestMarks_AddMark() {
 }
 
 func (s *PostgresSuite) TestMarks_GetMarkTypes() {
-	types, err := s.marks.GetMarkTypes(s.ctx)
-	s.Require().NoError(err)
-	s.Require().Len(types, 4)
-
-	names := make([]string, 0, len(types))
-	for i, t := range types {
-		names = append(names, t.Name)
-		s.NotZero(t.ID)
-		if i > 0 {
-			s.LessOrEqual(types[i-1].Name, t.Name, "types must be ordered by name")
-		}
+	tests := []struct {
+		name string
+		lang models.Lang
+		// byCode maps the code to the expected localised name.
+		byCode map[string]string
+	}{
+		{
+			name: "ru",
+			lang: models.LangRU,
+			byCode: map[string]string{
+				"garbage": "Мусор", "green_zones": "Зелёные зоны и парки",
+				"lighting": "Освещение", "visual_defects": "Информационные и визуальные дефекты",
+			},
+		},
+		{
+			// visual_defects has no English translation and falls back to Russian.
+			name: "en with fallback",
+			lang: models.LangEN,
+			byCode: map[string]string{
+				"garbage": "Garbage", "green_zones": "Green zones and parks",
+				"lighting": "Lighting", "visual_defects": "Информационные и визуальные дефекты",
+			},
+		},
 	}
-	s.ElementsMatch([]string{"Мусор", "Зелёные зоны и парки", "Освещение", "Информационные и визуальные дефекты"}, names)
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			types, err := s.marks.GetMarkTypes(s.ctx, tt.lang)
+			s.Require().NoError(err)
+			s.Require().Len(types, 4)
+
+			got := make(map[string]string, len(types))
+			for i, t := range types {
+				got[t.Code] = t.Name
+				s.NotZero(t.ID)
+				if i > 0 {
+					s.LessOrEqual(types[i-1].Name, t.Name, "types must be ordered by the localised name")
+				}
+			}
+			s.Equal(tt.byCode, got)
+		})
+	}
 }
 
 func (s *PostgresSuite) TestMarks_GetMarkStatuses() {
-	statuses, err := s.marks.GetMarkStatuses(s.ctx)
-	s.Require().NoError(err)
-	s.Require().Len(statuses, 6)
-
-	byID := make(map[int]models.MarkStatus, len(statuses))
-	for i, st := range statuses {
-		byID[st.ID] = st
-		if i > 0 {
-			s.Less(statuses[i-1].ID, st.ID, "statuses must be ordered by id")
-		}
+	tests := []struct {
+		name string
+		lang models.Lang
+		want map[models.MarkStatusType]models.MarkStatus
+	}{
+		{
+			name: "ru",
+			lang: models.LangRU,
+			want: map[models.MarkStatusType]models.MarkStatus{
+				models.UnconfirmedStatus:  {Code: "unconfirmed", Name: "Неподтверждённая"},
+				models.ConfirmedStatus:    {Code: "confirmed", Name: "Подтверждённая"},
+				models.UnderReviewStatus:  {Code: "under_review", Name: "На проверке"},
+				models.RediscoveredStatus: {Code: "rediscovered", Name: "Переоткрытая"},
+				models.ClosedStatus:       {Code: "closed", Name: "Закрытая"},
+				models.RefutedStatus:      {Code: "refuted", Name: "Опровергнутая"},
+			},
+		},
+		{
+			name: "en",
+			lang: models.LangEN,
+			want: map[models.MarkStatusType]models.MarkStatus{
+				models.UnconfirmedStatus:  {Code: "unconfirmed", Name: "Unconfirmed"},
+				models.ConfirmedStatus:    {Code: "confirmed", Name: "Confirmed"},
+				models.UnderReviewStatus:  {Code: "under_review", Name: "Under review"},
+				models.RediscoveredStatus: {Code: "rediscovered", Name: "Rediscovered"},
+				models.ClosedStatus:       {Code: "closed", Name: "Closed"},
+				models.RefutedStatus:      {Code: "refuted", Name: "Refuted"},
+			},
+		},
 	}
-	s.Equal("Неподтверждённая", byID[int(models.UnconfirmedStatus)].Name)
-	s.Equal("Подтверждённая", byID[int(models.ConfirmedStatus)].Name)
-	s.Equal("На проверке", byID[int(models.UnderReviewStatus)].Name)
-	s.Equal("Переоткрытая", byID[int(models.RediscoveredStatus)].Name)
-	s.Equal("Закрытая", byID[int(models.ClosedStatus)].Name)
-	s.Equal("Опровергнутая", byID[int(models.RefutedStatus)].Name)
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			statuses, err := s.marks.GetMarkStatuses(s.ctx, tt.lang)
+			s.Require().NoError(err)
+			s.Require().Len(statuses, 6)
+
+			for i, st := range statuses {
+				if i > 0 {
+					s.Less(statuses[i-1].ID, st.ID, "statuses must be ordered by id")
+				}
+				want := tt.want[models.MarkStatusType(st.ID)]
+				s.Equal(want.Code, st.Code)
+				s.Equal(want.Name, st.Name)
+			}
+		})
+	}
+
+	statuses, err := s.marks.GetMarkStatuses(s.ctx, models.LangRU)
+	s.Require().NoError(err)
+	byID := make(map[int]models.MarkStatus, len(statuses))
+	for _, st := range statuses {
+		byID[st.ID] = st
+	}
 
 	s.True(byID[int(models.ConfirmedStatus)].ParentId.Valid)
 	s.Equal(int64(models.UnconfirmedStatus), byID[int(models.ConfirmedStatus)].ParentId.Int64)

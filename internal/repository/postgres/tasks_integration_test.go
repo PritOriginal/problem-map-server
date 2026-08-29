@@ -238,3 +238,38 @@ func (s *PostgresSuite) TestTasks_GetTasks_PageTotals() {
 		})
 	}
 }
+
+func (s *PostgresSuite) TestTasks_GetTaskStatuses() {
+	tests := []struct {
+		name string
+		lang models.Lang
+		want []models.TaskStatus
+	}{
+		{
+			name: "ru",
+			lang: models.LangRU,
+			want: []models.TaskStatus{
+				{ID: int(models.UnfulfilledStatus), Code: "issued", Name: "Выдано"},
+				{ID: int(models.CompletedStatus), Code: "completed", Name: "Выполнено"},
+				{ID: int(models.OverdueStatus), Code: "overdue", Name: "Просрочено"},
+			},
+		},
+		{
+			name: "en",
+			lang: models.LangEN,
+			want: []models.TaskStatus{
+				{ID: int(models.UnfulfilledStatus), Code: "issued", Name: "Issued"},
+				{ID: int(models.CompletedStatus), Code: "completed", Name: "Completed"},
+				{ID: int(models.OverdueStatus), Code: "overdue", Name: "Overdue"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			got, err := s.tasks.GetTaskStatuses(s.ctx, tt.lang)
+			s.Require().NoError(err)
+			s.Equal(tt.want, got)
+		})
+	}
+}

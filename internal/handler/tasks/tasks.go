@@ -19,6 +19,7 @@ type Tasks interface {
 	GetTaskById(ctx context.Context, id int) (models.Task, error)
 	ListTasksByUserId(ctx context.Context, userId int, filters models.GetTasksByUserIdFilters) (models.Page[models.Task], error)
 	AddTask(ctx context.Context, task models.Task) (int64, error)
+	GetTaskStatuses(ctx context.Context, lang models.Lang) ([]models.TaskStatus, error)
 }
 
 type handler struct {
@@ -32,6 +33,7 @@ func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddlew
 	tasks := r.Group("/tasks")
 	{
 		tasks.GET("", handler.GetTasks())
+		tasks.GET("statuses", handler.GetTaskStatuses())
 		tasks.GET(":id", handler.GetTaskById())
 		tasks.GET("user/:id", handler.GetTasksByUserId())
 		auth := tasks.Group("", authMiddleware.MiddlewareFunc(),
@@ -207,5 +209,30 @@ func (h *handler) AddTask() gin.HandlerFunc {
 		responses.Created(c, AddTaskResponse{
 			TaskId: int(taskId),
 		})
+	}
+}
+
+// GetTaskStatuses lists all existing task statuses
+//
+//	@Summary		List task statuses
+//	@Description	get task statuses; `name` is localised by the Accept-Language header (ru, en; default ru), `code` is a stable identifier
+//	@Tags			tasks
+//	@Produce		json
+//	@Param			Accept-Language	header		string	false	"response language"	Enums(ru, en)	default(ru)
+//	@Success		200				{object}	responses.Response[tasksrest.GetTaskStatusesResponse]
+//	@Failure		500				{object}	responses.Response[any]
+//	@Router			/tasks/statuses [get]
+func (h *handler) GetTaskStatuses() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "tasksrest.GetTaskStatuses"
+
+		ctx := c.Request.Context()
+		statuses, err := h.uc.GetTaskStatuses(ctx, models.LangFromContext(ctx))
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		responses.OK(c, GetTaskStatusesResponse{TaskStatuses: statuses})
 	}
 }

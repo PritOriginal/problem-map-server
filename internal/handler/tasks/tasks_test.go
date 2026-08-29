@@ -10,9 +10,11 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/handler/handlertest"
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/lang"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
+	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
 	jwt "github.com/appleboy/gin-jwt/v3"
 	"github.com/gin-gonic/gin"
@@ -43,6 +45,7 @@ func (suite *TasksSuite) SetupTest() {
 
 	gin.SetMode(gin.TestMode)
 	suite.r = gin.New()
+	suite.r.Use(lang.New())
 
 	tasksrest.Register(suite.r, log, authMiddleware, suite.uc)
 }
@@ -370,6 +373,61 @@ func (suite *TasksSuite) TestAddTask() {
 			suite.r.ServeHTTP(w, req)
 
 			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+		})
+	}
+}
+
+func (suite *TasksSuite) TestGetTaskStatuses() {
+	tests := []struct {
+		name           string
+		acceptLanguage string
+		wantLang       models.Lang
+		statuses       []models.TaskStatus
+		err            error
+		statusCode     int
+		wantBody       string
+	}{
+		{
+			name:       "Ok200DefaultRU",
+			wantLang:   models.LangRU,
+			statuses:   []models.TaskStatus{{ID: 1, Code: "issued", Name: "Выдано"}},
+			statusCode: 200,
+			wantBody:   `{"task_statuses":[{"id":1,"code":"issued","name":"Выдано"}]}`,
+		},
+		{
+			name:           "Ok200EN",
+			acceptLanguage: "en-GB",
+			wantLang:       models.LangEN,
+			statuses:       []models.TaskStatus{{ID: 1, Code: "issued", Name: "Issued"}},
+			statusCode:     200,
+			wantBody:       `{"task_statuses":[{"id":1,"code":"issued","name":"Issued"}]}`,
+		},
+		{
+			name:       "Err500",
+			wantLang:   models.LangRU,
+			err:        errors.New(""),
+			statusCode: 500,
+		},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			suite.uc.On("GetTaskStatuses", mock.Anything, tt.wantLang).Once().
+				Return(tt.statuses, tt.err)
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/tasks/statuses", nil)
+			if tt.acceptLanguage != "" {
+				req.Header.Set("Accept-Language", tt.acceptLanguage)
+			}
+
+			suite.r.ServeHTTP(w, req)
+
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+			if tt.wantBody != "" {
+				var resp responses.Response[json.RawMessage]
+				suite.Require().NoError(json.Unmarshal(w.Body.Bytes(), &resp))
+				suite.JSONEq(tt.wantBody, string(resp.Payload))
+			}
 		})
 	}
 }

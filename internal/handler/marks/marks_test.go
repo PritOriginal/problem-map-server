@@ -19,6 +19,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/handler/handlertest"
 	marksrest "github.com/PritOriginal/problem-map-server/internal/handler/marks"
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/lang"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
@@ -61,6 +62,7 @@ func (suite *MarksSuite) SetupTest() {
 
 	gin.SetMode(gin.TestMode)
 	suite.r = gin.New()
+	suite.r.Use(lang.New())
 
 	marksrest.Register(suite.r, log, marksrest.Params{
 		AuthMiddleware: authMiddleware,
@@ -909,40 +911,74 @@ func ptr[T any](v T) *T { return &v }
 func (suite *MarksSuite) TestGetMarkTypes() {
 	tests := []struct {
 		name            string
+		acceptLanguage  string
+		wantLang        models.Lang
+		types           []models.MarkType
 		errGetMarkTypes error
 		statusCode      int
+		wantBody        string
 	}{
 		{
-			name:            "Ok200",
-			errGetMarkTypes: nil,
-			statusCode:      200,
+			name:       "Ok200DefaultRU",
+			wantLang:   models.LangRU,
+			types:      []models.MarkType{{ID: 1, Code: "garbage", Name: "Мусор"}},
+			statusCode: 200,
+			wantBody:   `{"mark_types":[{"id":1,"mark_type_id":1,"code":"garbage","name":"Мусор"}]}`,
+		},
+		{
+			name:           "Ok200EN",
+			acceptLanguage: "en-US,en;q=0.8,ru;q=0.5",
+			wantLang:       models.LangEN,
+			types:          []models.MarkType{{ID: 1, Code: "garbage", Name: "Garbage"}},
+			statusCode:     200,
+			wantBody:       `{"mark_types":[{"id":1,"mark_type_id":1,"code":"garbage","name":"Garbage"}]}`,
+		},
+		{
+			name:           "Ok200UnsupportedFallsBackToRU",
+			acceptLanguage: "de-DE",
+			wantLang:       models.LangRU,
+			types:          []models.MarkType{},
+			statusCode:     200,
+			wantBody:       `{"mark_types":[]}`,
 		},
 		{
 			name:            "Err500",
+			wantLang:        models.LangRU,
 			errGetMarkTypes: errors.New(""),
 			statusCode:      500,
 		},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
+			cacheKey := mwcache.Key("GET", "/marks/types", tt.wantLang)
 			suite.cacher.
-				On("GetBytes", mock.Anything, mock.AnythingOfType("string")).Once().
+				On("GetBytes", mock.Anything, cacheKey).Once().
 				Return([]byte{}, errors.New(""))
 			if tt.statusCode >= 200 && tt.statusCode < 300 {
 				suite.cacher.
-					On("Set", mock.Anything, mock.AnythingOfType("string"), mock.Anything, mock.Anything).Once().
+					On("Set", mock.Anything, cacheKey, mock.Anything, mock.Anything).Once().
 					Return(nil)
 			}
 
-			suite.uc.On("GetMarkTypes", mock.Anything).Once().
-				Return([]models.MarkType{}, tt.errGetMarkTypes)
+			suite.uc.On("GetMarkTypes", mock.Anything, tt.wantLang).Once().
+				Return(tt.types, tt.errGetMarkTypes)
 
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/marks/types", nil)
+			if tt.acceptLanguage != "" {
+				req.Header.Set("Accept-Language", tt.acceptLanguage)
+			}
 
 			suite.r.ServeHTTP(w, req)
 
 			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+			suite.Equal([]string{"Accept-Language"}, w.Header().Values("Vary"))
+			if tt.wantBody != "" {
+				suite.Equal(string(tt.wantLang), w.Header().Get("Content-Language"))
+				var resp responses.Response[json.RawMessage]
+				suite.Require().NoError(json.Unmarshal(w.Body.Bytes(), &resp))
+				suite.JSONEq(tt.wantBody, string(resp.Payload))
+			}
 		})
 	}
 }
@@ -950,40 +986,64 @@ func (suite *MarksSuite) TestGetMarkTypes() {
 func (suite *MarksSuite) TestGetMarkStatuses() {
 	tests := []struct {
 		name               string
+		acceptLanguage     string
+		wantLang           models.Lang
+		statuses           []models.MarkStatus
 		errGetMarkStatuses error
 		statusCode         int
+		wantBody           string
 	}{
 		{
-			name:               "Ok200",
-			errGetMarkStatuses: nil,
-			statusCode:         200,
+			name:       "Ok200DefaultRU",
+			wantLang:   models.LangRU,
+			statuses:   []models.MarkStatus{{ID: 1, Code: "unconfirmed", Name: "Неподтверждённая"}},
+			statusCode: 200,
+			wantBody:   `{"mark_statuses":[{"id":1,"mark_status_id":1,"parent_id":null,"code":"unconfirmed","name":"Неподтверждённая"}]}`,
+		},
+		{
+			name:           "Ok200EN",
+			acceptLanguage: "en",
+			wantLang:       models.LangEN,
+			statuses:       []models.MarkStatus{{ID: 1, Code: "unconfirmed", Name: "Unconfirmed"}},
+			statusCode:     200,
+			wantBody:       `{"mark_statuses":[{"id":1,"mark_status_id":1,"parent_id":null,"code":"unconfirmed","name":"Unconfirmed"}]}`,
 		},
 		{
 			name:               "Err500",
+			wantLang:           models.LangRU,
 			errGetMarkStatuses: errors.New(""),
 			statusCode:         500,
 		},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
+			cacheKey := mwcache.Key("GET", "/marks/statuses", tt.wantLang)
 			suite.cacher.
-				On("GetBytes", mock.Anything, mock.AnythingOfType("string")).Once().
+				On("GetBytes", mock.Anything, cacheKey).Once().
 				Return([]byte{}, errors.New(""))
 			if tt.statusCode >= 200 && tt.statusCode < 300 {
 				suite.cacher.
-					On("Set", mock.Anything, mock.AnythingOfType("string"), mock.Anything, mock.Anything).Once().
+					On("Set", mock.Anything, cacheKey, mock.Anything, mock.Anything).Once().
 					Return(nil)
 			}
 
-			suite.uc.On("GetMarkStatuses", mock.Anything).Once().
-				Return([]models.MarkStatus{}, tt.errGetMarkStatuses)
+			suite.uc.On("GetMarkStatuses", mock.Anything, tt.wantLang).Once().
+				Return(tt.statuses, tt.errGetMarkStatuses)
 
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/marks/statuses", nil)
+			if tt.acceptLanguage != "" {
+				req.Header.Set("Accept-Language", tt.acceptLanguage)
+			}
 
 			suite.r.ServeHTTP(w, req)
 
 			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+			if tt.wantBody != "" {
+				var resp responses.Response[json.RawMessage]
+				suite.Require().NoError(json.Unmarshal(w.Body.Bytes(), &resp))
+				suite.JSONEq(tt.wantBody, string(resp.Payload))
+			}
 		})
 	}
 }

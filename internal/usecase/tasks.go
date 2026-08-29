@@ -16,6 +16,7 @@ type TasksRepository interface {
 	GetTaskByUserIdAndMarkId(ctx context.Context, userId int, markId int, statusId models.TaskStatusType) (models.Task, error)
 	AddTask(ctx context.Context, task models.Task) (int64, error)
 	UpdateTaskStatus(ctx context.Context, taskId int, taskStatusId models.TaskStatusType) error
+	GetTaskStatuses(ctx context.Context, lang models.Lang) ([]models.TaskStatus, error)
 }
 
 type Tasks struct {
@@ -121,4 +122,16 @@ func (uc *Tasks) AddTask(ctx context.Context, task models.Task) (int64, error) {
 	events.PublishEvent(ctx, uc.log, uc.events, events.NewTaskAssigned(int(id), task.UserID, task.MarkID, task.DueAt.Ptr()))
 
 	return id, nil
+}
+
+// GetTaskStatuses lists the task statuses with names localised to lang.
+func (uc *Tasks) GetTaskStatuses(ctx context.Context, lang models.Lang) ([]models.TaskStatus, error) {
+	const op = "usecase.Tasks.GetTaskStatuses"
+
+	statuses, err := uc.repos.Tasks.GetTaskStatuses(ctx, lang)
+	if err != nil {
+		return statuses, mapRepoErr(op, err)
+	}
+
+	return statuses, nil
 }

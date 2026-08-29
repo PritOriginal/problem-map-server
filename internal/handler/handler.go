@@ -6,6 +6,7 @@ import (
 	_ "github.com/PritOriginal/problem-map-server/docs"
 	"github.com/PritOriginal/problem-map-server/internal/handler/health"
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/lang"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/requestid"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
@@ -45,6 +46,7 @@ func GetRouter(log *slog.Logger, env logger.Environment, trustedProxies []string
 	quietPaths := []string{health.PathLive, health.PathReady, metrics.Path}
 
 	r.Use(requestid.New())
+	r.Use(lang.New())
 
 	if env == logger.Local {
 		r.Use(gin.Logger())

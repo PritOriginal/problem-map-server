@@ -32,8 +32,8 @@ type Marks interface {
 	FollowMark(ctx context.Context, userId, markId int) error
 	UnfollowMark(ctx context.Context, userId, markId int) error
 	ListFollowedMarks(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error)
-	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
-	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
+	GetMarkTypes(ctx context.Context, lang models.Lang) ([]models.MarkType, error)
+	GetMarkStatuses(ctx context.Context, lang models.Lang) ([]models.MarkStatus, error)
 	GetMarkStatusHistoryByMarkId(ctx context.Context, markId int, withChecks bool) ([]models.MarkStatusHistoryItem, error)
 }
 
@@ -616,18 +616,20 @@ func (h *handler) GetFollowedMarks() gin.HandlerFunc {
 // GetMarkTypes lists all existing mark types
 //
 //	@Summary		List mark types
-//	@Description	get mark types
+//	@Description	get mark types; `name` is localised by the Accept-Language header (ru, en; default ru), `code` is a stable identifier. `mark_type_id` duplicates `id` and is deprecated
 //	@Tags			marks
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	responses.Response[marksrest.GetMarkTypesResponse]
-//	@Failure		500	{object}	responses.Response[any]
+//	@Param			Accept-Language	header		string	false	"response language"	Enums(ru, en)	default(ru)
+//	@Success		200				{object}	responses.Response[marksrest.GetMarkTypesResponse]
+//	@Failure		500				{object}	responses.Response[any]
 //	@Router			/marks/types [get]
 func (h *handler) GetMarkTypes() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		const op = "marksrest.GetMarkTypes"
 
-		types, err := h.uc.GetMarkTypes(c.Request.Context())
+		ctx := c.Request.Context()
+		types, err := h.uc.GetMarkTypes(ctx, models.LangFromContext(ctx))
 
 		if err != nil {
 			responses.FromError(c, h.log, op, err)
@@ -643,18 +645,20 @@ func (h *handler) GetMarkTypes() gin.HandlerFunc {
 // GetMarkStatuses lists all existing mark statuses
 //
 //	@Summary		List mark statuses
-//	@Description	get mark statuses
+//	@Description	get mark statuses; `name` is localised by the Accept-Language header (ru, en; default ru), `code` is a stable identifier. `mark_status_id` duplicates `id` and is deprecated
 //	@Tags			marks
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	responses.Response[marksrest.GetMarkStatusesResponse]
-//	@Failure		500	{object}	responses.Response[any]
+//	@Param			Accept-Language	header		string	false	"response language"	Enums(ru, en)	default(ru)
+//	@Success		200				{object}	responses.Response[marksrest.GetMarkStatusesResponse]
+//	@Failure		500				{object}	responses.Response[any]
 //	@Router			/marks/statuses [get]
 func (h *handler) GetMarkStatuses() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		const op = "marksrest.GetMarkStatuses"
 
-		statuses, err := h.uc.GetMarkStatuses(c.Request.Context())
+		ctx := c.Request.Context()
+		statuses, err := h.uc.GetMarkStatuses(ctx, models.LangFromContext(ctx))
 
 		if err != nil {
 			responses.FromError(c, h.log, op, err)

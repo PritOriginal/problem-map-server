@@ -55,6 +55,7 @@ type PostgresSuite struct {
 
 	ctx context.Context
 	db  *sqlx.DB
+	dsn string
 	trm *manager.Manager
 
 	users         *postgres.UsersRepository
@@ -94,6 +95,7 @@ func (s *PostgresSuite) SetupSuite() {
 
 	dsn, err := container.ConnectionString(s.ctx, "sslmode=disable")
 	s.Require().NoError(err)
+	s.dsn = dsn
 
 	s.migrateUp(dsn)
 
@@ -149,15 +151,27 @@ func (s *PostgresSuite) truncate() {
 		RESTART IDENTITY CASCADE
 	`)
 	s.Require().NoError(err, "truncate")
+
+	// Mark types are re-seeded with fresh ids, so their translations from the
+	// migration would point at the wrong rows.
+	_, err = s.db.ExecContext(s.ctx, `DELETE FROM translations WHERE entity = 'mark_type'`)
+	s.Require().NoError(err, "truncate mark type translations")
 }
 
 func (s *PostgresSuite) seed() {
 	// Migrations only add types 'Освещение' and 'Информационные и визуальные
 	// дефекты' on top of the base ones from insert.sql, so the full list is
 	// seeded here with deterministic ids.
+	// Type 4 deliberately has no English translation to cover the fallback.
 	_, err := s.db.ExecContext(s.ctx, `
-		INSERT INTO types_marks (name) VALUES
-			('Мусор'), ('Зелёные зоны и парки'), ('Освещение'), ('Информационные и визуальные дефекты');
+		INSERT INTO types_marks (name, code) VALUES
+			('Мусор', 'garbage'), ('Зелёные зоны и парки', 'green_zones'), ('Освещение', 'lighting'),
+			('Информационные и визуальные дефекты', 'visual_defects');
+		INSERT INTO translations (entity, entity_id, lang, name)
+		SELECT 'mark_type', type_mark_id, 'ru', name FROM types_marks;
+		INSERT INTO translations (entity, entity_id, lang, name) VALUES
+			('mark_type', 1, 'en', 'Garbage'), ('mark_type', 2, 'en', 'Green zones and parks'),
+			('mark_type', 3, 'en', 'Lighting');
 	`)
 	s.Require().NoError(err, "seed mark types")
 
@@ -217,15 +231,15 @@ func (s *PostgresSuite) seed() {
 	// one UPDATE per table.
 	_, err = s.db.ExecContext(s.ctx, `
 		UPDATE marks SET
-			created_at = $1::timestamp - CASE mark_id
+			created_at = $1::timestamptz - CASE mark_id
 				WHEN 1 THEN INTERVAL '40 days' WHEN 2 THEN INTERVAL '10 days' ELSE INTERVAL '5 days' END,
-			updated_at = $1::timestamp - CASE mark_id
+			updated_at = $1::timestamptz - CASE mark_id
 				WHEN 1 THEN INTERVAL '40 days' WHEN 2 THEN INTERVAL '8 days' ELSE INTERVAL '4 days' END
 	`, s.seedNow)
 	s.Require().NoError(err, "backdate marks")
 
 	_, err = s.db.ExecContext(s.ctx, `
-		UPDATE mark_status_history SET changed_at = $1::timestamp - CASE id
+		UPDATE mark_status_history SET changed_at = $1::timestamptz - CASE id
 			WHEN 1 THEN INTERVAL '40 days'
 			WHEN 2 THEN INTERVAL '10 days'
 			WHEN 3 THEN INTERVAL '5 days'

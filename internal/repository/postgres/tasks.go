@@ -128,6 +128,26 @@ func (r *TasksRepository) AddTask(ctx context.Context, task models.Task) (int64,
 	return id, nil
 }
 
+// GetTaskStatuses lists the task statuses with names in lang (falling back
+// to the default language, then to the raw name).
+func (r *TasksRepository) GetTaskStatuses(ctx context.Context, lang models.Lang) ([]models.TaskStatus, error) {
+	const op = "storage.postgres.GetTaskStatuses"
+
+	statuses := []models.TaskStatus{}
+
+	query := `SELECT s.status_id, s.code, ` + translatedName("s.name") + `
+		FROM task_statuses s
+		` + translationJoins("task_status", "s.status_id") + `
+		ORDER BY s.status_id`
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &statuses, query, lang, models.DefaultLang); err != nil {
+		return statuses, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return statuses, nil
+}
+
 func (r *TasksRepository) UpdateTaskStatus(ctx context.Context, taskId int, taskStatusId models.TaskStatusType) error {
 	const op = "storage.postgres.UpdateTaskStatus"
 

@@ -282,14 +282,17 @@ func ReadPath(configPath string) (*Config, error) {
 }
 
 // DSN returns a postgres:// connection URL. Credentials are URL-escaped so
-// that reserved characters in the password do not break the DSN.
+// that reserved characters in the password do not break the DSN. The
+// session time zone is pinned to UTC (lib/pq forwards `timezone` as a
+// startup parameter) so that TIMESTAMPTZ values are rendered and
+// date_trunc'ed identically regardless of the server's default.
 func (d DatabaseConfig) DSN() string {
 	u := url.URL{
 		Scheme:   "postgres",
 		User:     url.UserPassword(d.Username, d.Password),
 		Host:     net.JoinHostPort(d.Host, strconv.Itoa(d.Port)),
 		Path:     "/" + d.Name,
-		RawQuery: "sslmode=" + url.QueryEscape(d.SSLMode),
+		RawQuery: "sslmode=" + url.QueryEscape(d.SSLMode) + "&timezone=UTC",
 	}
 
 	return u.String()

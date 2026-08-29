@@ -234,18 +234,23 @@ func (suite *MarksSuite) TestAddMark() {
 func (suite *MarksSuite) TestGetMarkTypes() {
 	tests := []struct {
 		name     string
+		md       metadata.MD
+		wantLang models.Lang
 		err      error
 		wantCode codes.Code
 	}{
-		{name: "Ok", wantCode: codes.OK},
-		{name: "Internal", err: errors.New("boom"), wantCode: codes.Internal},
+		{name: "OkDefaultLang", wantLang: models.LangRU, wantCode: codes.OK},
+		{name: "OkEN", md: metadata.Pairs("accept-language", "en-US,en;q=0.9"), wantLang: models.LangEN, wantCode: codes.OK},
+		{name: "OkUnsupportedLang", md: metadata.Pairs("accept-language", "de"), wantLang: models.LangRU, wantCode: codes.OK},
+		{name: "Internal", wantLang: models.LangRU, err: errors.New("boom"), wantCode: codes.Internal},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			suite.uc.On("GetMarkTypes", mock.Anything).Once().
-				Return([]models.MarkType{{ID: 1, Name: "t"}}, tt.err)
+			suite.uc.On("GetMarkTypes", mock.Anything, tt.wantLang).Once().
+				Return([]models.MarkType{{ID: 1, Code: "garbage", Name: "t"}}, tt.err)
 
-			resp, err := suite.srv.GetMarkTypes(context.Background(), &emptypb.Empty{})
+			ctx := metadata.NewIncomingContext(context.Background(), tt.md)
+			resp, err := suite.srv.GetMarkTypes(ctx, &emptypb.Empty{})
 			suite.Equal(tt.wantCode, status.Code(err))
 			if tt.wantCode == codes.OK {
 				suite.Len(resp.GetTypes(), 1)
@@ -265,8 +270,8 @@ func (suite *MarksSuite) TestGetMarkStatuses() {
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			suite.uc.On("GetMarkStatuses", mock.Anything).Once().
-				Return([]models.MarkStatus{{ID: 1, Name: "s"}}, tt.err)
+			suite.uc.On("GetMarkStatuses", mock.Anything, models.LangRU).Once().
+				Return([]models.MarkStatus{{ID: 1, Code: "unconfirmed", Name: "s"}}, tt.err)
 
 			resp, err := suite.srv.GetMarkStatuses(context.Background(), &emptypb.Empty{})
 			suite.Equal(tt.wantCode, status.Code(err))

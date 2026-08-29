@@ -144,7 +144,14 @@ definitions:
     type: object
   github_com_PritOriginal_problem-map-server_internal_models.MarkStatus:
     properties:
+      code:
+        type: string
+      id:
+        type: integer
       mark_status_id:
+        description: |-
+          LegacyID mirrors ID under the key older clients read; it is filled
+          by MarshalJSON. Deprecated: use ID (`id`).
         type: integer
       name:
         type: string
@@ -188,7 +195,14 @@ definitions:
     - RefutedStatus
   github_com_PritOriginal_problem-map-server_internal_models.MarkType:
     properties:
+      code:
+        type: string
+      id:
+        type: integer
       mark_type_id:
+        description: |-
+          LegacyID mirrors ID under the key older clients read; it is filled
+          by MarshalJSON. Deprecated: use ID (`id`).
         type: integer
       name:
         type: string
@@ -364,6 +378,15 @@ definitions:
         type: string
       user_id:
         type: integer
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.TaskStatus:
+    properties:
+      code:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
     type: object
   github_com_PritOriginal_problem-map-server_internal_models.TaskStatusType:
     enum:
@@ -901,6 +924,17 @@ definitions:
       success:
         type: boolean
     type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_GetTaskStatusesResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_tasks.GetTaskStatusesResponse'
+      success:
+        type: boolean
+    type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_GetTasksByUserIdResponse:
     properties:
       error:
@@ -1339,6 +1373,13 @@ definitions:
     properties:
       task:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Task'
+    type: object
+  internal_handler_tasks.GetTaskStatusesResponse:
+    properties:
+      task_statuses:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.TaskStatus'
+        type: array
     type: object
   internal_handler_tasks.GetTasksByUserIdResponse:
     properties:
@@ -2718,7 +2759,18 @@ paths:
     get:
       consumes:
       - application/json
-      description: get mark statuses
+      description: get mark statuses; `name` is localised by the Accept-Language header
+        (ru, en; default ru), `code` is a stable identifier. `mark_status_id` duplicates
+        `id` and is deprecated
+      parameters:
+      - default: ru
+        description: response language
+        enum:
+        - ru
+        - en
+        in: header
+        name: Accept-Language
+        type: string
       produces:
       - application/json
       responses:
@@ -2737,7 +2789,18 @@ paths:
     get:
       consumes:
       - application/json
-      description: get mark types
+      description: get mark types; `name` is localised by the Accept-Language header
+        (ru, en; default ru), `code` is a stable identifier. `mark_type_id` duplicates
+        `id` and is deprecated
+      parameters:
+      - default: ru
+        description: response language
+        enum:
+        - ru
+        - en
+        in: header
+        name: Accept-Language
+        type: string
       produces:
       - application/json
       responses:
@@ -3040,6 +3103,33 @@ paths:
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       summary: Get task by id
+      tags:
+      - tasks
+  /tasks/statuses:
+    get:
+      description: get task statuses; `name` is localised by the Accept-Language header
+        (ru, en; default ru), `code` is a stable identifier
+      parameters:
+      - default: ru
+        description: response language
+        enum:
+        - ru
+        - en
+        in: header
+        name: Accept-Language
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_GetTaskStatusesResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: List task statuses
       tags:
       - tasks
   /tasks/user/{id}:

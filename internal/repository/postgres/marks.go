@@ -335,30 +335,40 @@ func (r *MarksRepository) GetFollowerIDs(ctx context.Context, markId int) ([]int
 	return ids, nil
 }
 
-func (r *MarksRepository) GetMarkTypes(ctx context.Context) ([]models.MarkType, error) {
+// GetMarkTypes lists the mark types with names in lang (falling back to the
+// default language, then to the raw name), sorted by the localised name.
+func (r *MarksRepository) GetMarkTypes(ctx context.Context, lang models.Lang) ([]models.MarkType, error) {
 	const op = "storage.postgres.GetMarkTypes"
 
 	types := []models.MarkType{}
 
-	query := "SELECT * FROM types_marks ORDER BY name"
+	query := `SELECT t.type_mark_id, t.code, ` + translatedName("t.name") + `
+		FROM types_marks t
+		` + translationJoins("mark_type", "t.type_mark_id") + `
+		ORDER BY name, t.type_mark_id`
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	if err := tr.SelectContext(ctx, &types, query); err != nil {
+	if err := tr.SelectContext(ctx, &types, query, lang, models.DefaultLang); err != nil {
 		return types, fmt.Errorf("%s: %w", op, err)
 	}
 
 	return types, nil
 }
 
-func (r *MarksRepository) GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error) {
-	const op = "storage.postgres.GetMarkTypes"
+// GetMarkStatuses lists the mark statuses with names in lang (falling back
+// to the default language, then to the raw name).
+func (r *MarksRepository) GetMarkStatuses(ctx context.Context, lang models.Lang) ([]models.MarkStatus, error) {
+	const op = "storage.postgres.GetMarkStatuses"
 
 	statuses := []models.MarkStatus{}
 
-	query := "SELECT * FROM mark_statuses ORDER BY mark_status_id"
+	query := `SELECT s.mark_status_id, s.parent_id, s.code, ` + translatedName("s.name") + `
+		FROM mark_statuses s
+		` + translationJoins("mark_status", "s.mark_status_id") + `
+		ORDER BY s.mark_status_id`
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	if err := tr.SelectContext(ctx, &statuses, query); err != nil {
+	if err := tr.SelectContext(ctx, &statuses, query, lang, models.DefaultLang); err != nil {
 		return statuses, fmt.Errorf("%s: %w", op, err)
 	}
 
