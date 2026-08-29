@@ -43,3 +43,13 @@ aws:
   key:
   secret_key:
   endpoint:
+tasker:
+  interval: 15m
+  task-ttl: 72h
+  max-tasks-per-user: 3
+  required-checks: 2
+  target-probability: 0.8
+  max-radius-meters: 5000
+  distance-lambda: 0.05
+  load-delta: 0.3
+  fatigue-beta: 0.2

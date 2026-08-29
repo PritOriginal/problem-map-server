@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
@@ -86,14 +87,22 @@ func (r *TasksRepository) GetTasksByUserId(ctx context.Context, userId int, filt
 	return page, nil
 }
 
-func (r *TasksRepository) GetTaskByUserIdAndMarkId(ctx context.Context, userId int, markId int) (models.Task, error) {
+// GetTaskByUserIdAndMarkId returns the user's task for the mark in the given
+// status. With UnfulfilledStatus that is the single issued task
+// (uq_tasks_issued_user_mark); for other statuses the latest one is returned.
+func (r *TasksRepository) GetTaskByUserIdAndMarkId(ctx context.Context, userId int, markId int, statusId models.TaskStatusType) (models.Task, error) {
 	const op = "storage.postgres.GetTaskByUserIdAndMarkId"
 
 	var task models.Task
 
-	query := "SELECT * FROM tasks WHERE user_id = $1 AND mark_id = $2"
+	query := `
+			SELECT * FROM tasks
+			WHERE user_id = $1 AND mark_id = $2 AND status_id = $3
+			ORDER BY created_at DESC
+			LIMIT 1
+			`
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	if err := tr.GetContext(ctx, &task, query, userId, markId); err != nil {
+	if err := tr.GetContext(ctx, &task, query, userId, markId, statusId); err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 			return task, repository.ErrNotFound
@@ -111,15 +120,15 @@ func (r *TasksRepository) AddTask(ctx context.Context, task models.Task) (int64,
 	var id int64
 
 	query := `
-			INSERT INTO 
-				tasks (name, user_id, mark_id) 
-			VALUES 
-				($1, $2, $3)
+			INSERT INTO
+				tasks (name, user_id, mark_id, due_at)
+			VALUES
+				($1, $2, $3, $4)
 			RETURNING task_id
 			`
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	if err := tr.GetContext(ctx, &id, query, task.Name, task.UserID, task.MarkID); err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
+	if err := tr.GetContext(ctx, &id, query, task.Name, task.UserID, task.MarkID, task.DueAt); err != nil {
+		return 0, fmt.Errorf("%s: %w", op, wrapUniqueViolation(err))
 	}
 
 	return id, nil
@@ -129,9 +138,32 @@ func (r *TasksRepository) UpdateTaskStatus(ctx context.Context, taskId int, task
 	const op = "storage.postgres.UpdateTaskStatus"
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	if _, err := tr.ExecContext(ctx, "UPDATE tasks SET status_id = $1 WHERE task_id = $2", taskStatusId, taskId); err != nil {
+	if _, err := tr.ExecContext(ctx, "UPDATE tasks SET status_id = $1, updated_at = NOW() WHERE task_id = $2", taskStatusId, taskId); err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	return nil
+}
+
+// ExpireOverdueTasks moves every issued task whose due_at is before now to
+// OverdueStatus in a single UPDATE and returns the number of affected rows.
+func (r *TasksRepository) ExpireOverdueTasks(ctx context.Context, now time.Time) (int64, error) {
+	const op = "storage.postgres.ExpireOverdueTasks"
+
+	query := `
+			UPDATE tasks
+			SET status_id = $1, updated_at = NOW()
+			WHERE status_id = $2 AND due_at IS NOT NULL AND due_at < $3
+			`
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	res, err := tr.ExecContext(ctx, query, models.OverdueStatus, models.UnfulfilledStatus, now)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return n, nil
 }

@@ -1960,6 +1960,11 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "due_at": {
+                    "description": "DueAt is the deadline set by the tasker; tasks still issued after it\nare moved to OverdueStatus by Tasker.ExpireOverdue.",
+                    "type": "string",
+                    "format": "date-time"
+                },
                 "mark_id": {
                     "type": "integer"
                 },
@@ -1984,11 +1989,13 @@ const docTemplate = `{
             "type": "integer",
             "enum": [
                 1,
-                2
+                2,
+                3
             ],
             "x-enum-varnames": [
                 "UnfulfilledStatus",
-                "CompletedStatus"
+                "CompletedStatus",
+                "OverdueStatus"
             ]
         },
         "github_com_PritOriginal_problem-map-server_internal_models.User": {

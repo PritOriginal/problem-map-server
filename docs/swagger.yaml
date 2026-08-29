@@ -228,6 +228,12 @@ definitions:
     properties:
       created_at:
         type: string
+      due_at:
+        description: |-
+          DueAt is the deadline set by the tasker; tasks still issued after it
+          are moved to OverdueStatus by Tasker.ExpireOverdue.
+        format: date-time
+        type: string
       mark_id:
         type: integer
       name:
@@ -245,10 +251,12 @@ definitions:
     enum:
     - 1
     - 2
+    - 3
     type: integer
     x-enum-varnames:
     - UnfulfilledStatus
     - CompletedStatus
+    - OverdueStatus
   github_com_PritOriginal_problem-map-server_internal_models.User:
     properties:
       home_point:

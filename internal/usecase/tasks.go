@@ -12,7 +12,7 @@ type TasksRepository interface {
 	GetTasks(ctx context.Context, filters models.GetTasksFilters) (models.Page[models.Task], error)
 	GetTaskById(ctx context.Context, id int) (models.Task, error)
 	GetTasksByUserId(ctx context.Context, userId int, filters models.GetTasksByUserIdFilters) (models.Page[models.Task], error)
-	GetTaskByUserIdAndMarkId(ctx context.Context, userId int, markId int) (models.Task, error)
+	GetTaskByUserIdAndMarkId(ctx context.Context, userId int, markId int, statusId models.TaskStatusType) (models.Task, error)
 	AddTask(ctx context.Context, task models.Task) (int64, error)
 	UpdateTaskStatus(ctx context.Context, taskId int, taskStatusId models.TaskStatusType) error
 }

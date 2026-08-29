@@ -320,7 +320,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 					return
 				}
 
-				suite.tasksRepo.On("GetTaskByUserIdAndMarkId", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int")).Once().
+				suite.tasksRepo.On("GetTaskByUserIdAndMarkId", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int"), models.UnfulfilledStatus).Once().
 					Return(tt.getTask.data, tt.getTask.err)
 				if tt.getTask.err != nil {
 					return

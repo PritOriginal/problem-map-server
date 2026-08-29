@@ -4,501 +4,414 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"maps"
 	"math"
 	"slices"
+	"time"
 
+	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/avito-tech/go-transaction-manager/trm/v2"
+	"github.com/guregu/null/v6"
 )
 
+// TaskerTasksRepository extends TasksRepository with the bulk operations
+// needed by the scheduled tasker job.
+type TaskerTasksRepository interface {
+	TasksRepository
+	// ExpireOverdueTasks moves issued tasks with due_at < now to
+	// models.OverdueStatus and returns how many rows were affected.
+	ExpireOverdueTasks(ctx context.Context, now time.Time) (int64, error)
+}
+
+// TaskerStats summarises a single Tasker.Update run.
+type TaskerStats struct {
+	// Marks is the number of marks that needed verification.
+	Marks int
+	// Users is the number of registered users considered.
+	Users int
+	// Candidates is the number of (user, mark) pairs within the radius that
+	// were free for assignment at the start of the run.
+	Candidates int
+	// Assigned is the number of tasks created by this run.
+	Assigned int
+	// Covered is the number of marks whose coverage probability reached the
+	// target after the run.
+	Covered int
+	// Iterations is the number of assignment rounds performed.
+	Iterations int
+}
+
+// Tasker distributes verification tasks for unconfirmed marks between users.
 type Tasker struct {
 	log       *slog.Logger
+	cfg       config.TaskerConfig
 	trManager trm.Manager
 	repos     TaskerRepositories
+	now       func() time.Time
 }
 
 type TaskerRepositories struct {
-	Tasks TasksRepository
+	Tasks TaskerTasksRepository
 	Marks MarksRepository
 	Users UsersRepository
 }
 
-func NewTaskser(log *slog.Logger, trManager trm.Manager, repos TaskerRepositories) *Tasker {
+func NewTasker(log *slog.Logger, cfg config.TaskerConfig, trManager trm.Manager, repos TaskerRepositories) *Tasker {
 	return &Tasker{
 		log:       log,
+		cfg:       cfg,
 		trManager: trManager,
 		repos:     repos,
+		now:       time.Now,
 	}
 }
 
-func (uc *Tasker) Update(ctx context.Context) error {
+// marksToVerify lists mark statuses for which verification tasks are issued.
+var marksToVerify = []models.MarkStatusType{
+	models.UnconfirmedStatus,
+	models.UnderReviewStatus,
+}
+
+// ExpireOverdue marks every issued task whose deadline has passed as
+// overdue and returns the number of such tasks.
+func (uc *Tasker) ExpireOverdue(ctx context.Context) (int64, error) {
+	const op = "usecase.Tasker.ExpireOverdue"
+
+	n, err := uc.repos.Tasks.ExpireOverdueTasks(ctx, uc.now())
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+	uc.log.Info("overdue tasks expired", slog.String("op", op), slog.Int64("expired", n))
+
+	return n, nil
+}
+
+// Update assigns verification tasks to users for marks that are not yet
+// sufficiently covered and writes them in a single transaction.
+func (uc *Tasker) Update(ctx context.Context) (TaskerStats, error) {
 	const op = "usecase.Tasker.Update"
 
-	uc.log.Debug("start update")
-	marks, err := uc.repos.Marks.GetMarks(ctx, models.GetMarksFilters{
-		MarkStatusIds: []int{
-			int(models.UnconfirmedStatus),
-			int(models.UnderReviewStatus),
-		},
-	})
-	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+	log := uc.log.With(slog.String("op", op))
+	started := uc.now()
+
+	markStatusIds := make([]int, 0, len(marksToVerify))
+	for _, s := range marksToVerify {
+		markStatusIds = append(markStatusIds, int(s))
 	}
-	uc.log.Debug("marks received")
+
+	marks, err := uc.repos.Marks.GetMarks(ctx, models.GetMarksFilters{MarkStatusIds: markStatusIds})
+	if err != nil {
+		return TaskerStats{}, fmt.Errorf("%s: %w", op, err)
+	}
 
 	users, err := uc.repos.Users.GetUsers(ctx, models.Pagination{})
 	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return TaskerStats{}, fmt.Errorf("%s: %w", op, err)
 	}
-	uc.log.Debug("users received")
 
+	// Tasks in every status are needed: issued ones count towards load and
+	// coverage, overdue ones towards fatigue, and any existing task excludes
+	// the (user, mark) pair from re-assignment.
 	tasks, err := uc.repos.Tasks.GetTasks(ctx, models.GetTasksFilters{
 		Statuses: []int{
 			int(models.UnfulfilledStatus),
+			int(models.CompletedStatus),
+			int(models.OverdueStatus),
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return TaskerStats{}, fmt.Errorf("%s: %w", op, err)
 	}
-	uc.log.Debug("tasks received")
 
 	distances, err := uc.repos.Marks.GetDistancesFromMarkToPoint(ctx, models.GetDistanceFromMarkToPointFilters{
-		MarkStatusIds: []models.MarkStatusType{
-			models.UnconfirmedStatus,
-			models.UnderReviewStatus,
-		},
-		MaxRadius: 5000,
+		MarkStatusIds: marksToVerify,
+		MaxRadius:     uc.cfg.MaxRadiusMeters,
 	})
 	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return TaskerStats{}, fmt.Errorf("%s: %w", op, err)
 	}
-	uc.log.Debug("distances received")
 
-	assignments := uc.update(marks.Items, users.Items, tasks.Items, distances)
+	assignments, stats := uc.plan(marks.Items, users.Items, tasks.Items, distances)
+
+	dueAt := null.TimeFrom(uc.now().Add(uc.cfg.TaskTTL))
 
 	// All assignments are written in one transaction so that a failure or a
 	// cancellation (SIGTERM) never leaves a partially written batch.
 	err = uc.trManager.Do(ctx, func(ctx context.Context) error {
-		for markId, users := range assignments {
-			for userId := range users {
-				_, err := uc.repos.Tasks.AddTask(ctx, models.Task{
-					MarkID: markId,
-					UserID: userId,
-				})
-				if err != nil {
-					return err
-				}
+		for _, a := range assignments {
+			if _, err := uc.repos.Tasks.AddTask(ctx, models.Task{
+				MarkID: a.markId,
+				UserID: a.userId,
+				DueAt:  dueAt,
+			}); err != nil {
+				return err
 			}
 		}
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("%s: %w", op, err)
+		return TaskerStats{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return nil
+	// The pass summary is logged by cmd/tasker; this is a trace of the run.
+	log.Debug("tasks assigned",
+		slog.Int("marks", stats.Marks),
+		slog.Int("users", stats.Users),
+		slog.Int("candidates", stats.Candidates),
+		slog.Int("assigned", stats.Assigned),
+		slog.Int("covered", stats.Covered),
+		slog.Int("iterations", stats.Iterations),
+		slog.Duration("duration", uc.now().Sub(started)),
+	)
+
+	return stats, nil
 }
 
-type userWithStats struct {
-	*models.User
-	numAssignedTasks int
+// assignment is a new task planned by Tasker.plan.
+type assignment struct {
+	markId int
+	userId int
 }
 
-// func (uc *Tasker) update(marks []models.Mark, users []models.User, tasks []models.Task, distances []models.DistanceFromMarkToPoint) map[int][]userWithProbability {
-// 	// fmt.Println(marks, users, tasks, distances)
+// userStats is what the probability model knows about a user.
+type userStats struct {
+	rating  int
+	issued  int // tasks currently in UnfulfilledStatus
+	overdue int // tasks in OverdueStatus
+}
 
-// 	marksMap := make(map[int]markWithStats, len(marks))
-// 	for _, mark := range marks {
-// 		marksMap[mark.ID] = markWithStats{
-// 			Mark: &mark,
-// 		}
-// 	}
+// plan chooses which users get a task for which mark.
+//
+// For every mark that is not yet covered (P < TargetProbability) the free
+// user with the highest verification probability is picked; this repeats
+// round by round until every mark is covered or no free candidate is left.
+// Assigning a task raises the user's load, which lowers their probability
+// on other marks, so the coverage of those marks is recomputed on the fly.
+func (uc *Tasker) plan(
+	marks []models.Mark,
+	users []models.User,
+	tasks []models.Task,
+	distances []models.DistanceFromMarkToPoint,
+) ([]assignment, TaskerStats) {
+	stats := TaskerStats{Marks: len(marks), Users: len(users)}
 
-// 	usersMap := make(map[int]userWithStats, len(users))
-// 	for _, user := range users {
-// 		usersMap[user.Id] = userWithStats{
-// 			User: &user,
-// 		}
-// 	}
-
-// 	distancesMap := make(map[int]map[int]float64)
-// 	for _, distance := range distances {
-// 		if _, exist := distancesMap[distance.UserId]; !exist {
-// 			distancesMap[distance.UserId] = make(map[int]float64)
-// 			// distancesMap[distance.UserId] = make(map[int]models.DistanceFromMarkToPoint)
-// 		}
-// 		distancesMap[distance.UserId][distance.MarkId] = distance.Distance
-// 	}
-
-// 	S := make(map[int][]userWithProbability)
-// 	P := make(map[int]float64)
-// 	p := make(map[int]map[int]markWithProbability)
-
-// 	for userId := range distancesMap {
-// 		p[userId] = make(map[int]markWithProbability)
-// 		for markId := range distancesMap[userId] {
-// 			// if _, exist := p[user.Id][mark.ID]; !exist {
-// 			// }
-// 			p[userId][markId] = markWithProbability{
-// 				markId:      markId,
-// 				probability: probabilityVerification(usersMap[userId], distancesMap[userId][markId]),
-// 			}
-// 			// p[userIdx][markIdx] = markWithProbability{
-// 			// 	markId:      mark.ID,
-// 			// 	probability: probabilityVerification(),
-// 			// }
-// 		}
-// 		// sort.Slice(p, func(i, j int) bool {
-// 		// 	return p[userIdx][i].probability < p[userIdx][j].probability
-// 		// })
-// 	}
-
-// 	// tasksMap := make(map[int]models.Task, len(tasks))
-// 	for _, task := range tasks {
-// 		delete(p[task.UserID], task.MarkID)
-// 	}
-
-// 	// for _, user := range users {
-// 	// 	p[user.Id] = make(map[int]markWithProbability)
-// 	// 	for _, mark := range marks {
-// 	// 		// if _, exist := p[user.Id][mark.ID]; !exist {
-// 	// 		// }
-// 	// 		p[user.Id][mark.ID] = markWithProbability{
-// 	// 			markId:      mark.ID,
-// 	// 			probability: probabilityVerification(usersMap[user.Id], mark, distancesMap[user.Id][mark.ID]),
-// 	// 		}
-// 	// 		// p[userIdx][markIdx] = markWithProbability{
-// 	// 		// 	markId:      mark.ID,
-// 	// 		// 	probability: probabilityVerification(),
-// 	// 		// }
-// 	// 	}
-// 	// 	// sort.Slice(p, func(i, j int) bool {
-// 	// 	// 	return p[userIdx][i].probability < p[userIdx][j].probability
-// 	// 	// })
-// 	// }
-
-// 	iter := 1
-// 	for len(marksMap) > 0 && len(p) > 0 {
-// 		for _, mark := range marksMap {
-// 			var bestProb float64
-// 			var bestUserId int
-// 			for userId := range p {
-// 				if p, exist := p[userId][mark.ID]; exist {
-// 					if bestProb < p.probability {
-// 						bestProb = p.probability
-// 						bestUserId = userId
-// 					}
-// 				}
-// 			}
-
-// 			if bestUserId == 0 {
-// 				continue
-// 			}
-
-// 			S[mark.ID] = append(S[mark.ID], userWithProbability{
-// 				userId:      bestUserId,
-// 				probability: bestProb,
-// 			})
-// 			delete(p[bestUserId], mark.ID)
-// 			bestUser := usersMap[bestUserId]
-// 			bestUser.numAssignedTasks++
-// 			usersMap[bestUserId] = bestUser
-// 			if len(p[bestUserId]) == 0 || bestUser.numAssignedTasks >= 3 {
-// 				delete(p, bestUserId)
-// 			}
-
-// 			P[mark.ID] = probabilityVerificationByN(2, S[mark.ID], mark.ID, p)
-
-// 			for markId := range p[bestUserId] {
-// 				p[bestUserId][markId] = markWithProbability{
-// 					markId:      markId,
-// 					probability: probabilityVerification(usersMap[bestUserId], mark, distancesMap[usersMap[bestUserId].Id][markId]),
-// 				}
-// 			}
-
-// 			if P[mark.ID] >= 0.8 {
-// 				delete(marksMap, mark.ID)
-// 				for userId := range p {
-// 					delete(p[userId], mark.ID)
-// 					if len(p[userId]) == 0 {
-// 						delete(p, userId)
-// 					}
-// 				}
-// 			}
-// 		}
-// 		fmt.Println(iter, len(marksMap), len(p))
-// 		// pKeys := slices.Collect(maps.Keys(p))
-// 		// fmt.Println(iter, pKeys[0], p[pKeys[0]])
-// 		// pKeys2 := slices.Collect(maps.Keys(p[pKeys[0]]))
-// 		// fmt.Println(marksMap[pKeys2[0]])
-
-// 		// fmt.Println(marksMap[53])
-// 		// time.Sleep(time.Second)
-// 		iter++
-// 	}
-// 	// fmt.Println(S)
-
-// 	fmt.Println("Выданные задания")
-// 	sum := 0
-// 	for markId, users := range S {
-// 		fmt.Printf("mark_id: %d - %d\n", markId, len(users))
-// 		sum += len(users)
-// 	}
-// 	fmt.Println("Sum: ", sum)
-
-// 	for _, user := range usersMap {
-// 		fmt.Printf("user_id: %d - %d\n", user.Id, user.numAssignedTasks)
-// 	}
-
-// 	return S
-// }
-
-func (uc *Tasker) update(marks []models.Mark, users []models.User, tasks []models.Task, distances []models.DistanceFromMarkToPoint) map[int]map[int]float64 {
-	marksMap := make(map[int]models.Mark, len(marks))
-	// unallocatedMarks := make(map[int]models.Mark, len(marks))
-	for _, mark := range marks {
-		marksMap[mark.ID] = mark
-		// unallocatedMarks[mark.ID] = mark
-	}
-
-	usersMap := make(map[int]userWithStats, len(users))
+	userStatsById := make(map[int]*userStats, len(users))
 	for _, user := range users {
-		usersMap[user.Id] = userWithStats{
-			User: &user,
-		}
+		userStatsById[user.Id] = &userStats{rating: user.Rating}
 	}
 
-	distancesMap := make(map[int]map[int]float64)
-	for _, distance := range distances {
-		if _, exist := distancesMap[distance.UserId]; !exist {
-			distancesMap[distance.UserId] = make(map[int]float64)
-		}
-		distancesMap[distance.UserId][distance.MarkId] = distance.Distance
-	}
-
-	assignmentsOld := make(map[int]map[int]float64)
-	assignments := make(map[int]map[int]float64)
-	P := make(map[int]float64)
-	probalities := make(map[int]map[int]float64)
-
+	// taken[userId][markId] — the user already has a task for the mark (any
+	// status), so the pair is never assigned again.
+	taken := make(map[int]map[int]bool)
+	// existing[markId] — users holding an issued task for the mark.
+	existing := make(map[int][]int)
 	for _, task := range tasks {
-		user := usersMap[task.UserID]
-		user.numAssignedTasks++
-		usersMap[task.UserID] = user
-	}
-
-	for _, task := range tasks {
-		user := usersMap[task.UserID]
-		user.numAssignedTasks--
-
-		if _, exist := assignmentsOld[task.MarkID]; !exist {
-			assignmentsOld[task.MarkID] = map[int]float64{}
+		if _, ok := taken[task.UserID]; !ok {
+			taken[task.UserID] = make(map[int]bool)
 		}
-		assignmentsOld[task.MarkID][task.UserID] = probabilityVerification(user, distancesMap[task.UserID][task.MarkID])
-	}
+		taken[task.UserID][task.MarkID] = true
 
-	freeUsers := make(map[int]map[int]userWithStats, len(users))
-
-	for userId := range distancesMap {
-		probalities[userId] = make(map[int]float64)
-		freeUsers[userId] = make(map[int]userWithStats)
-		for markId := range distancesMap[userId] {
-			probalities[userId][markId] = probabilityVerification(usersMap[userId], distancesMap[userId][markId])
-			freeUsers[userId][markId] = usersMap[userId]
+		// GetUsers, GetTasks and GetDistancesFromMarkToPoint are separate
+		// reads, so a user may appear in tasks or distances but not in
+		// users (deleted in between); such users are never candidates.
+		us, ok := userStatsById[task.UserID]
+		if !ok {
+			uc.log.Debug("task of unknown user skipped",
+				slog.Int("user_id", task.UserID), slog.Int("task_id", task.ID))
+			continue
+		}
+		switch task.StatusID {
+		case models.UnfulfilledStatus:
+			us.issued++
+			existing[task.MarkID] = append(existing[task.MarkID], task.UserID)
+		case models.OverdueStatus:
+			us.overdue++
+		case models.CompletedStatus:
 		}
 	}
 
-	for markId := range assignmentsOld {
-		for userId := range assignmentsOld[markId] {
-			delete(freeUsers[userId], markId)
-			if len(freeUsers[userId]) == 0 {
-				delete(freeUsers, userId)
-			}
-		}
-	}
-
-	for userId := range freeUsers {
-		if usersMap[userId].numAssignedTasks >= 3 {
-			delete(freeUsers, userId)
-		}
-	}
-
+	// authorByMark[markId] — the mark's author never verifies their own mark.
+	authorByMark := make(map[int]int, len(marks))
 	for _, mark := range marks {
-		assignmentsAll := append(
-			slices.Collect(maps.Values(assignmentsOld[mark.ID])),
-			slices.Collect(maps.Values(assignments[mark.ID]))...,
-		)
-		P[mark.ID] = probabilityVerificationByN(2, assignmentsAll)
-
-		fmt.Printf("mark_id: %d - %d; P = %f\n", mark.ID, len(assignmentsOld[mark.ID]), P[mark.ID])
-
-		// if P[mark.ID] >= 0.8 {
-		// 	delete(unallocatedMarks, mark.ID)
-		// 	for userId := range freeUsers {
-		// 		delete(freeUsers[userId], mark.ID)
-		// 		if len(freeUsers[userId]) == 0 {
-		// 			delete(freeUsers, userId)
-		// 		}
-		// 	}
-		// }
+		authorByMark[mark.ID] = mark.UserID
 	}
 
-	iter := 0
-	for len(freeUsers) > 0 {
-		numUnallocatedMarks := 0
-		allMarksAllocated := true
-		allUsersAllocated := true
-		for _, mark := range marksMap {
-			if P[mark.ID] >= 0.8 {
+	// distanceKm[userId][markId]; unknown pairs fall back to the radius so
+	// that they are never over-estimated.
+	distanceKm := make(map[int]map[int]float64)
+	// free[markId] — users that may still be assigned to the mark.
+	free := make(map[int]map[int]bool)
+	for _, d := range distances {
+		if _, ok := userStatsById[d.UserId]; !ok {
+			uc.log.Debug("distance of unknown user skipped",
+				slog.Int("user_id", d.UserId), slog.Int("mark_id", d.MarkId))
+			continue
+		}
+		if author, ok := authorByMark[d.MarkId]; ok && author == d.UserId {
+			continue
+		}
+		if _, ok := distanceKm[d.UserId]; !ok {
+			distanceKm[d.UserId] = make(map[int]float64)
+		}
+		distanceKm[d.UserId][d.MarkId] = d.Distance
+
+		if taken[d.UserId][d.MarkId] {
+			continue
+		}
+		if _, ok := free[d.MarkId]; !ok {
+			free[d.MarkId] = make(map[int]bool)
+		}
+		free[d.MarkId][d.UserId] = true
+		stats.Candidates++
+	}
+
+	probability := func(userId, markId int) float64 {
+		dist, ok := distanceKm[userId][markId]
+		if !ok {
+			dist = float64(uc.cfg.MaxRadiusMeters) / 1000
+		}
+		return uc.verificationProbability(*userStatsById[userId], dist)
+	}
+
+	// assignees[markId] — existing issued users plus new assignments;
+	// marksOf[userId] — the inverse, to refresh only the affected marks;
+	// coverage[markId] — P(at least RequiredChecks of them verify the mark).
+	assignees := make(map[int][]int, len(marks))
+	marksOf := make(map[int][]int)
+	coverage := make(map[int]float64, len(marks))
+	recompute := func(markId int) {
+		probs := make([]float64, 0, len(assignees[markId]))
+		for _, userId := range assignees[markId] {
+			probs = append(probs, probability(userId, markId))
+		}
+		coverage[markId] = probabilityAtLeastN(uc.cfg.RequiredChecks, probs)
+	}
+
+	markIds := make([]int, 0, len(marks))
+	for _, mark := range marks {
+		markIds = append(markIds, mark.ID)
+		assignees[mark.ID] = existing[mark.ID]
+		for _, userId := range existing[mark.ID] {
+			marksOf[userId] = append(marksOf[userId], mark.ID)
+		}
+		recompute(mark.ID)
+	}
+	// Deterministic order makes runs reproducible and testable.
+	slices.Sort(markIds)
+
+	var result []assignment
+	for {
+		stats.Iterations++
+		progress := false
+
+		for _, markId := range markIds {
+			if coverage[markId] >= uc.cfg.TargetProbability {
 				continue
 			}
-			allMarksAllocated = false
-			numUnallocatedMarks++
 
-			var bestProb float64
-			var bestUserId int
-			for userId := range freeUsers {
-				if _, exist := freeUsers[userId][mark.ID]; exist {
-					if bestProb < probalities[userId][mark.ID] {
-						bestProb = probalities[userId][mark.ID]
-						bestUserId = userId
-					}
+			bestUserId, bestProb := 0, -1.0
+			for userId := range free[markId] {
+				if userStatsById[userId].issued >= uc.cfg.MaxTasksPerUser {
+					delete(free[markId], userId)
+					continue
+				}
+				p := probability(userId, markId)
+				if p > bestProb || (p == bestProb && userId < bestUserId) {
+					bestUserId, bestProb = userId, p
 				}
 			}
-
 			if bestUserId == 0 {
-				// fmt.Println("нет лучшего пользователя")
-				// time.Sleep(time.Millisecond * 100)
 				continue
 			}
-			allUsersAllocated = false
 
-			if _, exist := assignments[mark.ID]; !exist {
-				assignments[mark.ID] = map[int]float64{}
-			}
-			assignments[mark.ID][bestUserId] = bestProb
-			// assignments[mark.ID] = append(assignments[mark.ID], userWithProbability{
-			// 	userId:      bestUserId,
-			// 	probability: bestProb,
-			// })
-			delete(freeUsers[bestUserId], mark.ID)
-			bestUser := usersMap[bestUserId]
-			bestUser.numAssignedTasks++
-			usersMap[bestUserId] = bestUser
-			if len(freeUsers[bestUserId]) == 0 || bestUser.numAssignedTasks >= 3 {
-				delete(freeUsers, bestUserId)
-			}
+			progress = true
+			result = append(result, assignment{markId: markId, userId: bestUserId})
+			delete(free[markId], bestUserId)
+			userStatsById[bestUserId].issued++
+			assignees[markId] = append(assignees[markId], bestUserId)
+			marksOf[bestUserId] = append(marksOf[bestUserId], markId)
 
-			for markId := range assignmentsOld {
-				if _, exist := assignmentsOld[markId][bestUserId]; exist {
-					assignmentsOld[markId][bestUserId] = probalities[bestUserId][markId]
-
-					assignmentsAll := append(
-						slices.Collect(maps.Values(assignmentsOld[markId])),
-						slices.Collect(maps.Values(assignments[markId]))...,
-					)
-					P[markId] = probabilityVerificationByN(2, assignmentsAll)
-				}
-			}
-			for markId := range assignments {
-				if _, exist := assignments[markId][bestUserId]; exist {
-					assignments[markId][bestUserId] = probalities[bestUserId][markId]
-
-					assignmentsAll := append(
-						slices.Collect(maps.Values(assignmentsOld[markId])),
-						slices.Collect(maps.Values(assignments[markId]))...,
-					)
-					P[markId] = probabilityVerificationByN(2, assignmentsAll)
-				}
-			}
-
-			for markId := range probalities[bestUserId] {
-				probalities[bestUserId][markId] = probabilityVerification(usersMap[bestUserId], distancesMap[bestUserId][markId])
+			// The user's load changed: refresh every mark they are part of.
+			for _, id := range marksOf[bestUserId] {
+				recompute(id)
 			}
 		}
 
-		fmt.Println(iter, numUnallocatedMarks, len(freeUsers))
-		iter++
-
-		if allMarksAllocated || allUsersAllocated {
+		if !progress {
 			break
 		}
 	}
 
-	fmt.Println("Выданные задания")
-	sum := 0
-	for markId, assignedUsers := range assignments {
-		fmt.Printf("mark_id: %d - %d; P = %f\n", markId, len(assignedUsers), P[markId])
-		sum += len(assignedUsers)
+	stats.Assigned = len(result)
+	for _, markId := range markIds {
+		if coverage[markId] >= uc.cfg.TargetProbability {
+			stats.Covered++
+		}
 	}
-	fmt.Println("Sum: ", sum)
 
-	// for _, user := range usersMap {
-	// 	fmt.Printf("user_id: %d - %d\n", user.Id, user.numAssignedTasks)
-	// }
-
-	return assignments
+	return result, stats
 }
 
-func probabilityVerification(user userWithStats, distance float64) float64 {
-	// homeDist := xy.Distance(user.HomePoint.Ewkb.Coords(), mark.Geom.Ewkb.Coords())
+// verificationProbability estimates how likely a user is to verify a mark
+// located distKm kilometres from their home:
+//
+//	p = (rating(r) + distance(d)) * load(l) * fatigue(o), clamped to [0, 1]
+//
+// where r is the user's rating, l the number of issued tasks and o the number
+// of overdue tasks (see config.TaskerConfig for the factor definitions).
+func (uc *Tasker) verificationProbability(us userStats, distKm float64) float64 {
+	p := (ratingFactor(us.rating) + homeDistFactor(distKm, uc.cfg.DistanceLambda)) *
+		loadFactor(us.issued, uc.cfg.LoadDelta) *
+		fatigueFactor(us.overdue, uc.cfg.FatigueBeta)
 
-	probability := (ratingFactor(user.Rating) + homeDistFactor(distance, 0.05)) * loadFactor(user.numAssignedTasks, 0.3) * fatigueFactor(0, 0.2)
-	// probability = (ratingFactor(user.Rating) + homeDistFactor(distance, 0.05)) * loadFactor(user.numAssignedTasks, 0.3) * fatigueFactor(0, 0.2)
-
-	return min(1.0, probability)
+	return min(1.0, p)
 }
 
-func ratingFactor(r int) float64 {
-	res := 1.0 / (1.0 + 100*math.Exp(-float64(r)/2)) * 0.2
-	return res
-	// return 1.0 / (1.0 + 100*math.Exp(-float64(r)/2)) * 0.2
+// ratingFactor is a logistic curve of the rating scaled to at most 0.2.
+func ratingFactor(rating int) float64 {
+	return 0.2 / (1.0 + 100*math.Exp(-float64(rating)/2))
 }
 
-func loadFactor(r int, delta float64) float64 {
-	res := 1.0 / (1.0 + delta*float64(r+1))
-	return res
+// homeDistFactor decays exponentially with the distance in kilometres and
+// contributes at most 0.5.
+func homeDistFactor(distKm, lambda float64) float64 {
+	return 0.5 * math.Exp(-lambda*distKm)
 }
 
-// Функция усталости g(a) = 1/(1+beta*a)
-func fatigueFactor(a int, beta float64) float64 {
-	res := 1.0 / (1.0 + beta*float64(a))
-	return res
+// loadFactor penalises users who already hold issued tasks:
+// 1 / (1 + delta*(issued+1)).
+func loadFactor(issued int, delta float64) float64 {
+	return 1.0 / (1.0 + delta*float64(issued+1))
 }
 
-func homeDistFactor(dist float64, lambda float64) float64 {
-	res := math.Exp(-lambda*dist) * 0.5
-	return res
+// fatigueFactor penalises users with overdue tasks: 1 / (1 + beta*overdue).
+// A user who never lets a task expire keeps the factor at 1.
+func fatigueFactor(overdue int, beta float64) float64 {
+	return 1.0 / (1.0 + beta*float64(overdue))
 }
 
-// func probabilityVerificationByN(n int, users []userWithProbability, markId int, probalities map[int]map[int]float64) float64 {
-func probabilityVerificationByN(n int, probabilities []float64) float64 {
+// probabilityAtLeastN returns the probability that at least n of the
+// independent events with the given probabilities happen
+// (Poisson binomial distribution, computed by dynamic programming).
+func probabilityAtLeastN(n int, probabilities []float64) float64 {
 	if len(probabilities) < n {
 		return 0
 	}
 
+	// dp[k] — probability that exactly k events happened so far.
 	dp := make([]float64, len(probabilities)+1)
 	dp[0] = 1.0
-
-	for _, user := range probabilities {
-		p := user
-
-		for k := len(probabilities); k >= 0; k-- {
-			if k > 0 {
-				dp[k] = dp[k]*(1-p) + dp[k-1]*p
-			} else {
-				dp[k] = dp[k] * (1 - p)
-			}
+	for _, p := range probabilities {
+		for k := len(probabilities); k > 0; k-- {
+			dp[k] = dp[k]*(1-p) + dp[k-1]*p
 		}
+		dp[0] *= 1 - p
 	}
 
 	result := 0.0
 	for k := n; k <= len(probabilities); k++ {
 		result += dp[k]
 	}
-	if result > 1.0 {
-		result = 1.0
-	}
-	return result
+
+	return min(1.0, result)
 }

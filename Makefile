@@ -17,8 +17,8 @@ run-rest: ## Run REST server with configs/config.yaml
 	go run ./cmd/rest/ --config=$(CONFIG)
 run-grpc: ## Run gRPC server with configs/config.yaml
 	go run ./cmd/grpc/ --config=$(CONFIG)
-run-tasker: ## Run tasker once with configs/config.yaml
-	go run ./cmd/tasker/ --config=$(CONFIG)
+run-tasker: ## Run tasker once with configs/config.yaml (drop --once for scheduled mode)
+	go run ./cmd/tasker/ --config=$(CONFIG) --once
 run-osm: ## Run OSM importer
 	go run ./cmd/osm/
 

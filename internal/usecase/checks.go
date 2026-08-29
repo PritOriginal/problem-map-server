@@ -86,7 +86,9 @@ func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.
 			return err
 		}
 
-		task, err := uc.repos.Tasks.GetTaskByUserIdAndMarkId(ctx, check.UserID, check.MarkID)
+		// Only the issued task is closed: a completed or overdue task from an
+		// earlier cycle must not shadow the current one.
+		task, err := uc.repos.Tasks.GetTaskByUserIdAndMarkId(ctx, check.UserID, check.MarkID, models.UnfulfilledStatus)
 		switch {
 		case err == nil:
 			return uc.repos.Tasks.UpdateTaskStatus(ctx, task.ID, models.CompletedStatus)

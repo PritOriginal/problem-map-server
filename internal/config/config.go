@@ -28,6 +28,7 @@ type Config struct {
 	Redis           RedisConfig      `yaml:"redis"`
 	Aws             AwsConfig        `yaml:"aws"`
 	Nats            NatsConfig       `yaml:"nats"`
+	Tasker          TaskerConfig     `yaml:"tasker"`
 }
 
 type PhotoStorageType string
@@ -115,6 +116,67 @@ type AwsConfig struct {
 	EndPoint  string `yaml:"endpoint" env:"AWS_ENDPOINT"`
 }
 
+// TaskerConfig tunes the task assignment job (cmd/tasker).
+//
+// Probability that a user verifies a mark:
+//
+//	p = (rating(r) + distance(d)) * load(l) * fatigue(o)
+//	rating(r)   = 0.2 / (1 + 100*exp(-r/2))
+//	distance(d) = 0.5 * exp(-DistanceLambda * d_km)
+//	load(l)     = 1 / (1 + LoadDelta * (l + 1))      l — issued tasks of the user
+//	fatigue(o)  = 1 / (1 + FatigueBeta * o)          o — overdue tasks of the user
+//
+// A mark is considered covered when the probability that at least
+// RequiredChecks of its assignees verify it reaches TargetProbability.
+type TaskerConfig struct {
+	// Interval between scheduled runs (scheduled mode of cmd/tasker).
+	Interval time.Duration `yaml:"interval" env:"TASKER_INTERVAL" env-default:"15m"`
+	// TaskTTL is how long an issued task stays valid; after that it is
+	// marked overdue (tasks.due_at = issued_at + TaskTTL).
+	TaskTTL time.Duration `yaml:"task-ttl" env:"TASKER_TASK_TTL" env-default:"72h"`
+	// MaxTasksPerUser caps simultaneously issued tasks per user.
+	MaxTasksPerUser int `yaml:"max-tasks-per-user" env:"TASKER_MAX_TASKS_PER_USER" env-default:"3"`
+	// RequiredChecks is how many independent verifications a mark needs.
+	RequiredChecks int `yaml:"required-checks" env:"TASKER_REQUIRED_CHECKS" env-default:"2"`
+	// TargetProbability at which a mark stops receiving new assignees.
+	TargetProbability float64 `yaml:"target-probability" env:"TASKER_TARGET_PROBABILITY" env-default:"0.8"`
+	// MaxRadiusMeters limits the distance between a mark and a user's home.
+	MaxRadiusMeters int `yaml:"max-radius-meters" env:"TASKER_MAX_RADIUS_METERS" env-default:"5000"`
+	// DistanceLambda is the decay of the distance factor per kilometre.
+	DistanceLambda float64 `yaml:"distance-lambda" env:"TASKER_DISTANCE_LAMBDA" env-default:"0.05"`
+	// LoadDelta is the penalty per issued task.
+	LoadDelta float64 `yaml:"load-delta" env:"TASKER_LOAD_DELTA" env-default:"0.3"`
+	// FatigueBeta is the penalty per overdue task.
+	FatigueBeta float64 `yaml:"fatigue-beta" env:"TASKER_FATIGUE_BETA" env-default:"0.2"`
+}
+
+// Validate checks that the tasker parameters are sane.
+func (t TaskerConfig) Validate() error {
+	var errs []error
+	if t.Interval <= 0 {
+		errs = append(errs, errors.New("tasker.interval (TASKER_INTERVAL) must be positive"))
+	}
+	if t.TaskTTL <= 0 {
+		errs = append(errs, errors.New("tasker.task-ttl (TASKER_TASK_TTL) must be positive"))
+	}
+	if t.MaxTasksPerUser <= 0 {
+		errs = append(errs, errors.New("tasker.max-tasks-per-user (TASKER_MAX_TASKS_PER_USER) must be positive"))
+	}
+	if t.RequiredChecks <= 0 {
+		errs = append(errs, errors.New("tasker.required-checks (TASKER_REQUIRED_CHECKS) must be positive"))
+	}
+	if t.TargetProbability < 0 || t.TargetProbability > 1 {
+		errs = append(errs, errors.New("tasker.target-probability (TASKER_TARGET_PROBABILITY) must be in [0, 1]"))
+	}
+	if t.MaxRadiusMeters <= 0 {
+		errs = append(errs, errors.New("tasker.max-radius-meters (TASKER_MAX_RADIUS_METERS) must be positive"))
+	}
+	if t.DistanceLambda < 0 || t.LoadDelta < 0 || t.FatigueBeta < 0 {
+		errs = append(errs, errors.New("tasker.distance-lambda, load-delta and fatigue-beta must not be negative"))
+	}
+	return errors.Join(errs...)
+}
+
 type NatsConfig struct {
 	URL  string `yaml:"url" env:"NATS_URL"`
 	Name string `yaml:"name" env:"NATS_NAME"`
@@ -186,7 +248,7 @@ const MinJWTKeyLength = 32
 
 // Validate checks that security-sensitive settings are present and sane.
 func (c *Config) Validate() error {
-	if err := errors.Join(c.Auth.Validate(), c.DB.Validate()); err != nil {
+	if err := errors.Join(c.Auth.Validate(), c.DB.Validate(), c.Tasker.Validate()); err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 	return nil
@@ -237,9 +299,14 @@ func fetchConfigPath() string {
 	flag.StringVar(&res, "config", "", "path to config file")
 	flag.Parse()
 
-	if res == "" {
-		res = os.Getenv("CONFIG_PATH")
-	}
+	return ResolveConfigPath(res)
+}
 
-	return res
+// ResolveConfigPath applies the shared priority rule for the config path:
+// the explicit (flag) value wins, otherwise CONFIG_PATH is used.
+func ResolveConfigPath(flagValue string) string {
+	if flagValue == "" {
+		return os.Getenv("CONFIG_PATH")
+	}
+	return flagValue
 }

@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/stretchr/testify/suite"
@@ -49,6 +50,11 @@ func (suite *ConfigSuite) TestValidate() {
 		c.DB.Host = "localhost"
 		c.DB.Username = "postgres"
 		c.DB.Name = "problem_map"
+		c.DB.Password = "secret"
+		c.Tasker = config.TaskerConfig{
+			Interval: time.Minute, TaskTTL: time.Hour, MaxTasksPerUser: 1, RequiredChecks: 1,
+			TargetProbability: 0.5, MaxRadiusMeters: 100,
+		}
 		return c
 	}
 
@@ -64,6 +70,12 @@ func (suite *ConfigSuite) TestValidate() {
 		{name: "EmptyDBHost", mutate: func(c *config.Config) { c.DB.Host = "" }, wantErr: "POSTGRES_HOST"},
 		{name: "EmptyDBUser", mutate: func(c *config.Config) { c.DB.Username = "" }, wantErr: "POSTGRES_USER"},
 		{name: "EmptyDBName", mutate: func(c *config.Config) { c.DB.Name = "" }, wantErr: "POSTGRES_DB"},
+		{name: "valid", mutate: func(*config.Config) {}},
+		{name: "short access key", mutate: func(c *config.Config) { c.Auth.JWT.Access.Key = "qwer" }, wantErr: "JWT_ACCESS_TOKEN_KEY"},
+		{name: "empty refresh key", mutate: func(c *config.Config) { c.Auth.JWT.Refresh.Key = "" }, wantErr: "JWT_REFRESH_TOKEN_KEY"},
+		{name: "zero tasker interval", mutate: func(c *config.Config) { c.Tasker.Interval = 0 }, wantErr: "TASKER_INTERVAL"},
+		{name: "target probability above one", mutate: func(c *config.Config) { c.Tasker.TargetProbability = 1.5 }, wantErr: "TASKER_TARGET_PROBABILITY"},
+		{name: "negative factor", mutate: func(c *config.Config) { c.Tasker.LoadDelta = -1 }, wantErr: "load-delta"},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
