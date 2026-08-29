@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"sync"
@@ -15,7 +16,6 @@ import (
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/stretchr/testify/require"
 	"github.com/twpayne/go-geom"
@@ -108,37 +108,11 @@ func seedFixtures(t *testing.T, cfg *config.Config) {
 	require.NotEmpty(t, markTypes.Payload.MarkTypes, "mark types must be migrated")
 	fixture.markTypeID = markTypes.Payload.MarkTypes[0].ID
 
-	fixture.markID = addNewMark(t, &cfg.REST, fixture.user.AccessToken).Payload.MarkId
+	fixture.markID = addNewMark(t, &cfg.REST, fixture.user.AccessToken, fixture.markTypeID).Payload.MarkId
 
 	taskReq, err := json.Marshal(tasksrest.AddTaskRequest{Name: "fixture task", MarkID: fixture.markID})
 	require.NoError(t, err)
 	fixture.taskID = addTask(t, &cfg.REST, bytes.NewBuffer(taskReq), fixture.moderatorToken, http.StatusCreated).Payload.TaskId
-}
-
-func addTask(t *testing.T, cfg *config.RESTConfig, body *bytes.Buffer, accessToken string, expectedStatusCode int) responses.Response[tasksrest.AddTaskResponse] {
-	t.Helper()
-
-	req, err := http.NewRequest(http.MethodPost, makeUrl(makeUrlParams{
-		host: cfg.Host,
-		port: cfg.Port,
-		path: "/tasks",
-	}), body)
-	require.NoError(t, err)
-	req.Header.Set("Content-Type", "application/json")
-	if accessToken != "" {
-		req.Header.Set("Authorization", "Bearer "+accessToken)
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	require.NoError(t, err)
-	defer func() { _ = resp.Body.Close() }()
-
-	require.Equal(t, expectedStatusCode, resp.StatusCode)
-
-	var response responses.Response[tasksrest.AddTaskResponse]
-	require.NoError(t, json.NewDecoder(resp.Body).Decode(&response))
-
-	return response
 }
 
 type makeUrlParams struct {
@@ -163,16 +137,28 @@ func makeUrl(params makeUrlParams) string {
 	return u.String()
 }
 
-// getImages returns num small JPEG images alternating between portrait and
-// landscape orientation.
-func getImages(num int) [][]byte {
-	images := make([][]byte, 0, num)
+// attachPhotos adds num small JPEG images (alternating portrait and
+// landscape) to the multipart form as "photos" files.
+func attachPhotos(t *testing.T, mpw *multipart.Writer, num int) {
+	t.Helper()
+
 	for i := range num {
-		if i%2 == 0 {
-			images = append(images, gofakeit.ImageJpeg(9, 12))
-		} else {
-			images = append(images, gofakeit.ImageJpeg(12, 9))
+		image := gofakeit.ImageJpeg(9, 12)
+		if i%2 == 1 {
+			image = gofakeit.ImageJpeg(12, 9)
 		}
+		fw, err := mpw.CreateFormFile("photos", "test.jpg")
+		require.NoError(t, err)
+		_, err = fw.Write(image)
+		require.NoError(t, err)
 	}
-	return images
+}
+
+// ids collects the identifiers of items in order.
+func ids[T any](items []T, id func(T) int) []int {
+	out := make([]int, 0, len(items))
+	for _, it := range items {
+		out = append(out, id(it))
+	}
+	return out
 }

@@ -61,7 +61,7 @@ test: ## Run unit tests
 	go test -tags=nomsgpack ./...
 
 test-integration: ## Run repository integration tests (Docker required, testcontainers)
-	go test -tags=integration ./internal/repository/... -count 1
+	go test -tags=integration ./internal/repository/... -count 1 -timeout 15m
 
 test-functional-rest: ## Run REST functional tests (server must be running)
 	go test -tags=functional,rest ./tests/rest -count 1

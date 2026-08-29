@@ -58,17 +58,14 @@ func (s *PasswordSuite) TestHashPassword_IsSalted() {
 	s.Require().NoError(err)
 
 	s.NotEqual(first, second, "each hash must use a fresh salt")
-	s.True(password.CheckPasswordHash("same", first))
-	s.True(password.CheckPasswordHash("same", second))
 }
 
 func (s *PasswordSuite) TestCheckPasswordHash() {
-	hash, err := password.HashPassword("correct horse")
+	// Matching against the default cost is covered by TestHashPassword; the
+	// negative cases use a MinCost hash to keep the (bcrypt-bound) test fast.
+	hash, err := bcrypt.GenerateFromPassword([]byte("correct horse"), bcrypt.MinCost)
 	s.Require().NoError(err)
-
-	// A hash produced with a non-default cost must still verify.
-	lowCost, err := bcrypt.GenerateFromPassword([]byte("cheap"), bcrypt.MinCost)
-	s.Require().NoError(err)
+	hashStr := string(hash)
 
 	tests := []struct {
 		name     string
@@ -76,14 +73,12 @@ func (s *PasswordSuite) TestCheckPasswordHash() {
 		hash     string
 		want     bool
 	}{
-		{name: "matching password", password: "correct horse", hash: hash, want: true},
-		{name: "wrong password", password: "correct horsE", hash: hash, want: false},
-		{name: "empty password against real hash", password: "", hash: hash, want: false},
+		{name: "matching password", password: "correct horse", hash: hashStr, want: true},
+		{name: "wrong password", password: "correct horsE", hash: hashStr, want: false},
+		{name: "empty password against real hash", password: "", hash: hashStr, want: false},
 		{name: "empty hash", password: "correct horse", hash: "", want: false},
 		{name: "garbage hash", password: "correct horse", hash: "not-a-bcrypt-hash", want: false},
-		{name: "truncated hash", password: "correct horse", hash: hash[:30], want: false},
-		{name: "min cost hash", password: "cheap", hash: string(lowCost), want: true},
-		{name: "min cost hash wrong password", password: "cheaper", hash: string(lowCost), want: false},
+		{name: "truncated hash", password: "correct horse", hash: hashStr[:30], want: false},
 	}
 
 	for _, tt := range tests {

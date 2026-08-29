@@ -40,6 +40,7 @@ func (s *TokenSuite) TestCreateToken() {
 	}{
 		{name: "user", ttl: time.Hour, userID: 1, role: "user"},
 		{name: "moderator", ttl: 15 * time.Minute, userID: 42, role: "moderator"},
+		{name: "admin", ttl: time.Hour, userID: 3, role: "admin"},
 		{name: "empty role", ttl: time.Hour, userID: 7, role: ""},
 	}
 
@@ -142,31 +143,6 @@ func (s *TokenSuite) TestValidateToken() {
 			}
 			s.Require().NoError(err)
 			s.Equal(tt.wantSub, sub)
-		})
-	}
-}
-
-func (s *TokenSuite) TestRoleClaim_RoundTrip() {
-	tests := []struct {
-		name string
-		role string
-	}{
-		{name: "user", role: "user"},
-		{name: "moderator", role: "moderator"},
-		{name: "admin", role: "admin"},
-	}
-
-	for _, tt := range tests {
-		s.Run(tt.name, func() {
-			tokenString, err := token.CreateToken(time.Hour, 1, tt.role, testKey)
-			s.Require().NoError(err)
-
-			claims := jwt.MapClaims{}
-			_, err = jwt.ParseWithClaims(tokenString, claims, func(*jwt.Token) (interface{}, error) {
-				return []byte(testKey), nil
-			})
-			s.Require().NoError(err)
-			s.Equal(tt.role, claims[token.RoleClaim])
 		})
 	}
 }

@@ -6,6 +6,7 @@ import (
 	"context"
 	"net"
 	"strconv"
+	"sync"
 	"testing"
 
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
@@ -18,6 +19,17 @@ import (
 // tests/grpc package. The gRPC (and REST, for benchmarks) servers under test
 // must be started with the same file.
 const ConfigPath = "../../configs/config-tests.yaml"
+
+var (
+	cfgOnce sync.Once
+	cfg     *config.Config
+)
+
+// loadConfig parses ConfigPath once per test binary.
+func loadConfig() *config.Config {
+	cfgOnce.Do(func() { cfg = config.MustLoadPath(ConfigPath) })
+	return cfg
+}
 
 // Suite carries a ready-to-use gRPC client for a functional test.
 type Suite struct {
@@ -56,7 +68,7 @@ func NewBench(b *testing.B) (context.Context, *SuiteBench) {
 func newClient(tb testing.TB) (context.Context, *config.Config, pb.MarksClient) {
 	tb.Helper()
 
-	cfg := config.MustLoadPath(ConfigPath)
+	cfg := loadConfig()
 
 	ctx, cancelCtx := context.WithTimeout(context.Background(), cfg.GRPC.Timeout)
 	tb.Cleanup(cancelCtx)

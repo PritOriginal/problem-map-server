@@ -13,6 +13,7 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
+	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -36,12 +37,33 @@ func (st *TasksSuite) TestGetTasks() {
 	response := getTasks(st.T(), &st.Cfg.REST, http.StatusOK)
 	st.Equal(response.Success, true)
 	st.NotNil(response.Payload.Tasks)
+	st.Contains(ids(response.Payload.Tasks, func(t models.Task) int { return t.ID }), st.fx.taskID, "fixture task must be listed")
+}
 
-	ids := make([]int, 0, len(response.Payload.Tasks))
-	for _, task := range response.Payload.Tasks {
-		ids = append(ids, task.ID)
+func addTask(t *testing.T, cfg *config.RESTConfig, body *bytes.Buffer, accessToken string, expectedStatusCode int) responses.Response[tasksrest.AddTaskResponse] {
+	t.Helper()
+
+	req, err := http.NewRequest(http.MethodPost, makeUrl(makeUrlParams{
+		host: cfg.Host,
+		port: cfg.Port,
+		path: "/tasks",
+	}), body)
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	if accessToken != "" {
+		req.Header.Set("Authorization", "Bearer "+accessToken)
 	}
-	st.Contains(ids, st.fx.taskID, "fixture task must be listed")
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, expectedStatusCode, resp.StatusCode)
+
+	var response responses.Response[tasksrest.AddTaskResponse]
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&response))
+
+	return response
 }
 
 func getTasks(t *testing.T, cfg *config.RESTConfig, expectedStatusCode int) responses.Response[tasksrest.GetTasksResponse] {
@@ -162,7 +184,7 @@ func (st *TasksSuite) TestAddTask() {
 	userAccessToken := st.fx.user.AccessToken
 
 	// A fresh mark so the fixture task on fx.markID is left untouched.
-	markID := addNewMark(st.T(), &st.Cfg.REST, userAccessToken).Payload.MarkId
+	markID := addNewMark(st.T(), &st.Cfg.REST, userAccessToken, st.fx.markTypeID).Payload.MarkId
 
 	tests := []struct {
 		name        string

@@ -9,11 +9,7 @@ import (
 )
 
 func markIDs(marks []models.Mark) []int {
-	ids := make([]int, 0, len(marks))
-	for _, m := range marks {
-		ids = append(ids, m.ID)
-	}
-	return ids
+	return ids(marks, func(m models.Mark) int { return m.ID })
 }
 
 func (s *PostgresSuite) TestMarks_GetMarks() {

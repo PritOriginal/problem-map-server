@@ -12,7 +12,6 @@ import (
 	repos3 "github.com/PritOriginal/problem-map-server/internal/repository/s3"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/credentials"
 	awss3 "github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/stretchr/testify/suite"
 	"github.com/testcontainers/testcontainers-go"
@@ -29,8 +28,6 @@ type S3Suite struct {
 
 	ctx      context.Context
 	endpoint string
-	cfg      config.AwsConfig
-	raw      *awss3.Client
 	storage  *repos3.S3
 	photos   *repos3.PhotosRepo
 }
@@ -49,20 +46,17 @@ func (s *S3Suite) SetupSuite() {
 	hostPort, err := container.ConnectionString(s.ctx)
 	s.Require().NoError(err)
 	s.endpoint = "http://" + hostPort
-	s.cfg = config.AwsConfig{Key: container.Username, SecretKey: container.Password, EndPoint: s.endpoint}
 
-	s.raw = awss3.New(awss3.Options{
-		Region:       "ru-1",
-		BaseEndpoint: aws.String(s.endpoint),
-		Credentials:  credentials.NewStaticCredentialsProvider(s.cfg.Key, s.cfg.SecretKey, ""),
-		UsePathStyle: true,
+	// The production constructor builds the client (path style, static
+	// credentials); the raw client it exposes is reused for bucket setup.
+	s.storage, err = repos3.New(slogdiscard.NewDiscardLogger(), config.AwsConfig{
+		Key: container.Username, SecretKey: container.Password, EndPoint: s.endpoint,
 	})
-	_, err = s.raw.CreateBucket(s.ctx, &awss3.CreateBucketInput{Bucket: aws.String(bucketName)})
-	s.Require().NoError(err, "create bucket")
-
-	s.storage, err = repos3.New(slogdiscard.NewDiscardLogger(), s.cfg)
 	s.Require().NoError(err, "construct S3 client")
 	s.photos = repos3.NewPhotos(s.storage)
+
+	_, err = s.storage.Client.CreateBucket(s.ctx, &awss3.CreateBucketInput{Bucket: aws.String(bucketName)})
+	s.Require().NoError(err, "create bucket")
 }
 
 func (s *S3Suite) TearDownSuite() {
@@ -73,12 +67,12 @@ func (s *S3Suite) TearDownSuite() {
 
 // SetupTest empties the bucket so every test sees a clean store.
 func (s *S3Suite) SetupTest() {
-	paginator := awss3.NewListObjectsV2Paginator(s.raw, &awss3.ListObjectsV2Input{Bucket: aws.String(bucketName)})
+	paginator := awss3.NewListObjectsV2Paginator(s.storage.Client, &awss3.ListObjectsV2Input{Bucket: aws.String(bucketName)})
 	for paginator.HasMorePages() {
 		page, err := paginator.NextPage(s.ctx)
 		s.Require().NoError(err)
 		for _, obj := range page.Contents {
-			_, err := s.raw.DeleteObject(s.ctx, &awss3.DeleteObjectInput{Bucket: aws.String(bucketName), Key: obj.Key})
+			_, err := s.storage.Client.DeleteObject(s.ctx, &awss3.DeleteObjectInput{Bucket: aws.String(bucketName), Key: obj.Key})
 			s.Require().NoError(err)
 		}
 	}
@@ -89,7 +83,7 @@ func (s *S3Suite) objectURL(key string) string {
 }
 
 func (s *S3Suite) readObject(key string) []byte {
-	out, err := s.raw.GetObject(s.ctx, &awss3.GetObjectInput{Bucket: aws.String(bucketName), Key: aws.String(key)})
+	out, err := s.storage.Client.GetObject(s.ctx, &awss3.GetObjectInput{Bucket: aws.String(bucketName), Key: aws.String(key)})
 	s.Require().NoError(err)
 	defer func() { _ = out.Body.Close() }()
 	data, err := io.ReadAll(out.Body)
@@ -152,18 +146,20 @@ func (s *S3Suite) TestGetPhotos() {
 	// An object outside the marks/ prefix must be ignored.
 	s.Require().NoError(s.photos.AddPhoto(s.ctx, bucketName, "other/1/1/1.jpg", bytes.NewReader([]byte("x"))))
 
+	all := map[int]map[int][]string{
+		1: {
+			1: {s.objectURL("marks/1/1/1.jpg"), s.objectURL("marks/1/1/2.jpg")},
+			2: {s.objectURL("marks/1/2/1.jpg")},
+		},
+		12: {
+			3: {s.objectURL("marks/12/3/1.jpg")},
+		},
+	}
+
 	s.Run("all photos grouped by mark and check", func() {
 		got, err := s.photos.GetPhotos(s.ctx)
 		s.Require().NoError(err)
-		s.Equal(map[int]map[int][]string{
-			1: {
-				1: {s.objectURL("marks/1/1/1.jpg"), s.objectURL("marks/1/1/2.jpg")},
-				2: {s.objectURL("marks/1/2/1.jpg")},
-			},
-			12: {
-				3: {s.objectURL("marks/12/3/1.jpg")},
-			},
-		}, got)
+		s.Equal(all, got)
 	})
 
 	s.Run("by mark id", func() {
@@ -173,19 +169,12 @@ func (s *S3Suite) TestGetPhotos() {
 			want   map[int]map[int][]string
 		}{
 			{
+				// Prefix "marks/1" also matches "marks/12/..." — documented
+				// behaviour of the current prefix-based lookup, so the
+				// result equals the full listing.
 				name:   "mark with two checks",
 				markID: 1,
-				want: map[int]map[int][]string{
-					1: {
-						1: {s.objectURL("marks/1/1/1.jpg"), s.objectURL("marks/1/1/2.jpg")},
-						2: {s.objectURL("marks/1/2/1.jpg")},
-					},
-					// Prefix "marks/1" also matches "marks/12/..." — documented
-					// behaviour of the current prefix-based lookup.
-					12: {
-						3: {s.objectURL("marks/12/3/1.jpg")},
-					},
-				},
+				want:   all,
 			},
 			{name: "mark without photos", markID: 99, want: map[int]map[int][]string{}},
 		}

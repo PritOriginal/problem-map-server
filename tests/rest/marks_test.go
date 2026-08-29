@@ -201,12 +201,10 @@ func (st *MarksSuite) TestGetMarkByUserId() {
 
 			if tt.statusCode < 300 {
 				st.Equal(response.Success, true)
-				ids := make([]int, 0, len(response.Payload.Marks))
 				for _, m := range response.Payload.Marks {
-					ids = append(ids, m.ID)
 					st.Equal(st.fx.user.ID, m.UserID)
 				}
-				st.Contains(ids, st.fx.markID)
+				st.Contains(ids(response.Payload.Marks, func(m models.Mark) int { return m.ID }), st.fx.markID)
 			} else {
 				st.Equal(response.Success, false)
 			}
@@ -265,30 +263,8 @@ func (st *MarksSuite) TestAddMark() {
 
 	for _, tt := range tests {
 		st.Run(tt.name, func() {
-			b := &bytes.Buffer{}
-			mpw := multipart.NewWriter(b)
-			st.Require().NoError(mpw.WriteField("longitude", strconv.FormatFloat(tt.req.Longitude, 'f', -1, 64)))
-			st.Require().NoError(mpw.WriteField("latitude", strconv.FormatFloat(tt.req.Latitude, 'f', -1, 64)))
-			st.Require().NoError(mpw.WriteField("mark_type_id", strconv.Itoa(tt.req.MarkTypeID)))
-			st.Require().NoError(mpw.WriteField("description", tt.req.Description))
-
-			for _, image := range getImages(2) {
-				fw, err := mpw.CreateFormFile("photos", "test.jpg")
-				st.Require().NoError(err)
-				_, err = io.Copy(fw, bytes.NewBuffer(image))
-				st.Require().NoError(err)
-			}
-
-			st.Require().NoError(mpw.Close())
-
-			response := addMark(
-				st.T(),
-				&st.Cfg.REST,
-				b,
-				mpw.FormDataContentType(),
-				accessToken,
-				tt.statusCode,
-			)
+			body, contentType := markForm(st.T(), tt.req)
+			response := addMark(st.T(), &st.Cfg.REST, body, contentType, accessToken, tt.statusCode)
 
 			if tt.statusCode < 300 {
 				st.Equal(response.Success, true)
@@ -300,28 +276,35 @@ func (st *MarksSuite) TestAddMark() {
 	}
 }
 
-// addNewMark creates an unconfirmed mark of the fixture type at the fixture
-// point on behalf of accessToken.
-func addNewMark(t *testing.T, cfg *config.RESTConfig, accessToken string) responses.Response[marksrest.AddMarkResponse] {
+// markForm encodes an AddMarkRequest as the multipart body POST /marks
+// expects, with two photos attached.
+func markForm(t *testing.T, req marksrest.AddMarkRequest) (body *bytes.Buffer, contentType string) {
 	t.Helper()
 
-	b := &bytes.Buffer{}
-	mpw := multipart.NewWriter(b)
-	require.NoError(t, mpw.WriteField("longitude", strconv.FormatFloat(fixtureMarkPoint.X(), 'f', -1, 64)))
-	require.NoError(t, mpw.WriteField("latitude", strconv.FormatFloat(fixtureMarkPoint.Y(), 'f', -1, 64)))
-	require.NoError(t, mpw.WriteField("mark_type_id", strconv.Itoa(fixture.markTypeID)))
-	require.NoError(t, mpw.WriteField("description", "functional test mark"))
-
-	for _, image := range getImages(2) {
-		fw, err := mpw.CreateFormFile("photos", "test.jpg")
-		require.NoError(t, err)
-		_, err = io.Copy(fw, bytes.NewBuffer(image))
-		require.NoError(t, err)
-	}
-
+	body = &bytes.Buffer{}
+	mpw := multipart.NewWriter(body)
+	require.NoError(t, mpw.WriteField("longitude", strconv.FormatFloat(req.Longitude, 'f', -1, 64)))
+	require.NoError(t, mpw.WriteField("latitude", strconv.FormatFloat(req.Latitude, 'f', -1, 64)))
+	require.NoError(t, mpw.WriteField("mark_type_id", strconv.Itoa(req.MarkTypeID)))
+	require.NoError(t, mpw.WriteField("description", req.Description))
+	attachPhotos(t, mpw, 2)
 	require.NoError(t, mpw.Close())
 
-	return addMark(t, cfg, b, mpw.FormDataContentType(), accessToken, http.StatusCreated)
+	return body, mpw.FormDataContentType()
+}
+
+// addNewMark creates an unconfirmed mark of type markTypeID at the fixture
+// point on behalf of accessToken.
+func addNewMark(t *testing.T, cfg *config.RESTConfig, accessToken string, markTypeID int) responses.Response[marksrest.AddMarkResponse] {
+	t.Helper()
+
+	body, contentType := markForm(t, marksrest.AddMarkRequest{
+		Longitude:   fixtureMarkPoint.X(),
+		Latitude:    fixtureMarkPoint.Y(),
+		MarkTypeID:  markTypeID,
+		Description: "functional test mark",
+	})
+	return addMark(t, cfg, body, contentType, accessToken, http.StatusCreated)
 }
 
 func addMark(t *testing.T, cfg *config.RESTConfig, request io.Reader, contentType string, accessToken string, expectedStatusCode int) responses.Response[marksrest.AddMarkResponse] {
@@ -500,10 +483,10 @@ func (st *MarksSuite) TestConfirm() {
 	moderatorAccessToken := st.fx.moderatorToken
 
 	// Fresh unconfirmed mark: confirm moves it to "confirmed".
-	markId := addNewMark(st.T(), &st.Cfg.REST, userAccessToken).Payload.MarkId
+	markId := addNewMark(st.T(), &st.Cfg.REST, userAccessToken, st.fx.markTypeID).Payload.MarkId
 
 	// A refuted mark cannot be confirmed any more.
-	markForRejectId := addNewMark(st.T(), &st.Cfg.REST, userAccessToken).Payload.MarkId
+	markForRejectId := addNewMark(st.T(), &st.Cfg.REST, userAccessToken, st.fx.markTypeID).Payload.MarkId
 	rejectResponse := reject(st.T(), &st.Cfg.REST, strconv.Itoa(markForRejectId), moderatorAccessToken, http.StatusOK)
 	st.Require().Equal(models.RefutedStatus, rejectResponse.Payload.NewMarkStausId)
 
@@ -590,10 +573,10 @@ func (st *MarksSuite) TestReject() {
 	moderatorAccessToken := st.fx.moderatorToken
 
 	// Fresh unconfirmed mark: reject moves it to "refuted".
-	markId := addNewMark(st.T(), &st.Cfg.REST, userAccessToken).Payload.MarkId
+	markId := addNewMark(st.T(), &st.Cfg.REST, userAccessToken, st.fx.markTypeID).Payload.MarkId
 
 	// Mark under review: reject re-opens it, a second reject closes it.
-	underReviewId := addNewMark(st.T(), &st.Cfg.REST, userAccessToken).Payload.MarkId
+	underReviewId := addNewMark(st.T(), &st.Cfg.REST, userAccessToken, st.fx.markTypeID).Payload.MarkId
 	confirmResponse := confirm(st.T(), &st.Cfg.REST, strconv.Itoa(underReviewId), moderatorAccessToken, http.StatusOK)
 	st.Require().Equal(models.ConfirmedStatus, confirmResponse.Payload.NewMarkStausId)
 	confirmResponse = confirm(st.T(), &st.Cfg.REST, strconv.Itoa(underReviewId), moderatorAccessToken, http.StatusOK)

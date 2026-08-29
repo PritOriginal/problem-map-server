@@ -120,26 +120,13 @@ func (s *PostgresSuite) TestUsers_AddUser() {
 			},
 			wantErr: repository.ErrExists,
 		},
-		{
-			name: "invalid role is rejected by the check constraint",
-			user: models.User{
-				Name: "Dave", Login: "dave", PasswordHash: "x",
-				HomePoint: models.NewPoint(coordAliceHome), Role: models.Role("superuser"),
-			},
-			wantErr: errors.New("users_role_check"),
-		},
 	}
 
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
 			id, err := s.users.AddUser(s.ctx, tt.user)
 			if tt.wantErr != nil {
-				s.Require().Error(err)
-				if errors.Is(tt.wantErr, repository.ErrExists) {
-					s.ErrorIs(err, repository.ErrExists)
-				} else {
-					s.ErrorContains(err, tt.wantErr.Error())
-				}
+				s.ErrorIs(err, tt.wantErr)
 				return
 			}
 			s.Require().NoError(err)
@@ -151,6 +138,16 @@ func (s *PostgresSuite) TestUsers_AddUser() {
 			s.assertUser(tt.user, got)
 		})
 	}
+}
+
+func (s *PostgresSuite) TestUsers_AddUser_InvalidRole() {
+	_, err := s.users.AddUser(s.ctx, models.User{
+		Name: "Dave", Login: "dave", PasswordHash: "x",
+		HomePoint: models.NewPoint(coordAliceHome), Role: models.Role("superuser"),
+	})
+	s.Require().Error(err)
+	s.NotErrorIs(err, repository.ErrExists)
+	s.ErrorContains(err, "users_role_check")
 }
 
 func (s *PostgresSuite) TestUsers_AddUser_RollbackInTransaction() {

@@ -21,11 +21,7 @@ const (
 )
 
 func taskIDs(tasks []models.Task) []int {
-	ids := make([]int, 0, len(tasks))
-	for _, t := range tasks {
-		ids = append(ids, t.ID)
-	}
-	return ids
+	return ids(tasks, func(t models.Task) int { return t.ID })
 }
 
 func (s *PostgresSuite) TestTasks_GetTasks() {
@@ -179,7 +175,6 @@ func (s *PostgresSuite) TestTasks_UpdateTaskStatus() {
 		{name: "complete a task", taskID: fxTaskAliceMark1, status: models.CompletedStatus},
 		{name: "reopen a task", taskID: fxTaskAliceMark2, status: models.UnfulfilledStatus},
 		{name: "unknown status violates foreign key", taskID: fxTaskBobMark3, status: models.TaskStatusType(99), wantErr: true},
-		{name: "unknown task is a no-op", taskID: 404, status: models.CompletedStatus},
 	}
 
 	for _, tt := range tests {
@@ -192,12 +187,15 @@ func (s *PostgresSuite) TestTasks_UpdateTaskStatus() {
 			s.Require().NoError(err)
 
 			got, err := s.tasks.GetTaskById(s.ctx, tt.taskID)
-			if tt.taskID == 404 {
-				s.ErrorIs(err, repository.ErrNotFound)
-				return
-			}
 			s.Require().NoError(err)
 			s.Equal(tt.status, got.StatusID)
 		})
 	}
+}
+
+func (s *PostgresSuite) TestTasks_UpdateTaskStatus_UnknownTask() {
+	// UPDATE of a missing row is a no-op for the repository.
+	s.NoError(s.tasks.UpdateTaskStatus(s.ctx, 404, models.CompletedStatus))
+	_, err := s.tasks.GetTaskById(s.ctx, 404)
+	s.ErrorIs(err, repository.ErrNotFound)
 }

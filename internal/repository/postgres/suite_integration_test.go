@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository/postgres"
 	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
@@ -169,42 +168,41 @@ func (s *PostgresSuite) seed() {
 	`, coordMarkNear.X(), coordMarkNear.Y(), coordMarkIn.X(), coordMarkIn.Y(), coordMarkFar.X(), coordMarkFar.Y())
 	s.Require().NoError(err, "seed marks")
 
-	// Status transitions go through UPDATE so the trigger builds the history chain.
-	_, err = s.db.ExecContext(s.ctx, `UPDATE marks SET mark_status_id = $1 WHERE mark_id = $2`,
-		models.ConfirmedStatus, fxMarkInside)
-	s.Require().NoError(err, "seed mark 2 status")
-	_, err = s.db.ExecContext(s.ctx, `UPDATE marks SET mark_status_id = $1 WHERE mark_id = $2`,
-		models.UnderReviewStatus, fxMarkFar)
-	s.Require().NoError(err, "seed mark 3 status")
-
-	// History ids after seeding:
+	// Status transitions go through UPDATE so the trigger builds the history
+	// chain. History ids after seeding:
 	//   1: mark1 NULL->1
 	//   2: mark2 NULL->1
 	//   3: mark3 NULL->1
 	//   4: mark2 1->2 (prev 2)
 	//   5: mark3 1->3 (prev 3)
 	_, err = s.db.ExecContext(s.ctx, `
+		UPDATE marks SET mark_status_id = 2 WHERE mark_id = 2;
+		UPDATE marks SET mark_status_id = 3 WHERE mark_id = 3;
+
 		INSERT INTO checks (user_id, mark_id, mark_status_id, mark_status_history_id, comment, result, created_at) VALUES
 			(2, 1, 1, 1, 'Bob confirms mark 1',  true,  NOW() - INTERVAL '2 hour'),
 			(1, 2, 1, 2, 'Alice on mark 2 v1',   true,  NOW() - INTERVAL '3 hour'),
 			(2, 2, 2, 4, 'Bob on mark 2 v2',     false, NOW() - INTERVAL '1 hour');
-	`)
-	s.Require().NoError(err, "seed checks")
 
-	_, err = s.db.ExecContext(s.ctx, `
 		INSERT INTO tasks (name, user_id, mark_id, status_id) VALUES
 			('Проверить свалку', 1, 1, 1),
 			('Проверить лавку',  1, 2, 2),
 			('Проверить яму',    2, 3, 1);
-	`)
-	s.Require().NoError(err, "seed tasks")
 
-	_, err = s.db.ExecContext(s.ctx, `
 		INSERT INTO admin_boundaries (osm_id, name, admin_level, geom) VALUES
 			(1001, 'Центр', 8, ST_SetSRID(ST_Multi(ST_MakeEnvelope(41.39, 52.69, 41.42, 52.71)), 4326)),
 			(1002, 'Пустой', 8, ST_SetSRID(ST_Multi(ST_MakeEnvelope(41.50, 52.80, 41.52, 52.82)), 4326));
 	`)
-	s.Require().NoError(err, "seed admin boundaries")
+	s.Require().NoError(err, "seed statuses, checks, tasks and admin boundaries")
+}
+
+// ids collects the identifiers of items in order.
+func ids[T any](items []T, id func(T) int) []int {
+	out := make([]int, 0, len(items))
+	for _, it := range items {
+		out = append(out, id(it))
+	}
+	return out
 }
 
 // countRows is a helper for asserting side effects directly in the database.

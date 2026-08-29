@@ -37,11 +37,7 @@ func (st *UsersSuite) TestGetUsers() {
 	st.Equal(response.Success, true)
 	st.NotNil(response.Payload.Users)
 
-	ids := make([]int, 0, len(response.Payload.Users))
-	for _, u := range response.Payload.Users {
-		ids = append(ids, u.Id)
-	}
-	st.Contains(ids, st.fx.user.ID, "fixture user must be listed")
+	st.Contains(ids(response.Payload.Users, func(u usersrest.PublicUser) int { return u.Id }), st.fx.user.ID, "fixture user must be listed")
 }
 
 func getUsers(t *testing.T, cfg *config.RESTConfig, expectedStatusCode int) responses.Response[usersrest.GetUsersResponse] {

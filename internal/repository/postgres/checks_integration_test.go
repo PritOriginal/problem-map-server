@@ -20,18 +20,12 @@ const (
 	fxCheckBobMark2   = 3
 
 	fxHistoryMark1Initial   = 1
-	fxHistoryMark2Initial   = 2
-	fxHistoryMark3Initial   = 3
 	fxHistoryMark2Confirmed = 4
 	fxHistoryMark3Review    = 5
 )
 
 func checkIDs(checks []models.Check) []int {
-	ids := make([]int, 0, len(checks))
-	for _, c := range checks {
-		ids = append(ids, c.ID)
-	}
-	return ids
+	return ids(checks, func(c models.Check) int { return c.ID })
 }
 
 func (s *PostgresSuite) TestChecks_AddCheck() {

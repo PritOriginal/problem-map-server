@@ -6,7 +6,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math"
 	"mime/multipart"
 	"net/http"
@@ -15,6 +14,7 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	checksrest "github.com/PritOriginal/problem-map-server/internal/handler/checks"
+	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -90,7 +90,7 @@ func (st *ChecksSuite) TestGetCheckById() {
 
 func (st *ChecksSuite) TestGetChecksByMarkId() {
 	checker := addNewUser(st.T(), &st.Cfg.REST)
-	markID := addNewMark(st.T(), &st.Cfg.REST, st.fx.user.AccessToken).Payload.MarkId
+	markID := addNewMark(st.T(), &st.Cfg.REST, st.fx.user.AccessToken, st.fx.markTypeID).Payload.MarkId
 	checkID := addNewCheck(st.T(), &st.Cfg.REST, markID, checker.Payload.AccessToken).Payload.CheckId
 
 	tests := []struct {
@@ -130,12 +130,10 @@ func (st *ChecksSuite) TestGetChecksByMarkId() {
 				st.Equal(response.Success, true)
 				// The mark author's own check is created together with the
 				// mark, so the list holds it plus the checker's one.
-				ids := make([]int, 0, len(response.Payload.Checks))
 				for _, check := range response.Payload.Checks {
-					ids = append(ids, check.ID)
 					st.Equal(markID, check.MarkID)
 				}
-				st.Contains(ids, checkID)
+				st.Contains(ids(response.Payload.Checks, func(c models.Check) int { return c.ID }), checkID)
 			} else {
 				st.Equal(response.Success, false)
 			}
@@ -146,7 +144,7 @@ func (st *ChecksSuite) TestGetChecksByMarkId() {
 func (st *ChecksSuite) TestGetChecksByUserId() {
 	checker := addNewUser(st.T(), &st.Cfg.REST)
 	checkerID := currentUserId(st.T(), &st.Cfg.REST, checker.Payload.AccessToken)
-	markID := addNewMark(st.T(), &st.Cfg.REST, st.fx.user.AccessToken).Payload.MarkId
+	markID := addNewMark(st.T(), &st.Cfg.REST, st.fx.user.AccessToken, st.fx.markTypeID).Payload.MarkId
 	checkID := addNewCheck(st.T(), &st.Cfg.REST, markID, checker.Payload.AccessToken).Payload.CheckId
 
 	tests := []struct {
@@ -195,7 +193,7 @@ func (st *ChecksSuite) TestGetChecksByUserId() {
 
 func (st *ChecksSuite) TestAddCheck() {
 	signInResponse := addNewUser(st.T(), &st.Cfg.REST)
-	markID := addNewMark(st.T(), &st.Cfg.REST, st.fx.user.AccessToken).Payload.MarkId
+	markID := addNewMark(st.T(), &st.Cfg.REST, st.fx.user.AccessToken, st.fx.markTypeID).Payload.MarkId
 
 	tests := []struct {
 		name       string
@@ -282,13 +280,7 @@ func addCheck(t *testing.T, cfg *config.RESTConfig, request checksrest.AddCheckR
 	require.NoError(t, mpw.WriteField("result", strconv.FormatBool(request.Result)))
 	require.NoError(t, mpw.WriteField("comment", request.Comment))
 
-	for _, image := range getImages(2) {
-		fw, err := mpw.CreateFormFile("photos", "test.jpg")
-		require.NoError(t, err)
-		_, err = io.Copy(fw, bytes.NewBuffer(image))
-		require.NoError(t, err)
-	}
-
+	attachPhotos(t, mpw, 2)
 	require.NoError(t, mpw.Close())
 
 	req, err := http.NewRequest(

@@ -5,9 +5,6 @@ package redis_test
 import (
 	"context"
 	"encoding/json"
-	"net"
-	"net/url"
-	"strconv"
 	"testing"
 	"time"
 
@@ -39,16 +36,12 @@ func (s *RedisSuite) SetupSuite() {
 	s.Require().NoError(err, "start redis container")
 	testcontainers.CleanupContainer(s.T(), container)
 
-	connStr, err := container.ConnectionString(s.ctx)
+	host, err := container.Host(s.ctx)
 	s.Require().NoError(err)
-	u, err := url.Parse(connStr)
-	s.Require().NoError(err)
-	host, portStr, err := net.SplitHostPort(u.Host)
-	s.Require().NoError(err)
-	port, err := strconv.Atoi(portStr)
+	port, err := container.MappedPort(s.ctx, "6379/tcp")
 	s.Require().NoError(err)
 
-	s.repo, err = redis.New(config.RedisConfig{Host: host, Port: port})
+	s.repo, err = redis.New(config.RedisConfig{Host: host, Port: int(port.Num())})
 	s.Require().NoError(err, "connect via repository constructor")
 }
 
@@ -127,32 +120,16 @@ func (s *RedisSuite) TestSet_Overwrite() {
 	s.Equal("2", string(b))
 }
 
-func (s *RedisSuite) TestGet_Errors() {
+func (s *RedisSuite) TestGet_MissingKey() {
+	var v map[string]any
+	s.ErrorIs(s.repo.Get(s.ctx, "missing", &v), goredis.Nil)
+}
+
+func (s *RedisSuite) TestGet_InvalidJSON() {
 	s.Require().NoError(s.repo.Set(s.ctx, "not-json", "{oops", 0))
 
-	tests := []struct {
-		name    string
-		key     string
-		wantErr error
-		wantMsg string
-	}{
-		{name: "missing key", key: "missing", wantErr: goredis.Nil},
-		{name: "invalid json", key: "not-json", wantMsg: "invalid character"},
-	}
-
-	for _, tt := range tests {
-		s.Run(tt.name, func() {
-			var v map[string]any
-			err := s.repo.Get(s.ctx, tt.key, &v)
-			s.Require().Error(err)
-			if tt.wantErr != nil {
-				s.ErrorIs(err, tt.wantErr)
-			}
-			if tt.wantMsg != "" {
-				s.ErrorContains(err, tt.wantMsg)
-			}
-		})
-	}
+	var v map[string]any
+	s.ErrorContains(s.repo.Get(s.ctx, "not-json", &v), "invalid character")
 }
 
 func (s *RedisSuite) TestExists() {
