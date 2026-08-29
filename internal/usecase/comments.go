@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
@@ -229,15 +230,29 @@ func (uc *Comments) DeleteComment(ctx context.Context, actor models.Actor, id in
 	return nil
 }
 
-// normalizeCommentBody trims the body and checks that it is non-empty and
-// within models.MaxCommentBodyLen runes (ErrInvalidArgument otherwise).
+// normalizeCommentBody trims the body and checks that it is non-empty,
+// valid UTF-8 without control characters (line breaks and tabs are kept;
+// a NUL byte would be rejected by PostgreSQL anyway) and within
+// models.MaxCommentBodyLen runes (ErrInvalidArgument otherwise).
 func normalizeCommentBody(body string) (string, error) {
 	body = strings.TrimSpace(body)
 	if body == "" {
 		return "", fmt.Errorf("%w: empty comment", ErrInvalidArgument)
 	}
+	if !utf8.ValidString(body) {
+		return "", fmt.Errorf("%w: comment is not valid UTF-8", ErrInvalidArgument)
+	}
+	if strings.ContainsFunc(body, isForbiddenCommentRune) {
+		return "", fmt.Errorf("%w: comment contains control characters", ErrInvalidArgument)
+	}
 	if utf8.RuneCountInString(body) > models.MaxCommentBodyLen {
 		return "", fmt.Errorf("%w: comment longer than %d characters", ErrInvalidArgument, models.MaxCommentBodyLen)
 	}
 	return body, nil
+}
+
+// isForbiddenCommentRune reports a control character other than a line
+// break or a tab.
+func isForbiddenCommentRune(r rune) bool {
+	return unicode.IsControl(r) && r != '\n' && r != '\r' && r != '\t'
 }

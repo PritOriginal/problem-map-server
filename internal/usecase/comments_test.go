@@ -124,6 +124,16 @@ func (suite *CommentsSuite) TestAddComment() {
 			wantBody: "hello",
 		},
 		{
+			name:     "OkMultiline",
+			body:     "line 1\r\n\tline 2",
+			getMark:  mark,
+			count:    &method[int]{data: 0},
+			dup:      &method[bool]{data: false},
+			add:      &method[int64]{data: commentID},
+			getAdded: &method[models.Comment]{data: models.Comment{ID: commentID, MarkID: markID, UserID: userID, Body: "line 1\r\n\tline 2"}},
+			wantBody: "line 1\r\n\tline 2",
+		},
+		{
 			name:      "OkReply",
 			body:      "reply",
 			parentID:  &parent,
@@ -137,6 +147,9 @@ func (suite *CommentsSuite) TestAddComment() {
 		},
 		{name: "ErrEmptyBody", body: "  \n\t ", wantErr: usecase.ErrInvalidArgument},
 		{name: "ErrTooLong", body: strings.Repeat("я", models.MaxCommentBodyLen+1), wantErr: usecase.ErrInvalidArgument},
+		{name: "ErrNulByte", body: "hi\x00there", wantErr: usecase.ErrInvalidArgument},
+		{name: "ErrControlChar", body: "hi\x1bthere", wantErr: usecase.ErrInvalidArgument},
+		{name: "ErrInvalidUTF8", body: "hi\xff", wantErr: usecase.ErrInvalidArgument},
 		{name: "ErrMarkNotFound", body: "hi", getMark: &method[models.Mark]{err: repository.ErrNotFound}, wantErr: usecase.ErrNotFound},
 		{
 			name: "ErrParentNotFound", body: "hi", parentID: &parent, getMark: mark,
