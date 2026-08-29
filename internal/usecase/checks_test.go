@@ -311,6 +311,10 @@ func (suite *ChecksSuite) TestAddCheck() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			func() {
+				// Everything runs inside a single transaction under the mark lock.
+				suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
+				suite.marksRepo.On("LockMark", mock.Anything, 1).Once().Return(nil)
+
 				suite.marksRepo.On("GetMarkById", mock.Anything, mock.AnythingOfType("int")).Once().
 					Return(models.Mark{ID: 1, UserID: testAuthorID}, nil)
 
@@ -319,9 +323,6 @@ func (suite *ChecksSuite) TestAddCheck() {
 				if tt.getLastMarkStatusHistoryItem.err != nil {
 					return
 				}
-
-				// Everything below runs inside a single transaction.
-				suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
 
 				suite.checksRepo.On("CountChecksByUserIdSince", mock.Anything, testCheckerID, mock.AnythingOfType("time.Time")).Once().
 					Return(0, nil)
@@ -398,8 +399,10 @@ func (suite *ChecksSuite) TestAddCheck() {
 }
 
 // TestAddCheckOwnMark: the author may not vote on their own mark; nothing
-// is written and the transaction is never opened.
+// is written.
 func (suite *ChecksSuite) TestAddCheckOwnMark() {
+	suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
+	suite.marksRepo.On("LockMark", mock.Anything, 1).Once().Return(nil)
 	suite.marksRepo.On("GetMarkById", mock.Anything, 1).Once().
 		Return(models.Mark{ID: 1, UserID: testCheckerID}, nil)
 
@@ -407,18 +410,19 @@ func (suite *ChecksSuite) TestAddCheckOwnMark() {
 
 	suite.ErrorIs(err, usecase.ErrForbidden)
 	suite.marksRepo.AssertNotCalled(suite.T(), "GetLastMarkStatusHistoryItem", mock.Anything, mock.Anything)
-	suite.trManager.AssertNotCalled(suite.T(), "Do", mock.Anything, mock.Anything)
 	suite.checksRepo.AssertNotCalled(suite.T(), "AddCheck", mock.Anything, mock.Anything)
 }
 
-// TestAddCheckMarkNotFound: an unknown mark is reported before any other lookup.
+// TestAddCheckMarkNotFound: an unknown mark is reported by the lock, before
+// any other lookup.
 func (suite *ChecksSuite) TestAddCheckMarkNotFound() {
-	suite.marksRepo.On("GetMarkById", mock.Anything, 1).Once().
-		Return(models.Mark{}, repository.ErrNotFound)
+	suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
+	suite.marksRepo.On("LockMark", mock.Anything, 1).Once().Return(repository.ErrNotFound)
 
 	_, err := suite.uc.AddCheck(context.Background(), models.Check{UserID: testCheckerID, MarkID: 1}, nil)
 
 	suite.ErrorIs(err, usecase.ErrNotFound)
+	suite.marksRepo.AssertNotCalled(suite.T(), "GetMarkById", mock.Anything, mock.Anything)
 }
 
 // TestAddCheckDailyLimit covers the rolling 24h quota.
@@ -436,11 +440,12 @@ func (suite *ChecksSuite) TestAddCheckDailyLimit() {
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
+			suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
+			suite.marksRepo.On("LockMark", mock.Anything, 1).Once().Return(nil)
 			suite.marksRepo.On("GetMarkById", mock.Anything, 1).Once().
 				Return(models.Mark{ID: 1, UserID: testAuthorID}, nil)
 			suite.marksRepo.On("GetLastMarkStatusHistoryItem", mock.Anything, 1).Once().
 				Return(models.MarkStatusHistoryItem{ID: 7, NewMarkStatusID: models.UnconfirmedStatus}, nil)
-			suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
 			suite.checksRepo.On("CountChecksByUserIdSince", mock.Anything, testCheckerID, mock.AnythingOfType("time.Time")).Once().
 				Run(func(args mock.Arguments) {
 					since := args.Get(2).(time.Time)
@@ -1057,6 +1062,7 @@ func (suite *MarkStatusUpdaterSuite) TestRatingDeltas() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
+			suite.marksRepo.On("LockMark", mock.Anything, markId).Once().Return(nil)
 			suite.marksRepo.On("GetMarkById", mock.Anything, markId).Once().
 				Return(models.Mark{ID: markId, UserID: authorId, MarkStatusID: tt.status}, nil)
 			suite.marksRepo.On("GetLastMarkStatusHistoryItem", mock.Anything, markId).Once().
@@ -1093,6 +1099,7 @@ func (suite *MarkStatusUpdaterSuite) TestRatingDeltas() {
 // surrounding transaction rolls back the status change.
 func (suite *MarkStatusUpdaterSuite) TestRatingEventFailureAborts() {
 	suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
+	suite.marksRepo.On("LockMark", mock.Anything, 1).Once().Return(nil)
 	suite.marksRepo.On("GetMarkById", mock.Anything, 1).Once().
 		Return(models.Mark{ID: 1, UserID: 2, MarkStatusID: models.UnconfirmedStatus}, nil)
 	suite.marksRepo.On("GetLastMarkStatusHistoryItem", mock.Anything, 1).Once().
@@ -1188,6 +1195,7 @@ func (suite *MarkStatusUpdaterSuite) TestConfirm() {
 		suite.Run(tt.name, func() {
 			func() {
 				suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
+				suite.marksRepo.On("LockMark", mock.Anything, mock.AnythingOfType("int")).Once().Return(nil)
 
 				suite.marksRepo.On("GetMarkById", mock.Anything, mock.AnythingOfType("int")).Once().
 					Return(tt.getMarkById.data, tt.getMarkById.err)
@@ -1307,6 +1315,7 @@ func (suite *MarkStatusUpdaterSuite) TestReject() {
 		suite.Run(tt.name, func() {
 			func() {
 				suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
+				suite.marksRepo.On("LockMark", mock.Anything, mock.AnythingOfType("int")).Once().Return(nil)
 
 				suite.marksRepo.On("GetMarkById", mock.Anything, mock.AnythingOfType("int")).Once().
 					Return(tt.getMarkById.data, tt.getMarkById.err)

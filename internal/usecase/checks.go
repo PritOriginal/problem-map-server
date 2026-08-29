@@ -1,6 +1,7 @@
 package usecase
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -70,23 +71,30 @@ func NewChecks(log *slog.Logger, cfg config.RatingConfig, trManager trm.Manager,
 func (uc *Checks) AddCheck(ctx context.Context, check models.Check, photos []io.Reader) (int64, error) {
 	const op = "usecase.Checks.AddCheck"
 
-	mark, err := uc.repos.Marks.GetMarkById(ctx, check.MarkID)
-	if err != nil {
-		return 0, mapRepoErr(op, err)
-	}
-	if mark.UserID == check.UserID {
-		return 0, fmt.Errorf("%s: %w: own mark", op, ErrForbidden)
-	}
-
-	historyItem, err := uc.repos.Marks.GetLastMarkStatusHistoryItem(ctx, check.MarkID)
-	if err != nil {
-		return 0, mapRepoErr(op, err)
-	}
-	check.MarkStatusHistoryItemId = historyItem.ID
-	check.MarkStatusId = historyItem.NewMarkStatusID
-
 	var checkId int64
-	err = uc.trManager.Do(ctx, func(ctx context.Context) error {
+	err := uc.trManager.Do(ctx, func(ctx context.Context) error {
+		// Concurrent checks on one mark are serialised by the row lock, so
+		// the stage is read, scored and resolved (markStatusUpdater) by one
+		// transaction at a time and can never be rated twice.
+		if err := uc.repos.Marks.LockMark(ctx, check.MarkID); err != nil {
+			return err
+		}
+
+		mark, err := uc.repos.Marks.GetMarkById(ctx, check.MarkID)
+		if err != nil {
+			return err
+		}
+		if mark.UserID == check.UserID {
+			return fmt.Errorf("%w: own mark", ErrForbidden)
+		}
+
+		historyItem, err := uc.repos.Marks.GetLastMarkStatusHistoryItem(ctx, check.MarkID)
+		if err != nil {
+			return err
+		}
+		check.MarkStatusHistoryItemId = historyItem.ID
+		check.MarkStatusId = historyItem.NewMarkStatusID
+
 		if err := uc.checkDailyLimit(ctx, check.UserID); err != nil {
 			return err
 		}
@@ -383,6 +391,12 @@ func (u *Updater) decide(ctx context.Context, op string, markId int,
 ) (models.MarkStatusType, error) {
 	var newStatus models.MarkStatusType
 	err := u.trManager.Do(ctx, func(ctx context.Context) error {
+		// Same lock as AddCheck: a vote landing during the moderator's
+		// decision waits for it instead of resolving the stage a second time.
+		if err := u.repos.Marks.LockMark(ctx, markId); err != nil {
+			return err
+		}
+
 		mark, err := u.repos.Marks.GetMarkById(ctx, markId)
 		if err != nil {
 			return err
@@ -462,6 +476,12 @@ func (u *Updater) transition(ctx context.Context, mark models.Mark, newStatus mo
 	}
 
 	markId := null.IntFrom(int64(mark.ID))
+
+	// Rating rows are updated in user order so that two stages resolving
+	// at once lock the users' rows in the same sequence and cannot deadlock.
+	checks = slices.SortedFunc(slices.Values(checks), func(a, b models.Check) int {
+		return cmp.Compare(a.UserID, b.UserID)
+	})
 
 	for _, check := range checks {
 		event := models.RatingEvent{

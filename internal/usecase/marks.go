@@ -18,6 +18,9 @@ type MarksRepository interface {
 	AddMark(ctx context.Context, mark models.Mark) (int64, error)
 	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
 	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
+	// LockMark locks the mark row for the rest of the transaction
+	// (repository.ErrNotFound when the mark does not exist).
+	LockMark(ctx context.Context, markId int) error
 	UpdateMarkStatus(ctx context.Context, markId int, markStatusId models.MarkStatusType) error
 	GetMarkStatusHistoryByMarkId(ctx context.Context, markId int) ([]models.MarkStatusHistoryItem, error)
 	GetLastMarkStatusHistoryItem(ctx context.Context, markId int) (models.MarkStatusHistoryItem, error)
