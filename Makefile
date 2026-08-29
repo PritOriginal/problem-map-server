@@ -1,7 +1,7 @@
 .PHONY: help run-rest run-grpc run-tasker run-osm \
 	build build-rest build-grpc build-tasker build-migrator build-osm \
 	docker-rest docker-grpc \
-	test test-functional-rest test-functional-grpc test-cover test-cover-functional-rest \
+	test test-integration test-functional-rest test-functional-grpc test-cover test-cover-functional-rest \
 	fmt vet lint vuln \
 	migrate migrate-version migrate-force migrate-up migrate-up-1 migrate-down-1 migrate-drop \
 	swag
@@ -59,6 +59,9 @@ vuln: ## Run govulncheck (installs it if missing)
 
 test: ## Run unit tests
 	go test -tags=nomsgpack ./...
+
+test-integration: ## Run repository integration tests (Docker required, testcontainers)
+	go test -tags=integration ./internal/repository/... -count 1
 
 test-functional-rest: ## Run REST functional tests (server must be running)
 	go test -tags=functional,rest ./tests/rest -count 1
