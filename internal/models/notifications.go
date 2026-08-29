@@ -19,6 +19,8 @@ const (
 	// NotificationWebhookDisabled tells the owner that a webhook was
 	// deactivated after repeated delivery failures.
 	NotificationWebhookDisabled NotificationType = "webhook.disabled"
+	// NotificationBadgeEarned tells the user they earned a badge.
+	NotificationBadgeEarned NotificationType = "badge_earned"
 )
 
 // Notification is an in-app message addressed to one user. EventID makes
