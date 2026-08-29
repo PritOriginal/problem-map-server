@@ -25,6 +25,47 @@ var (
 	ErrTooManyHeatmapCells = fmt.Errorf("%w: too many heatmap cells, increase cell_m", ErrInvalidArgument)
 )
 
+// ErrorKind classifies a usecase error for the transport layers: REST maps
+// it to an HTTP status, gRPC to a status code. Keeping the classification
+// here guarantees both report the same class for the same domain failure.
+type ErrorKind int
+
+const (
+	// KindInternal is any error that is not a known domain failure; it is
+	// logged and reported without details.
+	KindInternal ErrorKind = iota
+	KindNotFound
+	KindConflict
+	KindUnauthorized
+	KindForbidden
+	KindUnavailable
+	KindInvalidArgument
+	KindTooManyRequests
+)
+
+// Kind returns the ErrorKind of err (errors.Is on the sentinel errors).
+// A nil error is KindInternal too: callers check err != nil first.
+func Kind(err error) ErrorKind {
+	switch {
+	case errors.Is(err, ErrNotFound):
+		return KindNotFound
+	case errors.Is(err, ErrConflict):
+		return KindConflict
+	case errors.Is(err, ErrUnauthorized):
+		return KindUnauthorized
+	case errors.Is(err, ErrForbidden):
+		return KindForbidden
+	case errors.Is(err, ErrUnavailable):
+		return KindUnavailable
+	case errors.Is(err, ErrInvalidArgument):
+		return KindInvalidArgument
+	case errors.Is(err, ErrTooManyRequests):
+		return KindTooManyRequests
+	default:
+		return KindInternal
+	}
+}
+
 // mapRepoErr translates repository errors into usecase errors so that callers
 // never depend on the repository package. repository.ErrNotFound becomes
 // ErrNotFound, repository.ErrExists becomes ErrConflict; anything else is

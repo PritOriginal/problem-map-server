@@ -3,7 +3,6 @@
 package grpcerr
 
 import (
-	"errors"
 	"log/slog"
 
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
@@ -27,23 +26,29 @@ func Map(log *slog.Logger, err error, msg string, attrs ...any) error {
 
 	attrs = append(attrs, logger.Err(err))
 
-	switch {
-	case errors.Is(err, usecase.ErrNotFound):
-		log.Debug(msg, attrs...)
-		return status.Error(codes.NotFound, msg)
-	case errors.Is(err, usecase.ErrConflict):
-		log.Debug(msg, attrs...)
-		return status.Error(codes.AlreadyExists, msg)
-	case errors.Is(err, usecase.ErrUnauthorized):
-		log.Debug(msg, attrs...)
-		return status.Error(codes.Unauthenticated, msg)
-	case errors.Is(err, usecase.ErrUnavailable):
-		log.Error(msg, attrs...)
-		return status.Error(codes.Unavailable, msg)
-	default:
+	code, ok := codeOf[usecase.Kind(err)]
+	if !ok {
 		log.Error(msg, attrs...)
 		return status.Error(codes.Internal, msg)
 	}
+	if code == codes.Unavailable {
+		log.Error(msg, attrs...)
+	} else {
+		log.Debug(msg, attrs...)
+	}
+	return status.Error(code, msg)
+}
+
+// codeOf is the gRPC code for each classified usecase error; kinds absent
+// from the table (KindInternal) are reported as codes.Internal.
+var codeOf = map[usecase.ErrorKind]codes.Code{
+	usecase.KindNotFound:        codes.NotFound,
+	usecase.KindConflict:        codes.AlreadyExists,
+	usecase.KindUnauthorized:    codes.Unauthenticated,
+	usecase.KindForbidden:       codes.PermissionDenied,
+	usecase.KindUnavailable:     codes.Unavailable,
+	usecase.KindInvalidArgument: codes.InvalidArgument,
+	usecase.KindTooManyRequests: codes.ResourceExhausted,
 }
 
 // InvalidArgument returns a codes.InvalidArgument status with the given message.

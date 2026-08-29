@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/PritOriginal/problem-map-server/internal/grpc/grpcerr"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/stretchr/testify/assert"
@@ -27,6 +28,10 @@ func TestMap(t *testing.T) {
 		{name: "Conflict", err: usecase.ErrConflict, wantCode: codes.AlreadyExists},
 		{name: "Unauthorized", err: usecase.ErrUnauthorized, wantCode: codes.Unauthenticated},
 		{name: "Unavailable", err: usecase.ErrUnavailable, wantCode: codes.Unavailable},
+		{name: "Forbidden", err: usecase.ErrForbidden, wantCode: codes.PermissionDenied},
+		{name: "InvalidArgument", err: usecase.ErrInvalidArgument, wantCode: codes.InvalidArgument},
+		{name: "TooManyRequests", err: usecase.ErrTooManyRequests, wantCode: codes.ResourceExhausted},
+		{name: "InvalidReferenceViaUsecase", err: fmt.Errorf("op: %w: %w", usecase.ErrInvalidArgument, repository.ErrInvalidReference), wantCode: codes.InvalidArgument},
 		{name: "Unknown", err: errors.New("boom"), wantCode: codes.Internal},
 		{name: "StatusPassthrough", err: status.Error(codes.PermissionDenied, "x"), wantCode: codes.PermissionDenied},
 	}

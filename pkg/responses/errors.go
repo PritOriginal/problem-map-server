@@ -29,20 +29,28 @@ func FromError(c *gin.Context, log *slog.Logger, op string, err error) {
 	var respond func(*gin.Context, string)
 	var msg string
 
-	switch {
-	case errors.Is(err, usecase.ErrNotFound):
+	kind := usecase.Kind(err)
+	// Handler-level input errors are not usecase errors but are 400 as well.
+	if errors.Is(err, handlers.ErrInvalidPhoto) || errors.Is(err, handlers.ErrBadRequest) {
+		kind = usecase.KindInvalidArgument
+	}
+
+	switch kind {
+	case usecase.KindNotFound:
 		respond, msg = NotFound, MsgNotFound
-	case errors.Is(err, usecase.ErrConflict):
+	case usecase.KindConflict:
 		respond, msg = Conflict, MsgConflict
-	case errors.Is(err, usecase.ErrUnauthorized):
+	case usecase.KindUnauthorized:
 		respond, msg = Unauthorized, MsgUnauthorized
-	case errors.Is(err, usecase.ErrForbidden):
+	case usecase.KindForbidden:
 		respond, msg = Forbidden, MsgForbidden
-	case errors.Is(err, usecase.ErrTooManyRequests):
+	case usecase.KindTooManyRequests:
 		respond, msg = TooManyRequests, MsgTooManyReq
-	case errors.Is(err, usecase.ErrInvalidArgument), errors.Is(err, handlers.ErrInvalidPhoto), errors.Is(err, handlers.ErrBadRequest):
+	case usecase.KindInvalidArgument:
 		respond, msg = BadRequest, MsgBadRequest
 	default:
+		// KindInternal and KindUnavailable: logged with op, reported as 500
+		// without details.
 		log.Error(op, slogger.Err(err))
 		Internal(c, MsgInternal)
 		return

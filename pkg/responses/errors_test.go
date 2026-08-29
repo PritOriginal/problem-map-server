@@ -77,6 +77,18 @@ func (suite *ResponsesSuite) TestFromError() {
 			message:    responses.MsgBadRequest,
 		},
 		{
+			name:       "InvalidArgument400",
+			err:        fmt.Errorf("op: %w: limit", usecase.ErrInvalidArgument),
+			statusCode: http.StatusBadRequest,
+			message:    responses.MsgBadRequest,
+		},
+		{
+			name:       "Unavailable500",
+			err:        usecase.ErrUnavailable,
+			statusCode: http.StatusInternalServerError,
+			message:    responses.MsgInternal,
+		},
+		{
 			name:       "Unknown500",
 			err:        errors.New("db is down"),
 			statusCode: http.StatusInternalServerError,
