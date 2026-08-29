@@ -12,6 +12,7 @@ import (
 type MapRepository interface {
 	GetAdminBoundaries(ctx context.Context, filters models.GetAdminBoundaryFilters) ([]models.AdminBoundary, error)
 	GetAdminBoundariesMarksCount(ctx context.Context, filters models.GetAdminBoundaryMarksCountFilters) ([]models.AdminBoundaryMarksCount, error)
+	GetAdminBoundaryById(ctx context.Context, id int) (models.AdminBoundary, error)
 	GetHeatmap(ctx context.Context, filters models.HeatmapFilters) ([]models.HeatmapCell, error)
 	GetRegions(ctx context.Context) ([]models.Region, error)
 	GetCities(ctx context.Context) ([]models.City, error)
@@ -39,6 +40,17 @@ func (uc *Map) GetAdminBoundaries(ctx context.Context, filters models.GetAdminBo
 		return nil, mapRepoErr(op, err)
 	}
 	return boundaries, nil
+}
+
+// GetAdminBoundaryById returns one boundary with its geometry.
+func (uc *Map) GetAdminBoundaryById(ctx context.Context, id int) (models.AdminBoundary, error) {
+	const op = "usecase.Map.GetAdminBoundaryById"
+
+	boundary, err := uc.repos.Map.GetAdminBoundaryById(ctx, id)
+	if err != nil {
+		return models.AdminBoundary{}, mapRepoErr(op, err)
+	}
+	return boundary, nil
 }
 
 func (uc *Map) GetAdminBoundariesMarksCount(ctx context.Context, filters models.GetAdminBoundaryMarksCountFilters) ([]models.AdminBoundaryMarksCount, error) {

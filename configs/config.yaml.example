@@ -51,9 +51,6 @@ nats:
   url: # nats://127.0.0.1:4222
   name: problem-map
   delivery: jetstream
-# Notification worker (cmd/notifier); metrics-port 0 disables /metrics.
-notifier:
-  metrics-port: 0
 tasker:
   interval: 15m
   task-ttl: 72h
@@ -102,6 +99,21 @@ push:
     bundle-id:
     sandbox: false
 
+# Notification worker (cmd/notifier): HTTP port serving Prometheus metrics
+# (push_sent_total, events_consumed_total, ...); 0 disables /metrics.
 notifier:
-  # HTTP port serving Prometheus metrics of cmd/notifier (push_sent_total); 0 disables.
   metrics-port: 0
+# GET /marks/export: row cap and per-IP rate limit (env: EXPORT_*).
+export:
+  max-rows: 50000
+  rate-limit:
+    requests: 2
+    window: 1m
+
+# Outgoing webhooks (env: WEBHOOKS_*). allow-private-urls lifts the SSRF
+# guard and must stay false outside local development.
+webhooks:
+  timeout: 10s
+  retry-interval: 30s
+  retry-batch: 100
+  allow-private-urls: false

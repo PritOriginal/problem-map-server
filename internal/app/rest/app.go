@@ -22,6 +22,7 @@ import (
 	organizationsrest "github.com/PritOriginal/problem-map-server/internal/handler/organizations"
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
+	webhooksrest "github.com/PritOriginal/problem-map-server/internal/handler/webhooks"
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/ratelimit"
@@ -136,11 +137,19 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Checks: checksRepo,
 		Photos: photoRepo,
 	})
+	exportUseCase := usecase.NewExport(log, cfg.Export, usecase.ExportRepositories{
+		Marks: marksRepo,
+	})
 	marksrest.Register(router, log, marksrest.Params{
 		AuthMiddleware: authMiddleware,
 		Cacher:         redisClient,
 		Usecase:        marksUseCase,
 		StatusUpdater:  markStatusUpdater,
+		Exporter:       exportUseCase,
+		ExportRateLimit: ratelimit.New(log, redisClient, ratelimit.Config{
+			Requests: cfg.Export.RateLimit.Requests,
+			Window:   cfg.Export.RateLimit.Window,
+		}),
 	})
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
@@ -185,6 +194,17 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Devices:       notificationsRepo,
 	})
 	notificationsrest.Register(router, log, authMiddleware, notificationsUseCase)
+
+	// The REST server only manages webhooks and serves the test delivery;
+	// events are delivered by cmd/notifier.
+	webhookSender, webhookURLs := app.NewWebhookSender(log, cfg.Webhooks)
+	webhooksUseCase := usecase.NewWebhooks(log, usecase.WebhooksDeps{
+		Sender: webhookSender,
+		URLs:   webhookURLs,
+	}, usecase.WebhooksRepositories{
+		Webhooks: postgres.NewWebhooks(postgresDB.DB, trmsqlx.DefaultCtxGetter),
+	})
+	webhooksrest.Register(router, log, authMiddleware, webhooksUseCase)
 
 	server := &http.Server{
 		Addr:         cfg.REST.Host + ":" + strconv.Itoa(cfg.REST.Port),

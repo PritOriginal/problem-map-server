@@ -4,7 +4,9 @@
 // stream, stores a notification per addressee and hands it to the
 // PushSender. Every event is acknowledged only after it was handled, so a
 // crash or a database outage never loses a notification; a poison event
-// ends up in the dead-letter stream.
+// ends up in the dead-letter stream. A second durable consumer
+// (WebhookRouter) delivers every mark.>, task.> and check.> event to the
+// subscribed webhooks and retries failed deliveries on a ticker.
 package notifier
 
 import (
@@ -49,19 +51,25 @@ type Handlers interface {
 
 // App is the notifier worker: Run consumes and blocks until Stop.
 type App struct {
-	log     *slog.Logger
-	nats    *nats.Client
-	closers app.Closers
-	router  *Router
+	log      *slog.Logger
+	nats     *nats.Client
+	closers  app.Closers
+	router   *Router
+	webhooks *WebhookRouter
+	cfg      config.WebhooksConfig
 	// metricsServer serves the Prometheus registry over HTTP; nil when
 	// notifier.metrics-port is 0.
 	metricsServer   *http.Server
 	shutdownTimeout time.Duration
 
-	mu       sync.Mutex
-	consumer *nats.Consumer
-	stopped  bool
-	done     chan struct{}
+	mu              sync.Mutex
+	consumer        *nats.Consumer
+	webhookConsumer *nats.Consumer
+	stopped         bool
+	done            chan struct{}
+	// cancelRetries stops the webhook retry loop; retries waits for it.
+	cancelRetries context.CancelFunc
+	retries       sync.WaitGroup
 }
 
 func New(log *slog.Logger, cfg *config.Config) *App {
@@ -102,6 +110,15 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Organizations: postgres.NewOrganizations(postgresDB.DB, trmsqlx.DefaultCtxGetter),
 	})
 
+	webhookSender, webhookURLs := app.NewWebhookSender(log, cfg.Webhooks)
+	webhooksUseCase := usecase.NewWebhooks(log, usecase.WebhooksDeps{
+		Sender:        webhookSender,
+		URLs:          webhookURLs,
+		Notifications: notificationsUseCase,
+	}, usecase.WebhooksRepositories{
+		Webhooks: postgres.NewWebhooks(postgresDB.DB, trmsqlx.DefaultCtxGetter),
+	})
+
 	var metricsServer *http.Server
 	if cfg.Notifier.MetricsPort > 0 {
 		metricsServer = m.Server(":" + strconv.Itoa(cfg.Notifier.MetricsPort))
@@ -112,6 +129,8 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		nats:            natsClient,
 		closers:         closers,
 		router:          NewRouter(log, notifier),
+		webhooks:        NewWebhookRouter(log, webhooksUseCase),
+		cfg:             cfg.Webhooks,
 		metricsServer:   metricsServer,
 		shutdownTimeout: cfg.ShutdownTimeout,
 		done:            make(chan struct{}),
@@ -159,8 +178,10 @@ func (a *App) Run() error {
 	}
 	a.log.Info("notifier started",
 		slog.String("consumer", ConsumerName),
+		slog.String("webhook_consumer", WebhookConsumerName),
 		slog.Bool("jetstream", a.nats.JetStream()),
 		slog.Any("subjects", a.router.Subjects()),
+		slog.Any("webhook_subjects", WebhookSubjects),
 	)
 
 	if a.metricsServer != nil {
@@ -201,6 +222,27 @@ func (a *App) startConsumer() bool {
 		panic(err)
 	}
 	a.consumer = consumer
+
+	// The webhook consumer is a separate durable (queue group in core
+	// mode) on the same stream, so every event reaches both the
+	// notification and the webhook consumers exactly once each.
+	webhookConsumer, err := a.nats.Consume(context.Background(), nats.ConsumerConfig{
+		Name:     WebhookConsumerName,
+		Subjects: WebhookSubjects,
+	}, a.webhooks.Handle)
+	if err != nil {
+		a.log.Error("failed to start webhook consumer", slogger.Err(err))
+		panic(err)
+	}
+	a.webhookConsumer = webhookConsumer
+
+	retryCtx, cancelRetries := context.WithCancel(context.Background())
+	a.cancelRetries = cancelRetries
+	a.retries.Add(1)
+	go func() {
+		defer a.retries.Done()
+		a.webhooks.RetryLoop(retryCtx, a.cfg.RetryInterval, a.cfg.RetryBatch)
+	}()
 	return true
 }
 
@@ -220,15 +262,25 @@ func (a *App) Stop() {
 	}
 	a.stopped = true
 	close(a.done)
-	consumer := a.consumer
+	consumer, webhookConsumer := a.consumer, a.webhookConsumer
+	cancelRetries := a.cancelRetries
 	a.mu.Unlock()
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), a.shutdownTimeout)
 	defer cancel()
 
+	if cancelRetries != nil {
+		cancelRetries()
+		a.retries.Wait()
+	}
 	if consumer != nil {
 		if err := consumer.Stop(shutdownCtx); err != nil {
 			log.Error("an error occurred while draining the consumer", slogger.Err(err))
+		}
+	}
+	if webhookConsumer != nil {
+		if err := webhookConsumer.Stop(shutdownCtx); err != nil {
+			log.Error("an error occurred while draining the webhook consumer", slogger.Err(err))
 		}
 	}
 	if a.metricsServer != nil {

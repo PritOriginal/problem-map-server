@@ -6,6 +6,7 @@ import (
 	"math"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 )
 
 func (s *PostgresSuite) TestMap_GetAdminBoundaries() {
@@ -333,4 +334,17 @@ func (s *PostgresSuite) TestMap_RegionsCitiesDistricts() {
 		s.Equal("Район 1", districts[0].Name)
 		s.Require().NotNil(districts[1].Geom)
 	})
+}
+
+func (s *PostgresSuite) TestMap_GetAdminBoundaryById() {
+	boundary, err := s.maps.GetAdminBoundaryById(s.ctx, fxBoundaryMain)
+	s.Require().NoError(err)
+	s.Equal(fxBoundaryMain, boundary.Id)
+	s.Equal("Центр", boundary.Name)
+	s.Equal(8, boundary.AdminLevel)
+	s.Require().NotNil(boundary.Geom)
+	s.Equal(1, boundary.Geom.Ewkb.NumPolygons())
+
+	_, err = s.maps.GetAdminBoundaryById(s.ctx, 404)
+	s.ErrorIs(err, repository.ErrNotFound)
 }

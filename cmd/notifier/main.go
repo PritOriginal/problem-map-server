@@ -17,9 +17,11 @@ var configPath string
 
 var rootCmd = &cobra.Command{
 	Use:   "notifier",
-	Short: "Turns domain events into user notifications",
+	Short: "Turns domain events into user notifications and webhook deliveries",
 	Long: `Subscribes to mark.status_changed, task.assigned and check.added on NATS,
 stores a notification for every addressee and hands it to the push sender.
+A second consumer (mark.>, task.>, check.>) delivers every event to the
+subscribed webhooks and retries failed deliveries on a schedule.
 Runs until SIGINT/SIGTERM.`,
 	SilenceUsage:  true,
 	SilenceErrors: true,

@@ -472,3 +472,67 @@ func (suite *MapSuite) TestGetDistricts() {
 		})
 	}
 }
+
+func (suite *MapSuite) TestGetAdminBoundaryGeoJSON() {
+	boundary := models.AdminBoundary{
+		Id: 5, Name: "Центр", AdminLevel: 8,
+		Geom: models.NewMultiPolygon([][][]geom.Coord{{{{41.39, 52.69}, {41.42, 52.69}, {41.42, 52.71}, {41.39, 52.71}, {41.39, 52.69}}}}),
+	}
+
+	tests := []struct {
+		name       string
+		path       string
+		id         int
+		err        error
+		statusCode int
+	}{
+		{name: "Ok200", path: "/map/admin-boundaries/5.geojson", id: 5, statusCode: http.StatusOK},
+		{name: "Err404NotFound", path: "/map/admin-boundaries/5.geojson", id: 5, err: usecase.ErrNotFound, statusCode: http.StatusNotFound},
+		{name: "Err500", path: "/map/admin-boundaries/5.geojson", id: 5, err: errors.New("db down"), statusCode: http.StatusInternalServerError},
+		{name: "Err400BadID", path: "/map/admin-boundaries/abc.geojson", statusCode: http.StatusBadRequest},
+		{name: "Err400ZeroID", path: "/map/admin-boundaries/0.geojson", statusCode: http.StatusBadRequest},
+		{name: "Err404OtherExtension", path: "/map/admin-boundaries/5.kml", statusCode: http.StatusNotFound},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if tt.id != 0 {
+				suite.uc.On("GetAdminBoundaryById", mock.Anything, tt.id).Once().Return(boundary, tt.err)
+			}
+
+			w := httptest.NewRecorder()
+			suite.r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, tt.path, nil))
+
+			suite.Equal(tt.statusCode, w.Code, w.Body.String())
+			if tt.statusCode != http.StatusOK {
+				handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+				return
+			}
+			suite.Equal(maprest.ContentTypeGeoJSON, w.Header().Get("Content-Type"))
+
+			var feature struct {
+				Type     string `json:"type"`
+				ID       int    `json:"id"`
+				Geometry struct {
+					Type        string           `json:"type"`
+					Coordinates [][][][2]float64 `json:"coordinates"`
+				} `json:"geometry"`
+				Properties maprest.AdminBoundaryProperties `json:"properties"`
+			}
+			suite.Require().NoError(json.Unmarshal(w.Body.Bytes(), &feature), w.Body.String())
+			suite.Equal("Feature", feature.Type)
+			suite.Equal(5, feature.ID)
+			suite.Equal("MultiPolygon", feature.Geometry.Type)
+			suite.Len(feature.Geometry.Coordinates[0][0], 5)
+			suite.Equal(maprest.AdminBoundaryProperties{Name: "Центр", AdminLevel: 8}, feature.Properties)
+		})
+	}
+}
+
+// The static marks/count route must keep working next to the :file param.
+func (suite *MapSuite) TestAdminBoundariesRoutesCoexist() {
+	suite.uc.On("GetAdminBoundariesMarksCount", mock.Anything, mock.Anything).Once().Return([]models.AdminBoundaryMarksCount{}, nil)
+
+	w := httptest.NewRecorder()
+	suite.r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/map/admin-boundaries/marks/count", nil))
+	suite.Equal(http.StatusOK, w.Code, w.Body.String())
+}

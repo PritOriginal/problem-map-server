@@ -148,3 +148,33 @@ type GetCitiesResponse struct {
 type GetDistrictsResponse struct {
 	Districts []models.District `json:"districts"`
 }
+
+// GeoJSONSuffix is the file extension of GET /map/admin-boundaries/{id}.geojson.
+const GeoJSONSuffix = ".geojson"
+
+// ContentTypeGeoJSON is the media type of GeoJSON responses.
+const ContentTypeGeoJSON = "application/geo+json"
+
+// AdminBoundaryFeature is an administrative boundary as a GeoJSON Feature.
+type AdminBoundaryFeature struct {
+	Type       string                  `json:"type" example:"Feature"`
+	ID         int                     `json:"id"`
+	Geometry   *models.MultiPolygon    `json:"geometry" swaggertype:"object"`
+	Properties AdminBoundaryProperties `json:"properties"`
+}
+
+// AdminBoundaryProperties are the non-geometry fields of a boundary.
+type AdminBoundaryProperties struct {
+	Name       string `json:"name"`
+	AdminLevel int    `json:"admin_level"`
+}
+
+// NewAdminBoundaryFeature converts a boundary to a GeoJSON Feature.
+func NewAdminBoundaryFeature(b models.AdminBoundary) AdminBoundaryFeature {
+	return AdminBoundaryFeature{
+		Type:       "Feature",
+		ID:         b.Id,
+		Geometry:   b.Geom,
+		Properties: AdminBoundaryProperties{Name: b.Name, AdminLevel: b.AdminLevel},
+	}
+}

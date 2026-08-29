@@ -327,6 +327,7 @@ definitions:
     - check.added
     - mark.assigned
     - mark.sla_breached
+    - webhook.disabled
     type: string
     x-enum-varnames:
     - NotificationMarkStatusChanged
@@ -334,6 +335,7 @@ definitions:
     - NotificationCheckAdded
     - NotificationMarkAssigned
     - NotificationMarkSLABreached
+    - NotificationWebhookDisabled
   github_com_PritOriginal_problem-map-server_internal_models.Organization:
     properties:
       created_at:
@@ -577,6 +579,54 @@ definitions:
       rating:
         type: integer
       tasks_completed:
+        type: integer
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.Webhook:
+    properties:
+      active:
+        type: boolean
+      created_at:
+        type: string
+      events:
+        description: |-
+          Events lists the subjects the webhook receives; "mark.*" matches
+          every subject of the prefix and "*" every event.
+        items:
+          type: string
+        type: array
+      owner_user_id:
+        type: integer
+      url:
+        type: string
+      webhook_id:
+        type: integer
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.WebhookDelivery:
+    properties:
+      attempt:
+        description: Attempt is the number of attempts made so far.
+        type: integer
+      created_at:
+        type: string
+      delivered_at:
+        format: date-time
+        type: string
+      delivery_id:
+        type: integer
+      error:
+        type: string
+      event_id:
+        type: string
+      next_attempt_at:
+        format: date-time
+        type: string
+      payload:
+        type: object
+      status_code:
+        type: integer
+      subject:
+        type: string
+      webhook_id:
         type: integer
     type: object
   github_com_PritOriginal_problem-map-server_internal_usecase.HealthReport:
@@ -1223,6 +1273,72 @@ definitions:
       success:
         type: boolean
     type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_webhooks_CreateWebhookResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_webhooks.CreateWebhookResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_webhooks_DeleteWebhookResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_webhooks.DeleteWebhookResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_webhooks_GetDeliveriesResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_webhooks.GetDeliveriesResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_webhooks_GetWebhooksResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_webhooks.GetWebhooksResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_webhooks_TestWebhookResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_webhooks.TestWebhookResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_webhooks_WebhookResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_webhooks.WebhookResponse'
+      success:
+        type: boolean
+    type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.Response-map_string_string:
     properties:
       error:
@@ -1340,6 +1456,25 @@ definitions:
         items:
           $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Check'
         type: array
+    type: object
+  internal_handler_map.AdminBoundaryFeature:
+    properties:
+      geometry:
+        type: object
+      id:
+        type: integer
+      properties:
+        $ref: '#/definitions/internal_handler_map.AdminBoundaryProperties'
+      type:
+        example: Feature
+        type: string
+    type: object
+  internal_handler_map.AdminBoundaryProperties:
+    properties:
+      admin_level:
+        type: integer
+      name:
+        type: string
     type: object
   internal_handler_map.GetAdminBoundariesMarksCountResponse:
     properties:
@@ -1777,6 +1912,82 @@ definitions:
         - admin
     required:
     - role
+    type: object
+  internal_handler_webhooks.CreateWebhookRequest:
+    properties:
+      events:
+        description: |-
+          Events are the subjects to receive: exact ("mark.status_changed"),
+          prefix ("mark.*") or "*".
+        example:
+        - mark.status_changed
+        - check.*
+        items:
+          type: string
+        maxItems: 32
+        minItems: 1
+        type: array
+      secret:
+        description: Secret signs the deliveries; generated when omitted and returned
+          once.
+        maxLength: 256
+        minLength: 16
+        type: string
+      url:
+        description: URL must be https and point at a public host.
+        example: https://example.org/hooks/problem-map
+        maxLength: 2048
+        type: string
+    required:
+    - events
+    - url
+    type: object
+  internal_handler_webhooks.CreateWebhookResponse:
+    properties:
+      secret:
+        type: string
+      webhook:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Webhook'
+    type: object
+  internal_handler_webhooks.DeleteWebhookResponse:
+    properties:
+      webhook_id:
+        type: integer
+    type: object
+  internal_handler_webhooks.GetDeliveriesResponse:
+    properties:
+      deliveries:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.WebhookDelivery'
+        type: array
+    type: object
+  internal_handler_webhooks.GetWebhooksResponse:
+    properties:
+      webhooks:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Webhook'
+        type: array
+    type: object
+  internal_handler_webhooks.TestWebhookResponse:
+    properties:
+      delivery:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.WebhookDelivery'
+    type: object
+  internal_handler_webhooks.UpdateWebhookRequest:
+    properties:
+      active:
+        type: boolean
+      events:
+        items:
+          type: string
+        maxItems: 32
+        minItems: 1
+        type: array
+    type: object
+  internal_handler_webhooks.WebhookResponse:
+    properties:
+      webhook:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Webhook'
     type: object
   map_string_string:
     additionalProperties:
@@ -2318,6 +2529,38 @@ paths:
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       summary: List administrative boundaries
+      tags:
+      - map
+  /map/admin-boundaries/{id}.geojson:
+    get:
+      description: 'one boundary with its MultiPolygon geometry as a GeoJSON Feature
+        (`application/geo+json`): `properties` carry `name` and `admin_level`'
+      parameters:
+      - description: boundary id (the path is /map/admin-boundaries/{id}.geojson)
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/geo+json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_handler_map.AdminBoundaryFeature'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: Administrative boundary as GeoJSON
       tags:
       - map
   /map/admin-boundaries/marks/count:
@@ -3112,6 +3355,85 @@ paths:
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       summary: List mark statuses
+      tags:
+      - marks
+  /marks/export:
+    get:
+      description: 'stream every marker matching the same filters as GET /marks (no
+        pagination) as GeoJSON FeatureCollection or CSV (UTF-8 with BOM; a description
+        starting with =, +, -, @ is prefixed with an apostrophe against formula injection).
+        At most `export.max-rows` (50 000 by default) rows: a wider selection is rejected
+        with 400 "narrow the filters". Rate limited per IP (2 per minute by default)'
+      parameters:
+      - description: file format
+        enum:
+        - geojson
+        - csv
+        in: query
+        name: format
+        required: true
+        type: string
+      - description: filter by mark types, comma-separated ids
+        in: query
+        name: mark_type_ids
+        type: string
+      - description: filter by mark statuses, comma-separated ids
+        in: query
+        name: mark_status_ids
+        type: string
+      - description: filter by author
+        in: query
+        name: user_id
+        type: integer
+      - description: bounding box minLon,minLat,maxLon,maxLat (WGS84)
+        in: query
+        name: bbox
+        type: string
+      - description: created_at >= (RFC3339)
+        in: query
+        name: created_from
+        type: string
+      - description: created_at <= (RFC3339)
+        in: query
+        name: created_to
+        type: string
+      - default: created_at
+        description: sort column
+        enum:
+        - created_at
+        - updated_at
+        in: query
+        name: sort
+        type: string
+      - default: desc
+        description: sort order
+        enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/geo+json
+      - text/csv
+      responses:
+        "200":
+          description: 'the file; Content-Disposition: attachment'
+          schema:
+            type: string
+        "400":
+          description: invalid filters or too many rows (narrow the filters)
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: Export markers
       tags:
       - marks
   /marks/nearby:
@@ -4473,6 +4795,251 @@ paths:
       summary: Get current user stats
       tags:
       - users
+  /webhooks:
+    get:
+      description: webhooks owned by the current user
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_webhooks_GetWebhooksResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: List webhooks
+      tags:
+      - webhooks
+    post:
+      consumes:
+      - application/json
+      description: 'subscribe an https endpoint to domain events. The response carries
+        the signing `secret` once; deliveries are signed with `X-Signature: sha256=<hex
+        HMAC-SHA256(secret, "<X-Timestamp>." + body)>` (check the timestamp age to
+        reject replays). Private/loopback targets are rejected'
+      parameters:
+      - description: webhook
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_webhooks.CreateWebhookRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_webhooks_CreateWebhookResponse'
+        "400":
+          description: invalid url (not https / private host) or unknown event
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Create webhook
+      tags:
+      - webhooks
+  /webhooks/{id}:
+    delete:
+      description: delete the webhook; the owner or an admin
+      parameters:
+      - description: webhook id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_webhooks_DeleteWebhookResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Delete webhook
+      tags:
+      - webhooks
+    patch:
+      consumes:
+      - application/json
+      description: enable/disable the webhook or change its events; the owner or an
+        admin
+      parameters:
+      - description: webhook id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: fields to change
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_webhooks.UpdateWebhookRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_webhooks_WebhookResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Update webhook
+      tags:
+      - webhooks
+  /webhooks/{id}/deliveries:
+    get:
+      description: deliveries of the webhook, newest first, with attempt count, status
+        and next retry; pagination info is in the top-level `meta` field
+      parameters:
+      - description: webhook id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - default: 100
+        description: page size, 1..500
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: page offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_webhooks_GetDeliveriesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: List webhook deliveries
+      tags:
+      - webhooks
+  /webhooks/{id}/test:
+    post:
+      description: deliver a synthetic `webhook.test` event once (no retries) and
+        report the outcome; works for inactive webhooks too
+      parameters:
+      - description: webhook id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_webhooks_TestWebhookResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Test webhook
+      tags:
+      - webhooks
 securityDefinitions:
   BearerAuth:
     description: 'JWT access token: "Bearer {token}"'

@@ -68,6 +68,10 @@ func (suite *ConfigSuite) TestValidate() {
 		c.Marks = config.MarksConfig{DedupRadiusM: 50}
 		c.Rating = config.RatingConfig{CheckCorrect: 2, CheckWrong: -1, MarkConfirmed: 3, MarkRefuted: -2, TaskCompleted: 1, MaxChecksPerDay: 50}
 		c.Push = config.PushConfig{SendTimeout: 15 * time.Second, FCM: config.FCMConfig{Timeout: 5 * time.Second, MaxRetries: 3, Concurrency: 8}}
+		c.Export.MaxRows = 50_000
+		c.Export.RateLimit.Requests = 2
+		c.Export.RateLimit.Window = time.Minute
+		c.Webhooks = config.WebhooksConfig{Timeout: 10 * time.Second, RetryInterval: 30 * time.Second, RetryBatch: 100}
 		return c
 	}
 
@@ -100,6 +104,11 @@ func (suite *ConfigSuite) TestValidate() {
 		{name: "zero fcm concurrency", mutate: func(c *config.Config) { c.Push.FCM.Concurrency = 0 }, wantErr: "FCM_CONCURRENCY"},
 		{name: "CoreDelivery", mutate: func(c *config.Config) { c.Nats.Delivery = config.NatsDeliveryCore }},
 		{name: "UnknownDelivery", mutate: func(c *config.Config) { c.Nats.Delivery = "rabbit" }, wantErr: "NATS_DELIVERY"},
+		{name: "zero export rows", mutate: func(c *config.Config) { c.Export.MaxRows = 0 }, wantErr: "EXPORT_MAX_ROWS"},
+		{name: "negative export rate limit", mutate: func(c *config.Config) { c.Export.RateLimit.Requests = -1 }, wantErr: "export.rate-limit"},
+		{name: "zero webhook timeout", mutate: func(c *config.Config) { c.Webhooks.Timeout = 0 }, wantErr: "WEBHOOKS_TIMEOUT"},
+		{name: "zero webhook retry interval", mutate: func(c *config.Config) { c.Webhooks.RetryInterval = 0 }, wantErr: "WEBHOOKS_RETRY_INTERVAL"},
+		{name: "zero webhook retry batch", mutate: func(c *config.Config) { c.Webhooks.RetryBatch = 0 }, wantErr: "WEBHOOKS_RETRY_BATCH"},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
