@@ -47,7 +47,7 @@ type PhotosRepository interface {
 
 type Marks struct {
 	log       *slog.Logger
-	cfg       config.MarksConfig
+	settings  SettingsProvider
 	trManager trm.Manager
 	repos     MarksRepositories
 }
@@ -75,16 +75,31 @@ type MarksRepositories struct {
 	Photos PhotosRepository
 }
 
+// NewMarks creates the marks service; cfg provides the dedup radius default
+// until WithSettings installs the runtime settings.
 func NewMarks(log *slog.Logger, cfg config.MarksConfig, trManager trm.Manager, repos MarksRepositories) *Marks {
-	if cfg.DedupRadiusM <= 0 {
-		cfg.DedupRadiusM = models.DefaultDedupRadiusM
-	}
+	defaults := DefaultRuntimeSettings()
+	defaults.ApplyMarksConfig(cfg)
 	return &Marks{
 		log:       log,
-		cfg:       cfg,
+		settings:  StaticSettings(defaults),
 		trManager: trManager,
 		repos:     repos,
 	}
+}
+
+// WithSettings sets the source of the runtime settings (dedup radius).
+// Without it the config defaults apply.
+func (uc *Marks) WithSettings(p SettingsProvider) *Marks {
+	if p != nil {
+		uc.settings = p
+	}
+	return uc
+}
+
+// dedupRadiusM is the current duplicate-detection radius in meters.
+func (uc *Marks) dedupRadiusM(ctx context.Context) float64 {
+	return float64(uc.settings.Get(ctx).DedupRadiusM)
 }
 
 // ListMarks returns a page of marks matching the filters together with the
@@ -178,7 +193,7 @@ func (uc *Marks) FindSimilarMarks(ctx context.Context, filters models.GetSimilar
 	const op = "usecase.Marks.FindSimilarMarks"
 
 	if filters.RadiusM == 0 {
-		filters.RadiusM = uc.cfg.DedupRadiusM
+		filters.RadiusM = uc.dedupRadiusM(ctx)
 	}
 	if err := filters.Validate(); err != nil {
 		return nil, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
@@ -205,7 +220,7 @@ func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos []io.Read
 			Lon:        mark.Geom.Ewkb.X(),
 			Lat:        mark.Geom.Ewkb.Y(),
 			MarkTypeID: mark.MarkTypeID,
-			RadiusM:    uc.cfg.DedupRadiusM,
+			RadiusM:    uc.dedupRadiusM(ctx),
 		})
 		if err != nil {
 			return 0, mapRepoErr(op, err)

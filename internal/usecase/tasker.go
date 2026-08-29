@@ -44,8 +44,11 @@ type TaskerStats struct {
 
 // Tasker distributes verification tasks for unconfirmed marks between users.
 type Tasker struct {
-	log       *slog.Logger
+	log *slog.Logger
+	// cfg keeps the probability model factors; the limits (radius, TTL,
+	// required checks, target probability, tasks per user) come from settings.
 	cfg       config.TaskerConfig
+	settings  SettingsProvider
 	trManager trm.Manager
 	repos     TaskerRepositories
 	events    events.Publisher
@@ -58,15 +61,29 @@ type TaskerRepositories struct {
 	Users UsersRepository
 }
 
+// NewTasker creates the assignment job; cfg provides the model factors and
+// the limit defaults until WithSettings installs the runtime settings.
 func NewTasker(log *slog.Logger, cfg config.TaskerConfig, trManager trm.Manager, repos TaskerRepositories) *Tasker {
+	defaults := DefaultRuntimeSettings()
+	defaults.ApplyTaskerConfig(cfg)
 	return &Tasker{
 		log:       log,
 		cfg:       cfg,
+		settings:  StaticSettings(defaults),
 		trManager: trManager,
 		repos:     repos,
 		events:    events.NoopPublisher{},
 		now:       time.Now,
 	}
+}
+
+// WithSettings sets the source of the runtime settings (assignment limits).
+// Without it the config defaults apply.
+func (uc *Tasker) WithSettings(p SettingsProvider) *Tasker {
+	if p != nil {
+		uc.settings = p
+	}
+	return uc
 }
 
 // WithEvents sets the publisher of task.assigned events. Without it events
@@ -105,6 +122,8 @@ func (uc *Tasker) Update(ctx context.Context) (TaskerStats, error) {
 
 	log := uc.log.With(slog.String("op", op))
 	started := uc.now()
+	// Read once per pass so that a change mid-pass cannot mix two limits.
+	limits := uc.settings.Get(ctx).Tasker
 
 	markStatusIds := make([]int, 0, len(marksToVerify))
 	for _, s := range marksToVerify {
@@ -139,15 +158,15 @@ func (uc *Tasker) Update(ctx context.Context) (TaskerStats, error) {
 
 	distances, err := uc.repos.Marks.GetDistancesFromMarkToPoint(ctx, models.GetDistanceFromMarkToPointFilters{
 		MarkStatusIds: marksToVerify,
-		MaxRadius:     uc.cfg.MaxRadiusMeters,
+		MaxRadius:     limits.MaxRadiusMeters,
 	})
 	if err != nil {
 		return TaskerStats{}, fmt.Errorf("%s: %w", op, err)
 	}
 
-	assignments, stats := uc.plan(marks.Items, users.Items, tasks.Items, distances)
+	assignments, stats := uc.plan(marks.Items, users.Items, tasks.Items, distances, limits)
 
-	dueAt := null.TimeFrom(uc.now().Add(uc.cfg.TaskTTL))
+	dueAt := null.TimeFrom(uc.now().Add(limits.TaskTTL()))
 
 	// All assignments are written in one transaction so that a failure or a
 	// cancellation (SIGTERM) never leaves a partially written batch.
@@ -215,6 +234,7 @@ func (uc *Tasker) plan(
 	users []models.User,
 	tasks []models.Task,
 	distances []models.DistanceFromMarkToPoint,
+	limits TaskerSettings,
 ) ([]assignment, TaskerStats) {
 	stats := TaskerStats{Marks: len(marks), Users: len(users)}
 
@@ -291,7 +311,7 @@ func (uc *Tasker) plan(
 	probability := func(userId, markId int) float64 {
 		dist, ok := distanceKm[userId][markId]
 		if !ok {
-			dist = float64(uc.cfg.MaxRadiusMeters) / 1000
+			dist = float64(limits.MaxRadiusMeters) / 1000
 		}
 		return uc.verificationProbability(*userStatsById[userId], dist)
 	}
@@ -307,7 +327,7 @@ func (uc *Tasker) plan(
 		for _, userId := range assignees[markId] {
 			probs = append(probs, probability(userId, markId))
 		}
-		coverage[markId] = probabilityAtLeastN(uc.cfg.RequiredChecks, probs)
+		coverage[markId] = probabilityAtLeastN(limits.RequiredChecks, probs)
 	}
 
 	markIds := make([]int, 0, len(marks))
@@ -328,13 +348,13 @@ func (uc *Tasker) plan(
 		progress := false
 
 		for _, markId := range markIds {
-			if coverage[markId] >= uc.cfg.TargetProbability {
+			if coverage[markId] >= limits.TargetProbability {
 				continue
 			}
 
 			bestUserId, bestProb := 0, -1.0
 			for userId := range free[markId] {
-				if userStatsById[userId].issued >= uc.cfg.MaxTasksPerUser {
+				if userStatsById[userId].issued >= limits.MaxTasksPerUser {
 					delete(free[markId], userId)
 					continue
 				}
@@ -367,7 +387,7 @@ func (uc *Tasker) plan(
 
 	stats.Assigned = len(result)
 	for _, markId := range markIds {
-		if coverage[markId] >= uc.cfg.TargetProbability {
+		if coverage[markId] >= limits.TargetProbability {
 			stats.Covered++
 		}
 	}
