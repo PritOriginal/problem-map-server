@@ -20,6 +20,7 @@ import (
 	marksrest "github.com/PritOriginal/problem-map-server/internal/handler/marks"
 	notificationsrest "github.com/PritOriginal/problem-map-server/internal/handler/notifications"
 	organizationsrest "github.com/PritOriginal/problem-map-server/internal/handler/organizations"
+	syncrest "github.com/PritOriginal/problem-map-server/internal/handler/sync"
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
 	webhooksrest "github.com/PritOriginal/problem-map-server/internal/handler/webhooks"
@@ -202,6 +203,15 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Devices:       notificationsRepo,
 	})
 	notificationsrest.Register(router, log, authMiddleware, notificationsUseCase)
+
+	// One call for a client coming back online: its tasks, unread
+	// notifications and checks since the last sync.
+	syncUseCase := usecase.NewSync(log, usecase.SyncRepositories{
+		Tasks:         tasksRepo,
+		Notifications: notificationsRepo,
+		Checks:        checksRepo,
+	})
+	syncrest.Register(router, log, authMiddleware, syncUseCase)
 
 	// The REST server only manages webhooks and serves the test delivery;
 	// events are delivered by cmd/notifier.

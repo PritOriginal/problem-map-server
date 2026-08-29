@@ -67,6 +67,9 @@ func (r *NotificationsRepository) GetNotificationsByUserId(ctx context.Context, 
 	if filters.UnreadOnly {
 		q.Where("read_at IS NULL")
 	}
+	if !filters.CreatedSince.IsZero() {
+		q.Where("created_at > ?", filters.CreatedSince)
+	}
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	page, err := selectPage[models.Notification](ctx, tr, q)
