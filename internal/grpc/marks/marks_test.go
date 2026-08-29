@@ -3,6 +3,7 @@ package marksgrpc_test
 import (
 	"context"
 	"errors"
+	"math"
 	"strings"
 	"testing"
 
@@ -159,6 +160,14 @@ func (suite *MarksSuite) TestAddMark() {
 		{
 			name: "BadLatitude", ctx: authedCtx(7), wantCode: codes.InvalidArgument,
 			mutate: func(r *pb.AddMarkRequest) { r.Point.Coordinates.Latitude = -91 },
+		},
+		{
+			name: "NaNLongitude", ctx: authedCtx(7), wantCode: codes.InvalidArgument,
+			mutate: func(r *pb.AddMarkRequest) { r.Point.Coordinates.Longitude = math.NaN() },
+		},
+		{
+			name: "InfLatitude", ctx: authedCtx(7), wantCode: codes.InvalidArgument,
+			mutate: func(r *pb.AddMarkRequest) { r.Point.Coordinates.Latitude = math.Inf(1) },
 		},
 		{
 			name: "NoMarkType", ctx: authedCtx(7), wantCode: codes.InvalidArgument,

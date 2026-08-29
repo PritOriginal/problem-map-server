@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"log/slog"
+	"math"
 
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
 	"github.com/PritOriginal/problem-map-server/internal/grpc/grpcerr"
@@ -140,10 +141,11 @@ func validateAddMark(in *pb.AddMarkRequest) error {
 	if coords == nil {
 		return errInvalidArgument("point is required")
 	}
-	if lon := coords.GetLongitude(); lon < -180 || lon > 180 {
+	// NaN passes plain range comparisons, so it is rejected explicitly.
+	if lon := coords.GetLongitude(); math.IsNaN(lon) || lon < -180 || lon > 180 {
 		return errInvalidArgument("longitude must be in [-180, 180]")
 	}
-	if lat := coords.GetLatitude(); lat < -90 || lat > 90 {
+	if lat := coords.GetLatitude(); math.IsNaN(lat) || lat < -90 || lat > 90 {
 		return errInvalidArgument("latitude must be in [-90, 90]")
 	}
 	if in.GetMarkTypeId() <= 0 {
