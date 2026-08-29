@@ -203,6 +203,21 @@ func (s *PostgresSuite) TestUsers_UpdatePassword() {
 	s.ErrorIs(s.users.UpdatePassword(s.ctx, 999, "hash"), repository.ErrNotFound)
 }
 
+func (s *PostgresSuite) TestUsers_CountByRole() {
+	n, err := s.users.CountByRole(s.ctx, models.RoleAdmin)
+	s.Require().NoError(err)
+	s.Equal(int64(0), n, "fixtures have no admin")
+
+	s.Require().NoError(s.users.UpdateRole(s.ctx, fxUserAlice, models.RoleAdmin))
+	n, err = s.users.CountByRole(s.ctx, models.RoleAdmin)
+	s.Require().NoError(err)
+	s.Equal(int64(1), n)
+
+	n, err = s.users.CountByRole(s.ctx, models.RoleModerator)
+	s.Require().NoError(err)
+	s.Equal(int64(1), n, "bob")
+}
+
 func (s *PostgresSuite) TestUsers_UpdateRole() {
 	s.Require().NoError(s.users.UpdateRole(s.ctx, fxUserAlice, models.RoleAdmin))
 

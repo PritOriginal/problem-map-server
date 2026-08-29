@@ -19,7 +19,7 @@ type Users interface {
 	GetUserById(ctx context.Context, id int) (models.User, error)
 	ListUsers(ctx context.Context, p models.Pagination) (models.Page[models.User], error)
 	ChangePassword(ctx context.Context, id int, oldPassword, newPassword string) error
-	SetRole(ctx context.Context, id int, role models.Role) error
+	SetRole(ctx context.Context, actorID, id int, role models.Role) error
 }
 
 type handler struct {
@@ -188,7 +188,7 @@ func (h *handler) ChangePassword() gin.HandlerFunc {
 // SetRole changes the role of a user (admin only)
 //
 //	@Summary		Set user role
-//	@Description	change the role of a user; the user's sessions are revoked so the new role applies immediately
+//	@Description	change the role of a user; the user's sessions are revoked so the new role applies immediately. The last admin cannot give up the admin role
 //	@Tags			users
 //	@Accept			json
 //	@Produce		json
@@ -198,13 +198,20 @@ func (h *handler) ChangePassword() gin.HandlerFunc {
 //	@Success		204
 //	@Failure		400	{object}	responses.Response[any]
 //	@Failure		401	{object}	responses.Response[any]
-//	@Failure		403	{object}	responses.Response[any]
+//	@Failure		403	{object}	responses.Response[any]	"not an admin, or the last admin demoting themselves"
 //	@Failure		404	{object}	responses.Response[any]
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/users/{id}/role [patch]
 func (h *handler) SetRole() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		const op = "usersrest.SetRole"
+
+		actorID, err := middleware.UserIDFromClaims(c)
+		if err != nil {
+			h.log.Debug("invalid token", logger.Err(err))
+			responses.Unauthorized(c, "invalid token")
+			return
+		}
 
 		id, err := handlers.ParamInt(c, "id")
 		if err != nil {
@@ -219,7 +226,7 @@ func (h *handler) SetRole() gin.HandlerFunc {
 			return
 		}
 
-		if err := h.uc.SetRole(c.Request.Context(), id, req.Role); err != nil {
+		if err := h.uc.SetRole(c.Request.Context(), actorID, id, req.Role); err != nil {
 			responses.FromError(c, h.log, op, err)
 			return
 		}

@@ -21,6 +21,7 @@ type UsersRepository interface {
 	AddUser(ctx context.Context, user models.User) (int64, error)
 	UpdatePassword(ctx context.Context, id int, passwordHash string) error
 	UpdateRole(ctx context.Context, id int, role models.Role) error
+	CountByRole(ctx context.Context, role models.Role) (int64, error)
 }
 
 type Users struct {
@@ -119,14 +120,26 @@ func (uc *Users) ChangePassword(ctx context.Context, id int, oldPassword, newPas
 	return nil
 }
 
-// SetRole changes the user's role and bumps the auth version so that
-// tokens carrying the old role stop working. An unknown role yields
-// ErrInvalidArgument, an unknown user ErrNotFound.
-func (uc *Users) SetRole(ctx context.Context, id int, role models.Role) error {
+// SetRole changes the role of user id on behalf of actorID (an admin) and
+// bumps the auth version so that tokens carrying the old role stop working.
+// An admin may not take the admin role away from themselves while they are
+// the only admin (ErrForbidden), so the system cannot end up without one.
+// An unknown role yields ErrInvalidArgument, an unknown user ErrNotFound.
+func (uc *Users) SetRole(ctx context.Context, actorID, id int, role models.Role) error {
 	const op = "usecase.Users.SetRole"
 
 	if !role.Valid() {
 		return fmt.Errorf("%s: %w: unknown role %q", op, ErrInvalidArgument, role)
+	}
+
+	if actorID == id && role != models.RoleAdmin {
+		admins, err := uc.repos.Users.CountByRole(ctx, models.RoleAdmin)
+		if err != nil {
+			return mapRepoErr(op, err)
+		}
+		if admins <= 1 {
+			return fmt.Errorf("%s: %w: the last admin cannot give up the role", op, ErrForbidden)
+		}
 	}
 
 	if err := uc.repos.Users.UpdateRole(ctx, id, role); err != nil {

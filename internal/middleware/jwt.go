@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"sync"
@@ -14,9 +15,17 @@ import (
 )
 
 // VersionChecker returns the current auth version of a user. It is
-// implemented by the Redis repository (usecase.AuthVersionStore).
+// implemented by the Redis repository (usecase.AuthVersionStore) and by
+// VersionCache.
 type VersionChecker interface {
 	AuthVersion(ctx context.Context, userID int) (int64, error)
+}
+
+// VersionSource is what VersionCache wraps: the Redis repository, which can
+// both read and bump the auth version.
+type VersionSource interface {
+	VersionChecker
+	IncrAuthVersion(ctx context.Context, userID int) (int64, error)
 }
 
 // DefaultVersionCacheTTL bounds how long a bumped auth version may go
@@ -28,10 +37,13 @@ type JWTParams struct {
 	// Key is the HMAC key of the access tokens.
 	Key string
 	// Versions is compared with the "ver" claim of every token; nil disables
-	// the check. Lookup errors fail open (logged at warn level).
+	// the check. Lookup errors fail open (logged at warn level). Pass a
+	// *VersionCache shared with the usecases so that a bump made by this
+	// process is visible to the middleware at once; any other checker is
+	// wrapped in a private cache.
 	Versions VersionChecker
 	// VersionCacheTTL is the in-memory cache TTL of the versions; zero means
-	// DefaultVersionCacheTTL.
+	// DefaultVersionCacheTTL. Ignored when Versions is already a *VersionCache.
 	VersionCacheTTL time.Duration
 }
 
@@ -51,13 +63,13 @@ const ctxKeyRejected = "middleware.jwt.rejected"
 // When Versions is unavailable the version check is skipped (fail open)
 // and a warning is logged, in line with the cache and the rate limiter.
 func NewJWT(log *slog.Logger, p JWTParams) (*jwt.GinJWTMiddleware, error) {
-	var versions *versionCache
-	if p.Versions != nil {
-		ttl := p.VersionCacheTTL
-		if ttl <= 0 {
-			ttl = DefaultVersionCacheTTL
-		}
-		versions = newVersionCache(p.Versions, ttl)
+	var versions *VersionCache
+	switch v := p.Versions.(type) {
+	case nil:
+	case *VersionCache:
+		versions = v
+	default:
+		versions = NewVersionCache(readOnlyVersions{v}, p.VersionCacheTTL)
 	}
 
 	mw, err := jwt.New(&jwt.GinJWTMiddleware{
@@ -88,7 +100,7 @@ func NewJWT(log *slog.Logger, p JWTParams) (*jwt.GinJWTMiddleware, error) {
 
 // checkToken inspects the verified claims and returns a rejection reason,
 // or "" when the token is acceptable.
-func checkToken(c *gin.Context, log *slog.Logger, versions *versionCache) string {
+func checkToken(c *gin.Context, log *slog.Logger, versions *VersionCache) string {
 	claims, err := token.ParseClaims(jwt.ExtractClaims(c))
 	if err != nil {
 		return "invalid token"
@@ -100,7 +112,7 @@ func checkToken(c *gin.Context, log *slog.Logger, versions *versionCache) string
 		return ""
 	}
 
-	current, err := versions.get(c.Request.Context(), claims.UserID)
+	current, err := versions.AuthVersion(c.Request.Context(), claims.UserID)
 	if err != nil {
 		log.Warn("auth version store unavailable, failing open",
 			slog.Int("user_id", claims.UserID), logger.Err(err))
@@ -113,10 +125,14 @@ func checkToken(c *gin.Context, log *slog.Logger, versions *versionCache) string
 	return ""
 }
 
-// versionCache memoises VersionChecker answers for a short time so that
-// every request does not hit Redis. Errors are not cached.
-type versionCache struct {
-	src VersionChecker
+// VersionCache memoises the auth versions of a VersionSource for a short
+// time so that every request does not hit Redis. Errors are not cached.
+// IncrAuthVersion is forwarded to the source and drops the cached entry, so
+// a "logout everywhere" served by this process takes effect immediately
+// here; other instances notice it within the TTL. Share one VersionCache
+// between NewJWT and the usecases (it satisfies usecase.AuthVersionStore).
+type VersionCache struct {
+	src VersionSource
 	ttl time.Duration
 
 	mu      sync.Mutex
@@ -128,11 +144,17 @@ type versionEntry struct {
 	expires time.Time
 }
 
-func newVersionCache(src VersionChecker, ttl time.Duration) *versionCache {
-	return &versionCache{src: src, ttl: ttl, entries: make(map[int]versionEntry)}
+// NewVersionCache wraps src; a non-positive ttl means DefaultVersionCacheTTL.
+func NewVersionCache(src VersionSource, ttl time.Duration) *VersionCache {
+	if ttl <= 0 {
+		ttl = DefaultVersionCacheTTL
+	}
+	return &VersionCache{src: src, ttl: ttl, entries: make(map[int]versionEntry)}
 }
 
-func (vc *versionCache) get(ctx context.Context, userID int) (int64, error) {
+// AuthVersion returns the cached version of the user, asking the source
+// when the entry is missing or expired.
+func (vc *VersionCache) AuthVersion(ctx context.Context, userID int) (int64, error) {
 	now := time.Now()
 
 	vc.mu.Lock()
@@ -159,4 +181,28 @@ func (vc *versionCache) get(ctx context.Context, userID int) (int64, error) {
 	vc.mu.Unlock()
 
 	return v, nil
+}
+
+// IncrAuthVersion bumps the version at the source and forgets the cached
+// value, whether or not the bump succeeded.
+func (vc *VersionCache) IncrAuthVersion(ctx context.Context, userID int) (int64, error) {
+	vc.Invalidate(userID)
+	v, err := vc.src.IncrAuthVersion(ctx, userID)
+	vc.Invalidate(userID)
+	return v, err
+}
+
+// Invalidate drops the cached version of the user.
+func (vc *VersionCache) Invalidate(userID int) {
+	vc.mu.Lock()
+	delete(vc.entries, userID)
+	vc.mu.Unlock()
+}
+
+// readOnlyVersions adapts a plain VersionChecker to VersionSource for the
+// private cache built by NewJWT.
+type readOnlyVersions struct{ VersionChecker }
+
+func (readOnlyVersions) IncrAuthVersion(context.Context, int) (int64, error) {
+	return 0, errors.New("middleware: auth version store is read-only")
 }

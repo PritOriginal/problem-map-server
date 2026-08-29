@@ -240,16 +240,16 @@ func (_c *MockUsers_ListUsers_Call) RunAndReturn(run func(ctx context.Context, p
 }
 
 // SetRole provides a mock function for the type MockUsers
-func (_mock *MockUsers) SetRole(ctx context.Context, id int, role models.Role) error {
-	ret := _mock.Called(ctx, id, role)
+func (_mock *MockUsers) SetRole(ctx context.Context, actorID int, id int, role models.Role) error {
+	ret := _mock.Called(ctx, actorID, id, role)
 
 	if len(ret) == 0 {
 		panic("no return value specified for SetRole")
 	}
 
 	var r0 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, int, models.Role) error); ok {
-		r0 = returnFunc(ctx, id, role)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int, models.Role) error); ok {
+		r0 = returnFunc(ctx, actorID, id, role)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -263,13 +263,14 @@ type MockUsers_SetRole_Call struct {
 
 // SetRole is a helper method to define mock.On call
 //   - ctx context.Context
+//   - actorID int
 //   - id int
 //   - role models.Role
-func (_e *MockUsers_Expecter) SetRole(ctx any, id any, role any) *MockUsers_SetRole_Call {
-	return &MockUsers_SetRole_Call{Call: _e.mock.On("SetRole", ctx, id, role)}
+func (_e *MockUsers_Expecter) SetRole(ctx any, actorID any, id any, role any) *MockUsers_SetRole_Call {
+	return &MockUsers_SetRole_Call{Call: _e.mock.On("SetRole", ctx, actorID, id, role)}
 }
 
-func (_c *MockUsers_SetRole_Call) Run(run func(ctx context.Context, id int, role models.Role)) *MockUsers_SetRole_Call {
+func (_c *MockUsers_SetRole_Call) Run(run func(ctx context.Context, actorID int, id int, role models.Role)) *MockUsers_SetRole_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -279,14 +280,19 @@ func (_c *MockUsers_SetRole_Call) Run(run func(ctx context.Context, id int, role
 		if args[1] != nil {
 			arg1 = args[1].(int)
 		}
-		var arg2 models.Role
+		var arg2 int
 		if args[2] != nil {
-			arg2 = args[2].(models.Role)
+			arg2 = args[2].(int)
+		}
+		var arg3 models.Role
+		if args[3] != nil {
+			arg3 = args[3].(models.Role)
 		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -297,7 +303,7 @@ func (_c *MockUsers_SetRole_Call) Return(err error) *MockUsers_SetRole_Call {
 	return _c
 }
 
-func (_c *MockUsers_SetRole_Call) RunAndReturn(run func(ctx context.Context, id int, role models.Role) error) *MockUsers_SetRole_Call {
+func (_c *MockUsers_SetRole_Call) RunAndReturn(run func(ctx context.Context, actorID int, id int, role models.Role) error) *MockUsers_SetRole_Call {
 	_c.Call.Return(run)
 	return _c
 }

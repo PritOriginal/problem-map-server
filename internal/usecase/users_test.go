@@ -217,24 +217,34 @@ func (suite *UsersSuite) TestChangePassword() {
 
 func (suite *UsersSuite) TestSetRole() {
 	const userID = 1
+	const adminID = 9
 
 	tests := []struct {
 		name       string
+		actorID    int
 		role       models.Role
+		admins     *method[int64]
 		updateRole *method[struct{}]
 		revokeErr  error
 		wantErr    error
 	}{
-		{name: "OkModerator", role: models.RoleModerator, updateRole: &method[struct{}]{}},
-		{name: "OkUser", role: models.RoleUser, updateRole: &method[struct{}]{}},
-		{name: "OkAdminStoresUnavailable", role: models.RoleAdmin, updateRole: &method[struct{}]{}, revokeErr: errStore},
-		{name: "ErrInvalidArgumentUnknownRole", role: "root", wantErr: usecase.ErrInvalidArgument},
-		{name: "ErrInvalidArgumentEmptyRole", role: "", wantErr: usecase.ErrInvalidArgument},
-		{name: "ErrNotFound", role: models.RoleModerator, updateRole: &method[struct{}]{err: repository.ErrNotFound}, wantErr: usecase.ErrNotFound},
-		{name: "ErrRepo", role: models.RoleModerator, updateRole: &method[struct{}]{err: errRepo}, wantErr: errRepo},
+		{name: "OkModerator", actorID: adminID, role: models.RoleModerator, updateRole: &method[struct{}]{}},
+		{name: "OkUser", actorID: adminID, role: models.RoleUser, updateRole: &method[struct{}]{}},
+		{name: "OkAdminStoresUnavailable", actorID: adminID, role: models.RoleAdmin, updateRole: &method[struct{}]{}, revokeErr: errStore},
+		{name: "OkSelfKeepsAdmin", actorID: userID, role: models.RoleAdmin, updateRole: &method[struct{}]{}},
+		{name: "OkSelfDemoteWithOtherAdmins", actorID: userID, role: models.RoleUser, admins: &method[int64]{data: 2}, updateRole: &method[struct{}]{}},
+		{name: "ErrForbiddenLastAdminSelfDemote", actorID: userID, role: models.RoleModerator, admins: &method[int64]{data: 1}, wantErr: usecase.ErrForbidden},
+		{name: "ErrRepoCountAdmins", actorID: userID, role: models.RoleUser, admins: &method[int64]{err: errRepo}, wantErr: errRepo},
+		{name: "ErrInvalidArgumentUnknownRole", actorID: adminID, role: "root", wantErr: usecase.ErrInvalidArgument},
+		{name: "ErrInvalidArgumentEmptyRole", actorID: adminID, role: "", wantErr: usecase.ErrInvalidArgument},
+		{name: "ErrNotFound", actorID: adminID, role: models.RoleModerator, updateRole: &method[struct{}]{err: repository.ErrNotFound}, wantErr: usecase.ErrNotFound},
+		{name: "ErrRepo", actorID: adminID, role: models.RoleModerator, updateRole: &method[struct{}]{err: errRepo}, wantErr: errRepo},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
+			if tt.admins != nil {
+				suite.usersRepo.On("CountByRole", mock.Anything, models.RoleAdmin).Once().Return(tt.admins.data, tt.admins.err)
+			}
 			if tt.updateRole != nil {
 				suite.usersRepo.On("UpdateRole", mock.Anything, userID, tt.role).Once().Return(tt.updateRole.err)
 			}
@@ -242,7 +252,7 @@ func (suite *UsersSuite) TestSetRole() {
 				suite.expectRevokeAll(userID, tt.revokeErr, tt.revokeErr)
 			}
 
-			err := suite.uc.SetRole(context.Background(), userID, tt.role)
+			err := suite.uc.SetRole(context.Background(), tt.actorID, userID, tt.role)
 
 			if tt.wantErr == nil {
 				suite.NoError(err)
@@ -257,5 +267,5 @@ func (suite *UsersSuite) TestSetRole_WithoutStores() {
 	uc := usecase.NewUsers(suite.log, usecase.UsersRepositories{Users: suite.usersRepo})
 	suite.usersRepo.On("UpdateRole", mock.Anything, 1, models.RoleAdmin).Once().Return(nil)
 
-	suite.NoError(uc.SetRole(context.Background(), 1, models.RoleAdmin))
+	suite.NoError(uc.SetRole(context.Background(), 9, 1, models.RoleAdmin))
 }

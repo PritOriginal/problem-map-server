@@ -129,33 +129,74 @@ func (r *Redis) Incr(ctx context.Context, key string, window time.Duration) (int
 	return res[0], time.Duration(res[1]) * time.Millisecond, nil
 }
 
-// Key layout of the auth data.
+// Key layout of the auth data. Every active refresh token has its own key
+// (so it expires with the token) and its id is also listed in a per-user
+// set, so that "revoke everything" is a bounded lookup instead of a SCAN.
 const (
 	refreshKeyPrefix = "refresh:"
 	authVersionKey   = "user:%d:auth_version"
 )
 
-func refreshKey(userID int, jti string) string {
-	return refreshKeyPrefix + strconv.Itoa(userID) + ":" + jti
+// refreshSetKey is the set of active refresh token ids of the user.
+func refreshSetKey(userID int) string {
+	return refreshKeyPrefix + strconv.Itoa(userID)
 }
 
-// SaveRefresh registers a refresh token id for the user; the key expires
+func refreshKey(userID int, jti string) string {
+	return refreshSetKey(userID) + ":" + jti
+}
+
+// saveRefreshScript registers the id: KEYS[1] is the token key, KEYS[2] the
+// per-user set, ARGV[1] the id and ARGV[2] the TTL in milliseconds. The set
+// lives as long as the most recently issued token, so it disappears once
+// every token expired.
+var saveRefreshScript = redis.NewScript(`
+redis.call("SET", KEYS[1], 1, "PX", ARGV[2])
+redis.call("SADD", KEYS[2], ARGV[1])
+redis.call("PEXPIRE", KEYS[2], ARGV[2])
+return 1
+`)
+
+// deleteRefreshScript consumes the id atomically: the token key is deleted
+// and the id is dropped from the set in one step, and the reply says whether
+// the key existed. Two concurrent refreshes with the same token therefore
+// cannot both succeed.
+var deleteRefreshScript = redis.NewScript(`
+local n = redis.call("DEL", KEYS[1])
+redis.call("SREM", KEYS[2], ARGV[1])
+return n
+`)
+
+// deleteAllRefreshScript deletes every token key listed in the user's set
+// (KEYS[1], the set key; ARGV[1], the token key prefix) and the set itself.
+var deleteAllRefreshScript = redis.NewScript(`
+local ids = redis.call("SMEMBERS", KEYS[1])
+for _, id in ipairs(ids) do
+	redis.call("DEL", ARGV[1] .. id)
+end
+redis.call("DEL", KEYS[1])
+return #ids
+`)
+
+// SaveRefresh registers a refresh token id for the user; the entry expires
 // together with the token.
 func (r *Redis) SaveRefresh(ctx context.Context, userID int, jti string, ttl time.Duration) error {
 	if !r.available() {
 		return ErrUnavailable
 	}
-	return r.Client.Set(ctx, refreshKey(userID, jti), 1, ttl).Err()
+	return saveRefreshScript.Run(ctx, r.Client,
+		[]string{refreshKey(userID, jti), refreshSetKey(userID)}, jti, ttl.Milliseconds()).Err()
 }
 
 // DeleteRefresh removes a refresh token id and reports whether it existed.
-// A single DEL makes the rotation one-time: two concurrent refreshes with
-// the same token cannot both succeed.
+// The check and the removal are one atomic step (see deleteRefreshScript),
+// which makes the rotation one-time.
 func (r *Redis) DeleteRefresh(ctx context.Context, userID int, jti string) (bool, error) {
 	if !r.available() {
 		return false, ErrUnavailable
 	}
-	n, err := r.Client.Del(ctx, refreshKey(userID, jti)).Result()
+	n, err := deleteRefreshScript.Run(ctx, r.Client,
+		[]string{refreshKey(userID, jti), refreshSetKey(userID)}, jti).Int64()
 	if err != nil {
 		return false, err
 	}
@@ -167,20 +208,8 @@ func (r *Redis) DeleteAllRefresh(ctx context.Context, userID int) error {
 	if !r.available() {
 		return ErrUnavailable
 	}
-
-	pattern := refreshKey(userID, "*")
-	iter := r.Client.Scan(ctx, 0, pattern, 100).Iterator()
-	var keys []string
-	for iter.Next(ctx) {
-		keys = append(keys, iter.Val())
-	}
-	if err := iter.Err(); err != nil {
-		return err
-	}
-	if len(keys) == 0 {
-		return nil
-	}
-	return r.Client.Del(ctx, keys...).Err()
+	return deleteAllRefreshScript.Run(ctx, r.Client,
+		[]string{refreshSetKey(userID)}, refreshSetKey(userID)+":").Err()
 }
 
 // AuthVersion returns the user's auth version; a user without one is at 0.

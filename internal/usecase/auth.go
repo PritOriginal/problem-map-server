@@ -105,7 +105,10 @@ func (uc *Auth) SignIn(ctx context.Context, login, password string) (string, str
 // RefreshTokens exchanges a refresh token for a new token pair. The used
 // token is invalidated (one-time rotation). Presenting a token that was
 // already used or revoked is treated as a sign of theft: every refresh
-// token of the user is revoked and ErrUnauthorized is returned.
+// token of the user is revoked and ErrUnauthorized is returned. A token
+// whose "ver" claim is behind the stored auth version is rejected as well,
+// which covers a revocation that bumped the version but could not delete
+// the ids.
 func (uc *Auth) RefreshTokens(ctx context.Context, refreshToken string) (string, string, error) {
 	const op = "usecase.Users.RefreshTokens"
 
@@ -129,6 +132,12 @@ func (uc *Auth) RefreshTokens(ctx context.Context, refreshToken string) (string,
 			}
 			return "", "", fmt.Errorf("%s: %w", op, ErrUnauthorized)
 		}
+	}
+
+	if !uc.sessions.current(ctx, op, claims.UserID, claims.Version) {
+		uc.log.Warn("refresh token with stale auth version rejected",
+			slog.String("op", op), slog.Int("user_id", claims.UserID))
+		return "", "", fmt.Errorf("%s: %w", op, ErrUnauthorized)
 	}
 
 	user, err := uc.repos.Users.GetUserById(ctx, claims.UserID)

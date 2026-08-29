@@ -1,6 +1,7 @@
 package middleware_test
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -131,6 +132,43 @@ func (suite *JWTSuite) TestVersionCacheExpires() {
 	suite.Equal(http.StatusOK, suite.do(r, tok).Code)
 	time.Sleep(30 * time.Millisecond)
 	suite.Equal(http.StatusUnauthorized, suite.do(r, tok).Code, "bumped version is picked up after the cache expires")
+}
+
+func (suite *JWTSuite) TestVersionCacheSharedInvalidatesOnBump() {
+	// The cache shared with the usecases forgets the user on IncrAuthVersion,
+	// so a bump made by this process is seen by the next request.
+	src := middleware.NewMockVersionSource(suite.T())
+	cache := middleware.NewVersionCache(src, time.Hour)
+	r := suite.router(middleware.JWTParams{Key: testKey, Versions: cache})
+	src.On("AuthVersion", mock.Anything, 7).Once().Return(int64(1), nil)
+	src.On("IncrAuthVersion", mock.Anything, 7).Once().Return(int64(2), nil)
+	src.On("AuthVersion", mock.Anything, 7).Once().Return(int64(2), nil)
+
+	tok := suite.issue(token.TypeAccess, 1, testKey)
+	suite.Equal(http.StatusOK, suite.do(r, tok).Code)
+	suite.Equal(http.StatusOK, suite.do(r, tok).Code, "served from the cache")
+
+	v, err := cache.IncrAuthVersion(context.Background(), 7)
+	suite.Require().NoError(err)
+	suite.Equal(int64(2), v)
+	suite.Equal(http.StatusUnauthorized, suite.do(r, tok).Code, "bump is visible at once")
+	suite.Equal(http.StatusUnauthorized, suite.do(r, tok).Code, "and cached again")
+}
+
+func (suite *JWTSuite) TestVersionCacheInvalidateOnBumpError() {
+	src := middleware.NewMockVersionSource(suite.T())
+	cache := middleware.NewVersionCache(src, time.Hour)
+	src.On("AuthVersion", mock.Anything, 7).Once().Return(int64(1), nil)
+	src.On("IncrAuthVersion", mock.Anything, 7).Once().Return(int64(0), errors.New("down"))
+	src.On("AuthVersion", mock.Anything, 7).Once().Return(int64(1), nil)
+
+	v, err := cache.AuthVersion(context.Background(), 7)
+	suite.Require().NoError(err)
+	suite.Equal(int64(1), v)
+	_, err = cache.IncrAuthVersion(context.Background(), 7)
+	suite.Error(err)
+	_, err = cache.AuthVersion(context.Background(), 7)
+	suite.NoError(err, "the entry was dropped and refetched")
 }
 
 func (suite *JWTSuite) TestWithoutVersions() {

@@ -3664,6 +3664,72 @@ func (_c *MockUsersRepository_AddUser_Call) RunAndReturn(run func(ctx context.Co
 	return _c
 }
 
+// CountByRole provides a mock function for the type MockUsersRepository
+func (_mock *MockUsersRepository) CountByRole(ctx context.Context, role models.Role) (int64, error) {
+	ret := _mock.Called(ctx, role)
+
+	if len(ret) == 0 {
+		panic("no return value specified for CountByRole")
+	}
+
+	var r0 int64
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Role) (int64, error)); ok {
+		return returnFunc(ctx, role)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Role) int64); ok {
+		r0 = returnFunc(ctx, role)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.Role) error); ok {
+		r1 = returnFunc(ctx, role)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockUsersRepository_CountByRole_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'CountByRole'
+type MockUsersRepository_CountByRole_Call struct {
+	*mock.Call
+}
+
+// CountByRole is a helper method to define mock.On call
+//   - ctx context.Context
+//   - role models.Role
+func (_e *MockUsersRepository_Expecter) CountByRole(ctx any, role any) *MockUsersRepository_CountByRole_Call {
+	return &MockUsersRepository_CountByRole_Call{Call: _e.mock.On("CountByRole", ctx, role)}
+}
+
+func (_c *MockUsersRepository_CountByRole_Call) Run(run func(ctx context.Context, role models.Role)) *MockUsersRepository_CountByRole_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 models.Role
+		if args[1] != nil {
+			arg1 = args[1].(models.Role)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUsersRepository_CountByRole_Call) Return(n int64, err error) *MockUsersRepository_CountByRole_Call {
+	_c.Call.Return(n, err)
+	return _c
+}
+
+func (_c *MockUsersRepository_CountByRole_Call) RunAndReturn(run func(ctx context.Context, role models.Role) (int64, error)) *MockUsersRepository_CountByRole_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetUserById provides a mock function for the type MockUsersRepository
 func (_mock *MockUsersRepository) GetUserById(ctx context.Context, id int) (models.User, error) {
 	ret := _mock.Called(ctx, id)

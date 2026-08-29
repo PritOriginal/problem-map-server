@@ -95,14 +95,22 @@ func (suite *AuthSuite) parseClaims(tokenString, key string) token.Claims {
 }
 
 // refreshToken issues a refresh token the way the usecase does.
+// refreshToken issues a refresh token at auth version currentVersion.
 func (suite *AuthSuite) refreshToken(userID int, jti string) string {
+	return suite.refreshTokenV(userID, jti, currentVersion)
+}
+
+func (suite *AuthSuite) refreshTokenV(userID int, jti string, version int64) string {
 	tok, err := token.Create(token.Params{
 		TTL: suite.authCfg.JWT.Refresh.ExpiredIn, UserID: userID, Role: string(models.RoleUser),
-		Type: token.TypeRefresh, ID: jti,
+		Type: token.TypeRefresh, ID: jti, Version: version,
 	}, suite.authCfg.JWT.Refresh.Key)
 	suite.Require().NoError(err)
 	return tok
 }
+
+// currentVersion is the auth version the stores report in the tests.
+const currentVersion int64 = 2
 
 func TestAuth(t *testing.T) {
 	suite.Run(t, new(AuthSuite))
@@ -334,15 +342,19 @@ func (suite *AuthSuite) TestRefreshTokens() {
 		delete        method[bool]
 		wantDelete    bool
 		wantDeleteAll bool
-		getUserById   method[models.User]
-		wantIssue     bool
-		wantErr       error
+		// version is the stored auth version checked after the id lookup;
+		// nil when the check is not reached.
+		version     *method[int64]
+		getUserById method[models.User]
+		wantIssue   bool
+		wantErr     error
 	}{
 		{
 			name:        "Ok",
 			token:       suite.refreshToken(userId, jti),
 			delete:      method[bool]{data: true},
 			wantDelete:  true,
+			version:     &method[int64]{data: currentVersion},
 			getUserById: method[models.User]{data: models.User{Id: userId, Role: models.RoleModerator}},
 			wantIssue:   true,
 		},
@@ -351,8 +363,26 @@ func (suite *AuthSuite) TestRefreshTokens() {
 			token:       suite.refreshToken(userId, jti),
 			delete:      method[bool]{err: errStore},
 			wantDelete:  true,
+			version:     &method[int64]{data: currentVersion},
 			getUserById: method[models.User]{data: models.User{Id: userId}},
 			wantIssue:   true,
+		},
+		{
+			name:        "OkVersionStoreUnavailableFailsOpen",
+			token:       suite.refreshTokenV(userId, jti, 0),
+			delete:      method[bool]{data: true},
+			wantDelete:  true,
+			version:     &method[int64]{err: errStore},
+			getUserById: method[models.User]{data: models.User{Id: userId}},
+			wantIssue:   true,
+		},
+		{
+			name:       "ErrUnauthorizedStaleVersion",
+			token:      suite.refreshTokenV(userId, jti, currentVersion-1),
+			delete:     method[bool]{data: true},
+			wantDelete: true,
+			version:    &method[int64]{data: currentVersion},
+			wantErr:    usecase.ErrUnauthorized,
 		},
 		{
 			name:          "ErrUnauthorizedReuseRevokesAll",
@@ -387,6 +417,7 @@ func (suite *AuthSuite) TestRefreshTokens() {
 			token:       suite.refreshToken(userId, jti),
 			delete:      method[bool]{data: true},
 			wantDelete:  true,
+			version:     &method[int64]{data: currentVersion},
 			getUserById: method[models.User]{err: repository.ErrNotFound},
 			wantErr:     usecase.ErrUnauthorized,
 		},
@@ -395,6 +426,7 @@ func (suite *AuthSuite) TestRefreshTokens() {
 			token:       suite.refreshToken(userId, jti),
 			delete:      method[bool]{data: true},
 			wantDelete:  true,
+			version:     &method[int64]{data: currentVersion},
 			getUserById: method[models.User]{err: errRepo},
 			wantErr:     errRepo,
 		},
@@ -408,12 +440,15 @@ func (suite *AuthSuite) TestRefreshTokens() {
 			if tt.wantDeleteAll {
 				suite.refresh.On("DeleteAllRefresh", mock.Anything, userId).Once().Return(nil)
 			}
+			if tt.version != nil {
+				suite.versions.On("AuthVersion", mock.Anything, userId).Once().Return(tt.version.data, tt.version.err)
+			}
 			if tt.getUserById.data.Id != 0 || tt.getUserById.err != nil {
 				suite.usersRepo.On("GetUserById", mock.Anything, userId).Once().
 					Return(tt.getUserById.data, tt.getUserById.err)
 			}
 			if tt.wantIssue {
-				suite.expectIssue(userId, 2, nil, nil)
+				suite.expectIssue(userId, currentVersion, nil, nil)
 			}
 
 			accessToken, refreshToken, gotErr := suite.uc.RefreshTokens(context.Background(), tt.token)
@@ -422,9 +457,9 @@ func (suite *AuthSuite) TestRefreshTokens() {
 				suite.Require().NoError(gotErr)
 				rc := suite.parseClaims(refreshToken, suite.authCfg.JWT.Refresh.Key)
 				suite.NotEqual(jti, rc.ID, "a new refresh id must be issued")
-				suite.Equal(int64(2), rc.Version)
+				suite.Equal(currentVersion, rc.Version)
 				ac := suite.parseClaims(accessToken, suite.authCfg.JWT.Access.Key)
-				suite.Equal(int64(2), ac.Version)
+				suite.Equal(currentVersion, ac.Version)
 				wantRole := tt.getUserById.data.Role
 				if wantRole == "" {
 					wantRole = models.RoleUser

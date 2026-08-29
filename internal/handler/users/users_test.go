@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -358,11 +359,15 @@ func (suite *UsersSuite) TestSetRole() {
 		{name: "Err400EmptyRole", role: models.RoleAdmin, id: "2", req: usersrest.SetRoleRequest{}, statusCode: http.StatusBadRequest},
 		{name: "Err404", role: models.RoleAdmin, id: "2", req: usersrest.SetRoleRequest{Role: models.RoleUser}, wantUCCall: true, errSetRole: usecase.ErrNotFound, statusCode: http.StatusNotFound},
 		{name: "Err500", role: models.RoleAdmin, id: "2", req: usersrest.SetRoleRequest{Role: models.RoleUser}, wantUCCall: true, errSetRole: errors.New(""), statusCode: http.StatusInternalServerError},
+		{name: "Err403LastAdminSelfDemote", role: models.RoleAdmin, id: "1", req: usersrest.SetRoleRequest{Role: models.RoleUser}, wantUCCall: true, errSetRole: usecase.ErrForbidden, statusCode: http.StatusForbidden},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			if tt.wantUCCall {
-				suite.uc.On("SetRole", mock.Anything, 2, tt.req.Role).Once().Return(tt.errSetRole)
+				id, err := strconv.Atoi(tt.id)
+				suite.Require().NoError(err)
+				// The bearer token belongs to user 1.
+				suite.uc.On("SetRole", mock.Anything, 1, id, tt.req.Role).Once().Return(tt.errSetRole)
 			}
 
 			var buf *bytes.Buffer

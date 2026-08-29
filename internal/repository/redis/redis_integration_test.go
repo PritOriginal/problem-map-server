@@ -218,6 +218,13 @@ func (s *RedisSuite) TestRefresh() {
 	s.Require().NoError(err)
 	s.Greater(ttl, 50*time.Second, "refresh id expires with the token")
 
+	ids, err := s.repo.Client.SMembers(s.ctx, "refresh:7").Result()
+	s.Require().NoError(err)
+	s.ElementsMatch([]string{"a", "b"}, ids, "ids are indexed per user")
+	ttl, err = s.repo.Client.TTL(s.ctx, "refresh:7").Result()
+	s.Require().NoError(err)
+	s.Greater(ttl, 50*time.Second, "the index expires with the newest token")
+
 	ok, err := s.repo.DeleteRefresh(s.ctx, user, "a")
 	s.Require().NoError(err)
 	s.True(ok, "first use consumes the id")
@@ -225,6 +232,7 @@ func (s *RedisSuite) TestRefresh() {
 	ok, err = s.repo.DeleteRefresh(s.ctx, user, "a")
 	s.Require().NoError(err)
 	s.False(ok, "second use is detected")
+	s.False(s.repo.Client.SIsMember(s.ctx, "refresh:7", "a").Val(), "used id leaves the index")
 
 	ok, err = s.repo.DeleteRefresh(s.ctx, user, "never-saved")
 	s.Require().NoError(err)
@@ -234,6 +242,7 @@ func (s *RedisSuite) TestRefresh() {
 	ok, err = s.repo.DeleteRefresh(s.ctx, user, "b")
 	s.Require().NoError(err)
 	s.False(ok, "revoked by DeleteAllRefresh")
+	s.False(s.repo.Exists(s.ctx, "refresh:7"), "index is dropped")
 
 	ok, err = s.repo.DeleteRefresh(s.ctx, 8, "c")
 	s.Require().NoError(err)

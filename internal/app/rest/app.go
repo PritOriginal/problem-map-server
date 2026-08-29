@@ -63,9 +63,12 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	}
 	closers.Add("redis", redisClient)
 
+	// One cache of auth versions is shared by the middleware and the
+	// usecases, so a bump made here is seen by the middleware at once.
+	authVersions := middleware.NewVersionCache(redisClient, 0)
 	authMiddleware, err := middleware.NewJWT(log, middleware.JWTParams{
 		Key:      cfg.Auth.JWT.Access.Key,
-		Versions: redisClient,
+		Versions: authVersions,
 	})
 	if err != nil {
 		log.Error("failed create auth middleware", slogger.Err(err))
@@ -125,14 +128,14 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	usersUseCase := usecase.NewUsers(log, usecase.UsersRepositories{
 		Users:         usersRepo,
 		RefreshTokens: redisClient,
-		AuthVersions:  redisClient,
+		AuthVersions:  authVersions,
 	})
 	usersrest.Register(router, log, authMiddleware, usersUseCase)
 
 	authUseCase := usecase.NewAuth(log, cfg.Auth, usecase.AuthRepositories{
 		Users:         usersRepo,
 		RefreshTokens: redisClient,
-		AuthVersions:  redisClient,
+		AuthVersions:  authVersions,
 	})
 	authRateLimit := ratelimit.New(log, redisClient, ratelimit.Config{
 		Requests: cfg.REST.RateLimit.Requests,

@@ -131,6 +131,20 @@ func (r *UsersRepository) UpdateRole(ctx context.Context, id int, role models.Ro
 	return r.updateUser(ctx, op, `UPDATE users SET role = $1 WHERE user_id = $2`, role, id)
 }
 
+// CountByRole returns how many users have the role.
+func (r *UsersRepository) CountByRole(ctx context.Context, role models.Role) (int64, error) {
+	const op = "storage.postgres.CountByRole"
+
+	var n int64
+	err := r.getter.DefaultTrOrDB(ctx, r.db).
+		QueryRowContext(ctx, `SELECT COUNT(*) FROM users WHERE role = $1`, role).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return n, nil
+}
+
 // updateUser runs an UPDATE that must touch exactly one user and reports
 // repository.ErrNotFound when no row matched.
 func (r *UsersRepository) updateUser(ctx context.Context, op, query string, args ...any) error {

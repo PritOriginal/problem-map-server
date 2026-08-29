@@ -1770,7 +1770,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "change the role of a user; the user's sessions are revoked so the new role applies immediately",
+                "description": "change the role of a user; the user's sessions are revoked so the new role applies immediately. The last admin cannot give up the admin role",
                 "consumes": [
                     "application/json"
                 ],
@@ -1816,7 +1816,7 @@ const docTemplate = `{
                         }
                     },
                     "403": {
-                        "description": "Forbidden",
+                        "description": "not an admin, or the last admin demoting themselves",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }

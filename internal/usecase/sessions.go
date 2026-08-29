@@ -59,6 +59,21 @@ func (s sessions) version(ctx context.Context, op string, userID int) int64 {
 	return v
 }
 
+// current reports whether version is the user's stored auth version. It is
+// true when the store is unavailable (fail open) or not configured.
+func (s sessions) current(ctx context.Context, op string, userID int, version int64) bool {
+	if s.versions == nil {
+		return true
+	}
+	v, err := s.versions.AuthVersion(ctx, userID)
+	if err != nil {
+		s.log.Warn("auth version store unavailable, failing open",
+			slog.String("op", op), slog.Int("user_id", userID), logger.Err(err))
+		return true
+	}
+	return v == version
+}
+
 // revokeAll invalidates every session of the user: all refresh tokens are
 // deleted and the auth version is bumped so that access tokens stop
 // passing the middleware. Failures are logged and swallowed (fail open).
