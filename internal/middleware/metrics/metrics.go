@@ -31,6 +31,7 @@ type Metrics struct {
 	registry *prometheus.Registry
 	requests *prometheus.CounterVec
 	duration *prometheus.HistogramVec
+	apiKeys  *prometheus.CounterVec
 }
 
 // New creates HTTP collectors and registers them (together with the default Go
@@ -53,8 +54,12 @@ func New() *Metrics {
 			Help:    "HTTP request latency in seconds.",
 			Buckets: prometheus.DefBuckets,
 		}, []string{"method", "route", "status"}),
+		apiKeys: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Name: "api_key_requests_total",
+			Help: "Total number of HTTP requests authenticated with an API key.",
+		}, []string{"key_prefix", "status"}),
 	}
-	reg.MustRegister(m.requests, m.duration)
+	reg.MustRegister(m.requests, m.duration, m.apiKeys)
 
 	return m
 }
@@ -98,6 +103,12 @@ func (m *Metrics) Middleware(skip ...string) gin.HandlerFunc {
 		m.requests.With(labels).Inc()
 		m.duration.With(labels).Observe(time.Since(start).Seconds())
 	}
+}
+
+// APIKeyRequest counts a request made with the API key whose displayable
+// prefix is keyPrefix, by response status.
+func (m *Metrics) APIKeyRequest(keyPrefix string, status int) {
+	m.apiKeys.With(prometheus.Labels{"key_prefix": keyPrefix, "status": strconv.Itoa(status)}).Inc()
 }
 
 // HTTPHandler returns the net/http handler serving the registry.

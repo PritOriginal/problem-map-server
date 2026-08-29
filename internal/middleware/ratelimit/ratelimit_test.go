@@ -35,6 +35,13 @@ func (suite *RateLimitSuite) SetupSuite() {
 	disabled := suite.r.Group("", ratelimit.New(slogdiscard.NewDiscardLogger(), suite.counter, ratelimit.Config{}))
 	disabled.POST("/disabled", func(c *gin.Context) { c.Status(http.StatusOK) })
 
+	headers := suite.r.Group("", ratelimit.New(slogdiscard.NewDiscardLogger(), suite.counter, ratelimit.Config{
+		Requests: 2,
+		Window:   time.Minute,
+		Headers:  true,
+	}))
+	headers.GET("/headers", func(c *gin.Context) { c.Status(http.StatusOK) })
+
 	noCounter := suite.r.Group("", ratelimit.New(slogdiscard.NewDiscardLogger(), nil, ratelimit.Config{
 		Requests: 2,
 		Window:   time.Minute,
@@ -55,6 +62,9 @@ func (suite *RateLimitSuite) TestNew() {
 		errIncr    error
 		statusCode int
 		retryAfter string
+		limit      string
+		remaining  string
+		reset      string
 	}{
 		{name: "FirstRequest", path: "/auth/signin", count: 1, ttl: time.Minute, statusCode: http.StatusOK},
 		{name: "AtLimit", path: "/auth/signin", count: 2, ttl: 30 * time.Second, statusCode: http.StatusOK},
@@ -64,22 +74,33 @@ func (suite *RateLimitSuite) TestNew() {
 		{name: "OverLimitTTLAboveWindowClamped", path: "/auth/signin", count: 3, ttl: time.Hour, statusCode: http.StatusTooManyRequests, retryAfter: "60"},
 		{name: "FailOpen", path: "/auth/signin", errIncr: errors.New("redis down"), statusCode: http.StatusOK},
 		{name: "Disabled", path: "/disabled", statusCode: http.StatusOK},
+		{name: "HeadersUnderLimit", path: "/headers", count: 1, ttl: 30 * time.Second, statusCode: http.StatusOK, limit: "2", remaining: "1", reset: "30"},
+		{name: "HeadersOverLimit", path: "/headers", count: 3, ttl: 30 * time.Second, statusCode: http.StatusTooManyRequests, retryAfter: "30", limit: "2", remaining: "0", reset: "30"},
 		{name: "NilCounter", path: "/no-counter", statusCode: http.StatusOK},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			if tt.path == "/auth/signin" {
+			method := http.MethodPost
+			switch tt.path {
+			case "/auth/signin":
 				suite.counter.On("Incr", mock.Anything, "ratelimit:/auth/signin:192.0.2.1", time.Minute).Once().
+					Return(tt.count, tt.ttl, tt.errIncr)
+			case "/headers":
+				method = http.MethodGet
+				suite.counter.On("Incr", mock.Anything, "ratelimit:/headers:192.0.2.1", time.Minute).Once().
 					Return(tt.count, tt.ttl, tt.errIncr)
 			}
 
 			w := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodPost, tt.path, nil)
+			req := httptest.NewRequest(method, tt.path, nil)
 
 			suite.r.ServeHTTP(w, req)
 
 			suite.Equal(tt.statusCode, w.Code)
 			suite.Equal(tt.retryAfter, w.Header().Get("Retry-After"))
+			suite.Equal(tt.limit, w.Header().Get("X-RateLimit-Limit"))
+			suite.Equal(tt.remaining, w.Header().Get("X-RateLimit-Remaining"))
+			suite.Equal(tt.reset, w.Header().Get("X-RateLimit-Reset"))
 		})
 	}
 }
