@@ -90,11 +90,10 @@ func (uc *Achievements) GetProfile(ctx context.Context, userId int) (models.User
 	}
 
 	return models.UserProfile{
-		User:        user.Public(),
-		Level:       models.LevelFor(user.Rating, lang),
-		Badges:      badges,
-		Stats:       stats,
-		MemberSince: user.CreatedAt,
+		User:   user.Public(),
+		Level:  models.LevelFor(user.Rating, lang),
+		Badges: badges,
+		Stats:  stats,
 	}, nil
 }
 
@@ -122,10 +121,8 @@ func (uc *Achievements) Evaluate(ctx context.Context, userId int) ([]models.Badg
 	}
 
 	codes := make([]string, 0, len(earned))
-	byCode := make(map[string]models.Badge, len(earned))
 	for _, b := range earned {
 		codes = append(codes, b.Code)
-		byCode[b.Code] = b
 	}
 
 	added, err := uc.repos.Achievements.AddUserBadges(ctx, userId, codes)

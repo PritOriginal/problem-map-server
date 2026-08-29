@@ -51,14 +51,13 @@ func TestAchievements(t *testing.T) {
 func testProfile() models.UserProfile {
 	joined := time.Date(2025, 3, 1, 12, 0, 0, 0, time.UTC)
 	return models.UserProfile{
-		User:  models.User{Id: 1, Name: "name", Rating: 25},
+		User:  models.User{Id: 1, Name: "name", Rating: 25, CreatedAt: joined},
 		Level: models.LevelFor(25, models.LangRU),
 		Badges: []models.UserBadge{{
 			Badge:    models.Badge{Code: "first_mark", Name: "Первая метка", Description: "d", Icon: "flag", Threshold: 1, Metric: models.MetricMarksTotal},
 			EarnedAt: joined,
 		}},
-		Stats:       models.UserStats{Rating: 25, MarksTotal: 3, MarksConfirmed: 2, MarksRefuted: 1, ChecksTotal: 4, ChecksCorrect: 2, TasksCompleted: 1},
-		MemberSince: joined,
+		Stats: models.UserStats{Rating: 25, MarksTotal: 3, MarksConfirmed: 2, MarksRefuted: 1, ChecksTotal: 4, ChecksCorrect: 2, TasksCompleted: 1},
 	}
 }
 

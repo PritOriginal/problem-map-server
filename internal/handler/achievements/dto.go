@@ -64,7 +64,7 @@ func NewProfile(p models.UserProfile) Profile {
 			ChecksCorrect:  p.Stats.ChecksCorrect,
 			TasksCompleted: p.Stats.TasksCompleted,
 		},
-		MemberSince: p.MemberSince,
+		MemberSince: p.User.CreatedAt,
 	}
 }
 

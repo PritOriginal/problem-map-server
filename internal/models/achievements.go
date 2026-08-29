@@ -135,13 +135,13 @@ type UserBadge struct {
 	EarnedAt time.Time `json:"earned_at" db:"earned_at"`
 }
 
-// UserProfile is the public gamification profile of a user.
+// UserProfile is the public gamification profile of a user; the sign-up
+// date is User.CreatedAt.
 type UserProfile struct {
-	User        User
-	Level       Level
-	Badges      []UserBadge
-	Stats       UserStats
-	MemberSince time.Time
+	User   User
+	Level  Level
+	Badges []UserBadge
+	Stats  UserStats
 }
 
 // ErrInvalidPeriod is returned for an unknown leaderboard period (wrapped

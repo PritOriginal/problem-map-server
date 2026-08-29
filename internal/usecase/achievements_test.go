@@ -202,7 +202,7 @@ func (suite *AchievementsSuite) TestGetProfile() {
 			suite.Equal(tt.wantName, got.Level.Name)
 			suite.Equal(badges, got.Badges)
 			suite.Equal(stats, got.Stats)
-			suite.Equal(joined, got.MemberSince)
+			suite.Equal(joined, got.User.CreatedAt)
 		})
 	}
 }
