@@ -31,6 +31,63 @@ type Config struct {
 	Tasker          TaskerConfig     `yaml:"tasker"`
 	Marks           MarksConfig      `yaml:"marks"`
 	Rating          RatingConfig     `yaml:"rating"`
+	Export          ExportConfig     `yaml:"export"`
+	Webhooks        WebhooksConfig   `yaml:"webhooks"`
+}
+
+// ExportConfig tunes GET /marks/export.
+type ExportConfig struct {
+	// MaxRows caps the number of marks one export may contain; a request
+	// matching more rows is rejected with 400 so the client narrows the
+	// filters.
+	MaxRows int `yaml:"max-rows" env:"EXPORT_MAX_ROWS" env-default:"50000"`
+	// RateLimit limits export requests per client IP (default 2 per minute).
+	RateLimit struct {
+		Requests int           `yaml:"requests" env:"EXPORT_RATE_LIMIT_REQUESTS" env-default:"2"`
+		Window   time.Duration `yaml:"window" env:"EXPORT_RATE_LIMIT_WINDOW" env-default:"1m"`
+	} `yaml:"rate-limit"`
+}
+
+// Validate checks that the export limits are sane.
+func (e ExportConfig) Validate() error {
+	var errs []error
+	if e.MaxRows <= 0 {
+		errs = append(errs, errors.New("export.max-rows (EXPORT_MAX_ROWS) must be positive"))
+	}
+	if e.RateLimit.Requests < 0 || e.RateLimit.Window < 0 {
+		errs = append(errs, errors.New("export.rate-limit.requests and window must not be negative"))
+	}
+	return errors.Join(errs...)
+}
+
+// WebhooksConfig tunes outgoing webhook delivery (cmd/notifier and the
+// test endpoint of the REST server).
+type WebhooksConfig struct {
+	// Timeout bounds one HTTP delivery attempt.
+	Timeout time.Duration `yaml:"timeout" env:"WEBHOOKS_TIMEOUT" env-default:"10s"`
+	// RetryInterval is how often the notifier looks for deliveries due for
+	// another attempt.
+	RetryInterval time.Duration `yaml:"retry-interval" env:"WEBHOOKS_RETRY_INTERVAL" env-default:"30s"`
+	// RetryBatch caps the deliveries retried per tick.
+	RetryBatch int `yaml:"retry-batch" env:"WEBHOOKS_RETRY_BATCH" env-default:"100"`
+	// AllowPrivateURLs disables the SSRF guard (loopback/private/link-local
+	// targets are rejected by default). Only for local development.
+	AllowPrivateURLs bool `yaml:"allow-private-urls" env:"WEBHOOKS_ALLOW_PRIVATE_URLS" env-default:"false"`
+}
+
+// Validate checks that the delivery parameters are sane.
+func (w WebhooksConfig) Validate() error {
+	var errs []error
+	if w.Timeout <= 0 {
+		errs = append(errs, errors.New("webhooks.timeout (WEBHOOKS_TIMEOUT) must be positive"))
+	}
+	if w.RetryInterval <= 0 {
+		errs = append(errs, errors.New("webhooks.retry-interval (WEBHOOKS_RETRY_INTERVAL) must be positive"))
+	}
+	if w.RetryBatch <= 0 {
+		errs = append(errs, errors.New("webhooks.retry-batch (WEBHOOKS_RETRY_BATCH) must be positive"))
+	}
+	return errors.Join(errs...)
 }
 
 // MarksConfig tunes mark creation.
@@ -301,7 +358,7 @@ const MinJWTKeyLength = 32
 
 // Validate checks that security-sensitive settings are present and sane.
 func (c *Config) Validate() error {
-	if err := errors.Join(c.Auth.Validate(), c.DB.Validate(), c.Tasker.Validate(), c.Marks.Validate(), c.Rating.Validate()); err != nil {
+	if err := errors.Join(c.Auth.Validate(), c.DB.Validate(), c.Tasker.Validate(), c.Marks.Validate(), c.Rating.Validate(), c.Export.Validate(), c.Webhooks.Validate()); err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 	return nil

@@ -71,3 +71,18 @@ rating:
   mark-refuted: -2
   task-completed: 1
   max-checks-per-day: 50
+
+# GET /marks/export: row cap and per-IP rate limit (env: EXPORT_*).
+export:
+  max-rows: 50000
+  rate-limit:
+    requests: 2
+    window: 1m
+
+# Outgoing webhooks (env: WEBHOOKS_*). allow-private-urls lifts the SSRF
+# guard and must stay false outside local development.
+webhooks:
+  timeout: 10s
+  retry-interval: 30s
+  retry-batch: 100
+  allow-private-urls: false
