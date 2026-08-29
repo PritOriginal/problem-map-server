@@ -47,7 +47,7 @@ func (uc *Tasker) Update(ctx context.Context) error {
 	}
 	uc.log.Debug("marks received")
 
-	users, err := uc.repos.Users.GetUsers(ctx)
+	users, err := uc.repos.Users.GetUsers(ctx, models.Pagination{})
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
 	}
@@ -75,7 +75,7 @@ func (uc *Tasker) Update(ctx context.Context) error {
 	}
 	uc.log.Debug("distances received")
 
-	assignments := uc.update(marks, users, tasks, distances)
+	assignments := uc.update(marks.Items, users.Items, tasks.Items, distances)
 
 	// All assignments are written in one transaction so that a failure or a
 	// cancellation (SIGTERM) never leaves a partially written batch.

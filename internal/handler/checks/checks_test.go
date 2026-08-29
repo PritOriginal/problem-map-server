@@ -142,8 +142,8 @@ func (suite *ChecksSuite) TestGetChecksByMarkId() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			if !tt.wantErrParseId {
-				suite.uc.On("GetChecksByMarkId", mock.Anything, mock.AnythingOfType("int")).Once().
-					Return([]models.Check{}, tt.errGetChecksByMarkId)
+				suite.uc.On("ListChecksByMarkId", mock.Anything, mock.AnythingOfType("int"), models.Pagination{Limit: models.DefaultLimit}).Once().
+					Return(models.Page[models.Check]{Items: []models.Check{}}, tt.errGetChecksByMarkId)
 			}
 
 			w := httptest.NewRecorder()
@@ -189,8 +189,8 @@ func (suite *ChecksSuite) TestGetChecksByUserId() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			if !tt.wantErrParseId {
-				suite.uc.On("GetChecksByUserId", mock.Anything, mock.AnythingOfType("int")).Once().
-					Return([]models.Check{}, tt.errGetChecksByUserId)
+				suite.uc.On("ListChecksByUserId", mock.Anything, mock.AnythingOfType("int"), models.Pagination{Limit: models.DefaultLimit}).Once().
+					Return(models.Page[models.Check]{Items: []models.Check{}}, tt.errGetChecksByUserId)
 			}
 
 			w := httptest.NewRecorder()

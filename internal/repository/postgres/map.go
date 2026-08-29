@@ -26,28 +26,20 @@ func NewMap(db *sqlx.DB, c *trmsqlx.CtxGetter) *MapRepository {
 func (r *MapRepository) GetAdminBoundaries(ctx context.Context, filters models.GetAdminBoundaryFilters) ([]models.AdminBoundary, error) {
 	const op = "storage.postgres.GetAdminBoundaries"
 
-	boundaries := []models.AdminBoundary{}
-	var conditions []string
-	var args []any
-
-	query := "SELECT id, name, admin_level, ST_AsEWKB(geom) AS geom FROM admin_boundaries WHERE 1=1"
+	q := newListQuery("id, name, admin_level, ST_AsEWKB(geom) AS geom", "admin_boundaries").
+		OrderBy("id ASC")
 
 	if len(filters.AdminLevels) > 0 {
-		conditions = append(conditions, "admin_level = ANY($?)")
-		args = append(args, pq.Array(filters.AdminLevels))
-	}
-
-	for i, condition := range conditions {
-		query += " AND " + condition
-		query = strings.Replace(query, "$?", fmt.Sprintf("$%d", len(args)-len(conditions)+i+1), 1)
+		q.Where("admin_level IN (?)", filters.AdminLevels)
 	}
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	if err := tr.SelectContext(ctx, &boundaries, query, args...); err != nil {
-		return boundaries, fmt.Errorf("%s: %w", op, err)
+	page, err := selectPage[models.AdminBoundary](ctx, tr, q)
+	if err != nil {
+		return page.Items, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return boundaries, nil
+	return page.Items, nil
 }
 
 func (r *MapRepository) GetAdminBoundariesMarksCount(ctx context.Context, filters models.GetAdminBoundaryMarksCountFilters) ([]models.AdminBoundaryMarksCount, error) {

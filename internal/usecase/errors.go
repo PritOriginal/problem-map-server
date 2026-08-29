@@ -14,6 +14,9 @@ var (
 	ErrForbidden    = errors.New("forbidden")
 	// ErrUnavailable is returned when a required dependency is not reachable.
 	ErrUnavailable = errors.New("unavailable")
+	// ErrInvalidArgument is returned when request filters or pagination are
+	// out of range; handlers map it to 400.
+	ErrInvalidArgument = errors.New("invalid argument")
 )
 
 // mapRepoErr translates repository errors into usecase errors so that callers

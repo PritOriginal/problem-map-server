@@ -77,24 +77,23 @@ func (r *UsersRepository) GetUserByLogin(ctx context.Context, username string) (
 
 }
 
-func (r *UsersRepository) GetUsers(ctx context.Context) ([]models.User, error) {
+func (r *UsersRepository) GetUsers(ctx context.Context, p models.Pagination) (models.Page[models.User], error) {
 	const op = "storage.postgres.GetUsers"
 
-	users := make([]models.User, 0)
-
-	query := `
-			SELECT
-				user_id, name, login, ST_AsEWKB(home_point) as home_point, rating, role
-			FROM 
-				users
-			`
+	q := newListQuery(
+		"user_id, name, login, ST_AsEWKB(home_point) as home_point, rating, role",
+		"users",
+	).
+		OrderBy("user_id ASC").
+		Paginate(p)
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	if err := tr.SelectContext(ctx, &users, query); err != nil {
-		return users, fmt.Errorf("%s: %w", op, err)
+	page, err := selectPage[models.User](ctx, tr, q)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return users, nil
+	return page, nil
 }
 
 func (r *UsersRepository) AddUser(ctx context.Context, user models.User) (int64, error) {

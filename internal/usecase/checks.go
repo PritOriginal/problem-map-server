@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"maps"
@@ -17,8 +18,8 @@ import (
 type ChecksRepository interface {
 	AddCheck(ctx context.Context, check models.Check) (int64, error)
 	GetCheckById(ctx context.Context, id int) (models.Check, error)
-	GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error)
-	GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error)
+	GetChecksByMarkId(ctx context.Context, markId int, p models.Pagination) (models.Page[models.Check], error)
+	GetChecksByUserId(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Check], error)
 	GetChecksByMarkHistoryId(ctx context.Context, markHistoryId int) ([]models.Check, error)
 	GetChecksByUserIdAndMarkId(ctx context.Context, userId int, markId int) ([]models.Check, error)
 	GetChecksByUserIdAndMarkIdSince(ctx context.Context, userId int, markId int, dateTime time.Time) ([]models.Check, error)
@@ -134,33 +135,39 @@ func (uc *Checks) GetCheckById(ctx context.Context, id int) (models.Check, error
 	return check, nil
 }
 
-func (uc *Checks) GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error) {
-	const op = "usecase.Checks.GetChecksByMarkId"
+// ListChecksByMarkId returns a page of the mark's checks (with photos) and the total count.
+func (uc *Checks) ListChecksByMarkId(ctx context.Context, markId int, p models.Pagination) (models.Page[models.Check], error) {
+	const op = "usecase.Checks.ListChecksByMarkId"
 
-	checks, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId)
+	if err := p.Validate(); err != nil {
+		return models.Page[models.Check]{}, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
+	}
+
+	page, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId, p)
 	if err != nil {
-		return checks, mapRepoErr(op, err)
+		return page, mapRepoErr(op, err)
 	}
 
 	photosMap, err := uc.repos.Photos.GetPhotosByMarkId(ctx, markId)
 	if err != nil {
-		return checks, mapRepoErr(op, err)
+		return page, mapRepoErr(op, err)
 	}
 
-	for i := range len(checks) {
-		checks[i].Photos = photosMap[markId][checks[i].ID]
+	for i := range page.Items {
+		page.Items[i].Photos = photosMap[markId][page.Items[i].ID]
 	}
 
-	return checks, nil
+	return page, nil
 }
 
 func (uc *Checks) GetGroupedChecksByMarkStatusHistoryId(ctx context.Context, markId int) ([]models.GroupedChecksByMarkStatusHistoryId, error) {
 	const op = "usecase.Checks.GetGroupedChecksByMarkStatusHistoryId"
 
-	checks, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId)
+	page, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId, models.Pagination{})
 	if err != nil {
 		return nil, mapRepoErr(op, err)
 	}
+	checks := page.Items
 
 	photosMap, err := uc.repos.Photos.GetPhotosByMarkId(ctx, markId)
 	if err != nil {
@@ -197,22 +204,34 @@ func (uc *Checks) groupChecks(checks []models.Check) []models.GroupedChecksByMar
 	return groupedChecks
 }
 
-func (uc *Checks) GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error) {
-	const op = "usecase.Checks.GetChecksByUserId"
+// ListChecksByUserId returns a page of the user's checks (with photos) and the total count.
+func (uc *Checks) ListChecksByUserId(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Check], error) {
+	const op = "usecase.Checks.ListChecksByUserId"
 
-	checks, err := uc.repos.Checks.GetChecksByUserId(ctx, userId)
+	if err := p.Validate(); err != nil {
+		return models.Page[models.Check]{}, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
+	}
+
+	page, err := uc.repos.Checks.GetChecksByUserId(ctx, userId, p)
 	if err != nil {
-		return checks, mapRepoErr(op, err)
+		return page, mapRepoErr(op, err)
 	}
 
-	for i := range len(checks) {
-		checks[i].Photos, err = uc.repos.Photos.GetPhotosByCheckId(ctx, checks[i].MarkID, checks[i].ID)
-		if err != nil {
-			return checks, mapRepoErr(op, err)
+	// One storage listing per distinct mark instead of one per check.
+	photosByMark := map[int]map[int][]string{}
+	for i := range page.Items {
+		markId := page.Items[i].MarkID
+		if _, ok := photosByMark[markId]; !ok {
+			photosMap, err := uc.repos.Photos.GetPhotosByMarkId(ctx, markId)
+			if err != nil {
+				return page, mapRepoErr(op, err)
+			}
+			photosByMark[markId] = photosMap[markId]
 		}
+		page.Items[i].Photos = photosByMark[markId][page.Items[i].ID]
 	}
 
-	return checks, nil
+	return page, nil
 }
 
 type UpdaterRepositories struct {

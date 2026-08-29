@@ -106,8 +106,8 @@ func (suite *UsersSuite) TestGetUsers() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			func() {
-				suite.usersRepo.On("GetUsers", mock.Anything).Once().
-					Return(tt.getUsers.data, tt.getUsers.err)
+				suite.usersRepo.On("GetUsers", mock.Anything, models.Pagination{}).Once().
+					Return(models.Page[models.User]{Items: tt.getUsers.data}, tt.getUsers.err)
 				if tt.getUsers.err != nil {
 					return
 				}

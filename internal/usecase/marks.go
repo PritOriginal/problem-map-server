@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 
@@ -10,9 +11,10 @@ import (
 )
 
 type MarksRepository interface {
-	GetMarks(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error)
+	GetMarks(ctx context.Context, filters models.GetMarksFilters) (models.Page[models.Mark], error)
+	GetMarksNearby(ctx context.Context, filters models.GetMarksNearbyFilters) (models.Page[models.MarkWithDistance], error)
 	GetMarkById(ctx context.Context, id int) (models.Mark, error)
-	GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error)
+	GetMarksByUserId(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error)
 	AddMark(ctx context.Context, mark models.Mark) (int64, error)
 	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
 	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
@@ -50,14 +52,53 @@ func NewMarks(log *slog.Logger, trManager trm.Manager, repos MarksRepositories) 
 	}
 }
 
+// ListMarks returns a page of marks matching the filters together with the
+// total number of matches. Sort/order and pagination are validated here so
+// that every transport gets the same rules.
+func (uc *Marks) ListMarks(ctx context.Context, filters models.GetMarksFilters) (models.Page[models.Mark], error) {
+	const op = "usecase.Marks.ListMarks"
+
+	if err := filters.Validate(); err != nil {
+		return models.Page[models.Mark]{}, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
+	}
+
+	page, err := uc.repos.Marks.GetMarks(ctx, filters)
+	if err != nil {
+		return page, mapRepoErr(op, err)
+	}
+	return page, nil
+}
+
+// GetMarks returns every mark matching the filters without pagination.
+// Kept for callers that need the full set (gRPC, tasker).
 func (uc *Marks) GetMarks(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error) {
 	const op = "usecase.Marks.GetMarks"
 
-	marks, err := uc.repos.Marks.GetMarks(ctx, filters)
+	filters.Pagination = models.Pagination{}
+	page, err := uc.repos.Marks.GetMarks(ctx, filters)
 	if err != nil {
-		return marks, mapRepoErr(op, err)
+		return page.Items, mapRepoErr(op, err)
 	}
-	return marks, nil
+	return page.Items, nil
+}
+
+// MaxNearbyRadiusM caps the radius accepted by GetMarksNearby (50 km).
+const MaxNearbyRadiusM = models.MaxNearbyRadiusM
+
+// GetMarksNearby returns marks within filters.RadiusM meters of the point,
+// nearest first, with the distance to each mark.
+func (uc *Marks) GetMarksNearby(ctx context.Context, filters models.GetMarksNearbyFilters) (models.Page[models.MarkWithDistance], error) {
+	const op = "usecase.Marks.GetMarksNearby"
+
+	if err := filters.Validate(); err != nil {
+		return models.Page[models.MarkWithDistance]{}, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
+	}
+
+	page, err := uc.repos.Marks.GetMarksNearby(ctx, filters)
+	if err != nil {
+		return page, mapRepoErr(op, err)
+	}
+	return page, nil
 }
 
 func (uc *Marks) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
@@ -70,14 +111,30 @@ func (uc *Marks) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
 	return mark, nil
 }
 
+// ListMarksByUserId returns a page of the user's marks with the total count.
+func (uc *Marks) ListMarksByUserId(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error) {
+	const op = "usecase.Marks.ListMarksByUserId"
+
+	if err := p.Validate(); err != nil {
+		return models.Page[models.Mark]{}, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
+	}
+
+	page, err := uc.repos.Marks.GetMarksByUserId(ctx, userId, p)
+	if err != nil {
+		return page, mapRepoErr(op, err)
+	}
+	return page, nil
+}
+
+// GetMarksByUserId returns all marks of the user without pagination (gRPC).
 func (uc *Marks) GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error) {
 	const op = "usecase.Marks.GetMarksByUserId"
 
-	marks, err := uc.repos.Marks.GetMarksByUserId(ctx, userId)
+	page, err := uc.repos.Marks.GetMarksByUserId(ctx, userId, models.Pagination{})
 	if err != nil {
-		return marks, mapRepoErr(op, err)
+		return page.Items, mapRepoErr(op, err)
 	}
-	return marks, nil
+	return page.Items, nil
 }
 
 func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error) {
@@ -154,10 +211,11 @@ func (uc *Marks) GetMarkStatusHistoryByMarkId(ctx context.Context, markId int, w
 	}
 
 	if withChecks {
-		checks, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId)
+		checksPage, err := uc.repos.Checks.GetChecksByMarkId(ctx, markId, models.Pagination{})
 		if err != nil {
 			return nil, mapRepoErr(op, err)
 		}
+		checks := checksPage.Items
 
 		photosMap, err := uc.repos.Photos.GetPhotosByMarkId(ctx, markId)
 		if err != nil {
@@ -201,7 +259,7 @@ func (uc *Marks) addChecksToHistoryItems(historyItems []models.MarkStatusHistory
 
 // 	mark, err := uc.repos.Marks.GetMarkById(ctx, markId)
 // 	if err != nil {
-// 		return 0, fmt.Errorf("%s: %w", op, err)
+// 		return 0, mapRepoErr(op, err)
 // 	}
 
 // 	var newStatus models.MarkStatusType
@@ -218,7 +276,7 @@ func (uc *Marks) addChecksToHistoryItems(historyItems []models.MarkStatusHistory
 // 	}
 
 // 	if err := uc.repos.Marks.UpdateMarkStatus(ctx, markId, newStatus); err != nil {
-// 		return 0, fmt.Errorf("%s: %w", op, err)
+// 		return 0, mapRepoErr(op, err)
 // 	}
 
 // 	return newStatus, nil
@@ -229,7 +287,7 @@ func (uc *Marks) addChecksToHistoryItems(historyItems []models.MarkStatusHistory
 
 // 	mark, err := uc.repos.Marks.GetMarkById(ctx, markId)
 // 	if err != nil {
-// 		return 0, fmt.Errorf("%s: %w", op, err)
+// 		return 0, mapRepoErr(op, err)
 // 	}
 
 // 	var newStatus models.MarkStatusType
@@ -242,7 +300,7 @@ func (uc *Marks) addChecksToHistoryItems(historyItems []models.MarkStatusHistory
 // 	}
 
 // 	if err := uc.repos.Marks.UpdateMarkStatus(ctx, markId, newStatus); err != nil {
-// 		return 0, fmt.Errorf("%s: %w", op, err)
+// 		return 0, mapRepoErr(op, err)
 // 	}
 
 // 	return newStatus, nil

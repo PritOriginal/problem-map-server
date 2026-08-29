@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"github.com/PritOriginal/problem-map-server/internal/handler/listquery"
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
@@ -18,9 +19,10 @@ import (
 )
 
 type Marks interface {
-	GetMarks(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error)
+	ListMarks(ctx context.Context, filters models.GetMarksFilters) (models.Page[models.Mark], error)
+	GetMarksNearby(ctx context.Context, filters models.GetMarksNearbyFilters) (models.Page[models.MarkWithDistance], error)
 	GetMarkById(ctx context.Context, id int) (models.Mark, error)
-	GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error)
+	ListMarksByUserId(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error)
 	AddMark(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error)
 	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
 	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
@@ -55,6 +57,7 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 	marks := r.Group("/marks")
 	{
 		marks.GET("", handler.GetMarks())
+		marks.GET("nearby", handler.GetMarksNearby())
 		id := marks.Group(":id")
 		{
 			id.GET("", handler.GetMarkById())
@@ -80,47 +83,91 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 	}
 }
 
-// GetMarks lists all existing markers
+// GetMarks lists markers matching the filters, paginated
 //
 //	@Summary		List markers
-//	@Description	get markers
+//	@Description	get markers page; pagination info is returned in the top-level `meta` field ({limit, offset, total})
 //	@Tags			marks
 //	@Accept			json
 //	@Produce		json
-//	@Param			mark_type_ids	query		[]number	false	"filter by mark types"
-//	@Param			mark_status_ids	query		[]number	false	"filter by mark statuses"
+//	@Param			mark_type_ids	query		string	false	"filter by mark types, comma-separated ids"
+//	@Param			mark_status_ids	query		string	false	"filter by mark statuses, comma-separated ids"
+//	@Param			user_id			query		int		false	"filter by author"
+//	@Param			bbox			query		string	false	"bounding box minLon,minLat,maxLon,maxLat (WGS84)"
+//	@Param			created_from	query		string	false	"created_at >= (RFC3339)"
+//	@Param			created_to		query		string	false	"created_at <= (RFC3339)"
+//	@Param			sort			query		string	false	"sort column"		Enums(created_at, updated_at)	default(created_at)
+//	@Param			order			query		string	false	"sort order"		Enums(asc, desc)				default(desc)
+//	@Param			limit			query		int		false	"page size, 1..500"	default(100)
+//	@Param			offset			query		int		false	"page offset"		default(0)
 //	@Success		200				{object}	responses.Response[marksrest.GetMarksResponse]
 //	@Failure		400				{object}	responses.Response[any]
-//	@Failure		401				{object}	responses.Response[any]
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/marks [get]
 func (h *handler) GetMarks() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		const op = "marksrest.GetMarks"
 
-		markTypeIds, err := handlers.QueryIntArray(c, "mark_type_ids")
-		if err != nil {
-			responses.FromError(c, h.log, op, err)
+		var req GetMarksRequest
+		if !listquery.Bind(c, h.log, &req) {
 			return
 		}
-		markStatusIds, err := handlers.QueryIntArray(c, "mark_status_ids")
+		filters, err := req.Filters()
+		if err != nil {
+			h.log.Debug("failed parse filters", logger.Err(err))
+			responses.BadRequest(c, err.Error())
+			return
+		}
+
+		page, err := h.uc.ListMarks(c.Request.Context(), filters)
 		if err != nil {
 			responses.FromError(c, h.log, op, err)
 			return
 		}
 
-		marks, err := h.uc.GetMarks(c.Request.Context(), models.GetMarksFilters{
-			MarkTypeIds:   markTypeIds,
-			MarkStatusIds: markStatusIds,
-		})
+		listquery.OK(c, GetMarksResponse{Marks: page.Items}, filters.Pagination, page.Total)
+	}
+}
+
+// GetMarksNearby lists markers within a radius of a point, nearest first
+//
+//	@Summary		List nearby markers
+//	@Description	get markers within `radius` meters of (lon, lat) ordered by distance; each item carries `distance_m`; pagination info is in the top-level `meta` field
+//	@Tags			marks
+//	@Produce		json
+//	@Param			lon				query		number	true	"longitude"
+//	@Param			lat				query		number	true	"latitude"
+//	@Param			radius			query		number	true	"radius in meters, at most 50000"
+//	@Param			mark_type_ids	query		string	false	"filter by mark types, comma-separated ids"
+//	@Param			mark_status_ids	query		string	false	"filter by mark statuses, comma-separated ids"
+//	@Param			limit			query		int		false	"page size, 1..500"	default(100)
+//	@Param			offset			query		int		false	"page offset"		default(0)
+//	@Success		200				{object}	responses.Response[marksrest.GetMarksNearbyResponse]
+//	@Failure		400				{object}	responses.Response[any]
+//	@Failure		500				{object}	responses.Response[any]
+//	@Router			/marks/nearby [get]
+func (h *handler) GetMarksNearby() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "marksrest.GetMarksNearby"
+
+		var req GetMarksNearbyRequest
+		if !listquery.Bind(c, h.log, &req) {
+			return
+		}
+		filters, err := req.Filters()
+		if err != nil {
+			h.log.Debug("failed parse filters", logger.Err(err))
+			responses.BadRequest(c, err.Error())
+			return
+		}
+
+		page, err := h.uc.GetMarksNearby(c.Request.Context(), filters)
 		if err != nil {
 			responses.FromError(c, h.log, op, err)
 			return
 		}
 
-		responses.OK(c, GetMarksResponse{
-			Marks: marks,
-		})
+		listquery.OK(c, GetMarksNearbyResponse{Marks: page.Items}, filters.Pagination, page.Total)
 	}
 }
 
@@ -165,10 +212,12 @@ func (h *handler) GetMarkById() gin.HandlerFunc {
 //	@Description	get markers by user id
 //	@Tags			marks
 //	@Produce		json
-//	@Param			id	path		int	true	"user id"
-//	@Success		200	{object}	responses.Response[marksrest.GetMarksByUserIdResponse]
-//	@Failure		400	{object}	responses.Response[any]
-//	@Failure		500	{object}	responses.Response[any]
+//	@Param			id		path		int	true	"user id"
+//	@Param			limit	query		int	false	"page size, 1..500"	default(100)
+//	@Param			offset	query		int	false	"page offset"		default(0)
+//	@Success		200		{object}	responses.Response[marksrest.GetMarksByUserIdResponse]
+//	@Failure		400		{object}	responses.Response[any]
+//	@Failure		500		{object}	responses.Response[any]
 //	@Router			/marks/user/{id} [get]
 func (h *handler) GetMarksByUserId() gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -180,15 +229,18 @@ func (h *handler) GetMarksByUserId() gin.HandlerFunc {
 			return
 		}
 
-		marks, err := h.uc.GetMarksByUserId(c.Request.Context(), userId)
+		p, ok := listquery.BindPagination(c, h.log)
+		if !ok {
+			return
+		}
+
+		page, err := h.uc.ListMarksByUserId(c.Request.Context(), userId, p)
 		if err != nil {
 			responses.FromError(c, h.log, op, err)
 			return
 		}
 
-		responses.OK(c, GetMarksByUserIdResponse{
-			Marks: marks,
-		})
+		listquery.OK(c, GetMarksByUserIdResponse{Marks: page.Items}, p, page.Total)
 	}
 }
 

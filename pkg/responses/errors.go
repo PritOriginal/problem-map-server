@@ -37,7 +37,7 @@ func FromError(c *gin.Context, log *slog.Logger, op string, err error) {
 		respond, msg = Unauthorized, MsgUnauthorized
 	case errors.Is(err, usecase.ErrForbidden):
 		respond, msg = Forbidden, MsgForbidden
-	case errors.Is(err, handlers.ErrInvalidPhoto), errors.Is(err, handlers.ErrBadRequest):
+	case errors.Is(err, usecase.ErrInvalidArgument), errors.Is(err, handlers.ErrInvalidPhoto), errors.Is(err, handlers.ErrBadRequest):
 		respond, msg = BadRequest, MsgBadRequest
 	default:
 		log.Error(op, slogger.Err(err))

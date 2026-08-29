@@ -1,6 +1,9 @@
 package models
 
 import (
+	"errors"
+	"fmt"
+	"math"
 	"time"
 
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
@@ -106,6 +109,75 @@ func (m *Mark) ToProtobufObject() *pb.Mark {
 type GetMarksFilters struct {
 	MarkTypeIds   []int
 	MarkStatusIds []int
+	// UserID filters by author; 0 means any user.
+	UserID int
+	// BBox restricts marks to a bounding box (ST_Intersects); nil means no restriction.
+	BBox *BBox
+	// CreatedFrom / CreatedTo bound created_at (inclusive); zero means unbounded.
+	CreatedFrom time.Time
+	CreatedTo   time.Time
+	// Sort / Order default to created_at desc when empty.
+	Sort  MarksSort
+	Order SortOrder
+
+	Pagination Pagination
+}
+
+// Validate checks pagination, sort keys, bbox and the date range.
+func (f GetMarksFilters) Validate() error {
+	if err := f.Pagination.Validate(); err != nil {
+		return err
+	}
+	if err := f.Sort.Validate(); err != nil {
+		return err
+	}
+	if err := f.Order.Validate(); err != nil {
+		return err
+	}
+	if f.BBox != nil {
+		if err := f.BBox.Validate(); err != nil {
+			return err
+		}
+	}
+	if !f.CreatedFrom.IsZero() && !f.CreatedTo.IsZero() && f.CreatedTo.Before(f.CreatedFrom) {
+		return errors.New("created_to is before created_from")
+	}
+	return nil
+}
+
+// MaxNearbyRadiusM caps the radius accepted by nearby searches (50 km).
+const MaxNearbyRadiusM = 50_000
+
+// GetMarksNearbyFilters selects marks within RadiusM meters of a point.
+type GetMarksNearbyFilters struct {
+	Lon           float64
+	Lat           float64
+	RadiusM       float64
+	MarkTypeIds   []int
+	MarkStatusIds []int
+
+	Pagination Pagination
+}
+
+// Validate checks pagination, the point and the radius.
+func (f GetMarksNearbyFilters) Validate() error {
+	if err := f.Pagination.Validate(); err != nil {
+		return err
+	}
+	if err := ValidateLonLat(f.Lon, f.Lat); err != nil {
+		return err
+	}
+	// NaN compares false against every bound, so it has to be rejected explicitly.
+	if math.IsNaN(f.RadiusM) || f.RadiusM <= 0 || f.RadiusM > MaxNearbyRadiusM {
+		return fmt.Errorf("radius must be between 1 and %d meters", MaxNearbyRadiusM)
+	}
+	return nil
+}
+
+// MarkWithDistance is a mark together with its distance (meters) from a query point.
+type MarkWithDistance struct {
+	Mark
+	DistanceM float64 `json:"distance_m" db:"distance_m"`
 }
 
 type DistanceFromMarkToPoint struct {

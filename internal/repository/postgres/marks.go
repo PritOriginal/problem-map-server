@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
@@ -26,41 +25,95 @@ func NewMarks(db *sqlx.DB, c *trmsqlx.CtxGetter) *MarksRepository {
 	}
 }
 
-func (r *MarksRepository) GetMarks(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error) {
+const markColumns = "mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, created_at, updated_at"
+
+// marksSortColumns is the whitelist of sortable columns; the empty key is
+// the default. Only values from this map ever reach the ORDER BY clause.
+var marksSortColumns = map[models.MarksSort]string{
+	"":                        "created_at",
+	models.MarksSortCreatedAt: "created_at",
+	models.MarksSortUpdatedAt: "updated_at",
+}
+
+// marksOrderBy maps the public sort keys to an ORDER BY clause. mark_id is
+// always appended as a tie-breaker so that pagination is stable.
+func marksOrderBy(sort models.MarksSort, order models.SortOrder) string {
+	column, ok := marksSortColumns[sort]
+	if !ok {
+		column = marksSortColumns[""]
+	}
+	dir := "DESC"
+	if order == models.SortAsc {
+		dir = "ASC"
+	}
+	return fmt.Sprintf("%s %s, mark_id %s", column, dir, dir)
+}
+
+func (r *MarksRepository) GetMarks(ctx context.Context, filters models.GetMarksFilters) (models.Page[models.Mark], error) {
 	const op = "storage.postgres.GetMarks"
 
-	marks := []models.Mark{}
-
-	var conditions []string
-	var args []any
-	query := `
-			SELECT 
-				mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, created_at, updated_at 
-			FROM 
-				marks
-			WHERE
-				1=1
-			`
+	q := newListQuery(markColumns, "marks").
+		OrderBy(marksOrderBy(filters.Sort, filters.Order)).
+		Paginate(filters.Pagination)
 
 	if len(filters.MarkStatusIds) > 0 {
-		conditions = append(conditions, "mark_status_id = ANY($?)")
-		args = append(args, pq.Array(filters.MarkStatusIds))
+		q.Where("mark_status_id IN (?)", filters.MarkStatusIds)
 	}
 	if len(filters.MarkTypeIds) > 0 {
-		conditions = append(conditions, "type_mark_id = ANY($?)")
-		args = append(args, pq.Array(filters.MarkTypeIds))
+		q.Where("type_mark_id IN (?)", filters.MarkTypeIds)
+	}
+	if filters.UserID > 0 {
+		q.Where("user_id = ?", filters.UserID)
+	}
+	if b := filters.BBox; b != nil {
+		// Uses the GiST index on marks.geom.
+		q.Where("ST_Intersects(geom, ST_MakeEnvelope(?, ?, ?, ?, 4326))", b.MinLon, b.MinLat, b.MaxLon, b.MaxLat)
+	}
+	if !filters.CreatedFrom.IsZero() {
+		q.Where("created_at >= ?", filters.CreatedFrom)
+	}
+	if !filters.CreatedTo.IsZero() {
+		q.Where("created_at <= ?", filters.CreatedTo)
 	}
 
-	for i, condition := range conditions {
-		query += " AND " + condition
-		query = strings.Replace(query, "$?", fmt.Sprintf("$%d", len(args)-len(conditions)+i+1), 1)
-	}
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	if err := tr.SelectContext(ctx, &marks, query, args...); err != nil {
-		return marks, fmt.Errorf("%s: %w", op, err)
+	page, err := selectPage[models.Mark](ctx, tr, q)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return marks, nil
+	return page, nil
+}
+
+func (r *MarksRepository) GetMarksNearby(ctx context.Context, filters models.GetMarksNearbyFilters) (models.Page[models.MarkWithDistance], error) {
+	const op = "storage.postgres.GetMarksNearby"
+
+	const point = "ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography"
+
+	// ST_DWithin on geography uses idx_marks_geom_geog (see migration 000028).
+	q := newListQuery(
+		markColumns+", ST_Distance(geom::geography, "+point+") AS distance_m",
+		"marks",
+	).
+		OrderBy("distance_m ASC, mark_id ASC").
+		Paginate(filters.Pagination)
+	q.ColumnArgs(filters.Lon, filters.Lat)
+
+	q.Where("ST_DWithin(geom::geography, "+point+", ?)", filters.Lon, filters.Lat, filters.RadiusM)
+	if len(filters.MarkStatusIds) > 0 {
+		q.Where("mark_status_id IN (?)", filters.MarkStatusIds)
+	}
+	if len(filters.MarkTypeIds) > 0 {
+		q.Where("type_mark_id IN (?)", filters.MarkTypeIds)
+	}
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	page, err := selectPage[models.MarkWithDistance](ctx, tr, q)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return page, nil
 }
 
 func (r *MarksRepository) GetMarkById(ctx context.Context, id int) (models.Mark, error) {
@@ -89,25 +142,21 @@ func (r *MarksRepository) GetMarkById(ctx context.Context, id int) (models.Mark,
 	return mark, nil
 }
 
-func (r *MarksRepository) GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error) {
+func (r *MarksRepository) GetMarksByUserId(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error) {
 	const op = "storage.postgres.GetMarksByUserId"
 
-	marks := []models.Mark{}
-
-	query := `SELECT
-				mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, created_at, updated_at
-			FROM 
-				marks 
-			WHERE 
-				user_id = $1
-			`
+	q := newListQuery(markColumns, "marks").
+		Where("user_id = ?", userId).
+		OrderBy(marksOrderBy(models.MarksSortCreatedAt, models.SortDesc)).
+		Paginate(p)
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	if err := tr.SelectContext(ctx, &marks, query, userId); err != nil {
-		return marks, fmt.Errorf("%s: %w", op, err)
+	page, err := selectPage[models.Mark](ctx, tr, q)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return marks, nil
+	return page, nil
 }
 
 func (r *MarksRepository) AddMark(ctx context.Context, mark models.Mark) (int64, error) {

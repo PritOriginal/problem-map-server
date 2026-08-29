@@ -64,8 +64,12 @@ const (
 
 type GetTasksFilters struct {
 	Statuses []int
+
+	Pagination Pagination
 }
 
 type GetTasksByUserIdFilters struct {
 	Statuses []int
+
+	Pagination Pagination
 }

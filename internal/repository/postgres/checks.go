@@ -76,51 +76,43 @@ func (r *ChecksRepository) GetCheckById(ctx context.Context, id int) (models.Che
 	return check, nil
 }
 
-func (r *ChecksRepository) GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error) {
+const (
+	checkColumns = "c.*, u.name AS username"
+	checksFrom   = "checks AS c JOIN users AS u ON c.user_id = u.user_id"
+)
+
+func (r *ChecksRepository) GetChecksByMarkId(ctx context.Context, markId int, p models.Pagination) (models.Page[models.Check], error) {
 	const op = "storage.postgres.GetChecksByMarkId"
 
-	checks := []models.Check{}
-
-	query := `
-		SELECT 
-			c.*, u.name as username 
-		FROM 
-			checks as c 
-		JOIN 
-			users AS u ON c.user_id = u.user_id 
-		WHERE 
-			mark_id = $1
-		ORDER BY created_at ASC`
+	q := newListQuery(checkColumns, checksFrom).
+		Where("c.mark_id = ?", markId).
+		OrderBy("c.created_at ASC, c.check_id ASC").
+		Paginate(p)
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	if err := tr.SelectContext(ctx, &checks, query, markId); err != nil {
-		return checks, fmt.Errorf("%s: %w", op, err)
+	page, err := selectPage[models.Check](ctx, tr, q)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return checks, nil
+	return page, nil
 }
 
-func (r *ChecksRepository) GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error) {
+func (r *ChecksRepository) GetChecksByUserId(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Check], error) {
 	const op = "storage.postgres.GetChecksByUserId"
 
-	checks := []models.Check{}
-
-	query := `
-		SELECT 
-			c.*, u.name as username 
-		FROM 
-			checks as c 
-		JOIN 
-			users AS u ON c.user_id = u.user_id 
-		WHERE 
-			c.user_id = $1`
+	q := newListQuery(checkColumns, checksFrom).
+		Where("c.user_id = ?", userId).
+		OrderBy("c.created_at ASC, c.check_id ASC").
+		Paginate(p)
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	if err := tr.SelectContext(ctx, &checks, query, userId); err != nil {
-		return checks, fmt.Errorf("%s: %w", op, err)
+	page, err := selectPage[models.Check](ctx, tr, q)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return checks, nil
+	return page, nil
 }
 
 func (r *ChecksRepository) GetChecksByMarkHistoryId(ctx context.Context, markHistoryId int) ([]models.Check, error) {

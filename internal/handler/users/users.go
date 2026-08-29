@@ -4,6 +4,7 @@ import (
 	"context"
 	"log/slog"
 
+	"github.com/PritOriginal/problem-map-server/internal/handler/listquery"
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
@@ -15,7 +16,7 @@ import (
 
 type Users interface {
 	GetUserById(ctx context.Context, id int) (models.User, error)
-	GetUsers(ctx context.Context) ([]models.User, error)
+	ListUsers(ctx context.Context, p models.Pagination) (models.Page[models.User], error)
 }
 
 type handler struct {
@@ -106,27 +107,33 @@ func (h *handler) GetMe() gin.HandlerFunc {
 	}
 }
 
-// GetUsers lists all existing users
+// GetUsers lists users, paginated
 //
 //	@Summary		List users
-//	@Description	get public profiles of all users
+//	@Description	get public profiles of users; pagination info is returned in the top-level `meta` field ({limit, offset, total})
 //	@Tags			users
 //	@Produce		json
-//	@Success		200	{object}	responses.Response[usersrest.GetUsersResponse]
-//	@Failure		500	{object}	responses.Response[any]
+//	@Param			limit	query		int	false	"page size, 1..500"	default(100)
+//	@Param			offset	query		int	false	"page offset"		default(0)
+//	@Success		200		{object}	responses.Response[usersrest.GetUsersResponse]
+//	@Failure		400		{object}	responses.Response[any]
+//	@Failure		500		{object}	responses.Response[any]
 //	@Router			/users [get]
 func (h *handler) GetUsers() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		const op = "usersrest.GetUsers"
 
-		users, err := h.uc.GetUsers(c.Request.Context())
+		p, ok := listquery.BindPagination(c, h.log)
+		if !ok {
+			return
+		}
+
+		page, err := h.uc.ListUsers(c.Request.Context(), p)
 		if err != nil {
 			responses.FromError(c, h.log, op, err)
 			return
 		}
 
-		responses.OK(c, GetUsersResponse{
-			Users: NewPublicUsers(users),
-		})
+		listquery.OK(c, GetUsersResponse{Users: NewPublicUsers(page.Items)}, p, page.Total)
 	}
 }

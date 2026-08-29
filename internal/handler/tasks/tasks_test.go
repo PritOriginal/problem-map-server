@@ -83,6 +83,17 @@ func (suite *TasksSuite) TestGetTasks() {
 			statusCode:           400,
 		},
 		{
+			name:       "Ok200Pagination",
+			query:      "?limit=10&offset=20",
+			statusCode: 200,
+		},
+		{
+			name:                 "Err400LimitTooBig",
+			query:                "?limit=501",
+			wantErrParseStatuses: true,
+			statusCode:           400,
+		},
+		{
 			name:        "Err500",
 			errGetTasks: errors.New(""),
 			statusCode:  500,
@@ -91,8 +102,8 @@ func (suite *TasksSuite) TestGetTasks() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			if !tt.wantErrParseStatuses {
-				suite.uc.On("GetTasks", mock.Anything, mock.AnythingOfType("models.GetTasksFilters")).Once().
-					Return([]models.Task{}, tt.errGetTasks)
+				suite.uc.On("ListTasks", mock.Anything, mock.AnythingOfType("models.GetTasksFilters")).Once().
+					Return(models.Page[models.Task]{Items: []models.Task{}}, tt.errGetTasks)
 			}
 
 			w := httptest.NewRecorder()
@@ -212,8 +223,8 @@ func (suite *TasksSuite) TestGetTasksByUserId() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			if !tt.wantErrParseId && !tt.wantErrParseStatuses {
-				suite.uc.On("GetTasksByUserId", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("models.GetTasksByUserIdFilters")).Once().
-					Return([]models.Task{}, tt.errGetTasksByUserId)
+				suite.uc.On("ListTasksByUserId", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("models.GetTasksByUserIdFilters")).Once().
+					Return(models.Page[models.Task]{Items: []models.Task{}}, tt.errGetTasksByUserId)
 			}
 
 			w := httptest.NewRecorder()

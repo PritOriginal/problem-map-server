@@ -201,8 +201,8 @@ func (suite *UsersSuite) TestGetUsers() {
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			suite.uc.On("GetUsers", mock.Anything).Once().
-				Return([]models.User{testUser()}, tt.errGetUsers)
+			suite.uc.On("ListUsers", mock.Anything, models.Pagination{Limit: models.DefaultLimit}).Once().
+				Return(models.Page[models.User]{Items: []models.User{testUser()}, Total: 1}, tt.errGetUsers)
 
 			w := httptest.NewRecorder()
 			req := httptest.NewRequest("GET", "/users", nil)
@@ -217,7 +217,65 @@ func (suite *UsersSuite) TestGetUsers() {
 				suite.Len(resp.Payload["users"], 1)
 				suite.NotContains(resp.Payload["users"][0], "login")
 				suite.NotContains(resp.Payload["users"][0], "home_point")
+				suite.Equal(&responses.ListMeta{Limit: models.DefaultLimit, Offset: 0, Total: 1}, resp.Meta)
 			}
+		})
+	}
+}
+
+func (suite *UsersSuite) TestGetUsersPagination() {
+	tests := []struct {
+		name       string
+		query      string
+		pagination models.Pagination
+		statusCode int
+	}{
+		{
+			name:       "Ok",
+			query:      "?limit=20&offset=40",
+			pagination: models.Pagination{Limit: 20, Offset: 40},
+			statusCode: 200,
+		},
+		{
+			name:       "OkMaxLimit",
+			query:      "?limit=500",
+			pagination: models.Pagination{Limit: 500},
+			statusCode: 200,
+		},
+		{
+			name:       "ErrLimitTooBig",
+			query:      "?limit=501",
+			statusCode: 400,
+		},
+		{
+			name:       "ErrLimitZero",
+			query:      "?limit=0",
+			statusCode: 400,
+		},
+		{
+			name:       "ErrNegativeOffset",
+			query:      "?offset=-1",
+			statusCode: 400,
+		},
+		{
+			name:       "ErrNotANumber",
+			query:      "?limit=abc",
+			statusCode: 400,
+		},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if tt.statusCode == 200 {
+				suite.uc.On("ListUsers", mock.Anything, tt.pagination).Once().
+					Return(models.Page[models.User]{Items: []models.User{}, Total: 0}, nil)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/users"+tt.query, nil)
+
+			suite.r.ServeHTTP(w, req)
+
+			suite.Equal(tt.statusCode, w.Code)
 		})
 	}
 }
