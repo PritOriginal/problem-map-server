@@ -67,6 +67,43 @@ services:
     volumes:
       - ./migrations:/migrations
     command: ["-path", "/migrations/", "-database", "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=${POSTGRES_SSLMODE:-disable}", "up"]
+  # Optional event broker + notification worker: `docker compose --profile nats up`.
+  # Set NATS_URL=nats://nats:4222 in configs/.env.docker so the REST server
+  # publishes events; without it events are dropped (NoopPublisher).
+  nats:
+    image: nats:2-alpine
+    container_name: nats
+    restart: always
+    profiles: ["nats"]
+    expose:
+      - 4222
+    networks:
+      - server-network
+    command: ["--name", "problem-map", "--http_port", "8222"]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  notifier:
+    build:
+      context: .
+      dockerfile: ./docker/notifier/Dockerfile
+      target: final
+    container_name: notifier
+    restart: always
+    profiles: ["nats"]
+    networks:
+      - server-network
+    env_file:
+      - ./configs/.env.docker
+    volumes:
+      - ./configs/.env.docker:/etc/problem-map/.env:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      nats:
+        condition: service_healthy
   osm2pgsql:
     image: iboates/osm2pgsql:latest
     environment:

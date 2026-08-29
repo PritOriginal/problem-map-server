@@ -62,6 +62,8 @@ type PostgresSuite struct {
 	checks *postgres.ChecksRepository
 	tasks  *postgres.TasksRepository
 	maps   *postgres.MapRepository
+
+	notifications *postgres.NotificationsRepository
 }
 
 func TestPostgresSuite(t *testing.T) {
@@ -103,6 +105,7 @@ func (s *PostgresSuite) SetupSuite() {
 	s.checks = postgres.NewChecks(db, getter)
 	s.tasks = postgres.NewTasks(db, getter)
 	s.maps = postgres.NewMap(db, getter)
+	s.notifications = postgres.NewNotifications(db, getter)
 }
 
 func (s *PostgresSuite) TearDownSuite() {
@@ -135,6 +138,7 @@ func (s *PostgresSuite) migrateUp(dsn string) {
 func (s *PostgresSuite) truncate() {
 	_, err := s.db.ExecContext(s.ctx, `
 		TRUNCATE TABLE
+			notifications, user_devices,
 			rating_events, checks, tasks, mark_status_history, mark_followers, marks, users, admin_boundaries, types_marks,
 			districts, cities, regions
 		RESTART IDENTITY CASCADE

@@ -7,6 +7,10 @@ packages:
           pkgname: "usecase"
           dir: "internal/usecase"
           filename: "trm_mocks.go"
+  github.com/PritOriginal/problem-map-server/internal/events:
+    config:
+      all: true
+      filename: "mocks.go"
   github.com/PritOriginal/problem-map-server/internal/usecase:
     config:
       all: true

@@ -79,7 +79,7 @@ type App struct {
 
 func New(log *slog.Logger, cfg *config.Config) *App {
 	// Clients are registered in dependency order; app.Closers closes them in
-	// reverse (s3 -> database).
+	// reverse (nats -> s3 -> database).
 	var closers app.Closers
 
 	postgresDB, err := postgres.New(cfg.DB)
@@ -143,6 +143,9 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	photoRepo, photoCloser := app.NewPhotosRepository(log, cfg)
 	closers.Add("s3", photoCloser)
 
+	publisher, publisherCloser := app.NewPublisher(log, cfg.Nats)
+	closers.Add("nats", publisherCloser)
+
 	mapRepo := postgres.NewMap(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	mapUseCase := usecase.NewMap(log, usecase.MapRepositories{
 		Map: mapRepo,
@@ -161,7 +164,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	tasksRepo := postgres.NewTasks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	tasksUseCase := usecase.NewTasks(log, usecase.TasksRepositories{
 		Tasks: tasksRepo,
-	})
+	}).WithEvents(publisher)
 	tasksgrpc.Register(gRPCServer, log, tasksUseCase)
 
 	usersRepo := postgres.NewUsers(postgresDB.DB, trmsqlx.DefaultCtxGetter)

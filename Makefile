@@ -1,5 +1,5 @@
-.PHONY: help run-rest run-grpc run-tasker run-osm \
-	build build-rest build-grpc build-tasker build-migrator build-osm \
+.PHONY: help run-rest run-grpc run-tasker run-notifier run-osm \
+	build build-rest build-grpc build-tasker build-notifier build-migrator build-osm \
 	docker-rest docker-grpc \
 	test test-integration test-functional-rest test-functional-grpc test-cover test-cover-functional-rest \
 	fmt vet lint vuln \
@@ -19,18 +19,22 @@ run-grpc: ## Run gRPC server with configs/config.yaml
 	go run ./cmd/grpc/ --config=$(CONFIG)
 run-tasker: ## Run tasker once with configs/config.yaml (drop --once for scheduled mode)
 	go run ./cmd/tasker/ --config=$(CONFIG) --once
+run-notifier: ## Run notification worker with configs/config.yaml (needs nats.url)
+	go run ./cmd/notifier/ --config=$(CONFIG)
 run-osm: ## Run OSM importer
 	go run ./cmd/osm/
 
 ## --- Build -------------------------------------------------------------------
 
-build: build-rest build-grpc build-tasker build-migrator build-osm ## Build all binaries
+build: build-rest build-grpc build-tasker build-notifier build-migrator build-osm ## Build all binaries
 build-rest: ## Build REST server binary
 	go build ./cmd/rest/
 build-grpc: ## Build gRPC server binary
 	go build ./cmd/grpc/
 build-tasker: ## Build tasker binary
 	go build ./cmd/tasker/
+build-notifier: ## Build notifier binary
+	go build ./cmd/notifier/
 build-migrator: ## Build migrator binary
 	go build ./cmd/migrator/
 build-osm: ## Build OSM importer binary
