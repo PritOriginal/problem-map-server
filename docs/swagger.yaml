@@ -82,8 +82,16 @@ definitions:
         type: string
       description:
         type: string
+      followers_count:
+        description: FollowersCount is the number of users following the mark.
+        type: integer
       geom:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON'
+      is_following:
+        description: |-
+          IsFollowing reports whether the viewer (see ContextWithViewer) follows
+          the mark; always false for anonymous requests.
+        type: boolean
       mark_id:
         type: integer
       mark_status_id:
@@ -154,8 +162,16 @@ definitions:
         type: string
       distance_m:
         type: number
+      followers_count:
+        description: FollowersCount is the number of users following the mark.
+        type: integer
       geom:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON'
+      is_following:
+        description: |-
+          IsFollowing reports whether the viewer (see ContextWithViewer) follows
+          the mark; always false for anonymous requests.
+        type: boolean
       mark_id:
         type: integer
       mark_status_id:
@@ -465,6 +481,39 @@ definitions:
       success:
         type: boolean
     type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_DeleteMarkResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_marks.DeleteMarkResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_FollowResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_marks.FollowResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetFollowedMarksResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_marks.GetFollowedMarksResponse'
+      success:
+        type: boolean
+    type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetMarkByIdResponse:
     properties:
       error:
@@ -542,6 +591,17 @@ definitions:
       success:
         type: boolean
     type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetSimilarMarksResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_marks.GetSimilarMarksResponse'
+      success:
+        type: boolean
+    type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_RejectResponse:
     properties:
       error:
@@ -550,6 +610,28 @@ definitions:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_marks.RejectResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_SimilarMarksPayload:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_marks.SimilarMarksPayload'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_UpdateMarkResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_marks.UpdateMarkResponse'
       success:
         type: boolean
     type: object
@@ -772,6 +854,25 @@ definitions:
       new_mark_staus_id:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
     type: object
+  internal_handler_marks.DeleteMarkResponse:
+    properties:
+      mark_id:
+        type: integer
+    type: object
+  internal_handler_marks.FollowResponse:
+    properties:
+      following:
+        type: boolean
+      mark_id:
+        type: integer
+    type: object
+  internal_handler_marks.GetFollowedMarksResponse:
+    properties:
+      marks:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark'
+        type: array
+    type: object
   internal_handler_marks.GetMarkByIdResponse:
     properties:
       mark:
@@ -819,10 +920,38 @@ definitions:
           $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark'
         type: array
     type: object
+  internal_handler_marks.GetSimilarMarksResponse:
+    properties:
+      marks:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkWithDistance'
+        type: array
+    type: object
   internal_handler_marks.RejectResponse:
     properties:
       new_mark_staus_id:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
+    type: object
+  internal_handler_marks.SimilarMarksPayload:
+    properties:
+      similar_marks:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkWithDistance'
+        type: array
+    type: object
+  internal_handler_marks.UpdateMarkRequest:
+    properties:
+      description:
+        maxLength: 256
+        type: string
+      mark_type_id:
+        minimum: 1
+        type: integer
+    type: object
+  internal_handler_marks.UpdateMarkResponse:
+    properties:
+      mark:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark'
     type: object
   internal_handler_tasks.AddTaskRequest:
     properties:
@@ -1404,6 +1533,11 @@ paths:
         in: formData
         name: description
         type: string
+      - default: false
+        description: create even if similar marks exist nearby
+        in: query
+        name: force
+        type: boolean
       produces:
       - application/json
       responses:
@@ -1419,6 +1553,12 @@ paths:
           description: Unauthorized
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "409":
+          description: active marks of the same type exist within the dedup radius;
+            `payload.similar_marks` lists them with `distance_m`. Repeat with `?force=true`
+            to create anyway
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_SimilarMarksPayload'
         "500":
           description: Internal Server Error
           schema:
@@ -1429,6 +1569,52 @@ paths:
       tags:
       - marks
   /marks/{id}:
+    delete:
+      description: delete the mark together with its checks, tasks, status history,
+        followers and photos. The owner may delete only an unconfirmed mark that nobody
+        else has checked (409 otherwise); moderators may delete any mark
+      parameters:
+      - description: mark id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_DeleteMarkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Delete mark
+      tags:
+      - marks
     get:
       consumes:
       - application/json
@@ -1459,6 +1645,59 @@ paths:
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       summary: Get mark by id
+      tags:
+      - marks
+    patch:
+      consumes:
+      - application/json
+      description: change `description` and/or `mark_type_id`. The owner may edit
+        only an unconfirmed mark (409 otherwise); moderators may edit any mark
+      parameters:
+      - description: mark id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: fields to change
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_marks.UpdateMarkRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_UpdateMarkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Update mark
       tags:
       - marks
   /marks/{id}/confirm:
@@ -1506,6 +1745,79 @@ paths:
       security:
       - BearerAuth: []
       summary: Confirm the mark
+      tags:
+      - marks
+  /marks/{id}/follow:
+    delete:
+      description: remove the subscription; not being subscribed is not an error
+      parameters:
+      - description: mark id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_FollowResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Unfollow mark
+      tags:
+      - marks
+    post:
+      description: subscribe to the mark's updates; following twice is not an error
+      parameters:
+      - description: mark id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_FollowResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Follow mark
       tags:
       - marks
   /marks/{id}/reject:
@@ -1644,6 +1956,51 @@ paths:
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       summary: List nearby markers
+      tags:
+      - marks
+  /marks/similar:
+    get:
+      description: get active markers (not closed/refuted) of `mark_type_id` within
+        `radius` meters of (lon, lat), nearest first, with `distance_m`; the same
+        search POST /marks runs before creating a mark. Use it to preview duplicates
+        on the client
+      parameters:
+      - description: longitude
+        in: query
+        name: lon
+        required: true
+        type: number
+      - description: latitude
+        in: query
+        name: lat
+        required: true
+        type: number
+      - description: mark type id
+        in: query
+        name: mark_type_id
+        required: true
+        type: integer
+      - description: radius in meters, at most 50000; default is the server dedup
+          radius (50)
+        in: query
+        name: radius
+        type: number
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetSimilarMarksResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: Find similar markers
       tags:
       - marks
   /marks/statuses:
@@ -1978,6 +2335,45 @@ paths:
       security:
       - BearerAuth: []
       summary: Get current user
+      tags:
+      - users
+  /users/me/following:
+    get:
+      description: get markers the authenticated user follows, newest subscription
+        first; pagination info is in the top-level `meta` field
+      parameters:
+      - default: 100
+        description: page size, 1..500
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: page offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_GetFollowedMarksResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: List followed markers
       tags:
       - users
 securityDefinitions:

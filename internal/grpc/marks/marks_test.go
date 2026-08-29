@@ -190,7 +190,7 @@ func (suite *MarksSuite) TestAddMark() {
 					c := m.Geom.Ewkb.Coords()
 					return m.UserID == 7 && m.MarkTypeID == 1 && m.Description == "desc" &&
 						c.X() == 42 && c.Y() == 52
-				}), mock.Anything).Once().Return(int64(10), tt.errAdd)
+				}), mock.Anything, false).Once().Return(int64(10), tt.errAdd)
 			}
 
 			resp, err := suite.srv.AddMark(tt.ctx, req)

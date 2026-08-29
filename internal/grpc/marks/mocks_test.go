@@ -40,8 +40,8 @@ func (_m *MockMarks) EXPECT() *MockMarks_Expecter {
 }
 
 // AddMark provides a mock function for the type MockMarks
-func (_mock *MockMarks) AddMark(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error) {
-	ret := _mock.Called(ctx, mark, photos)
+func (_mock *MockMarks) AddMark(ctx context.Context, mark models.Mark, photos []io.Reader, force bool) (int64, error) {
+	ret := _mock.Called(ctx, mark, photos, force)
 
 	if len(ret) == 0 {
 		panic("no return value specified for AddMark")
@@ -49,16 +49,16 @@ func (_mock *MockMarks) AddMark(ctx context.Context, mark models.Mark, photos []
 
 	var r0 int64
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Mark, []io.Reader) (int64, error)); ok {
-		return returnFunc(ctx, mark, photos)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Mark, []io.Reader, bool) (int64, error)); ok {
+		return returnFunc(ctx, mark, photos, force)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Mark, []io.Reader) int64); ok {
-		r0 = returnFunc(ctx, mark, photos)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Mark, []io.Reader, bool) int64); ok {
+		r0 = returnFunc(ctx, mark, photos, force)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, models.Mark, []io.Reader) error); ok {
-		r1 = returnFunc(ctx, mark, photos)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.Mark, []io.Reader, bool) error); ok {
+		r1 = returnFunc(ctx, mark, photos, force)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -74,11 +74,12 @@ type MockMarks_AddMark_Call struct {
 //   - ctx context.Context
 //   - mark models.Mark
 //   - photos []io.Reader
-func (_e *MockMarks_Expecter) AddMark(ctx any, mark any, photos any) *MockMarks_AddMark_Call {
-	return &MockMarks_AddMark_Call{Call: _e.mock.On("AddMark", ctx, mark, photos)}
+//   - force bool
+func (_e *MockMarks_Expecter) AddMark(ctx any, mark any, photos any, force any) *MockMarks_AddMark_Call {
+	return &MockMarks_AddMark_Call{Call: _e.mock.On("AddMark", ctx, mark, photos, force)}
 }
 
-func (_c *MockMarks_AddMark_Call) Run(run func(ctx context.Context, mark models.Mark, photos []io.Reader)) *MockMarks_AddMark_Call {
+func (_c *MockMarks_AddMark_Call) Run(run func(ctx context.Context, mark models.Mark, photos []io.Reader, force bool)) *MockMarks_AddMark_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -92,10 +93,15 @@ func (_c *MockMarks_AddMark_Call) Run(run func(ctx context.Context, mark models.
 		if args[2] != nil {
 			arg2 = args[2].([]io.Reader)
 		}
+		var arg3 bool
+		if args[3] != nil {
+			arg3 = args[3].(bool)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -106,7 +112,7 @@ func (_c *MockMarks_AddMark_Call) Return(n int64, err error) *MockMarks_AddMark_
 	return _c
 }
 
-func (_c *MockMarks_AddMark_Call) RunAndReturn(run func(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error)) *MockMarks_AddMark_Call {
+func (_c *MockMarks_AddMark_Call) RunAndReturn(run func(ctx context.Context, mark models.Mark, photos []io.Reader, force bool) (int64, error)) *MockMarks_AddMark_Call {
 	_c.Call.Return(run)
 	return _c
 }

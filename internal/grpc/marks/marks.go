@@ -25,7 +25,7 @@ type Marks interface {
 	GetMarks(ctx context.Context, filters models.GetMarksFilters) ([]models.Mark, error)
 	GetMarkById(ctx context.Context, id int) (models.Mark, error)
 	GetMarksByUserId(ctx context.Context, userId int) ([]models.Mark, error)
-	AddMark(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error)
+	AddMark(ctx context.Context, mark models.Mark, photos []io.Reader, force bool) (int64, error)
 	GetMarkTypes(ctx context.Context) ([]models.MarkType, error)
 	GetMarkStatuses(ctx context.Context) ([]models.MarkStatus, error)
 }
@@ -114,7 +114,7 @@ func (s *server) AddMark(ctx context.Context, in *pb.AddMarkRequest) (*pb.AddMar
 		Description: in.GetDescription(),
 	}
 
-	markId, err := s.uc.AddMark(ctx, newMark, nil)
+	markId, err := s.uc.AddMark(ctx, newMark, nil, false)
 	if err != nil {
 		return nil, grpcerr.Map(s.log, err, "error add mark", slog.Int("user_id", claims.UserID))
 	}

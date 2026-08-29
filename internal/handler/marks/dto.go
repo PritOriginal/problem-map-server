@@ -144,6 +144,69 @@ type AddMarkResponse struct {
 	MarkId int `json:"mark_id"`
 }
 
+// AddMarkQuery is bound from the query string of POST /marks.
+type AddMarkQuery struct {
+	// Force skips duplicate detection.
+	Force bool `form:"force"`
+}
+
+// SimilarMarksPayload is the payload of the 409 returned by POST /marks when
+// active marks of the same type already exist nearby.
+type SimilarMarksPayload struct {
+	SimilarMarks []models.MarkWithDistance `json:"similar_marks"`
+}
+
+// GetSimilarMarksRequest is bound from the query string of GET /marks/similar.
+type GetSimilarMarksRequest struct {
+	Lon        *float64 `form:"lon" binding:"required,min=-180,max=180"`
+	Lat        *float64 `form:"lat" binding:"required,min=-90,max=90"`
+	MarkTypeID int      `form:"mark_type_id" binding:"required,min=1"`
+	// Radius in meters; 0 means the server default (marks.dedup-radius-m).
+	Radius float64 `form:"radius" binding:"omitempty,gt=0,max=50000"`
+}
+
+func (r GetSimilarMarksRequest) Filters() models.GetSimilarMarksFilters {
+	return models.GetSimilarMarksFilters{
+		Lon:        *r.Lon,
+		Lat:        *r.Lat,
+		MarkTypeID: r.MarkTypeID,
+		RadiusM:    r.Radius,
+	}
+}
+
+type GetSimilarMarksResponse struct {
+	Marks []models.MarkWithDistance `json:"marks"`
+}
+
+// UpdateMarkRequest is the JSON body of PATCH /marks/{id}; omitted fields
+// are left unchanged.
+type UpdateMarkRequest struct {
+	Description *string `json:"description" binding:"omitempty,max=256"`
+	MarkTypeID  *int    `json:"mark_type_id" binding:"omitempty,min=1"`
+}
+
+func (r UpdateMarkRequest) Model() models.MarkUpdate {
+	return models.MarkUpdate{Description: r.Description, MarkTypeID: r.MarkTypeID}
+}
+
+type UpdateMarkResponse struct {
+	Mark models.Mark `json:"mark"`
+}
+
+type DeleteMarkResponse struct {
+	MarkId int `json:"mark_id"`
+}
+
+// FollowResponse reports the subscription state after POST/DELETE /marks/{id}/follow.
+type FollowResponse struct {
+	MarkId    int  `json:"mark_id"`
+	Following bool `json:"following"`
+}
+
+type GetFollowedMarksResponse struct {
+	Marks []models.Mark `json:"marks"`
+}
+
 type GetMarkStatusHistoryByMarkIdRequest struct {
 	MarkId     int  `uri:"id" binding:"required"`
 	WithChecks bool `form:"withChecks" default:"false"`

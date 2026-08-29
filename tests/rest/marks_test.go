@@ -314,6 +314,8 @@ func addMark(t *testing.T, cfg *config.RESTConfig, request io.Reader, contentTyp
 			host: cfg.Host,
 			port: cfg.Port,
 			path: "/marks",
+			// The fixture point is reused by every test, so skip duplicate detection.
+			query: "force=true",
 		}),
 		request,
 	)

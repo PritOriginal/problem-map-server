@@ -40,8 +40,8 @@ func (_m *MockMarks) EXPECT() *MockMarks_Expecter {
 }
 
 // AddMark provides a mock function for the type MockMarks
-func (_mock *MockMarks) AddMark(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error) {
-	ret := _mock.Called(ctx, mark, photos)
+func (_mock *MockMarks) AddMark(ctx context.Context, mark models.Mark, photos []io.Reader, force bool) (int64, error) {
+	ret := _mock.Called(ctx, mark, photos, force)
 
 	if len(ret) == 0 {
 		panic("no return value specified for AddMark")
@@ -49,16 +49,16 @@ func (_mock *MockMarks) AddMark(ctx context.Context, mark models.Mark, photos []
 
 	var r0 int64
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Mark, []io.Reader) (int64, error)); ok {
-		return returnFunc(ctx, mark, photos)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Mark, []io.Reader, bool) (int64, error)); ok {
+		return returnFunc(ctx, mark, photos, force)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Mark, []io.Reader) int64); ok {
-		r0 = returnFunc(ctx, mark, photos)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Mark, []io.Reader, bool) int64); ok {
+		r0 = returnFunc(ctx, mark, photos, force)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, models.Mark, []io.Reader) error); ok {
-		r1 = returnFunc(ctx, mark, photos)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.Mark, []io.Reader, bool) error); ok {
+		r1 = returnFunc(ctx, mark, photos, force)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -74,11 +74,12 @@ type MockMarks_AddMark_Call struct {
 //   - ctx context.Context
 //   - mark models.Mark
 //   - photos []io.Reader
-func (_e *MockMarks_Expecter) AddMark(ctx any, mark any, photos any) *MockMarks_AddMark_Call {
-	return &MockMarks_AddMark_Call{Call: _e.mock.On("AddMark", ctx, mark, photos)}
+//   - force bool
+func (_e *MockMarks_Expecter) AddMark(ctx any, mark any, photos any, force any) *MockMarks_AddMark_Call {
+	return &MockMarks_AddMark_Call{Call: _e.mock.On("AddMark", ctx, mark, photos, force)}
 }
 
-func (_c *MockMarks_AddMark_Call) Run(run func(ctx context.Context, mark models.Mark, photos []io.Reader)) *MockMarks_AddMark_Call {
+func (_c *MockMarks_AddMark_Call) Run(run func(ctx context.Context, mark models.Mark, photos []io.Reader, force bool)) *MockMarks_AddMark_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -92,10 +93,15 @@ func (_c *MockMarks_AddMark_Call) Run(run func(ctx context.Context, mark models.
 		if args[2] != nil {
 			arg2 = args[2].([]io.Reader)
 		}
+		var arg3 bool
+		if args[3] != nil {
+			arg3 = args[3].(bool)
+		}
 		run(
 			arg0,
 			arg1,
 			arg2,
+			arg3,
 		)
 	})
 	return _c
@@ -106,7 +112,201 @@ func (_c *MockMarks_AddMark_Call) Return(n int64, err error) *MockMarks_AddMark_
 	return _c
 }
 
-func (_c *MockMarks_AddMark_Call) RunAndReturn(run func(ctx context.Context, mark models.Mark, photos []io.Reader) (int64, error)) *MockMarks_AddMark_Call {
+func (_c *MockMarks_AddMark_Call) RunAndReturn(run func(ctx context.Context, mark models.Mark, photos []io.Reader, force bool) (int64, error)) *MockMarks_AddMark_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// DeleteMark provides a mock function for the type MockMarks
+func (_mock *MockMarks) DeleteMark(ctx context.Context, actor models.Actor, markId int) error {
+	ret := _mock.Called(ctx, actor, markId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for DeleteMark")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Actor, int) error); ok {
+		r0 = returnFunc(ctx, actor, markId)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockMarks_DeleteMark_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'DeleteMark'
+type MockMarks_DeleteMark_Call struct {
+	*mock.Call
+}
+
+// DeleteMark is a helper method to define mock.On call
+//   - ctx context.Context
+//   - actor models.Actor
+//   - markId int
+func (_e *MockMarks_Expecter) DeleteMark(ctx any, actor any, markId any) *MockMarks_DeleteMark_Call {
+	return &MockMarks_DeleteMark_Call{Call: _e.mock.On("DeleteMark", ctx, actor, markId)}
+}
+
+func (_c *MockMarks_DeleteMark_Call) Run(run func(ctx context.Context, actor models.Actor, markId int)) *MockMarks_DeleteMark_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 models.Actor
+		if args[1] != nil {
+			arg1 = args[1].(models.Actor)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarks_DeleteMark_Call) Return(err error) *MockMarks_DeleteMark_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockMarks_DeleteMark_Call) RunAndReturn(run func(ctx context.Context, actor models.Actor, markId int) error) *MockMarks_DeleteMark_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// FindSimilarMarks provides a mock function for the type MockMarks
+func (_mock *MockMarks) FindSimilarMarks(ctx context.Context, filters models.GetSimilarMarksFilters) ([]models.MarkWithDistance, error) {
+	ret := _mock.Called(ctx, filters)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FindSimilarMarks")
+	}
+
+	var r0 []models.MarkWithDistance
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetSimilarMarksFilters) ([]models.MarkWithDistance, error)); ok {
+		return returnFunc(ctx, filters)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.GetSimilarMarksFilters) []models.MarkWithDistance); ok {
+		r0 = returnFunc(ctx, filters)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]models.MarkWithDistance)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.GetSimilarMarksFilters) error); ok {
+		r1 = returnFunc(ctx, filters)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMarks_FindSimilarMarks_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FindSimilarMarks'
+type MockMarks_FindSimilarMarks_Call struct {
+	*mock.Call
+}
+
+// FindSimilarMarks is a helper method to define mock.On call
+//   - ctx context.Context
+//   - filters models.GetSimilarMarksFilters
+func (_e *MockMarks_Expecter) FindSimilarMarks(ctx any, filters any) *MockMarks_FindSimilarMarks_Call {
+	return &MockMarks_FindSimilarMarks_Call{Call: _e.mock.On("FindSimilarMarks", ctx, filters)}
+}
+
+func (_c *MockMarks_FindSimilarMarks_Call) Run(run func(ctx context.Context, filters models.GetSimilarMarksFilters)) *MockMarks_FindSimilarMarks_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 models.GetSimilarMarksFilters
+		if args[1] != nil {
+			arg1 = args[1].(models.GetSimilarMarksFilters)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarks_FindSimilarMarks_Call) Return(markWithDistances []models.MarkWithDistance, err error) *MockMarks_FindSimilarMarks_Call {
+	_c.Call.Return(markWithDistances, err)
+	return _c
+}
+
+func (_c *MockMarks_FindSimilarMarks_Call) RunAndReturn(run func(ctx context.Context, filters models.GetSimilarMarksFilters) ([]models.MarkWithDistance, error)) *MockMarks_FindSimilarMarks_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// FollowMark provides a mock function for the type MockMarks
+func (_mock *MockMarks) FollowMark(ctx context.Context, userId int, markId int) error {
+	ret := _mock.Called(ctx, userId, markId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for FollowMark")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) error); ok {
+		r0 = returnFunc(ctx, userId, markId)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockMarks_FollowMark_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'FollowMark'
+type MockMarks_FollowMark_Call struct {
+	*mock.Call
+}
+
+// FollowMark is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userId int
+//   - markId int
+func (_e *MockMarks_Expecter) FollowMark(ctx any, userId any, markId any) *MockMarks_FollowMark_Call {
+	return &MockMarks_FollowMark_Call{Call: _e.mock.On("FollowMark", ctx, userId, markId)}
+}
+
+func (_c *MockMarks_FollowMark_Call) Run(run func(ctx context.Context, userId int, markId int)) *MockMarks_FollowMark_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarks_FollowMark_Call) Return(err error) *MockMarks_FollowMark_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockMarks_FollowMark_Call) RunAndReturn(run func(ctx context.Context, userId int, markId int) error) *MockMarks_FollowMark_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -441,6 +641,78 @@ func (_c *MockMarks_GetMarksNearby_Call) RunAndReturn(run func(ctx context.Conte
 	return _c
 }
 
+// ListFollowedMarks provides a mock function for the type MockMarks
+func (_mock *MockMarks) ListFollowedMarks(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error) {
+	ret := _mock.Called(ctx, userId, p)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListFollowedMarks")
+	}
+
+	var r0 models.Page[models.Mark]
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, models.Pagination) (models.Page[models.Mark], error)); ok {
+		return returnFunc(ctx, userId, p)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, models.Pagination) models.Page[models.Mark]); ok {
+		r0 = returnFunc(ctx, userId, p)
+	} else {
+		r0 = ret.Get(0).(models.Page[models.Mark])
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int, models.Pagination) error); ok {
+		r1 = returnFunc(ctx, userId, p)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMarks_ListFollowedMarks_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListFollowedMarks'
+type MockMarks_ListFollowedMarks_Call struct {
+	*mock.Call
+}
+
+// ListFollowedMarks is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userId int
+//   - p models.Pagination
+func (_e *MockMarks_Expecter) ListFollowedMarks(ctx any, userId any, p any) *MockMarks_ListFollowedMarks_Call {
+	return &MockMarks_ListFollowedMarks_Call{Call: _e.mock.On("ListFollowedMarks", ctx, userId, p)}
+}
+
+func (_c *MockMarks_ListFollowedMarks_Call) Run(run func(ctx context.Context, userId int, p models.Pagination)) *MockMarks_ListFollowedMarks_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 models.Pagination
+		if args[2] != nil {
+			arg2 = args[2].(models.Pagination)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarks_ListFollowedMarks_Call) Return(page models.Page[models.Mark], err error) *MockMarks_ListFollowedMarks_Call {
+	_c.Call.Return(page, err)
+	return _c
+}
+
+func (_c *MockMarks_ListFollowedMarks_Call) RunAndReturn(run func(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error)) *MockMarks_ListFollowedMarks_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // ListMarks provides a mock function for the type MockMarks
 func (_mock *MockMarks) ListMarks(ctx context.Context, filters models.GetMarksFilters) (models.Page[models.Mark], error) {
 	ret := _mock.Called(ctx, filters)
@@ -575,6 +847,147 @@ func (_c *MockMarks_ListMarksByUserId_Call) Return(page models.Page[models.Mark]
 }
 
 func (_c *MockMarks_ListMarksByUserId_Call) RunAndReturn(run func(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error)) *MockMarks_ListMarksByUserId_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UnfollowMark provides a mock function for the type MockMarks
+func (_mock *MockMarks) UnfollowMark(ctx context.Context, userId int, markId int) error {
+	ret := _mock.Called(ctx, userId, markId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UnfollowMark")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, int) error); ok {
+		r0 = returnFunc(ctx, userId, markId)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockMarks_UnfollowMark_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UnfollowMark'
+type MockMarks_UnfollowMark_Call struct {
+	*mock.Call
+}
+
+// UnfollowMark is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userId int
+//   - markId int
+func (_e *MockMarks_Expecter) UnfollowMark(ctx any, userId any, markId any) *MockMarks_UnfollowMark_Call {
+	return &MockMarks_UnfollowMark_Call{Call: _e.mock.On("UnfollowMark", ctx, userId, markId)}
+}
+
+func (_c *MockMarks_UnfollowMark_Call) Run(run func(ctx context.Context, userId int, markId int)) *MockMarks_UnfollowMark_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarks_UnfollowMark_Call) Return(err error) *MockMarks_UnfollowMark_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockMarks_UnfollowMark_Call) RunAndReturn(run func(ctx context.Context, userId int, markId int) error) *MockMarks_UnfollowMark_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// UpdateMark provides a mock function for the type MockMarks
+func (_mock *MockMarks) UpdateMark(ctx context.Context, actor models.Actor, markId int, upd models.MarkUpdate) (models.Mark, error) {
+	ret := _mock.Called(ctx, actor, markId, upd)
+
+	if len(ret) == 0 {
+		panic("no return value specified for UpdateMark")
+	}
+
+	var r0 models.Mark
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Actor, int, models.MarkUpdate) (models.Mark, error)); ok {
+		return returnFunc(ctx, actor, markId, upd)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Actor, int, models.MarkUpdate) models.Mark); ok {
+		r0 = returnFunc(ctx, actor, markId, upd)
+	} else {
+		r0 = ret.Get(0).(models.Mark)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.Actor, int, models.MarkUpdate) error); ok {
+		r1 = returnFunc(ctx, actor, markId, upd)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMarks_UpdateMark_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateMark'
+type MockMarks_UpdateMark_Call struct {
+	*mock.Call
+}
+
+// UpdateMark is a helper method to define mock.On call
+//   - ctx context.Context
+//   - actor models.Actor
+//   - markId int
+//   - upd models.MarkUpdate
+func (_e *MockMarks_Expecter) UpdateMark(ctx any, actor any, markId any, upd any) *MockMarks_UpdateMark_Call {
+	return &MockMarks_UpdateMark_Call{Call: _e.mock.On("UpdateMark", ctx, actor, markId, upd)}
+}
+
+func (_c *MockMarks_UpdateMark_Call) Run(run func(ctx context.Context, actor models.Actor, markId int, upd models.MarkUpdate)) *MockMarks_UpdateMark_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 models.Actor
+		if args[1] != nil {
+			arg1 = args[1].(models.Actor)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		var arg3 models.MarkUpdate
+		if args[3] != nil {
+			arg3 = args[3].(models.MarkUpdate)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarks_UpdateMark_Call) Return(mark models.Mark, err error) *MockMarks_UpdateMark_Call {
+	_c.Call.Return(mark, err)
+	return _c
+}
+
+func (_c *MockMarks_UpdateMark_Call) RunAndReturn(run func(ctx context.Context, actor models.Actor, markId int, upd models.MarkUpdate) (models.Mark, error)) *MockMarks_UpdateMark_Call {
 	_c.Call.Return(run)
 	return _c
 }

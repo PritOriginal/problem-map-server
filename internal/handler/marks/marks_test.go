@@ -2,8 +2,10 @@ package marksrest_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -498,7 +500,7 @@ func (suite *MarksSuite) TestAddMark() {
 					return m.Geom != nil &&
 						m.Geom.Ewkb.X() == tt.req.Longitude &&
 						m.Geom.Ewkb.Y() == tt.req.Latitude
-				}), mock.Anything).Once().
+				}), mock.Anything, false).Once().
 					Return(int64(1), tt.errAddCheck)
 			}
 
@@ -536,6 +538,308 @@ func (suite *MarksSuite) TestAddMark() {
 		})
 	}
 }
+
+// bearer returns an Authorization header value for user id 1 with the role.
+func (suite *MarksSuite) bearer(role models.Role) string {
+	accessToken, err := token.CreateToken(1*time.Minute, 1, string(role), "1234")
+	suite.Require().NoError(err)
+	return "Bearer " + accessToken
+}
+
+func (suite *MarksSuite) TestAddMarkSimilar() {
+	similar := []models.MarkWithDistance{{Mark: models.Mark{ID: 5, MarkTypeID: 1}, DistanceM: 12.5}}
+
+	tests := []struct {
+		name       string
+		query      string
+		wantForce  bool
+		errAdd     error
+		statusCode int
+	}{
+		{name: "Conflict409WithSimilar", errAdd: &usecase.SimilarMarksError{Marks: similar}, statusCode: http.StatusConflict},
+		{name: "ForcedCreated201", query: "?force=true", wantForce: true, statusCode: http.StatusCreated},
+		{name: "ForceFalseCreated201", query: "?force=false", statusCode: http.StatusCreated},
+		{name: "ConflictWrapped409", errAdd: fmt.Errorf("op: %w", &usecase.SimilarMarksError{Marks: similar}), statusCode: http.StatusConflict},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			suite.uc.On("AddMark", mock.Anything, mock.Anything, mock.Anything, tt.wantForce).Once().
+				Return(int64(1), tt.errAdd)
+
+			b := &bytes.Buffer{}
+			mpw := multipart.NewWriter(b)
+			suite.NoError(mpw.WriteField("longitude", "41.44"))
+			suite.NoError(mpw.WriteField("latitude", "52.72"))
+			suite.NoError(mpw.WriteField("mark_type_id", "1"))
+			fw, err := mpw.CreateFormFile("photos", "test.jpg")
+			suite.NoError(err)
+			_, err = io.Copy(fw, bytes.NewBuffer(gofakeit.ImageJpeg(10, 10)))
+			suite.NoError(err)
+			suite.NoError(mpw.Close())
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/marks"+tt.query, b)
+			req.Header.Set("Authorization", suite.bearer(models.RoleUser))
+			req.Header.Set("Content-Type", mpw.FormDataContentType())
+
+			suite.r.ServeHTTP(w, req)
+
+			suite.Equal(tt.statusCode, w.Code, w.Body.String())
+			if tt.statusCode == http.StatusConflict {
+				var body responses.Response[marksrest.SimilarMarksPayload]
+				suite.Require().NoError(json.Unmarshal(w.Body.Bytes(), &body))
+				suite.False(body.Success)
+				suite.Require().NotNil(body.Error)
+				suite.Require().Len(body.Payload.SimilarMarks, 1)
+				suite.Equal(5, body.Payload.SimilarMarks[0].ID)
+				suite.Equal(12.5, body.Payload.SimilarMarks[0].DistanceM)
+			}
+		})
+	}
+}
+
+func (suite *MarksSuite) TestGetSimilarMarks() {
+	tests := []struct {
+		name        string
+		query       string
+		wantFilters *models.GetSimilarMarksFilters
+		errFind     error
+		statusCode  int
+	}{
+		{name: "Ok200", query: "?lon=41.44&lat=52.72&mark_type_id=1", wantFilters: &models.GetSimilarMarksFilters{Lon: 41.44, Lat: 52.72, MarkTypeID: 1}, statusCode: http.StatusOK},
+		{name: "Ok200Radius", query: "?lon=41.44&lat=52.72&mark_type_id=2&radius=100", wantFilters: &models.GetSimilarMarksFilters{Lon: 41.44, Lat: 52.72, MarkTypeID: 2, RadiusM: 100}, statusCode: http.StatusOK},
+		{name: "Err400NoType", query: "?lon=41.44&lat=52.72", statusCode: http.StatusBadRequest},
+		{name: "Err400NoLon", query: "?lat=52.72&mark_type_id=1", statusCode: http.StatusBadRequest},
+		{name: "Err400RadiusTooBig", query: "?lon=41.44&lat=52.72&mark_type_id=1&radius=50001", statusCode: http.StatusBadRequest},
+		{name: "Err400FromUsecase", query: "?lon=41.44&lat=52.72&mark_type_id=1", wantFilters: &models.GetSimilarMarksFilters{Lon: 41.44, Lat: 52.72, MarkTypeID: 1}, errFind: usecase.ErrInvalidArgument, statusCode: http.StatusBadRequest},
+		{name: "Err500", query: "?lon=41.44&lat=52.72&mark_type_id=1", wantFilters: &models.GetSimilarMarksFilters{Lon: 41.44, Lat: 52.72, MarkTypeID: 1}, errFind: errors.New(""), statusCode: http.StatusInternalServerError},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if tt.wantFilters != nil {
+				suite.uc.On("FindSimilarMarks", mock.Anything, *tt.wantFilters).Once().
+					Return([]models.MarkWithDistance{}, tt.errFind)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/marks/similar"+tt.query, nil)
+
+			suite.r.ServeHTTP(w, req)
+
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+		})
+	}
+}
+
+func (suite *MarksSuite) TestUpdateMark() {
+	desc := "fixed"
+	tests := []struct {
+		name       string
+		id         string
+		body       string
+		role       models.Role
+		noToken    bool
+		wantUpd    *models.MarkUpdate
+		errUpdate  error
+		statusCode int
+	}{
+		{name: "Ok200Description", id: "1", body: `{"description":"fixed"}`, role: models.RoleUser, wantUpd: &models.MarkUpdate{Description: &desc}, statusCode: http.StatusOK},
+		{name: "Ok200Type", id: "1", body: `{"mark_type_id":2}`, role: models.RoleModerator, wantUpd: &models.MarkUpdate{MarkTypeID: ptr(2)}, statusCode: http.StatusOK},
+		{name: "Err400BadId", id: "a", body: `{"description":"fixed"}`, role: models.RoleUser, statusCode: http.StatusBadRequest},
+		{name: "Err400BadJSON", id: "1", body: `{`, role: models.RoleUser, statusCode: http.StatusBadRequest},
+		{name: "Err400TooLong", id: "1", body: `{"description":"` + strings.Repeat("A", 257) + `"}`, role: models.RoleUser, statusCode: http.StatusBadRequest},
+		{name: "Err400BadType", id: "1", body: `{"mark_type_id":0}`, role: models.RoleUser, statusCode: http.StatusBadRequest},
+		{name: "Err400Empty", id: "1", body: `{}`, role: models.RoleUser, wantUpd: &models.MarkUpdate{}, errUpdate: usecase.ErrInvalidArgument, statusCode: http.StatusBadRequest},
+		{name: "Err401NoToken", id: "1", body: `{"description":"fixed"}`, noToken: true, statusCode: http.StatusUnauthorized},
+		{name: "Err403Stranger", id: "1", body: `{"description":"fixed"}`, role: models.RoleUser, wantUpd: &models.MarkUpdate{Description: &desc}, errUpdate: usecase.ErrForbidden, statusCode: http.StatusForbidden},
+		{name: "Err404", id: "1", body: `{"description":"fixed"}`, role: models.RoleUser, wantUpd: &models.MarkUpdate{Description: &desc}, errUpdate: usecase.ErrNotFound, statusCode: http.StatusNotFound},
+		{name: "Err409WrongStatus", id: "1", body: `{"description":"fixed"}`, role: models.RoleUser, wantUpd: &models.MarkUpdate{Description: &desc}, errUpdate: usecase.ErrConflict, statusCode: http.StatusConflict},
+		{name: "Err500", id: "1", body: `{"description":"fixed"}`, role: models.RoleUser, wantUpd: &models.MarkUpdate{Description: &desc}, errUpdate: errors.New(""), statusCode: http.StatusInternalServerError},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if tt.wantUpd != nil {
+				suite.uc.On("UpdateMark", mock.Anything, models.Actor{UserID: 1, Role: tt.role}, 1, *tt.wantUpd).Once().
+					Return(models.Mark{ID: 1, Description: desc}, tt.errUpdate)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("PATCH", "/marks/"+tt.id, strings.NewReader(tt.body))
+			req.Header.Set("Content-Type", "application/json")
+			if !tt.noToken {
+				req.Header.Set("Authorization", suite.bearer(tt.role))
+			}
+
+			suite.r.ServeHTTP(w, req)
+
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+		})
+	}
+}
+
+func (suite *MarksSuite) TestDeleteMark() {
+	tests := []struct {
+		name       string
+		id         string
+		role       models.Role
+		noToken    bool
+		callUC     bool
+		errDelete  error
+		statusCode int
+	}{
+		{name: "Ok200Owner", id: "1", role: models.RoleUser, callUC: true, statusCode: http.StatusOK},
+		{name: "Ok200Moderator", id: "1", role: models.RoleModerator, callUC: true, statusCode: http.StatusOK},
+		{name: "Err400BadId", id: "a", role: models.RoleUser, statusCode: http.StatusBadRequest},
+		{name: "Err401NoToken", id: "1", noToken: true, statusCode: http.StatusUnauthorized},
+		{name: "Err403", id: "1", role: models.RoleUser, callUC: true, errDelete: usecase.ErrForbidden, statusCode: http.StatusForbidden},
+		{name: "Err404", id: "1", role: models.RoleUser, callUC: true, errDelete: usecase.ErrNotFound, statusCode: http.StatusNotFound},
+		{name: "Err409", id: "1", role: models.RoleUser, callUC: true, errDelete: usecase.ErrConflict, statusCode: http.StatusConflict},
+		{name: "Err500", id: "1", role: models.RoleUser, callUC: true, errDelete: errors.New(""), statusCode: http.StatusInternalServerError},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if tt.callUC {
+				suite.uc.On("DeleteMark", mock.Anything, models.Actor{UserID: 1, Role: tt.role}, 1).Once().Return(tt.errDelete)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("DELETE", "/marks/"+tt.id, nil)
+			if !tt.noToken {
+				req.Header.Set("Authorization", suite.bearer(tt.role))
+			}
+
+			suite.r.ServeHTTP(w, req)
+
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+		})
+	}
+}
+
+func (suite *MarksSuite) TestFollowUnfollowMark() {
+	tests := []struct {
+		name       string
+		method     string
+		id         string
+		noToken    bool
+		callUC     bool
+		errUC      error
+		statusCode int
+		following  bool
+	}{
+		{name: "FollowOk200", method: "POST", id: "1", callUC: true, statusCode: http.StatusOK, following: true},
+		{name: "UnfollowOk200", method: "DELETE", id: "1", callUC: true, statusCode: http.StatusOK},
+		{name: "FollowErr400", method: "POST", id: "a", statusCode: http.StatusBadRequest},
+		{name: "UnfollowErr400", method: "DELETE", id: "a", statusCode: http.StatusBadRequest},
+		{name: "FollowErr401", method: "POST", id: "1", noToken: true, statusCode: http.StatusUnauthorized},
+		{name: "UnfollowErr401", method: "DELETE", id: "1", noToken: true, statusCode: http.StatusUnauthorized},
+		{name: "FollowErr404", method: "POST", id: "1", callUC: true, errUC: usecase.ErrNotFound, statusCode: http.StatusNotFound},
+		{name: "UnfollowErr404", method: "DELETE", id: "1", callUC: true, errUC: usecase.ErrNotFound, statusCode: http.StatusNotFound},
+		{name: "FollowErr500", method: "POST", id: "1", callUC: true, errUC: errors.New(""), statusCode: http.StatusInternalServerError},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			ucMethod := "FollowMark"
+			if tt.method == "DELETE" {
+				ucMethod = "UnfollowMark"
+			}
+			if tt.callUC {
+				suite.uc.On(ucMethod, mock.Anything, 1, 1).Once().Return(tt.errUC)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(tt.method, "/marks/"+tt.id+"/follow", nil)
+			if !tt.noToken {
+				req.Header.Set("Authorization", suite.bearer(models.RoleUser))
+			}
+
+			suite.r.ServeHTTP(w, req)
+
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+			if tt.statusCode == http.StatusOK {
+				var body responses.Response[marksrest.FollowResponse]
+				suite.Require().NoError(json.Unmarshal(w.Body.Bytes(), &body))
+				suite.Equal(marksrest.FollowResponse{MarkId: 1, Following: tt.following}, body.Payload)
+			}
+		})
+	}
+}
+
+func (suite *MarksSuite) TestGetFollowedMarks() {
+	tests := []struct {
+		name       string
+		query      string
+		noToken    bool
+		wantP      *models.Pagination
+		errList    error
+		statusCode int
+	}{
+		{name: "Ok200", wantP: &models.Pagination{Limit: 100}, statusCode: http.StatusOK},
+		{name: "Ok200Paginated", query: "?limit=5&offset=10", wantP: &models.Pagination{Limit: 5, Offset: 10}, statusCode: http.StatusOK},
+		{name: "Err400Limit", query: "?limit=0", statusCode: http.StatusBadRequest},
+		{name: "Err401", noToken: true, statusCode: http.StatusUnauthorized},
+		{name: "Err500", wantP: &models.Pagination{Limit: 100}, errList: errors.New(""), statusCode: http.StatusInternalServerError},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if tt.wantP != nil {
+				suite.uc.On("ListFollowedMarks", mock.Anything, 1, *tt.wantP).Once().
+					Return(models.Page[models.Mark]{Items: []models.Mark{{ID: 3, IsFollowing: true, FollowersCount: 2}}, Total: 1}, tt.errList)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/users/me/following"+tt.query, nil)
+			if !tt.noToken {
+				req.Header.Set("Authorization", suite.bearer(models.RoleUser))
+			}
+
+			suite.r.ServeHTTP(w, req)
+
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+			if tt.statusCode == http.StatusOK {
+				var body responses.Response[marksrest.GetFollowedMarksResponse]
+				suite.Require().NoError(json.Unmarshal(w.Body.Bytes(), &body))
+				suite.Require().Len(body.Payload.Marks, 1)
+				suite.True(body.Payload.Marks[0].IsFollowing)
+				suite.Equal(2, body.Payload.Marks[0].FollowersCount)
+				suite.Require().NotNil(body.Meta)
+				suite.Equal(1, body.Meta.Total)
+			}
+		})
+	}
+}
+
+// TestViewerIsRecorded checks that a valid token on a public read endpoint
+// is passed on as the viewer, and that a missing or bad token is not.
+func (suite *MarksSuite) TestViewerIsRecorded() {
+	tests := []struct {
+		name       string
+		auth       string
+		wantViewer int
+	}{
+		{name: "Anonymous", wantViewer: 0},
+		{name: "Authenticated", auth: suite.bearer(models.RoleUser), wantViewer: 1},
+		{name: "BadTokenIsAnonymous", auth: "Bearer not-a-token", wantViewer: 0},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			suite.uc.On("GetMarkById", mock.MatchedBy(func(ctx context.Context) bool {
+				return models.ViewerFromContext(ctx) == tt.wantViewer
+			}), 1).Once().Return(models.Mark{ID: 1}, nil)
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/marks/1", nil)
+			if tt.auth != "" {
+				req.Header.Set("Authorization", tt.auth)
+			}
+
+			suite.r.ServeHTTP(w, req)
+
+			handlertest.AssertResponse(suite.T(), w, http.StatusOK)
+		})
+	}
+}
+
+func ptr[T any](v T) *T { return &v }
 
 func (suite *MarksSuite) TestGetMarkTypes() {
 	tests := []struct {
