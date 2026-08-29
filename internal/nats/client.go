@@ -1,3 +1,7 @@
+// Package nats is the broker client of the domain events: JSON publish
+// (JetStream with server-side deduplication, or core NATS as a fallback),
+// a durable pull consumer with explicit acks, redelivery with backoff and a
+// dead-letter stream, plus drain on close.
 package nats
 
 import (
@@ -6,12 +10,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"runtime/debug"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/nats-io/nats.go"
+	"github.com/nats-io/nats.go/jetstream"
 )
 
 const (
@@ -21,31 +25,54 @@ const (
 	// drainTimeout bounds Close: in-flight subscription handlers get this
 	// long to finish before the connection is closed anyway.
 	drainTimeout = 30 * time.Second
-	// handlerTimeout bounds one subscription handler call (DB work etc.).
+	// handlerTimeout bounds one message handler call (DB work etc.).
 	handlerTimeout = 30 * time.Second
+	// setupTimeout bounds the JetStream API calls made at startup (account
+	// probe, stream and consumer creation).
+	setupTimeout = 10 * time.Second
+	// publishTimeout bounds a JetStream publish (waiting for the PubAck)
+	// when the caller's context has no deadline of its own.
+	publishTimeout = 5 * time.Second
 )
 
-// Client is a thin wrapper over a core NATS connection: JSON publish,
-// subscribe with panic recovery and per-message timeout, drain on close.
-// Delivery is core NATS (at-most-once): an event published while no
-// subscriber is connected is lost.
+// Client is the broker connection. With JetStream (the default) Publish
+// stores the event in StreamEvents before returning, so a consumer that
+// is down at that moment still receives it (at-least-once); the event_id
+// of the payload is sent as Nats-Msg-Id, so a retried publish inside the
+// deduplication window is dropped by the server. When JetStream is
+// disabled (config) or the server has it turned off (a warning at start)
+// the client publishes with core NATS: at-most-once, no persistence.
 type Client struct {
 	conn *nats.Conn
-	log  *slog.Logger
+	// js is nil in core mode.
+	js      jetstream.JetStream
+	log     *slog.Logger
+	metrics *Metrics
 	// closed is closed once the connection is closed for good (after Close
 	// or after the server became unreachable and reconnects were given up).
 	closed chan struct{}
 }
 
-func New(log *slog.Logger, cfg config.NatsConfig) (*Client, error) {
+// Option customises New.
+type Option func(*Client)
+
+// WithMetrics makes the client record its counters on m.
+func WithMetrics(m *Metrics) Option {
+	return func(c *Client) { c.metrics = m }
+}
+
+func New(log *slog.Logger, cfg config.NatsConfig, opts ...Option) (*Client, error) {
 	const op = "nats.New"
 
 	client := &Client{
 		log:    log.With(slog.String("component", "nats")),
 		closed: make(chan struct{}),
 	}
+	for _, opt := range opts {
+		opt(client)
+	}
 
-	opts := []nats.Option{
+	connOpts := []nats.Option{
 		nats.Name(cfg.Name),
 		nats.NoEcho(),
 		nats.MaxReconnects(-1),
@@ -66,80 +93,124 @@ func New(log *slog.Logger, cfg config.NatsConfig) (*Client, error) {
 		}),
 	}
 
-	conn, err := nats.Connect(cfg.URL, opts...)
+	conn, err := nats.Connect(cfg.URL, connOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	client.conn = conn
 
+	if cfg.JetStream() {
+		if err := client.initJetStream(); err != nil {
+			conn.Close()
+			return nil, fmt.Errorf("%s: %w", op, err)
+		}
+	} else {
+		client.log.Warn("nats.delivery is core: events are delivered at most once")
+	}
+
 	return client, nil
+}
+
+// initJetStream probes the server for JetStream and ensures the streams.
+// A server without JetStream is not an error: the client logs a warning
+// and stays in core mode.
+func (c *Client) initJetStream() error {
+	js, err := jetstream.New(c.conn)
+	if err != nil {
+		return err
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), setupTimeout)
+	defer cancel()
+
+	if _, err := js.AccountInfo(ctx); err != nil {
+		if errors.Is(err, jetstream.ErrJetStreamNotEnabled) || errors.Is(err, jetstream.ErrJetStreamNotEnabledForAccount) {
+			c.log.Warn("jetstream is not enabled on the server, falling back to core nats (at-most-once delivery)",
+				slogger.Err(err))
+			return nil
+		}
+		return fmt.Errorf("jetstream account info: %w", err)
+	}
+
+	if err := ensureStreams(ctx, js); err != nil {
+		return err
+	}
+	c.js = js
+	c.log.Info("jetstream streams ready", slog.String("events", StreamEvents), slog.String("dlq", StreamDLQ))
+	return nil
 }
 
 // Closed is closed when the connection is closed for good; a worker that
 // cannot work without the broker should exit when it fires.
 func (c *Client) Closed() <-chan struct{} { return c.closed }
 
-// Publish implements events.Publisher: the payload is JSON-encoded and sent
-// on subject with core NATS (at-most-once) delivery.
-func (c *Client) Publish(_ context.Context, subject string, payload any) error {
+// JetStream reports whether events go through JetStream (false in core
+// mode).
+func (c *Client) JetStream() bool { return c.js != nil }
+
+// ErrNoJetStream is returned by RawJetStream in core mode.
+var ErrNoJetStream = errors.New("jetstream is not available")
+
+// RawJetStream exposes the JetStream handle for tooling (stream
+// inspection, DLQ replay); ErrNoJetStream in core mode.
+func (c *Client) RawJetStream() (jetstream.JetStream, error) {
+	if c.js == nil {
+		return nil, ErrNoJetStream
+	}
+	return c.js, nil
+}
+
+// identified is implemented by payloads that carry a stable id (every
+// domain event via events.Header); it becomes the Nats-Msg-Id.
+type identified interface {
+	ID() string
+}
+
+// Publish implements events.Publisher: the payload is JSON-encoded and
+// stored in StreamEvents (or sent with core NATS in core mode). A payload
+// implementing ID() is deduplicated by the server within the duplicates
+// window; a duplicate is not an error.
+func (c *Client) Publish(ctx context.Context, subject string, payload any) error {
 	const op = "nats.Publish"
 
-	if err := c.PublishJSON(subject, payload); err != nil {
+	data, err := json.Marshal(payload)
+	if err != nil {
+		c.metrics.recordPublished(subject, ResultError)
 		return fmt.Errorf("%s: %w", op, err)
 	}
-	return nil
-}
 
-// Handler processes one message; ctx carries handlerTimeout.
-type Handler func(ctx context.Context, data []byte) error
-
-// Subscribe delivers every message on subject to handler as raw JSON. The
-// subscription is released by Close.
-func (c *Client) Subscribe(subject string, handler Handler) (*nats.Subscription, error) {
-	const op = "nats.Subscribe"
-
-	sub, err := c.conn.Subscribe(subject, c.msgHandler(subject, handler))
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-	return sub, nil
-}
-
-// QueueSubscribe is Subscribe within a queue group: a message is delivered
-// to one member of the group, so several instances of a worker share the
-// load instead of each handling every message.
-func (c *Client) QueueSubscribe(subject, queue string, handler Handler) (*nats.Subscription, error) {
-	const op = "nats.QueueSubscribe"
-
-	sub, err := c.conn.QueueSubscribe(subject, queue, c.msgHandler(subject, handler))
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
-	}
-	return sub, nil
-}
-
-// msgHandler adapts handler to a NATS callback: a panic in the handler is
-// logged instead of killing the process, and every call gets its own
-// timeout. Errors are logged; core NATS has no redelivery to request.
-func (c *Client) msgHandler(subject string, handler Handler) nats.MsgHandler {
-	log := c.log.With(slog.String("subject", subject))
-	return func(msg *nats.Msg) {
-		defer func() {
-			if r := recover(); r != nil {
-				log.Error("handler panic",
-					slog.Any("panic", r),
-					slog.String("stack", string(debug.Stack())),
-				)
-			}
-		}()
-
-		ctx, cancel := context.WithTimeout(context.Background(), handlerTimeout)
-		defer cancel()
-
-		if err := handler(ctx, msg.Data); err != nil {
-			log.Error("handler error", slogger.Err(err))
+	if c.js == nil {
+		if err := c.conn.Publish(subject, data); err != nil {
+			c.metrics.recordPublished(subject, ResultError)
+			return fmt.Errorf("%s: %w", op, err)
 		}
+		c.metrics.recordPublished(subject, ResultOK)
+		return nil
 	}
+
+	var opts []jetstream.PublishOpt
+	if id, ok := payload.(identified); ok && id.ID() != "" {
+		opts = append(opts, jetstream.WithMsgID(id.ID()))
+	}
+
+	if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, publishTimeout)
+		defer cancel()
+	}
+
+	ack, err := c.js.Publish(ctx, subject, data, opts...)
+	if err != nil {
+		c.metrics.recordPublished(subject, ResultError)
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	if ack.Duplicate {
+		c.metrics.recordPublished(subject, ResultDuplicate)
+		c.log.Debug("duplicate event dropped by the server", slog.String("subject", subject))
+		return nil
+	}
+	c.metrics.recordPublished(subject, ResultOK)
+	return nil
 }
 
 // Flush waits until the server acknowledged everything sent so far
@@ -151,6 +222,8 @@ func (c *Client) Flush() error {
 // Close drains the connection (pending publishes are flushed, subscriptions
 // are unsubscribed and their in-flight handlers finish) and closes it. It
 // gives up after drainTimeout and implements io.Closer for app.Closers.
+// A Consumer must be stopped before its client is closed so that the acks
+// of in-flight messages reach the server.
 func (c *Client) Close() error {
 	const op = "nats.Close"
 
@@ -171,14 +244,7 @@ func (c *Client) Close() error {
 	}
 }
 
-func (c *Client) PublishJSON(subject string, data any) error {
-	jsonData, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
-	return c.conn.Publish(subject, jsonData)
-}
-
+// RequestJSON sends a JSON request on subject and returns the raw reply.
 func (c *Client) RequestJSON(subject string, request any, timeout time.Duration) ([]byte, error) {
 	jsonData, err := json.Marshal(request)
 	if err != nil {

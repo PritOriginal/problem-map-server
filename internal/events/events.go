@@ -45,6 +45,10 @@ type Header struct {
 	EventID string `json:"event_id"`
 }
 
+// ID returns the EventID; the broker client uses it as the message id for
+// server-side deduplication.
+func (h Header) ID() string { return h.EventID }
+
 func newHeader() Header {
 	return Header{Version: SchemaVersion, EventID: uuid.NewString()}
 }
