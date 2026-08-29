@@ -24,6 +24,7 @@ import (
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
 	webhooksrest "github.com/PritOriginal/problem-map-server/internal/handler/webhooks"
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/idempotency"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/ratelimit"
 	"github.com/PritOriginal/problem-map-server/internal/repository/postgres"
@@ -81,6 +82,12 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 	m := metrics.New()
 	router := handler.GetRouter(log, cfg.Env, cfg.REST.TrustedProxies, m)
+
+	// Idempotency-Key support of the mutating routes; fails open without Redis.
+	idempotencyMiddleware := idempotency.New(log, redisClient, idempotency.Config{
+		TTL:     cfg.REST.Idempotency.TTL,
+		LockTTL: cfg.REST.Idempotency.LockTTL,
+	})
 
 	handler.SetSwagger(router)
 
@@ -150,6 +157,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 			Requests: cfg.Export.RateLimit.Requests,
 			Window:   cfg.Export.RateLimit.Window,
 		}),
+		Idempotency: idempotencyMiddleware,
 	})
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
@@ -161,7 +169,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Users:         usersRepo,
 		Organizations: organizationsRepo,
 	}).WithEvents(publisher)
-	checksrest.Register(router, log, authMiddleware, checksUseCase)
+	checksrest.Register(router, log, authMiddleware, checksUseCase, idempotencyMiddleware)
 
 	usersUseCase := usecase.NewUsers(log, usecase.UsersRepositories{
 		Users:         usersRepo,

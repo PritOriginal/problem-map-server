@@ -51,3 +51,7 @@ packages:
     config:
       all: true
       filename: "mocks.go"
+  github.com/PritOriginal/problem-map-server/internal/middleware/idempotency:
+    config:
+      all: true
+      filename: "mocks.go"

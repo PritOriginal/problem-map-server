@@ -48,7 +48,7 @@ func (suite *ChecksSuite) SetupTest() {
 	gin.SetMode(gin.TestMode)
 	suite.r = gin.New()
 
-	checksrest.Register(suite.r, log, authMiddleware, suite.uc)
+	checksrest.Register(suite.r, log, authMiddleware, suite.uc, nil)
 }
 
 func TestChecks(t *testing.T) {

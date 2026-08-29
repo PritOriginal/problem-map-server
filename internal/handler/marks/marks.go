@@ -58,6 +58,9 @@ type Params struct {
 	Exporter Exporter
 	// ExportRateLimit is the per-IP limiter of GET /marks/export (optional).
 	ExportRateLimit gin.HandlerFunc
+	// Idempotency handles the Idempotency-Key header of the mutating routes
+	// (POST /marks); optional.
+	Idempotency gin.HandlerFunc
 }
 
 func Register(r *gin.Engine, log *slog.Logger, params Params) {
@@ -103,7 +106,13 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 		marks.GET("user/:userId", handler.GetMarksByUserId())
 		auth := marks.Group("", params.AuthMiddleware.MiddlewareFunc())
 		{
-			auth.POST("", middleware.MaxBodySize(handlers.MaxUploadBodySize), handler.AddMark())
+			// Order matters: the body limit must be in place before the
+			// idempotency middleware reads the form to fingerprint it.
+			create := auth.Group("", middleware.MaxBodySize(handlers.MaxUploadBodySize))
+			if params.Idempotency != nil {
+				create.Use(params.Idempotency)
+			}
+			create.POST("", handler.AddMark())
 		}
 		cache := marks.Group("")
 		cache.Use(mwcache.New(params.Cacher, 24*time.Hour))
@@ -306,6 +315,7 @@ func (h *handler) GetMarksByUserId() gin.HandlerFunc {
 //	@Accept			mpfd
 //	@Produce		json
 //	@Security		BearerAuth
+//	@Param			Idempotency-Key	header		string	false	"UUID chosen by the client; a repeat with the same key within 24h returns the stored response with `Idempotent-Replayed: true` (409 while the first request is in flight, 422 when reused with other form fields)"
 //	@Param			photos			formData	file	true	"Photos of the problem"
 //	@Param			longitude		formData	number	true	"Longitude in degrees (X), WGS84"	example(41.44)
 //	@Param			latitude		formData	number	true	"Latitude in degrees (Y), WGS84"	example(52.72)
@@ -315,7 +325,8 @@ func (h *handler) GetMarksByUserId() gin.HandlerFunc {
 //	@Success		201				{object}	responses.Response[marksrest.AddMarkResponse]
 //	@Failure		400				{object}	responses.Response[any]
 //	@Failure		401				{object}	responses.Response[any]
-//	@Failure		409				{object}	responses.Response[marksrest.SimilarMarksPayload]	"active marks of the same type exist within the dedup radius; `payload.similar_marks` lists them with `distance_m`. Repeat with `?force=true` to create anyway"
+//	@Failure		409				{object}	responses.Response[marksrest.SimilarMarksPayload]	"active marks of the same type exist within the dedup radius; `payload.similar_marks` lists them with `distance_m`. Repeat with `?force=true` to create anyway. Also returned (without payload) while a request with the same Idempotency-Key is in progress"
+//	@Failure		422				{object}	responses.Response[any]								"Idempotency-Key reused with a different payload"
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/marks [post]
 func (h *handler) AddMark() gin.HandlerFunc {
