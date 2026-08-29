@@ -5,6 +5,7 @@ package events
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -44,6 +45,10 @@ type Header struct {
 	Version int    `json:"v"`
 	EventID string `json:"event_id"`
 }
+
+// ID returns the EventID; the broker client uses it as the message id for
+// server-side deduplication.
+func (h Header) ID() string { return h.EventID }
 
 func newHeader() Header {
 	return Header{Version: SchemaVersion, EventID: uuid.NewString()}
@@ -130,17 +135,20 @@ func NewCheckAdded(checkID, markID, userID int) CheckAdded {
 
 // PublishEvent publishes ev on its own subject and logs (but does not
 // return) a failure: events are best-effort side effects and must never
-// fail the business operation that produced them.
+// fail the business operation that produced them. The event describes
+// work that is already committed, so the publish outlives a cancelled
+// request context (the publisher applies its own timeout).
 func PublishEvent(ctx context.Context, log *slog.Logger, p Publisher, ev Event) {
 	if p == nil {
 		return
 	}
-	if err := p.Publish(ctx, ev.Subject(), ev); err != nil {
-		// The event is lost (best effort); it is logged in full so it can
-		// be replayed by hand if needed.
+	if err := p.Publish(context.WithoutCancel(ctx), ev.Subject(), ev); err != nil {
+		// The event is lost (best effort); it is logged as the JSON payload
+		// so it can be replayed by hand (nats pub <subject> '<event>').
+		payload, _ := json.Marshal(ev)
 		log.Warn("failed to publish event, event lost",
 			slog.String("subject", ev.Subject()),
-			slog.Any("event", ev),
+			slog.String("event", string(payload)),
 			slog.String("error", err.Error()),
 		)
 	}

@@ -254,6 +254,104 @@ Notifier получает OAuth2-токен по JWT сервисного акк
 | `push.apns.key-id` / `team-id` / `bundle-id` | `APNS_KEY_ID` / `APNS_TEAM_ID` / `APNS_BUNDLE_ID` | — | параметры APNs (зарезервировано) |
 | `push.apns.sandbox` | `APNS_SANDBOX` | `false` | dev-окружение APNs |
 | `notifier.metrics-port` | `NOTIFIER_METRICS_PORT` | `0` | порт `/metrics` notifier'а (0 — выключено) |
+### События и доставка (notifier)
+
+Серверы (REST/gRPC) и tasker публикуют доменные события в NATS, а
+`cmd/notifier` превращает их в уведомления пользователям:
+
+| Событие (subject) | Когда | Кому |
+|---|---|---|
+| `mark.status_changed` | метка сменила статус | автору метки |
+| `task.assigned` | выдано задание на проверку | исполнителю |
+| `check.added` | добавлена проверка метки | автору метки |
+
+Запуск (нужны `db` и `nats.url`):
+
+```bash
+make run-notifier                                  # go run ./cmd/notifier --config=configs/config.yaml
+docker compose -f docker/rest/compose.yaml --profile nats up   # nats -js + notifier
+```
+
+#### Гарантии доставки
+
+По умолчанию (`nats.delivery: jetstream`) события идут через **JetStream** —
+доставка **at-least-once**:
+
+- При старте издатель и консьюмер идемпотентно создают стрим
+  `PROBLEM_MAP_EVENTS` (subjects `mark.>`, `task.>`, `check.>`, retention
+  *limits*, `max_age` 7 дней, файловое хранилище) и DLQ-стрим
+  `PROBLEM_MAP_DLQ` (`dlq.>`, 30 дней). Retention *limits* вместо
+  *work-queue* выбран сознательно: work-queue допускает лишь одного
+  консьюмера на subject, удаляет событие сразу после ack (нечего переиграть
+  для отладки или для нового консьюмера) и навсегда оставляет в стриме
+  сообщение, исчерпавшее `MaxDeliver`. С *limits* каждый консьюмер ведёт
+  свою позицию, событие доступно неделю, стрим чистится сам.
+- `Publish` ждёт подтверждения сервера (PubAck); `event_id` события
+  отправляется как `Nats-Msg-Id`, поэтому повторная публикация того же
+  события в окне 2 минуты отбрасывается сервером (дедупликация).
+- notifier читает через durable pull-consumer `notifier` (несколько
+  инстансов делят поток). Сообщение подтверждается (`Ack`) только после
+  успешной обработки; при ошибке — `Nak` с backoff `1s, 5s, 30s, 2m`
+  (последний повторяется); если воркер упал, сервер передоставит сообщение
+  через `AckWait` (40 s).
+- После 5 неудачных попыток (`MaxDeliver`) либо сразу при неисправимой
+  ошибке (нечитаемый payload, неизвестный subject, новая версия схемы,
+  panic) сообщение копируется в `PROBLEM_MAP_DLQ` на subject
+  `dlq.<исходный subject>` с заголовками `X-Original-Subject`,
+  `X-Original-Stream`/`-Seq`, `X-Original-Msg-Id`, `X-Consumer`, `X-Deliveries`, `X-Error`
+  и терминируется (`Term`). Если скопировать в DLQ не удалось, событие
+  логируется целиком (`event may be lost`).
+- Обработка идемпотентна: уведомление хранится с `UNIQUE(event_id,
+  user_id)`, повторная доставка не создаёт дубликат.
+- Graceful shutdown: по `SIGINT`/`SIGTERM` консьюмер перестаёт забирать
+  новые сообщения, дообрабатывает текущее и отправляет ack, затем
+  закрываются NATS и БД (всё в `shutdown-timeout`).
+
+Если у сервера JetStream выключен (`nats-server` без `-js`), клиент пишет
+warning и работает через core NATS (at-most-once: событие, опубликованное
+пока notifier не подключён, теряется). То же поведение включается явно
+`nats.delivery: core` / `NATS_DELIVERY=core`.
+
+#### DLQ: просмотр и переигрывание
+
+Через [`nats` CLI](https://github.com/nats-io/natscli):
+
+```bash
+nats stream info PROBLEM_MAP_DLQ                    # сколько сообщений в DLQ
+nats stream view PROBLEM_MAP_DLQ                    # payload + заголовки (X-Error, X-Original-Subject)
+nats stream get  PROBLEM_MAP_DLQ <seq> -j           # одно сообщение по sequence
+
+# переиграть: опубликовать payload на исходный subject (новый Nats-Msg-Id,
+# чтобы дедупликация не отбросила повтор), затем убрать копию из DLQ
+nats pub mark.status_changed "$(nats stream get PROBLEM_MAP_DLQ <seq> --raw)" \
+  -H "Nats-Msg-Id:$(uuidgen)"
+nats stream rmm PROBLEM_MAP_DLQ <seq>
+
+# если сломалась сама обработка и починили notifier — можно переиграть
+# все события из основного стрима заново, сбросив позицию консьюмера:
+nats consumer rm PROBLEM_MAP_EVENTS notifier        # notifier пересоздаст его при старте с DeliverAll
+```
+
+#### Метрики
+
+notifier отдаёт Prometheus-метрики на `notifier.metrics-port`
+(`NOTIFIER_METRICS_PORT`, `0` — выключено) по `/metrics`; REST и gRPC
+серверы публикуют счётчики издателя в своём `/metrics`:
+
+| Метрика | Метки | Описание |
+|---|---|---|
+| `events_published_total` | `subject`, `result` = `ok`/`duplicate`/`error` | опубликовано событий |
+| `events_consumed_total` | `subject`, `result` = `ack`/`nak`/`dlq`/`error` (`ok`/`error` в core-режиме) | обработано событий |
+| `events_redeliveries_total` | — | сообщений, доставленных повторно |
+
+Конфигурация (`nats:` / `notifier:` в YAML):
+
+| Параметр | Env | По умолчанию | Описание |
+|---|---|---|---|
+| `nats.url` | `NATS_URL` | пусто | адрес брокера; пусто — события не публикуются |
+| `nats.name` | `NATS_NAME` | `problem-map` | имя соединения |
+| `nats.delivery` | `NATS_DELIVERY` | `jetstream` | `jetstream` (at-least-once) или `core` (at-most-once) |
+| `notifier.metrics-port` | `NOTIFIER_METRICS_PORT` | `0` | порт `/metrics` воркера |
 
 ## Аутентификация
 

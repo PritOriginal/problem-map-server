@@ -45,9 +45,15 @@ aws:
   endpoint:
 # Domain-event broker. Leave url empty to disable event publishing
 # (notifications are then not produced); required by cmd/notifier.
+# delivery: jetstream (default; at-least-once, needs `nats-server -js`,
+# falls back to core with a warning) or core (at-most-once).
 nats:
   url: # nats://127.0.0.1:4222
   name: problem-map
+  delivery: jetstream
+# Notification worker (cmd/notifier); metrics-port 0 disables /metrics.
+notifier:
+  metrics-port: 0
 tasker:
   interval: 15m
   task-ttl: 72h

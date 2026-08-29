@@ -40,6 +40,16 @@ func (suite *ConfigSuite) TestDatabaseConfigDSN() {
 	}
 }
 
+func (suite *ConfigSuite) TestNatsConfig() {
+	suite.True(config.NatsConfig{}.JetStream(), "empty delivery means jetstream")
+	suite.True(config.NatsConfig{Delivery: config.NatsDeliveryJetStream}.JetStream())
+	suite.False(config.NatsConfig{Delivery: config.NatsDeliveryCore}.JetStream())
+
+	suite.ErrorContains(config.NatsConfig{}.Validate(), "NATS_URL")
+	suite.NoError(config.NatsConfig{URL: "nats://127.0.0.1:4222"}.Validate())
+	suite.ErrorContains(config.NatsConfig{URL: "nats://127.0.0.1:4222", Delivery: "x"}.Validate(), "NATS_DELIVERY")
+}
+
 func (suite *ConfigSuite) TestValidate() {
 	longKey := "0123456789abcdef0123456789abcdef"
 
@@ -88,6 +98,8 @@ func (suite *ConfigSuite) TestValidate() {
 		}, wantErr: "FCM_CREDENTIALS_FILE"},
 		{name: "too many fcm retries", mutate: func(c *config.Config) { c.Push.FCM.MaxRetries = 4 }, wantErr: "FCM_MAX_RETRIES"},
 		{name: "zero fcm concurrency", mutate: func(c *config.Config) { c.Push.FCM.Concurrency = 0 }, wantErr: "FCM_CONCURRENCY"},
+		{name: "CoreDelivery", mutate: func(c *config.Config) { c.Nats.Delivery = config.NatsDeliveryCore }},
+		{name: "UnknownDelivery", mutate: func(c *config.Config) { c.Nats.Delivery = "rabbit" }, wantErr: "NATS_DELIVERY"},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {

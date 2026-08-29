@@ -77,7 +77,8 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		panic(err)
 	}
 
-	router := handler.GetRouter(log, cfg.Env, cfg.REST.TrustedProxies, metrics.New())
+	m := metrics.New()
+	router := handler.GetRouter(log, cfg.Env, cfg.REST.TrustedProxies, m)
 
 	handler.SetSwagger(router)
 
@@ -94,7 +95,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	photoRepo, photoCloser := app.NewPhotosRepository(log, cfg)
 	closers.Add("s3", photoCloser)
 
-	publisher, publisherCloser := app.NewPublisher(log, cfg.Nats)
+	publisher, publisherCloser := app.NewPublisher(log, cfg.Nats, m.Registry())
 	closers.Add("nats", publisherCloser)
 
 	mapUseCase := usecase.NewMap(log, usecase.MapRepositories{

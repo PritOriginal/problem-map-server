@@ -7,6 +7,17 @@ packages:
           pkgname: "usecase"
           dir: "internal/usecase"
           filename: "trm_mocks.go"
+  github.com/nats-io/nats.go/jetstream:
+    interfaces:
+      Msg:
+        config:
+          pkgname: "nats"
+          dir: "internal/nats"
+          filename: "jetstream_mocks.go"
+  github.com/PritOriginal/problem-map-server/internal/nats:
+    config:
+      all: true
+      filename: "mocks.go"
   github.com/PritOriginal/problem-map-server/internal/events:
     config:
       all: true

@@ -28,11 +28,11 @@ type Config struct {
 	Redis           RedisConfig      `yaml:"redis"`
 	Aws             AwsConfig        `yaml:"aws"`
 	Nats            NatsConfig       `yaml:"nats"`
+	Notifier        NotifierConfig   `yaml:"notifier"`
 	Tasker          TaskerConfig     `yaml:"tasker"`
 	Marks           MarksConfig      `yaml:"marks"`
 	Rating          RatingConfig     `yaml:"rating"`
 	Push            PushConfig       `yaml:"push"`
-	Notifier        NotifierConfig   `yaml:"notifier"`
 }
 
 // NotifierConfig tunes the notification worker (cmd/notifier).
@@ -308,20 +308,60 @@ func (r RatingConfig) Validate() error {
 	return nil
 }
 
+// NatsDelivery selects how domain events travel through the broker.
+type NatsDelivery string
+
+const (
+	// NatsDeliveryJetStream persists events in a JetStream stream
+	// (at-least-once, deduplicated by event_id, dead-letter queue). The
+	// client falls back to core NATS with a warning when the server has
+	// JetStream disabled.
+	NatsDeliveryJetStream NatsDelivery = "jetstream"
+	// NatsDeliveryCore publishes with core NATS (at-most-once): an event
+	// published while no consumer is connected is lost.
+	NatsDeliveryCore NatsDelivery = "core"
+)
+
 // NatsConfig configures the domain-event broker. An empty URL disables
 // publishing (events.NoopPublisher) for the servers and is a startup error
 // for cmd/notifier, which cannot work without a broker.
 type NatsConfig struct {
 	URL  string `yaml:"url" env:"NATS_URL" env-default:""`
 	Name string `yaml:"name" env:"NATS_NAME" env-default:"problem-map"`
+	// Delivery is "jetstream" (default, also for an empty value) or
+	// "core". It is a string rather
+	// than a bool because cleanenv replaces a false read from YAML with the
+	// env-default, so a `jetstream: false` flag could never be switched off
+	// from the file.
+	Delivery NatsDelivery `yaml:"delivery" env:"NATS_DELIVERY" env-default:"jetstream"`
 }
 
-// Validate checks that the broker URL is set (required by cmd/notifier).
+// JetStream reports whether events go through JetStream.
+func (n NatsConfig) JetStream() bool { return n.Delivery != NatsDeliveryCore }
+
+// Validate checks that the broker URL is set (required by cmd/notifier) and
+// the delivery mode is known.
 func (n NatsConfig) Validate() error {
+	var errs []error
 	if n.URL == "" {
-		return errors.New("nats.url (NATS_URL) must not be empty")
+		errs = append(errs, errors.New("nats.url (NATS_URL) must not be empty"))
 	}
-	return nil
+	if err := n.ValidateDelivery(); err != nil {
+		errs = append(errs, err)
+	}
+	return errors.Join(errs...)
+}
+
+// ValidateDelivery checks only the delivery mode; the servers call it
+// because for them an empty URL is allowed.
+func (n NatsConfig) ValidateDelivery() error {
+	switch n.Delivery {
+	case "", NatsDeliveryJetStream, NatsDeliveryCore:
+		return nil
+	default:
+		return fmt.Errorf("nats.delivery (NATS_DELIVERY) must be %q or %q, got %q",
+			NatsDeliveryJetStream, NatsDeliveryCore, n.Delivery)
+	}
 }
 
 func MustLoad() *Config {
@@ -393,7 +433,7 @@ const MinJWTKeyLength = 32
 
 // Validate checks that security-sensitive settings are present and sane.
 func (c *Config) Validate() error {
-	if err := errors.Join(c.Auth.Validate(), c.DB.Validate(), c.Tasker.Validate(), c.Marks.Validate(), c.Rating.Validate(), c.Push.Validate()); err != nil {
+	if err := errors.Join(c.Auth.Validate(), c.DB.Validate(), c.Tasker.Validate(), c.Marks.Validate(), c.Rating.Validate(), c.Push.Validate(), c.Nats.ValidateDelivery()); err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 	return nil

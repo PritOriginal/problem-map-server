@@ -94,7 +94,7 @@ func run(ctx context.Context) error {
 		}
 	}()
 
-	publisher, publisherCloser := app.NewPublisher(logger, cfg.Nats)
+	publisher, publisherCloser := app.NewPublisher(logger, cfg.Nats, nil)
 	if publisherCloser != nil {
 		defer func() {
 			if err := publisherCloser.Close(); err != nil {
