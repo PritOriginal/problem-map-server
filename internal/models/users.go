@@ -104,6 +104,9 @@ const (
 
 type GetTasksFilters struct {
 	Statuses []int
+	// MarkStatusIds, when set, keeps only tasks whose mark is in one of the
+	// statuses (the tasker cares about tasks on marks still being verified).
+	MarkStatusIds []MarkStatusType
 
 	Pagination Pagination
 }

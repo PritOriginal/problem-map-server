@@ -24,15 +24,22 @@ func NewTasks(conn *sqlx.DB, c *trmsqlx.CtxGetter) *TasksRepository {
 
 const taskColumns = "task_id, name, user_id, mark_id, status_id, created_at, updated_at"
 
+// tasksColumns qualifies taskColumns with the tasks alias for joined queries.
+const tasksColumns = "t.task_id, t.name, t.user_id, t.mark_id, t.status_id, t.created_at, t.updated_at"
+
 func (r *TasksRepository) GetTasks(ctx context.Context, filters models.GetTasksFilters) (models.Page[models.Task], error) {
 	const op = "storage.postgres.GetTasks"
 
-	q := newListQuery(taskColumns, "tasks").
-		OrderBy("created_at DESC, task_id DESC").
+	q := newListQuery(tasksColumns, "tasks t").
+		OrderBy("t.created_at DESC, t.task_id DESC").
 		Paginate(filters.Pagination)
 
 	if len(filters.Statuses) > 0 {
-		q.Where("status_id IN (?)", filters.Statuses)
+		q.Where("t.status_id IN (?)", filters.Statuses)
+	}
+	if len(filters.MarkStatusIds) > 0 {
+		q.from = "tasks t JOIN marks m ON m.mark_id = t.mark_id"
+		q.Where("m.mark_status_id IN (?)", filters.MarkStatusIds)
 	}
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)

@@ -448,7 +448,7 @@ func (s *PostgresSuite) TestMarks_GetDistancesFromMarkToPoint() {
 				s.GreaterOrEqual(d.Distance, 0.0)
 				s.LessOrEqual(d.Distance, float64(tt.filters.MaxRadius)/1000.0+0.01, "distance_km must respect the radius")
 			}
-			s.Equal(tt.wantPairs, got, "rows must be ordered by mark_id, user_id")
+			s.ElementsMatch(tt.wantPairs, got)
 		})
 	}
 }
@@ -461,9 +461,12 @@ func (s *PostgresSuite) TestMarks_GetDistancesFromMarkToPoint_DistanceValue() {
 	s.Require().NoError(err)
 	s.Require().Len(distances, 2)
 
+	byUser := make(map[int]float64, len(distances))
+	for _, d := range distances {
+		byUser[d.UserId] = d.Distance
+	}
+
 	// Alice -> mark 1 is about 150 m; Bob (Moscow) -> mark 1 is about 420 km.
-	s.Equal(fxUserAlice, distances[0].UserId)
-	s.InDelta(0.15, distances[0].Distance, 0.05)
-	s.Equal(fxUserBob, distances[1].UserId)
-	s.InDelta(420, distances[1].Distance, 40)
+	s.InDelta(0.15, byUser[fxUserAlice], 0.05)
+	s.InDelta(420, byUser[fxUserBob], 40)
 }

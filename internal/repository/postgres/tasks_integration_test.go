@@ -35,6 +35,9 @@ func (s *PostgresSuite) TestTasks_GetTasks() {
 		{name: "completed only", filters: models.GetTasksFilters{Statuses: []int{int(models.CompletedStatus)}}, wantIDs: []int{fxTaskAliceMark2}},
 		{name: "both statuses", filters: models.GetTasksFilters{Statuses: []int{1, 2}}, wantIDs: []int{fxTaskAliceMark1, fxTaskAliceMark2, fxTaskBobMark3}},
 		{name: "unknown status", filters: models.GetTasksFilters{Statuses: []int{99}}, wantIDs: []int{}},
+		// mark 1 unconfirmed, mark 2 confirmed, mark 3 under review
+		{name: "marks being verified only", filters: models.GetTasksFilters{MarkStatusIds: []models.MarkStatusType{models.UnconfirmedStatus, models.UnderReviewStatus}}, wantIDs: []int{fxTaskAliceMark1, fxTaskBobMark3}},
+		{name: "task and mark status combined", filters: models.GetTasksFilters{Statuses: []int{int(models.UnfulfilledStatus)}, MarkStatusIds: []models.MarkStatusType{models.UnconfirmedStatus}}, wantIDs: []int{fxTaskAliceMark1}},
 	}
 
 	for _, tt := range tests {

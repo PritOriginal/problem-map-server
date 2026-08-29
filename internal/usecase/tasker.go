@@ -123,13 +123,15 @@ func (uc *Tasker) Update(ctx context.Context) (TaskerStats, error) {
 
 	// Tasks in every status are needed: issued ones count towards load and
 	// coverage, overdue ones towards fatigue, and any existing task excludes
-	// the (user, mark) pair from re-assignment.
+	// the (user, mark) pair from re-assignment. Only tasks on marks still
+	// being verified matter; the rest can no longer be assigned or checked.
 	tasks, err := uc.repos.Tasks.GetTasks(ctx, models.GetTasksFilters{
 		Statuses: []int{
 			int(models.UnfulfilledStatus),
 			int(models.CompletedStatus),
 			int(models.OverdueStatus),
 		},
+		MarkStatusIds: marksToVerify,
 	})
 	if err != nil {
 		return TaskerStats{}, fmt.Errorf("%s: %w", op, err)

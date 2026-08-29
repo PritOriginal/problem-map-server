@@ -249,7 +249,8 @@ func (suite *TaskerSuite) TestUpdate() {
 			}
 			if tt.marks.err == nil && tt.users.err == nil {
 				m.tasks.On("GetTasks", mock.Anything, models.GetTasksFilters{
-					Statuses: []int{int(models.UnfulfilledStatus), int(models.CompletedStatus), int(models.OverdueStatus)},
+					Statuses:      []int{int(models.UnfulfilledStatus), int(models.CompletedStatus), int(models.OverdueStatus)},
+					MarkStatusIds: []models.MarkStatusType{models.UnconfirmedStatus, models.UnderReviewStatus},
 				}).Once().Return(models.Page[models.Task]{Items: tt.tasks.data, Total: len(tt.tasks.data)}, tt.tasks.err)
 			}
 			if tt.marks.err == nil && tt.users.err == nil && tt.tasks.err == nil {

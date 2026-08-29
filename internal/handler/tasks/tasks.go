@@ -149,7 +149,10 @@ func (h *handler) GetTasksByUserId() gin.HandlerFunc {
 			return
 		}
 
-		page, err := h.uc.ListTasksByUserId(c.Request.Context(), userId, models.GetTasksByUserIdFilters(filters))
+		page, err := h.uc.ListTasksByUserId(c.Request.Context(), userId, models.GetTasksByUserIdFilters{
+			Statuses:   filters.Statuses,
+			Pagination: filters.Pagination,
+		})
 		if err != nil {
 			responses.FromError(c, h.log, op, err)
 			return
