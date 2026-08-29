@@ -254,6 +254,26 @@ func (suite *ChecksSuite) TestAddCheck() {
 			statusCode:  409,
 		},
 		{
+			name: "Err403OwnMark",
+			req: checksrest.AddCheckRequest{
+				MarkID:  1,
+				Result:  true,
+				Comment: "",
+			},
+			errAddCheck: usecase.ErrForbidden,
+			statusCode:  403,
+		},
+		{
+			name: "Err429DailyLimit",
+			req: checksrest.AddCheckRequest{
+				MarkID:  1,
+				Result:  true,
+				Comment: "",
+			},
+			errAddCheck: usecase.ErrTooManyRequests,
+			statusCode:  429,
+		},
+		{
 			name: "Err400InvalidPhoto",
 			req: checksrest.AddCheckRequest{
 				MarkID:  1,

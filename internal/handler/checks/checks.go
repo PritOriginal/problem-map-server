@@ -189,7 +189,7 @@ func (h *handler) GetChecksByUserId() gin.HandlerFunc {
 // AddCheck add check
 //
 //	@Summary		Add check
-//	@Description	add check
+//	@Description	add check; the mark's author may not check their own mark (403), one check per voting stage (409), at most `rating.max-checks-per-day` checks per rolling 24 hours (429)
 //	@Tags			checks
 //	@Accept			mpfd
 //	@Produce		json
@@ -197,8 +197,10 @@ func (h *handler) GetChecksByUserId() gin.HandlerFunc {
 //	@Success		201	{object}	responses.Response[checksrest.AddCheckResponse]
 //	@Failure		400	{object}	responses.Response[any]
 //	@Failure		401	{object}	responses.Response[any]
+//	@Failure		403	{object}	responses.Response[any]
 //	@Failure		404	{object}	responses.Response[any]
 //	@Failure		409	{object}	responses.Response[any]
+//	@Failure		429	{object}	responses.Response[any]
 //	@Failure		500	{object}	responses.Response[any]
 //	@Router			/checks [post]
 func (h *handler) AddCheck() gin.HandlerFunc {

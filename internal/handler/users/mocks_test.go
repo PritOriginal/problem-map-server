@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -100,6 +101,216 @@ func (_c *MockUsers_GetUserById_Call) Return(user models.User, err error) *MockU
 }
 
 func (_c *MockUsers_GetUserById_Call) RunAndReturn(run func(ctx context.Context, id int) (models.User, error)) *MockUsers_GetUserById_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetUserStats provides a mock function for the type MockUsers
+func (_mock *MockUsers) GetUserStats(ctx context.Context, id int) (models.UserStats, error) {
+	ret := _mock.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetUserStats")
+	}
+
+	var r0 models.UserStats
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) (models.UserStats, error)); ok {
+		return returnFunc(ctx, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) models.UserStats); ok {
+		r0 = returnFunc(ctx, id)
+	} else {
+		r0 = ret.Get(0).(models.UserStats)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = returnFunc(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockUsers_GetUserStats_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetUserStats'
+type MockUsers_GetUserStats_Call struct {
+	*mock.Call
+}
+
+// GetUserStats is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id int
+func (_e *MockUsers_Expecter) GetUserStats(ctx any, id any) *MockUsers_GetUserStats_Call {
+	return &MockUsers_GetUserStats_Call{Call: _e.mock.On("GetUserStats", ctx, id)}
+}
+
+func (_c *MockUsers_GetUserStats_Call) Run(run func(ctx context.Context, id int)) *MockUsers_GetUserStats_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUsers_GetUserStats_Call) Return(userStats models.UserStats, err error) *MockUsers_GetUserStats_Call {
+	_c.Call.Return(userStats, err)
+	return _c
+}
+
+func (_c *MockUsers_GetUserStats_Call) RunAndReturn(run func(ctx context.Context, id int) (models.UserStats, error)) *MockUsers_GetUserStats_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListLeaderboard provides a mock function for the type MockUsers
+func (_mock *MockUsers) ListLeaderboard(ctx context.Context, p models.Pagination) (models.Page[models.User], error) {
+	ret := _mock.Called(ctx, p)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListLeaderboard")
+	}
+
+	var r0 models.Page[models.User]
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Pagination) (models.Page[models.User], error)); ok {
+		return returnFunc(ctx, p)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Pagination) models.Page[models.User]); ok {
+		r0 = returnFunc(ctx, p)
+	} else {
+		r0 = ret.Get(0).(models.Page[models.User])
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.Pagination) error); ok {
+		r1 = returnFunc(ctx, p)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockUsers_ListLeaderboard_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListLeaderboard'
+type MockUsers_ListLeaderboard_Call struct {
+	*mock.Call
+}
+
+// ListLeaderboard is a helper method to define mock.On call
+//   - ctx context.Context
+//   - p models.Pagination
+func (_e *MockUsers_Expecter) ListLeaderboard(ctx any, p any) *MockUsers_ListLeaderboard_Call {
+	return &MockUsers_ListLeaderboard_Call{Call: _e.mock.On("ListLeaderboard", ctx, p)}
+}
+
+func (_c *MockUsers_ListLeaderboard_Call) Run(run func(ctx context.Context, p models.Pagination)) *MockUsers_ListLeaderboard_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 models.Pagination
+		if args[1] != nil {
+			arg1 = args[1].(models.Pagination)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUsers_ListLeaderboard_Call) Return(page models.Page[models.User], err error) *MockUsers_ListLeaderboard_Call {
+	_c.Call.Return(page, err)
+	return _c
+}
+
+func (_c *MockUsers_ListLeaderboard_Call) RunAndReturn(run func(ctx context.Context, p models.Pagination) (models.Page[models.User], error)) *MockUsers_ListLeaderboard_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListRatingEvents provides a mock function for the type MockUsers
+func (_mock *MockUsers) ListRatingEvents(ctx context.Context, requester usecase.Requester, userId int, p models.Pagination) (models.Page[models.RatingEvent], error) {
+	ret := _mock.Called(ctx, requester, userId, p)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListRatingEvents")
+	}
+
+	var r0 models.Page[models.RatingEvent]
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, usecase.Requester, int, models.Pagination) (models.Page[models.RatingEvent], error)); ok {
+		return returnFunc(ctx, requester, userId, p)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, usecase.Requester, int, models.Pagination) models.Page[models.RatingEvent]); ok {
+		r0 = returnFunc(ctx, requester, userId, p)
+	} else {
+		r0 = ret.Get(0).(models.Page[models.RatingEvent])
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, usecase.Requester, int, models.Pagination) error); ok {
+		r1 = returnFunc(ctx, requester, userId, p)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockUsers_ListRatingEvents_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListRatingEvents'
+type MockUsers_ListRatingEvents_Call struct {
+	*mock.Call
+}
+
+// ListRatingEvents is a helper method to define mock.On call
+//   - ctx context.Context
+//   - requester usecase.Requester
+//   - userId int
+//   - p models.Pagination
+func (_e *MockUsers_Expecter) ListRatingEvents(ctx any, requester any, userId any, p any) *MockUsers_ListRatingEvents_Call {
+	return &MockUsers_ListRatingEvents_Call{Call: _e.mock.On("ListRatingEvents", ctx, requester, userId, p)}
+}
+
+func (_c *MockUsers_ListRatingEvents_Call) Run(run func(ctx context.Context, requester usecase.Requester, userId int, p models.Pagination)) *MockUsers_ListRatingEvents_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 usecase.Requester
+		if args[1] != nil {
+			arg1 = args[1].(usecase.Requester)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		var arg3 models.Pagination
+		if args[3] != nil {
+			arg3 = args[3].(models.Pagination)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockUsers_ListRatingEvents_Call) Return(page models.Page[models.RatingEvent], err error) *MockUsers_ListRatingEvents_Call {
+	_c.Call.Return(page, err)
+	return _c
+}
+
+func (_c *MockUsers_ListRatingEvents_Call) RunAndReturn(run func(ctx context.Context, requester usecase.Requester, userId int, p models.Pagination) (models.Page[models.RatingEvent], error)) *MockUsers_ListRatingEvents_Call {
 	_c.Call.Return(run)
 	return _c
 }
