@@ -50,6 +50,7 @@ type ChecksSuite struct {
 	tasksRepo  *usecase.MockTasksRepository
 	photosRepo *usecase.MockPhotosRepository
 	usersRepo  *usecase.MockUsersRepository
+	orgsRepo   *usecase.MockMembershipChecker
 }
 
 func (suite *ChecksSuite) SetupTest() {
@@ -61,12 +62,14 @@ func (suite *ChecksSuite) SetupTest() {
 	suite.tasksRepo = usecase.NewMockTasksRepository(suite.T())
 	suite.photosRepo = usecase.NewMockPhotosRepository(suite.T())
 	suite.usersRepo = usecase.NewMockUsersRepository(suite.T())
+	suite.orgsRepo = usecase.NewMockMembershipChecker(suite.T())
 	suite.uc = usecase.NewChecks(suite.log, ratingCfg, suite.trManager, suite.updater, usecase.ChecksRepositories{
-		Marks:  suite.marksRepo,
-		Checks: suite.checksRepo,
-		Tasks:  suite.tasksRepo,
-		Photos: suite.photosRepo,
-		Users:  suite.usersRepo,
+		Marks:         suite.marksRepo,
+		Checks:        suite.checksRepo,
+		Tasks:         suite.tasksRepo,
+		Photos:        suite.photosRepo,
+		Users:         suite.usersRepo,
+		Organizations: suite.orgsRepo,
 	})
 }
 
@@ -423,6 +426,23 @@ func (suite *ChecksSuite) TestAddCheckOwnMark() {
 	suite.marksRepo.On("LockMark", mock.Anything, 1).Once().Return(nil)
 	suite.marksRepo.On("GetMarkById", mock.Anything, 1).Once().
 		Return(models.Mark{ID: 1, UserID: testCheckerID}, nil)
+
+	_, err := suite.uc.AddCheck(context.Background(), models.Check{UserID: testCheckerID, MarkID: 1}, nil)
+
+	suite.ErrorIs(err, usecase.ErrForbidden)
+	suite.marksRepo.AssertNotCalled(suite.T(), "GetLastMarkStatusHistoryItem", mock.Anything, mock.Anything)
+	suite.checksRepo.AssertNotCalled(suite.T(), "AddCheck", mock.Anything, mock.Anything)
+}
+
+// TestAddCheckAssignedOrganizationMember: a member of the organization the
+// mark is assigned to may not vote on it (it reports through Resolve);
+// nothing is written. Outsiders vote as usual.
+func (suite *ChecksSuite) TestAddCheckAssignedOrganizationMember() {
+	suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
+	suite.marksRepo.On("LockMark", mock.Anything, 1).Once().Return(nil)
+	suite.marksRepo.On("GetMarkById", mock.Anything, 1).Once().
+		Return(models.Mark{ID: 1, UserID: 2, OrganizationID: null.IntFrom(10)}, nil)
+	suite.orgsRepo.On("IsMember", mock.Anything, 10, testCheckerID).Once().Return(true, nil)
 
 	_, err := suite.uc.AddCheck(context.Background(), models.Check{UserID: testCheckerID, MarkID: 1}, nil)
 

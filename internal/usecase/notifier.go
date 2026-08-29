@@ -20,8 +20,14 @@ type NotifierMarksRepository interface {
 	GetMarkById(ctx context.Context, id int) (models.Mark, error)
 }
 
+// NotifierOrganizationsRepository resolves the members of an organization.
+type NotifierOrganizationsRepository interface {
+	GetMemberIDs(ctx context.Context, orgId int) ([]int, error)
+}
+
 type NotifierRepositories struct {
-	Marks NotifierMarksRepository
+	Marks         NotifierMarksRepository
+	Organizations NotifierOrganizationsRepository
 }
 
 // Notifier turns domain events into notifications for their addressees.
@@ -50,6 +56,7 @@ var markStatusNames = map[models.MarkStatusType]string{
 	models.RediscoveredStatus: "Обнаружена повторно",
 	models.ClosedStatus:       "Закрыта",
 	models.RefutedStatus:      "Опровергнута",
+	models.InProgressStatus:   "В работе",
 }
 
 func markStatusName(s models.MarkStatusType) string {
@@ -138,5 +145,57 @@ func (uc *Notifier) HandleCheckAdded(ctx context.Context, ev events.CheckAdded) 
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
+	return nil
+}
+
+// HandleMarkAssigned notifies every member of the organization the mark
+// was assigned to.
+func (uc *Notifier) HandleMarkAssigned(ctx context.Context, ev events.MarkAssigned) error {
+	const op = "usecase.Notifier.HandleMarkAssigned"
+
+	return uc.notifyMembers(ctx, op, ev.EventID, ev.OrganizationID, models.Notification{
+		Type:   models.NotificationMarkAssigned,
+		MarkID: null.IntFrom(int64(ev.MarkID)),
+		Title:  "Новая метка в очереди",
+		Body:   fmt.Sprintf("Метка #%d назначена вашей службе, срок до %s", ev.MarkID, ev.SLADueAt.Local().Format("02.01.2006 15:04")),
+	})
+}
+
+// HandleMarkSLABreached notifies every member of the organization that the
+// deadline of the mark has passed. The event id is deterministic, so the
+// repeated events of the periodic check are ignored by the store.
+func (uc *Notifier) HandleMarkSLABreached(ctx context.Context, ev events.MarkSLABreached) error {
+	const op = "usecase.Notifier.HandleMarkSLABreached"
+
+	return uc.notifyMembers(ctx, op, ev.EventID, ev.OrganizationID, models.Notification{
+		Type:   models.NotificationMarkSLABreached,
+		MarkID: null.IntFrom(int64(ev.MarkID)),
+		Title:  "Просрочен срок по метке",
+		Body:   fmt.Sprintf("Срок решения метки #%d истёк %s", ev.MarkID, ev.SLADueAt.Local().Format("02.01.2006 15:04")),
+	})
+}
+
+// notifyMembers creates the notification for every member of the
+// organization; the event id makes each of them idempotent.
+func (uc *Notifier) notifyMembers(ctx context.Context, op, eventID string, orgID int, n models.Notification) error {
+	if uc.repos.Organizations == nil {
+		return fmt.Errorf("%s: organizations repository is not configured", op)
+	}
+	members, err := uc.repos.Organizations.GetMemberIDs(ctx, orgID)
+	if err != nil {
+		return mapRepoErr(op, err)
+	}
+	if len(members) == 0 {
+		uc.log.Debug("organization has no members, no notification", slog.String("op", op), slog.Int("organization_id", orgID))
+		return nil
+	}
+
+	n.EventID = eventID
+	for _, userID := range members {
+		n.UserID = userID
+		if _, _, err := uc.notifications.Create(ctx, n); err != nil {
+			return fmt.Errorf("%s: %w", op, err)
+		}
+	}
 	return nil
 }

@@ -19,7 +19,19 @@ type recordingHandlers struct {
 	statusChanged []events.MarkStatusChanged
 	taskAssigned  []events.TaskAssigned
 	checkAdded    []events.CheckAdded
+	assigned      []events.MarkAssigned
+	slaBreached   []events.MarkSLABreached
 	err           error
+}
+
+func (h *recordingHandlers) HandleMarkAssigned(_ context.Context, ev events.MarkAssigned) error {
+	h.assigned = append(h.assigned, ev)
+	return h.err
+}
+
+func (h *recordingHandlers) HandleMarkSLABreached(_ context.Context, ev events.MarkSLABreached) error {
+	h.slaBreached = append(h.slaBreached, ev)
+	return h.err
 }
 
 func (h *recordingHandlers) HandleMarkStatusChanged(_ context.Context, ev events.MarkStatusChanged) error {
@@ -150,5 +162,8 @@ func (suite *RouterSuite) TestHandlerErrorIsRetried() {
 
 func (suite *RouterSuite) TestSubjects() {
 	router := notifier.NewRouter(slogdiscard.NewDiscardLogger(), &recordingHandlers{})
-	suite.ElementsMatch([]string{events.SubjectMarkStatusChanged, events.SubjectTaskAssigned, events.SubjectCheckAdded}, router.Subjects())
+	suite.ElementsMatch([]string{
+		events.SubjectMarkStatusChanged, events.SubjectTaskAssigned, events.SubjectCheckAdded,
+		events.SubjectMarkAssigned, events.SubjectMarkSLABreached,
+	}, router.Subjects())
 }

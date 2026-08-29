@@ -88,6 +88,8 @@ func (s *PostgresSuite) TestAnalytics_GetKPI() {
 		s.Run(tt.name, func() {
 			got, err := s.analytics.GetKPI(s.ctx, tt.filters)
 			s.Require().NoError(err)
+			s.Equal([]models.OrganizationKPI{}, got.ByOrganization)
+			got.ByOrganization = nil
 			s.Equal(tt.want, got)
 		})
 	}
@@ -110,6 +112,7 @@ func (s *PostgresSuite) TestAnalytics_GetKPI_ClosedAndRefuted() {
 	s.Require().NoError(err)
 
 	// Confirmation: mark1 24 h, mark2 48 h -> avg 36, median 36.
+	got.ByOrganization = nil
 	s.Equal(models.KPI{
 		Total:              3,
 		ByStatus:           map[int]int{2: 1, 5: 1, 6: 1},

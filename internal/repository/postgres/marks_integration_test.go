@@ -287,6 +287,7 @@ func (s *PostgresSuite) TestMarks_GetMarkStatuses() {
 				models.RediscoveredStatus: {Code: "rediscovered", Name: "Переоткрытая"},
 				models.ClosedStatus:       {Code: "closed", Name: "Закрытая"},
 				models.RefutedStatus:      {Code: "refuted", Name: "Опровергнутая"},
+				models.InProgressStatus:   {Code: "in_progress", Name: "В работе"},
 			},
 		},
 		{
@@ -299,6 +300,7 @@ func (s *PostgresSuite) TestMarks_GetMarkStatuses() {
 				models.RediscoveredStatus: {Code: "rediscovered", Name: "Rediscovered"},
 				models.ClosedStatus:       {Code: "closed", Name: "Closed"},
 				models.RefutedStatus:      {Code: "refuted", Name: "Refuted"},
+				models.InProgressStatus:   {Code: "in_progress", Name: "In progress"},
 			},
 		},
 	}
@@ -307,7 +309,7 @@ func (s *PostgresSuite) TestMarks_GetMarkStatuses() {
 		s.Run(tt.name, func() {
 			statuses, err := s.marks.GetMarkStatuses(s.ctx, tt.lang)
 			s.Require().NoError(err)
-			s.Require().Len(statuses, 6)
+			s.Require().Len(statuses, 7)
 
 			for i, st := range statuses {
 				if i > 0 {
@@ -322,6 +324,8 @@ func (s *PostgresSuite) TestMarks_GetMarkStatuses() {
 
 	statuses, err := s.marks.GetMarkStatuses(s.ctx, models.LangRU)
 	s.Require().NoError(err)
+	s.Require().Len(statuses, 7)
+
 	byID := make(map[int]models.MarkStatus, len(statuses))
 	for _, st := range statuses {
 		byID[st.ID] = st

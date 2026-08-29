@@ -1,9 +1,10 @@
 // Package notifier is the worker that turns domain events (NATS) into
-// notifications: it consumes mark.status_changed, task.assigned and
-// check.added from the JetStream stream, stores a notification per
-// addressee and hands it to the PushSender. Every event is acknowledged
-// only after it was handled, so a crash or a database outage never loses a
-// notification; a poison event ends up in the dead-letter stream.
+// notifications: it consumes mark.status_changed, task.assigned,
+// check.added, mark.assigned and mark.sla_breached from the JetStream
+// stream, stores a notification per addressee and hands it to the
+// PushSender. Every event is acknowledged only after it was handled, so a
+// crash or a database outage never loses a notification; a poison event
+// ends up in the dead-letter stream.
 package notifier
 
 import (
@@ -42,6 +43,8 @@ type Handlers interface {
 	HandleMarkStatusChanged(ctx context.Context, ev events.MarkStatusChanged) error
 	HandleTaskAssigned(ctx context.Context, ev events.TaskAssigned) error
 	HandleCheckAdded(ctx context.Context, ev events.CheckAdded) error
+	HandleMarkAssigned(ctx context.Context, ev events.MarkAssigned) error
+	HandleMarkSLABreached(ctx context.Context, ev events.MarkSLABreached) error
 }
 
 // App is the notifier worker: Run consumes and blocks until Stop.
@@ -95,7 +98,8 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Devices:       notificationsRepo,
 	}, usecase.WithPushMetrics(pushMetrics), usecase.WithPushTimeout(cfg.Push.SendTimeout))
 	notifier := usecase.NewNotifier(log, notificationsUseCase, usecase.NotifierRepositories{
-		Marks: marksRepo,
+		Marks:         marksRepo,
+		Organizations: postgres.NewOrganizations(postgresDB.DB, trmsqlx.DefaultCtxGetter),
 	})
 
 	var metricsServer *http.Server
@@ -248,7 +252,10 @@ func NewRouter(log *slog.Logger, handlers Handlers) *Router {
 
 // Subjects lists the subjects the router consumes.
 func (r *Router) Subjects() []string {
-	return []string{events.SubjectMarkStatusChanged, events.SubjectTaskAssigned, events.SubjectCheckAdded}
+	return []string{
+		events.SubjectMarkStatusChanged, events.SubjectTaskAssigned, events.SubjectCheckAdded,
+		events.SubjectMarkAssigned, events.SubjectMarkSLABreached,
+	}
 }
 
 // Handle decodes data as the event of subject and runs its handler
@@ -264,6 +271,10 @@ func (r *Router) Handle(ctx context.Context, subject string, data []byte) error 
 		return handle(ctx, subject, data, r.handlers.HandleTaskAssigned)
 	case events.SubjectCheckAdded:
 		return handle(ctx, subject, data, r.handlers.HandleCheckAdded)
+	case events.SubjectMarkAssigned:
+		return handle(ctx, subject, data, r.handlers.HandleMarkAssigned)
+	case events.SubjectMarkSLABreached:
+		return handle(ctx, subject, data, r.handlers.HandleMarkSLABreached)
 	default:
 		return fmt.Errorf("%w: unknown subject %q", nats.ErrNoRetry, subject)
 	}

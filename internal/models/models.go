@@ -110,6 +110,14 @@ type Mark struct {
 	// IsFollowing reports whether the viewer (see ContextWithViewer) follows
 	// the mark; always false for anonymous requests.
 	IsFollowing bool `json:"is_following" db:"is_following"`
+	// OrganizationID is the city service assigned to resolve the mark; null
+	// until the mark is confirmed and a responsible organization is found.
+	OrganizationID null.Int `json:"organization_id" db:"organization_id" swaggertype:"integer"`
+	// SLADueAt is the deadline the organization has to resolve the mark.
+	SLADueAt null.Time `json:"sla_due_at" db:"sla_due_at" swaggertype:"string" format:"date-time"`
+	// IsOverdue reports whether SLADueAt has passed while the mark is still
+	// confirmed or in progress (computed on read).
+	IsOverdue bool `json:"is_overdue" db:"is_overdue"`
 }
 
 // MarkUpdate lists the mark fields a client may change; nil means "keep".
@@ -167,7 +175,7 @@ func (f GetSimilarMarksFilters) Validate() error {
 // ActiveMarkStatuses are the statuses in which a mark still describes an
 // open problem; closed and refuted marks are ignored by duplicate search.
 func ActiveMarkStatuses() []MarkStatusType {
-	return []MarkStatusType{UnconfirmedStatus, ConfirmedStatus, UnderReviewStatus, RediscoveredStatus}
+	return []MarkStatusType{UnconfirmedStatus, ConfirmedStatus, UnderReviewStatus, RediscoveredStatus, InProgressStatus}
 }
 
 func (m *Mark) ToProtobufObject() *pb.Mark {
@@ -276,6 +284,8 @@ type MarkType struct {
 	LegacyID int    `json:"mark_type_id" db:"-"`
 	Code     string `json:"code" db:"code"`
 	Name     string `json:"name" db:"name"`
+	// SLAHours is the time an organization has to resolve a mark of the type.
+	SLAHours int `json:"sla_hours" db:"sla_hours"`
 }
 
 // MarshalJSON emits the deprecated `mark_type_id` alias next to `id`.
@@ -301,6 +311,9 @@ const (
 	RediscoveredStatus
 	ClosedStatus
 	RefutedStatus
+	// InProgressStatus — «В работе»: the assigned organization started
+	// resolving the mark (Confirmed -> InProgress -> UnderReview).
+	InProgressStatus
 )
 
 // MarkStatus is a dictionary entry: Code is the stable machine-readable

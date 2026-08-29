@@ -25,6 +25,8 @@ const (
 	SubjectMarkStatusChanged = "mark.status_changed"
 	SubjectTaskAssigned      = "task.assigned"
 	SubjectCheckAdded        = "check.added"
+	SubjectMarkAssigned      = "mark.assigned"
+	SubjectMarkSLABreached   = "mark.sla_breached"
 )
 
 // Publisher sends a domain event to the broker. Implementations must be
@@ -130,6 +132,55 @@ func NewCheckAdded(checkID, markID, userID int) CheckAdded {
 		CheckID: checkID,
 		MarkID:  markID,
 		UserID:  userID,
+	}
+}
+
+// MarkAssigned is published after a mark was assigned to an organization
+// (automatically on confirmation or by a moderator).
+type MarkAssigned struct {
+	Header
+	MarkID         int       `json:"mark_id"`
+	OrganizationID int       `json:"organization_id"`
+	SLADueAt       time.Time `json:"sla_due_at"`
+}
+
+func (MarkAssigned) Subject() string { return SubjectMarkAssigned }
+
+// NewMarkAssigned builds the event with a fresh EventID.
+func NewMarkAssigned(markID, organizationID int, slaDueAt time.Time) MarkAssigned {
+	return MarkAssigned{
+		Header:         newHeader(),
+		MarkID:         markID,
+		OrganizationID: organizationID,
+		SLADueAt:       slaDueAt,
+	}
+}
+
+// MarkSLABreached is published when the SLA deadline of an assigned mark
+// has passed while it is still confirmed or in progress. The EventID is
+// derived from (mark_id, sla_due_at), so the periodic SLA check may publish
+// it again without producing duplicate notifications.
+type MarkSLABreached struct {
+	Header
+	MarkID         int       `json:"mark_id"`
+	OrganizationID int       `json:"organization_id"`
+	SLADueAt       time.Time `json:"sla_due_at"`
+}
+
+func (MarkSLABreached) Subject() string { return SubjectMarkSLABreached }
+
+// slaBreachNamespace is the UUID namespace of MarkSLABreached event ids.
+var slaBreachNamespace = uuid.MustParse("6b8e0f3a-5a1f-4c8e-9d2b-7f0c4a1e2d91")
+
+// NewMarkSLABreached builds the event with a deterministic EventID.
+func NewMarkSLABreached(markID, organizationID int, slaDueAt time.Time) MarkSLABreached {
+	slaDueAt = slaDueAt.UTC()
+	id := uuid.NewSHA1(slaBreachNamespace, []byte(fmt.Sprintf("%d:%s", markID, slaDueAt.Format(time.RFC3339Nano))))
+	return MarkSLABreached{
+		Header:         Header{Version: SchemaVersion, EventID: id.String()},
+		MarkID:         markID,
+		OrganizationID: organizationID,
+		SLADueAt:       slaDueAt,
 	}
 }
 

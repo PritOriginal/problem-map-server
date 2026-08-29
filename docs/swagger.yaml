@@ -96,6 +96,11 @@ definitions:
         description: AvgConfirmHours is the mean unconfirmed -> confirmed time; null
           when no mark was confirmed.
         type: number
+      by_organization:
+        description: ByOrganization lists the assigned marks per organization.
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.OrganizationKPI'
+        type: array
       by_status:
         additionalProperties:
           type: integer
@@ -111,6 +116,12 @@ definitions:
         type: integer
       refuted_share:
         description: RefutedShare is refuted marks / total (0 when there are no marks).
+        type: number
+      sla_breach_share:
+        description: |-
+          SLABreachShare is the share of marks assigned to an organization whose
+          SLA deadline has passed while they are still confirmed or in progress
+          (0 when no mark is assigned).
         type: number
       total:
         type: integer
@@ -131,12 +142,27 @@ definitions:
           IsFollowing reports whether the viewer (see ContextWithViewer) follows
           the mark; always false for anonymous requests.
         type: boolean
+      is_overdue:
+        description: |-
+          IsOverdue reports whether SLADueAt has passed while the mark is still
+          confirmed or in progress (computed on read).
+        type: boolean
       mark_id:
         type: integer
       mark_status_id:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
       mark_type_id:
         type: integer
+      organization_id:
+        description: |-
+          OrganizationID is the city service assigned to resolve the mark; null
+          until the mark is confirmed and a responsible organization is found.
+        type: integer
+      sla_due_at:
+        description: SLADueAt is the deadline the organization has to resolve the
+          mark.
+        format: date-time
+        type: string
       updated_at:
         type: string
       user_id:
@@ -185,6 +211,7 @@ definitions:
     - 4
     - 5
     - 6
+    - 7
     type: integer
     x-enum-varnames:
     - UnconfirmedStatus
@@ -193,6 +220,7 @@ definitions:
     - RediscoveredStatus
     - ClosedStatus
     - RefutedStatus
+    - InProgressStatus
   github_com_PritOriginal_problem-map-server_internal_models.MarkType:
     properties:
       code:
@@ -206,6 +234,10 @@ definitions:
         type: integer
       name:
         type: string
+      sla_hours:
+        description: SLAHours is the time an organization has to resolve a mark of
+          the type.
+        type: integer
     type: object
   github_com_PritOriginal_problem-map-server_internal_models.MarkWithDistance:
     properties:
@@ -225,12 +257,27 @@ definitions:
           IsFollowing reports whether the viewer (see ContextWithViewer) follows
           the mark; always false for anonymous requests.
         type: boolean
+      is_overdue:
+        description: |-
+          IsOverdue reports whether SLADueAt has passed while the mark is still
+          confirmed or in progress (computed on read).
+        type: boolean
       mark_id:
         type: integer
       mark_status_id:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
       mark_type_id:
         type: integer
+      organization_id:
+        description: |-
+          OrganizationID is the city service assigned to resolve the mark; null
+          until the mark is confirmed and a responsible organization is found.
+        type: integer
+      sla_due_at:
+        description: SLADueAt is the deadline the organization has to resolve the
+          mark.
+        format: date-time
+        type: string
       updated_at:
         type: string
       user_id:
@@ -278,11 +325,74 @@ definitions:
     - mark.status_changed
     - task.assigned
     - check.added
+    - mark.assigned
+    - mark.sla_breached
     type: string
     x-enum-varnames:
     - NotificationMarkStatusChanged
     - NotificationTaskAssigned
     - NotificationCheckAdded
+    - NotificationMarkAssigned
+    - NotificationMarkSLABreached
+  github_com_PritOriginal_problem-map-server_internal_models.Organization:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.OrganizationDetails:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      members:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.User'
+        type: array
+      name:
+        type: string
+      responsibilities:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.OrganizationResponsibility'
+        type: array
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.OrganizationKPI:
+    properties:
+      name:
+        type: string
+      organization_id:
+        type: integer
+      overdue:
+        type: integer
+      total:
+        type: integer
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.OrganizationRef:
+    properties:
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.OrganizationResponsibility:
+    properties:
+      boundary_id:
+        type: integer
+      id:
+        type: integer
+      mark_type_id:
+        type: integer
+      organization_id:
+        type: integer
+    type: object
   github_com_PritOriginal_problem-map-server_internal_models.PointJSON:
     properties:
       coordinates:
@@ -351,11 +461,13 @@ definitions:
     - user
     - moderator
     - admin
+    - service
     type: string
     x-enum-varnames:
     - RoleUser
     - RoleModerator
     - RoleAdmin
+    - RoleService
   github_com_PritOriginal_problem-map-server_internal_models.Task:
     properties:
       created_at:
@@ -902,6 +1014,94 @@ definitions:
       success:
         type: boolean
     type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_GetOrganizationMarksResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_organizations.GetOrganizationMarksResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_ListOrganizationsResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_organizations.ListOrganizationsResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_MarkResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_organizations.MarkResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_MemberResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_organizations.MemberResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_OrganizationDetailsResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_organizations.OrganizationDetailsResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_OrganizationResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_organizations.OrganizationResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_RemoveResponsibilityResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_organizations.RemoveResponsibilityResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_ResponsibilityResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_organizations.ResponsibilityResponse'
+      success:
+        type: boolean
+    type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_tasks_AddTaskResponse:
     properties:
       error:
@@ -1350,6 +1550,107 @@ definitions:
     properties:
       count:
         type: integer
+    type: object
+  internal_handler_organizations.AddMemberRequest:
+    properties:
+      user_id:
+        minimum: 1
+        type: integer
+    required:
+    - user_id
+    type: object
+  internal_handler_organizations.AssignMarkRequest:
+    properties:
+      organization_id:
+        minimum: 1
+        type: integer
+    required:
+    - organization_id
+    type: object
+  internal_handler_organizations.CreateOrganizationRequest:
+    properties:
+      description:
+        maxLength: 4000
+        type: string
+      name:
+        maxLength: 255
+        type: string
+    required:
+    - name
+    type: object
+  internal_handler_organizations.GetOrganizationMarksResponse:
+    properties:
+      marks:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark'
+        type: array
+    type: object
+  internal_handler_organizations.ListOrganizationsResponse:
+    properties:
+      organizations:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.OrganizationRef'
+        type: array
+    type: object
+  internal_handler_organizations.MarkResponse:
+    properties:
+      mark:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark'
+    type: object
+  internal_handler_organizations.MemberResponse:
+    properties:
+      member:
+        type: boolean
+      organization_id:
+        type: integer
+      user_id:
+        type: integer
+    type: object
+  internal_handler_organizations.OrganizationDetailsResponse:
+    properties:
+      organization:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.OrganizationDetails'
+    type: object
+  internal_handler_organizations.OrganizationResponse:
+    properties:
+      organization:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Organization'
+    type: object
+  internal_handler_organizations.RemoveResponsibilityResponse:
+    properties:
+      boundary_id:
+        type: integer
+      mark_type_id:
+        type: integer
+      organization_id:
+        type: integer
+    type: object
+  internal_handler_organizations.ResponsibilityRequest:
+    properties:
+      boundary_id:
+        minimum: 1
+        type: integer
+      mark_type_id:
+        minimum: 1
+        type: integer
+    required:
+    - boundary_id
+    - mark_type_id
+    type: object
+  internal_handler_organizations.ResponsibilityResponse:
+    properties:
+      responsibility:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.OrganizationResponsibility'
+    type: object
+  internal_handler_organizations.UpdateOrganizationRequest:
+    properties:
+      description:
+        maxLength: 4000
+        type: string
+      name:
+        maxLength: 255
+        minLength: 1
+        type: string
     type: object
   internal_handler_tasks.AddTaskRequest:
     properties:
@@ -2452,6 +2753,60 @@ paths:
       summary: Update mark
       tags:
       - marks
+  /marks/{id}/assign:
+    patch:
+      consumes:
+      - application/json
+      description: manual (re)assignment by a moderator/admin; the mark must be confirmed
+        or in progress (409); the SLA deadline is reset
+      parameters:
+      - description: mark id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: organization
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_organizations.AssignMarkRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_MarkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Assign mark to organization
+      tags:
+      - organizations
   /marks/{id}/confirm:
     post:
       consumes:
@@ -2619,6 +2974,112 @@ paths:
       summary: Reject the mark
       tags:
       - marks
+  /marks/{id}/resolve:
+    post:
+      consumes:
+      - multipart/form-data
+      description: В работе → На проверке with a report (comment + photos) stored
+        as a check of the service user (not rated); only a member of the organization
+        the mark is assigned to or an admin (403 otherwise); a mark in another status
+        or without an organization is 409
+      parameters:
+      - description: mark id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Photos of the result
+        in: formData
+        name: photos
+        required: true
+        type: file
+      - description: Report (max 1000 chars)
+        in: formData
+        name: comment
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_MarkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Resolve a mark
+      tags:
+      - organizations
+  /marks/{id}/start:
+    post:
+      description: Подтверждённая → В работе; only a member of the organization the
+        mark is assigned to or an admin (403 otherwise); a mark in another status
+        or without an organization is 409
+      parameters:
+      - description: mark id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_MarkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Start work on a mark
+      tags:
+      - organizations
   /marks/{id}/status-history:
     get:
       consumes:
@@ -2978,6 +3439,451 @@ paths:
       summary: Count my unread notifications
       tags:
       - notifications
+  /organizations:
+    get:
+      description: public list of city services (id and name)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_ListOrganizationsResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: List organizations
+      tags:
+      - organizations
+    post:
+      consumes:
+      - application/json
+      description: create a city service (admin only)
+      parameters:
+      - description: organization
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_organizations.CreateOrganizationRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_OrganizationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Create organization
+      tags:
+      - organizations
+  /organizations/{id}:
+    get:
+      description: organization with its members and responsibilities (admin only)
+      parameters:
+      - description: organization id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_OrganizationDetailsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Get organization
+      tags:
+      - organizations
+    patch:
+      consumes:
+      - application/json
+      description: change `name` and/or `description` (admin only)
+      parameters:
+      - description: organization id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: fields to change
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_organizations.UpdateOrganizationRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_OrganizationResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Update organization
+      tags:
+      - organizations
+  /organizations/{id}/marks:
+    get:
+      description: marks assigned to the organization, overdue first then by the nearest
+        `sla_due_at`; members of the organization and admins only; pagination info
+        is in the top-level `meta` field
+      parameters:
+      - description: organization id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: filter by mark statuses, comma-separated ids
+        in: query
+        name: status_ids
+        type: string
+      - default: false
+        description: only marks past their SLA deadline
+        in: query
+        name: overdue
+        type: boolean
+      - default: 100
+        description: page size, 1..500
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: page offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_GetOrganizationMarksResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Organization queue
+      tags:
+      - organizations
+  /organizations/{id}/members:
+    post:
+      consumes:
+      - application/json
+      description: add the user to the organization and give them the `service` role
+        (admin only). Moderators/admins and users already in an organization are rejected
+        with 409. The user's sessions are revoked so the role applies on the next
+        sign-in
+      parameters:
+      - description: organization id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: user
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_organizations.AddMemberRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_MemberResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Add organization member
+      tags:
+      - organizations
+  /organizations/{id}/members/{userId}:
+    delete:
+      description: remove the user from the organization and return them to the `user`
+        role (admin only)
+      parameters:
+      - description: organization id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: user id
+        in: path
+        name: userId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_MemberResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Remove organization member
+      tags:
+      - organizations
+  /organizations/{id}/responsibilities:
+    delete:
+      consumes:
+      - application/json
+      description: remove the (mark type, boundary) pair from the organization (admin
+        only)
+      parameters:
+      - description: organization id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: responsibility
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_organizations.ResponsibilityRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_RemoveResponsibilityResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Remove responsibility
+      tags:
+      - organizations
+    post:
+      consumes:
+      - application/json
+      description: make the organization responsible for marks of `mark_type_id` inside
+        admin boundary `boundary_id` (admin only); a duplicate pair is 409
+      parameters:
+      - description: organization id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: responsibility
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_organizations.ResponsibilityRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_ResponsibilityResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Add responsibility
+      tags:
+      - organizations
+  /organizations/me:
+    get:
+      description: the organization the authenticated service user is a member of
+        (404 when none)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_organizations_OrganizationDetailsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Get my organization
+      tags:
+      - organizations
   /readyz:
     get:
       description: Pings every infrastructure dependency and reports their status.

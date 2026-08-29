@@ -123,8 +123,28 @@ func (r *AnalyticsRepository) GetKPI(ctx context.Context, filters models.Analyti
 		return models.KPI{}, fmt.Errorf("%s: %w", op, err)
 	}
 
+	// Organization load: marks assigned to a service and those overdue
+	// (see overdueColumn).
+	byOrgQuery := fmt.Sprintf(`
+		SELECT
+			o.organization_id,
+			o.name,
+			COUNT(m.mark_id)::int AS total,
+			COUNT(m.mark_id) FILTER (WHERE m.sla_due_at < NOW() AND m.mark_status_id IN (%d, %d))::int AS overdue
+		FROM organizations o
+		LEFT JOIN marks m ON m.organization_id = o.organization_id AND %s
+		GROUP BY o.organization_id, o.name
+		ORDER BY o.name, o.organization_id
+	`, models.ConfirmedStatus, models.InProgressStatus, where)
+
+	byOrg := []models.OrganizationKPI{}
+	if err := tr.SelectContext(ctx, &byOrg, byOrgQuery, args...); err != nil {
+		return models.KPI{}, fmt.Errorf("%s: %w", op, err)
+	}
+
 	kpi := models.KPI{
 		Total:              row.Total,
+		ByOrganization:     byOrg,
 		ByStatus:           make(map[int]int, len(statuses)),
 		AvgConfirmHours:    row.AvgConfirmHours,
 		MedianConfirmHours: row.MedianConfirmHours,
@@ -136,6 +156,14 @@ func (r *AnalyticsRepository) GetKPI(ctx context.Context, filters models.Analyti
 	}
 	if row.Total > 0 {
 		kpi.RefutedShare = float64(row.Refuted) / float64(row.Total)
+	}
+	assigned, overdue := 0, 0
+	for _, o := range byOrg {
+		assigned += o.Total
+		overdue += o.Overdue
+	}
+	if assigned > 0 {
+		kpi.SLABreachShare = float64(overdue) / float64(assigned)
 	}
 	return kpi, nil
 }

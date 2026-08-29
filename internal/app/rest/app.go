@@ -19,6 +19,7 @@ import (
 	maprest "github.com/PritOriginal/problem-map-server/internal/handler/map"
 	marksrest "github.com/PritOriginal/problem-map-server/internal/handler/marks"
 	notificationsrest "github.com/PritOriginal/problem-map-server/internal/handler/notifications"
+	organizationsrest "github.com/PritOriginal/problem-map-server/internal/handler/organizations"
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
@@ -112,11 +113,24 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	marksRepo := postgres.NewMarks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	checksRepo := postgres.NewChecks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	usersRepo := postgres.NewUsers(postgresDB.DB, trmsqlx.DefaultCtxGetter)
+	organizationsRepo := postgres.NewOrganizations(postgresDB.DB, trmsqlx.DefaultCtxGetter)
+	organizationsUseCase := usecase.NewOrganizations(log, trManager, usecase.OrganizationsRepositories{
+		Organizations: organizationsRepo,
+		Marks:         marksRepo,
+		Checks:        checksRepo,
+		Photos:        photoRepo,
+		Users:         usersRepo,
+		RefreshTokens: redisClient,
+		AuthVersions:  authVersions,
+	}).WithEvents(publisher)
+	organizationsrest.Register(router, log, authMiddleware, organizationsUseCase)
+
+	// Confirmed marks are handed to the responsible city service.
 	markStatusUpdater := usecase.NewUpdater(log, cfg.Rating, trManager, usecase.UpdaterRepositories{
 		Marks:  marksRepo,
 		Checks: checksRepo,
 		Users:  usersRepo,
-	}).WithEvents(publisher)
+	}).WithEvents(publisher).WithAssigner(organizationsUseCase)
 	marksUseCase := usecase.NewMarks(log, cfg.Marks, trManager, usecase.MarksRepositories{
 		Marks:  marksRepo,
 		Checks: checksRepo,
@@ -131,11 +145,12 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 	tasksRepo := postgres.NewTasks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	checksUseCase := usecase.NewChecks(log, cfg.Rating, trManager, markStatusUpdater, usecase.ChecksRepositories{
-		Marks:  marksRepo,
-		Checks: checksRepo,
-		Tasks:  tasksRepo,
-		Photos: photoRepo,
-		Users:  usersRepo,
+		Marks:         marksRepo,
+		Checks:        checksRepo,
+		Tasks:         tasksRepo,
+		Photos:        photoRepo,
+		Users:         usersRepo,
+		Organizations: organizationsRepo,
 	}).WithEvents(publisher)
 	checksrest.Register(router, log, authMiddleware, checksUseCase)
 

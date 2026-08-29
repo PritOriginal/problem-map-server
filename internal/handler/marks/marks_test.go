@@ -921,17 +921,17 @@ func (suite *MarksSuite) TestGetMarkTypes() {
 		{
 			name:       "Ok200DefaultRU",
 			wantLang:   models.LangRU,
-			types:      []models.MarkType{{ID: 1, Code: "garbage", Name: "Мусор"}},
+			types:      []models.MarkType{{ID: 1, Code: "garbage", Name: "Мусор", SLAHours: 72}},
 			statusCode: 200,
-			wantBody:   `{"mark_types":[{"id":1,"mark_type_id":1,"code":"garbage","name":"Мусор"}]}`,
+			wantBody:   `{"mark_types":[{"id":1,"mark_type_id":1,"code":"garbage","name":"Мусор","sla_hours":72}]}`,
 		},
 		{
 			name:           "Ok200EN",
 			acceptLanguage: "en-US,en;q=0.8,ru;q=0.5",
 			wantLang:       models.LangEN,
-			types:          []models.MarkType{{ID: 1, Code: "garbage", Name: "Garbage"}},
+			types:          []models.MarkType{{ID: 1, Code: "garbage", Name: "Garbage", SLAHours: 72}},
 			statusCode:     200,
-			wantBody:       `{"mark_types":[{"id":1,"mark_type_id":1,"code":"garbage","name":"Garbage"}]}`,
+			wantBody:       `{"mark_types":[{"id":1,"mark_type_id":1,"code":"garbage","name":"Garbage","sla_hours":72}]}`,
 		},
 		{
 			name:           "Ok200UnsupportedFallsBackToRU",
