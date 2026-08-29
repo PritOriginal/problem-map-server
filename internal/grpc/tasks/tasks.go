@@ -87,6 +87,7 @@ func (s *server) GetTasksByUserId(ctx context.Context, in *pb.GetTasksByUserIdRe
 // As in REST, the task owner is taken from the token; the request user_id
 // is ignored. Role checks are enforced by the interceptors.
 func (s *server) AddTask(ctx context.Context, in *pb.AddTaskRequest) (*pb.AddTaskResponse, error) {
+	// The caller (moderator/admin) assigns the task; user_id is the assignee.
 	claims, err := interceptors.RequireClaims(ctx)
 	if err != nil {
 		return nil, err
@@ -95,23 +96,27 @@ func (s *server) AddTask(ctx context.Context, in *pb.AddTaskRequest) (*pb.AddTas
 	if strings.TrimSpace(in.GetName()) == "" {
 		return nil, grpcerr.InvalidArgument("name is required")
 	}
+	if in.GetUserId() <= 0 {
+		return nil, grpcerr.InvalidArgument("user_id must be positive")
+	}
 	if in.GetMarkId() <= 0 {
 		return nil, grpcerr.InvalidArgument("mark_id must be positive")
 	}
 
 	task := models.Task{
 		Name:   in.GetName(),
-		UserID: claims.UserID,
+		UserID: int(in.GetUserId()),
 		MarkID: int(in.GetMarkId()),
 	}
 
 	taskId, err := s.tasks.AddTask(ctx, task)
 	if err != nil {
 		return nil, grpcerr.Map(s.log, err, "error add task",
-			slog.Int("user_id", claims.UserID), slog.Int64("mark_id", in.GetMarkId()))
+			slog.Int64("user_id", in.GetUserId()), slog.Int64("mark_id", in.GetMarkId()))
 	}
 
-	s.log.Info("add new task", slog.Int64("task_id", taskId), slog.Int("user_id", claims.UserID))
+	s.log.Info("add new task", slog.Int64("task_id", taskId),
+		slog.Int64("user_id", in.GetUserId()), slog.Int("created_by", claims.UserID))
 
 	return &pb.AddTaskResponse{
 		TaskId: taskId,

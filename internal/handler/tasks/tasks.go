@@ -162,7 +162,7 @@ func (h *handler) GetTasksByUserId() gin.HandlerFunc {
 // AddTask add new task
 //
 //	@Summary		Add task
-//	@Description	add new task on behalf of the authenticated user (moderator or admin)
+//	@Description	assign a new verification task to the user given by user_id (moderator or admin only)
 //	@Tags			tasks
 //	@Accept			json
 //	@Produce		json
@@ -185,16 +185,9 @@ func (h *handler) AddTask() gin.HandlerFunc {
 			return
 		}
 
-		userId, err := middleware.UserIDFromClaims(c)
-		if err != nil {
-			h.log.Debug("invalid token", logger.Err(err))
-			responses.Unauthorized(c, "invalid token")
-			return
-		}
-
 		task := models.Task{
 			Name:   req.Name,
-			UserID: userId,
+			UserID: req.UserID,
 			MarkID: req.MarkID,
 		}
 
@@ -205,7 +198,7 @@ func (h *handler) AddTask() gin.HandlerFunc {
 		}
 
 		h.log.Info("add new task",
-			slog.Int("user_id", userId),
+			slog.Int("user_id", req.UserID),
 			slog.Int("mark_id", req.MarkID),
 		)
 		responses.Created(c, AddTaskResponse{

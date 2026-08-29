@@ -110,7 +110,7 @@ func seedFixtures(t *testing.T, cfg *config.Config) {
 
 	fixture.markID = addNewMark(t, &cfg.REST, fixture.user.AccessToken, fixture.markTypeID).Payload.MarkId
 
-	taskReq, err := json.Marshal(tasksrest.AddTaskRequest{Name: "fixture task", MarkID: fixture.markID})
+	taskReq, err := json.Marshal(tasksrest.AddTaskRequest{Name: "fixture task", UserID: fixture.user.ID, MarkID: fixture.markID})
 	require.NoError(t, err)
 	fixture.taskID = addTask(t, &cfg.REST, bytes.NewBuffer(taskReq), fixture.moderatorToken, http.StatusCreated).Payload.TaskId
 }

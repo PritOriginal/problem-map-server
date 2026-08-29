@@ -1313,7 +1313,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "add new task on behalf of the authenticated user (moderator or admin)",
+                "description": "assign a new verification task to the user given by user_id (moderator or admin only)",
                 "consumes": [
                     "application/json"
                 ],
@@ -2875,7 +2875,8 @@ const docTemplate = `{
             "type": "object",
             "required": [
                 "mark_id",
-                "name"
+                "name",
+                "user_id"
             ],
             "properties": {
                 "mark_id": {
@@ -2883,6 +2884,9 @@ const docTemplate = `{
                 },
                 "name": {
                     "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
                 }
             }
         },

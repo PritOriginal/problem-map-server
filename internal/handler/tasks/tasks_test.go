@@ -252,6 +252,7 @@ func (suite *TasksSuite) TestAddTask() {
 			name: "Ok201Moderator",
 			req: tasksrest.AddTaskRequest{
 				Name:   "test",
+				UserID: 42,
 				MarkID: 1,
 			},
 			role:            models.RoleModerator,
@@ -263,6 +264,7 @@ func (suite *TasksSuite) TestAddTask() {
 			name: "Ok201Admin",
 			req: tasksrest.AddTaskRequest{
 				Name:   "test",
+				UserID: 42,
 				MarkID: 1,
 			},
 			role:            models.RoleAdmin,
@@ -274,6 +276,7 @@ func (suite *TasksSuite) TestAddTask() {
 			name: "Err401NoToken",
 			req: tasksrest.AddTaskRequest{
 				Name:   "test",
+				UserID: 42,
 				MarkID: 1,
 			},
 			noToken:         true,
@@ -284,6 +287,7 @@ func (suite *TasksSuite) TestAddTask() {
 			name: "Err403User",
 			req: tasksrest.AddTaskRequest{
 				Name:   "test",
+				UserID: 42,
 				MarkID: 1,
 			},
 			role:            models.RoleUser,
@@ -298,18 +302,30 @@ func (suite *TasksSuite) TestAddTask() {
 			statusCode:      400,
 		},
 		{
-			name: "Err400InvalidReq",
+			name: "Err400NoMarkId",
 			req: tasksrest.AddTaskRequest{
-				Name: "test",
+				Name:   "test",
+				UserID: 42,
 			},
+			role:            models.RoleModerator,
 			wantErrParseReq: true,
-			errAddTask:      nil,
+			statusCode:      400,
+		},
+		{
+			name: "Err400NoUserId",
+			req: tasksrest.AddTaskRequest{
+				Name:   "test",
+				MarkID: 1,
+			},
+			role:            models.RoleModerator,
+			wantErrParseReq: true,
 			statusCode:      400,
 		},
 		{
 			name: "Err500",
 			req: tasksrest.AddTaskRequest{
 				Name:   "test",
+				UserID: 42,
 				MarkID: 1,
 			},
 			wantErrParseReq: false,
@@ -319,10 +335,12 @@ func (suite *TasksSuite) TestAddTask() {
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			const userId = 7
+			// moderatorId is the caller from the JWT; the assignee must come
+			// from the request body, not from the moderator's claims.
+			const moderatorId = 7
 			if !tt.wantErrParseReq {
 				suite.uc.On("AddTask", mock.Anything, mock.MatchedBy(func(task models.Task) bool {
-					return task.UserID == userId && task.MarkID == tt.req.MarkID && task.Name == tt.req.Name
+					return task.UserID == tt.req.UserID && task.MarkID == tt.req.MarkID && task.Name == tt.req.Name
 				})).Once().
 					Return(int64(1), tt.errAddTask)
 			}
@@ -344,7 +362,7 @@ func (suite *TasksSuite) TestAddTask() {
 				if role == "" {
 					role = models.RoleModerator
 				}
-				accessToken, err := token.CreateToken(1*time.Minute, userId, string(role), "1234")
+				accessToken, err := token.CreateToken(1*time.Minute, moderatorId, string(role), "1234")
 				suite.NoError(err)
 				req.Header.Set("Authorization", "Bearer "+accessToken)
 			}

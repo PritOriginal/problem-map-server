@@ -131,25 +131,30 @@ func (suite *TasksSuite) TestAddTask() {
 		},
 		{
 			name: "Unauthenticated", ctx: context.Background(), wantCode: codes.Unauthenticated,
-			req: &pb.AddTaskRequest{Name: "task", MarkId: 5},
+			req: &pb.AddTaskRequest{Name: "task", UserId: 99, MarkId: 5},
 		},
 		{
 			name: "EmptyName", ctx: moderatorCtx, wantCode: codes.InvalidArgument,
-			req: &pb.AddTaskRequest{Name: "  ", MarkId: 5},
+			req: &pb.AddTaskRequest{Name: "  ", UserId: 99, MarkId: 5},
 		},
 		{
 			name: "NoMarkId", ctx: moderatorCtx, wantCode: codes.InvalidArgument,
-			req: &pb.AddTaskRequest{Name: "task"},
+			req: &pb.AddTaskRequest{Name: "task", UserId: 99},
+		},
+		{
+			name: "NoUserId", ctx: moderatorCtx, wantCode: codes.InvalidArgument,
+			req: &pb.AddTaskRequest{Name: "task", MarkId: 5},
 		},
 		{
 			name: "Internal", ctx: moderatorCtx, callUC: true, errAdd: errors.New("boom"), wantCode: codes.Internal,
-			req: &pb.AddTaskRequest{Name: "task", MarkId: 5},
+			req: &pb.AddTaskRequest{Name: "task", UserId: 99, MarkId: 5},
 		},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			if tt.callUC {
-				suite.uc.On("AddTask", mock.Anything, models.Task{Name: "task", UserID: 7, MarkID: 5}).Once().
+				// user_id is the assignee from the request, not the moderator (7) from the claims.
+				suite.uc.On("AddTask", mock.Anything, models.Task{Name: "task", UserID: 99, MarkID: 5}).Once().
 					Return(int64(11), tt.errAdd)
 			}
 

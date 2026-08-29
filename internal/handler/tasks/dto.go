@@ -38,9 +38,11 @@ type GetTasksByUserIdResponse struct {
 	Tasks []models.Task `json:"tasks"`
 }
 
-// AddTaskRequest describes a new task. The owner is taken from the JWT claims.
+// AddTaskRequest describes a new task. UserID is the assignee: the user who
+// has to verify the mark, not the moderator who creates the task.
 type AddTaskRequest struct {
 	Name   string `json:"name" binding:"required"`
+	UserID int    `json:"user_id" binding:"required"`
 	MarkID int    `json:"mark_id" binding:"required"`
 }
 

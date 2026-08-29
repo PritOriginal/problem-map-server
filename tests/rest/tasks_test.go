@@ -197,6 +197,7 @@ func (st *TasksSuite) TestAddTask() {
 			name: "Ok201",
 			req: tasksrest.AddTaskRequest{
 				Name:   "test",
+				UserID: st.fx.user.ID,
 				MarkID: markID,
 			},
 			accessToken: moderatorAccessToken,
@@ -206,6 +207,7 @@ func (st *TasksSuite) TestAddTask() {
 			name: "Err401NoToken",
 			req: tasksrest.AddTaskRequest{
 				Name:   "test",
+				UserID: st.fx.user.ID,
 				MarkID: markID,
 			},
 			statusCode: http.StatusUnauthorized,
@@ -214,6 +216,7 @@ func (st *TasksSuite) TestAddTask() {
 			name: "Err403User",
 			req: tasksrest.AddTaskRequest{
 				Name:   "test",
+				UserID: st.fx.user.ID,
 				MarkID: markID,
 			},
 			accessToken: userAccessToken,
@@ -226,9 +229,19 @@ func (st *TasksSuite) TestAddTask() {
 			statusCode:  http.StatusBadRequest,
 		},
 		{
-			name: "Err400InvalidReq",
+			name: "Err400NoMarkId",
 			req: tasksrest.AddTaskRequest{
-				Name: "test",
+				Name:   "test",
+				UserID: st.fx.user.ID,
+			},
+			accessToken: moderatorAccessToken,
+			statusCode:  http.StatusBadRequest,
+		},
+		{
+			name: "Err400NoUserId",
+			req: tasksrest.AddTaskRequest{
+				Name:   "test",
+				MarkID: markID,
 			},
 			accessToken: moderatorAccessToken,
 			statusCode:  http.StatusBadRequest,

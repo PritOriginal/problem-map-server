@@ -830,9 +830,12 @@ definitions:
         type: integer
       name:
         type: string
+      user_id:
+        type: integer
     required:
     - mark_id
     - name
+    - user_id
     type: object
   internal_handler_tasks.AddTaskResponse:
     properties:
@@ -1777,8 +1780,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: add new task on behalf of the authenticated user (moderator or
-        admin)
+      description: assign a new verification task to the user given by user_id (moderator
+        or admin only)
       parameters:
       - description: query params
         in: body
