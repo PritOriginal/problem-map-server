@@ -106,6 +106,35 @@ func (m *Mark) ToProtobufObject() *pb.Mark {
 type GetMarksFilters struct {
 	MarkTypeIds   []int
 	MarkStatusIds []int
+	// UserID filters by author; 0 means any user.
+	UserID int
+	// BBox restricts marks to a bounding box (ST_Intersects); nil means no restriction.
+	BBox *BBox
+	// CreatedFrom / CreatedTo bound created_at (inclusive); zero means unbounded.
+	CreatedFrom time.Time
+	CreatedTo   time.Time
+	// Sort / Order default to created_at desc when empty.
+	Sort  MarksSort
+	Order SortOrder
+
+	Pagination Pagination
+}
+
+// GetMarksNearbyFilters selects marks within RadiusM meters of a point.
+type GetMarksNearbyFilters struct {
+	Lon           float64
+	Lat           float64
+	RadiusM       float64
+	MarkTypeIds   []int
+	MarkStatusIds []int
+
+	Pagination Pagination
+}
+
+// MarkWithDistance is a mark together with its distance (meters) from a query point.
+type MarkWithDistance struct {
+	Mark
+	DistanceM float64 `json:"distance_m" db:"distance_m"`
 }
 
 type DistanceFromMarkToPoint struct {

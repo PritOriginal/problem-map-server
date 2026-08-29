@@ -6,10 +6,21 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Response is the common envelope of every API answer.
+// Meta is present only on list endpoints and carries pagination info;
+// it sits next to payload so that payload keeps its domain shape.
 type Response[T any] struct {
 	Success bool       `json:"success"`
 	Payload T          `json:"payload,omitempty"`
+	Meta    *ListMeta  `json:"meta,omitempty"`
 	Error   *ErrorInfo `json:"error,omitempty"`
+}
+
+// ListMeta describes the window returned by a list endpoint.
+type ListMeta struct {
+	Limit  int `json:"limit"`
+	Offset int `json:"offset"`
+	Total  int `json:"total"`
 }
 
 type ErrorInfo struct {
@@ -27,6 +38,15 @@ func OK[T any](c *gin.Context, data T) {
 	c.JSON(http.StatusOK, Response[T]{
 		Success: true,
 		Payload: data,
+	})
+}
+
+// OKList writes a 200 response with pagination meta next to the payload.
+func OKList[T any](c *gin.Context, data T, meta ListMeta) {
+	c.JSON(http.StatusOK, Response[T]{
+		Success: true,
+		Payload: data,
+		Meta:    &meta,
 	})
 }
 
