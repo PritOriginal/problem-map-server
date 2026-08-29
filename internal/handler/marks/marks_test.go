@@ -248,7 +248,7 @@ func (suite *MarksSuite) TestGetMarkChanges() {
 			wantFilters: models.MarkChangesFilters{Since: since, Pagination: models.Pagination{Limit: models.DefaultLimit}},
 			changes: models.MarkChanges{
 				Marks: []models.Mark{{ID: 1}, {ID: 2}}, Total: 2,
-				DeletedIDs: []int{3}, HiddenIDs: []int{}, ServerTime: serverTime,
+				DeletedIDs: []int{3}, DeletedTotal: 1, HiddenIDs: []int{}, ServerTime: serverTime,
 			},
 			statusCode: http.StatusOK,
 		},
@@ -261,6 +261,7 @@ func (suite *MarksSuite) TestGetMarkChanges() {
 		},
 		{name: "Err400MissingSince", query: "", statusCode: http.StatusBadRequest},
 		{name: "Err400SinceFormat", query: "?since=yesterday", statusCode: http.StatusBadRequest},
+		{name: "Err400SinceInFuture", query: "?since=2999-01-01T00:00:00Z", statusCode: http.StatusBadRequest},
 		{name: "Err400Limit", query: "?since=2025-03-01T12:00:00Z&limit=0", statusCode: http.StatusBadRequest},
 		{
 			name:        "Err500",
@@ -291,6 +292,7 @@ func (suite *MarksSuite) TestGetMarkChanges() {
 			suite.NotNil(resp.Payload.DeletedIDs)
 			suite.NotNil(resp.Payload.HiddenIDs)
 			suite.ElementsMatch(tt.changes.DeletedIDs, resp.Payload.DeletedIDs)
+			suite.Equal(tt.changes.DeletedTotal, resp.Payload.DeletedTotal)
 			suite.True(serverTime.Equal(resp.Payload.ServerTime))
 			suite.Equal(&responses.ListMeta{
 				Limit: tt.wantFilters.Pagination.Limit, Offset: tt.wantFilters.Pagination.Offset, Total: tt.changes.Total,

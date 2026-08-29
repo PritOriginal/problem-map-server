@@ -1,7 +1,6 @@
 package models
 
 import (
-	"errors"
 	"time"
 
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
@@ -138,10 +137,11 @@ type UserSyncFilters struct {
 	Pagination Pagination
 }
 
-// Validate checks that Since is set and the pagination is sane.
+// Validate checks that Since is set, not in the future, and the pagination
+// is sane.
 func (f UserSyncFilters) Validate() error {
-	if f.Since.IsZero() {
-		return errors.New("since is required")
+	if err := validateSince(f.Since); err != nil {
+		return err
 	}
 	return f.Pagination.Validate()
 }

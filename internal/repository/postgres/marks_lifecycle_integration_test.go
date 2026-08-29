@@ -272,15 +272,23 @@ func (s *PostgresSuite) TestMarks_DeleteMark_Tombstone() {
 
 	s.Equal(1, s.countRows("mark_tombstones", "mark_id = $1", fxMarkInside))
 
-	ids, err := s.marks.GetDeletedMarkIDs(s.ctx, before)
+	deleted, err := s.marks.GetDeletedMarkIDs(s.ctx, before, models.Pagination{})
 	s.Require().NoError(err)
-	s.Equal([]int{fxMarkInside}, ids)
+	s.Equal([]int{fxMarkInside}, deleted.Items)
+	s.Equal(1, deleted.Total)
+
+	// An empty page beyond the first still carries the total.
+	deleted, err = s.marks.GetDeletedMarkIDs(s.ctx, before, models.Pagination{Limit: 10, Offset: 10})
+	s.Require().NoError(err)
+	s.Empty(deleted.Items)
+	s.Equal(1, deleted.Total)
 
 	// Nothing was deleted after "now": an empty (not nil) slice.
-	ids, err = s.marks.GetDeletedMarkIDs(s.ctx, time.Now().Add(time.Minute))
+	deleted, err = s.marks.GetDeletedMarkIDs(s.ctx, time.Now().Add(time.Minute), models.Pagination{})
 	s.Require().NoError(err)
-	s.NotNil(ids)
-	s.Empty(ids)
+	s.NotNil(deleted.Items)
+	s.Empty(deleted.Items)
+	s.Equal(0, deleted.Total)
 
 	// A rolled-back deletion leaves no tombstone behind.
 	errRollback := errors.New("rollback")

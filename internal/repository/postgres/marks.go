@@ -356,18 +356,49 @@ func (r *MarksRepository) DeleteMark(ctx context.Context, markId int) error {
 }
 
 // GetDeletedMarkIDs returns the ids of marks deleted strictly after since
-// (from mark_tombstones), oldest deletion first.
-func (r *MarksRepository) GetDeletedMarkIDs(ctx context.Context, since time.Time) ([]int, error) {
+// (from mark_tombstones), oldest deletion first, as a page with the total.
+func (r *MarksRepository) GetDeletedMarkIDs(ctx context.Context, since time.Time, p models.Pagination) (models.Page[int], error) {
 	const op = "storage.postgres.GetDeletedMarkIDs"
 
-	ids := []int{}
-	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	query := "SELECT mark_id FROM mark_tombstones WHERE deleted_at > $1 ORDER BY deleted_at ASC, mark_id ASC"
-	if err := tr.SelectContext(ctx, &ids, query, since); err != nil {
-		return nil, fmt.Errorf("%s: %w", op, err)
+	page := models.Page[int]{Items: []int{}}
+	q := newListQuery("mark_id", "mark_tombstones").
+		Where("deleted_at > ?", since).
+		OrderBy("deleted_at ASC, mark_id ASC").
+		Paginate(p)
+	query, args, err := q.pageQuery()
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return ids, nil
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	rows, err := tr.QueryxContext(ctx, query, args...)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var id int
+		if err := rows.Scan(&id, &page.Total); err != nil {
+			return page, fmt.Errorf("%s: %w", op, err)
+		}
+		page.Items = append(page.Items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
+	}
+
+	// An empty page beyond the first carries no row to read the total from.
+	if len(page.Items) == 0 && p.Limit > 0 && p.Offset > 0 {
+		countQuery, countArgs, err := q.countQuery()
+		if err != nil {
+			return page, fmt.Errorf("%s: %w", op, err)
+		}
+		if err := tr.GetContext(ctx, &page.Total, countQuery, countArgs...); err != nil {
+			return page, fmt.Errorf("%s: %w", op, err)
+		}
+	}
+
+	return page, nil
 }
 
 // FollowMark subscribes the user to the mark; already following is not an error.

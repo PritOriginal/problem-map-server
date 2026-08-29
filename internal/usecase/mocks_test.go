@@ -2110,27 +2110,25 @@ func (_c *MockMarksRepository_FollowMark_Call) RunAndReturn(run func(ctx context
 }
 
 // GetDeletedMarkIDs provides a mock function for the type MockMarksRepository
-func (_mock *MockMarksRepository) GetDeletedMarkIDs(ctx context.Context, since time.Time) ([]int, error) {
-	ret := _mock.Called(ctx, since)
+func (_mock *MockMarksRepository) GetDeletedMarkIDs(ctx context.Context, since time.Time, p models.Pagination) (models.Page[int], error) {
+	ret := _mock.Called(ctx, since, p)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetDeletedMarkIDs")
 	}
 
-	var r0 []int
+	var r0 models.Page[int]
 	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time) ([]int, error)); ok {
-		return returnFunc(ctx, since)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time, models.Pagination) (models.Page[int], error)); ok {
+		return returnFunc(ctx, since, p)
 	}
-	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time) []int); ok {
-		r0 = returnFunc(ctx, since)
+	if returnFunc, ok := ret.Get(0).(func(context.Context, time.Time, models.Pagination) models.Page[int]); ok {
+		r0 = returnFunc(ctx, since, p)
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]int)
-		}
+		r0 = ret.Get(0).(models.Page[int])
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, time.Time) error); ok {
-		r1 = returnFunc(ctx, since)
+	if returnFunc, ok := ret.Get(1).(func(context.Context, time.Time, models.Pagination) error); ok {
+		r1 = returnFunc(ctx, since, p)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -2145,11 +2143,12 @@ type MockMarksRepository_GetDeletedMarkIDs_Call struct {
 // GetDeletedMarkIDs is a helper method to define mock.On call
 //   - ctx context.Context
 //   - since time.Time
-func (_e *MockMarksRepository_Expecter) GetDeletedMarkIDs(ctx any, since any) *MockMarksRepository_GetDeletedMarkIDs_Call {
-	return &MockMarksRepository_GetDeletedMarkIDs_Call{Call: _e.mock.On("GetDeletedMarkIDs", ctx, since)}
+//   - p models.Pagination
+func (_e *MockMarksRepository_Expecter) GetDeletedMarkIDs(ctx any, since any, p any) *MockMarksRepository_GetDeletedMarkIDs_Call {
+	return &MockMarksRepository_GetDeletedMarkIDs_Call{Call: _e.mock.On("GetDeletedMarkIDs", ctx, since, p)}
 }
 
-func (_c *MockMarksRepository_GetDeletedMarkIDs_Call) Run(run func(ctx context.Context, since time.Time)) *MockMarksRepository_GetDeletedMarkIDs_Call {
+func (_c *MockMarksRepository_GetDeletedMarkIDs_Call) Run(run func(ctx context.Context, since time.Time, p models.Pagination)) *MockMarksRepository_GetDeletedMarkIDs_Call {
 	_c.Call.Run(func(args mock.Arguments) {
 		var arg0 context.Context
 		if args[0] != nil {
@@ -2159,20 +2158,25 @@ func (_c *MockMarksRepository_GetDeletedMarkIDs_Call) Run(run func(ctx context.C
 		if args[1] != nil {
 			arg1 = args[1].(time.Time)
 		}
+		var arg2 models.Pagination
+		if args[2] != nil {
+			arg2 = args[2].(models.Pagination)
+		}
 		run(
 			arg0,
 			arg1,
+			arg2,
 		)
 	})
 	return _c
 }
 
-func (_c *MockMarksRepository_GetDeletedMarkIDs_Call) Return(ints []int, err error) *MockMarksRepository_GetDeletedMarkIDs_Call {
-	_c.Call.Return(ints, err)
+func (_c *MockMarksRepository_GetDeletedMarkIDs_Call) Return(page models.Page[int], err error) *MockMarksRepository_GetDeletedMarkIDs_Call {
+	_c.Call.Return(page, err)
 	return _c
 }
 
-func (_c *MockMarksRepository_GetDeletedMarkIDs_Call) RunAndReturn(run func(ctx context.Context, since time.Time) ([]int, error)) *MockMarksRepository_GetDeletedMarkIDs_Call {
+func (_c *MockMarksRepository_GetDeletedMarkIDs_Call) RunAndReturn(run func(ctx context.Context, since time.Time, p models.Pagination) (models.Page[int], error)) *MockMarksRepository_GetDeletedMarkIDs_Call {
 	_c.Call.Return(run)
 	return _c
 }

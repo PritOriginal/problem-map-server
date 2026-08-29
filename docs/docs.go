@@ -1345,7 +1345,7 @@ const docTemplate = `{
         },
         "/marks/changes": {
             "get": {
-                "description": "marks updated after ` + "`" + `since` + "`" + ` (oldest change first; page with limit/offset, total in ` + "`" + `meta` + "`" + `), ids of marks deleted after ` + "`" + `since` + "`" + ` and ids of marks hidden after it (always empty until moderation hides marks). Store ` + "`" + `server_time` + "`" + ` and pass it as the next ` + "`" + `since` + "`" + `",
+                "description": "marks updated after ` + "`" + `since` + "`" + ` (oldest change first; page with limit/offset, total in ` + "`" + `meta` + "`" + `), ids of marks deleted after ` + "`" + `since` + "`" + ` (paged by the same limit/offset, total in ` + "`" + `deleted_total` + "`" + `) and ids of marks hidden after it (always empty until moderation hides marks). Store ` + "`" + `server_time` + "`" + ` and pass it as the next ` + "`" + `since` + "`" + `; with several server instances subtract a safety margin (` + "`" + `server_time - 1s` + "`" + `) to cover clock skew between them. ` + "`" + `since` + "`" + ` in the future is rejected with 400",
                 "produces": [
                     "application/json"
                 ],
@@ -4120,7 +4120,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "one request for a client coming back online: the caller's tasks updated after ` + "`" + `since` + "`" + `, unread notifications received after it and checks submitted after it. Each collection is paged independently by limit/offset; ` + "`" + `totals` + "`" + ` carry the full counts. Store ` + "`" + `server_time` + "`" + ` and pass it as the next ` + "`" + `since` + "`" + `",
+                "description": "one request for a client coming back online: the caller's tasks updated after ` + "`" + `since` + "`" + `, unread notifications received after it and checks submitted after it. Each collection is paged independently by limit/offset; ` + "`" + `totals` + "`" + ` carry the full counts. Store ` + "`" + `server_time` + "`" + ` and pass it as the next ` + "`" + `since` + "`" + `; with several server instances subtract a safety margin (` + "`" + `server_time - 1s` + "`" + `) to cover clock skew between them. ` + "`" + `since` + "`" + ` in the future is rejected with 400",
                 "produces": [
                     "application/json"
                 ],
@@ -7179,6 +7179,10 @@ const docTemplate = `{
                     "items": {
                         "type": "integer"
                     }
+                },
+                "deleted_total": {
+                    "description": "DeletedTotal is the number of marks deleted after since; deleted_ids\nis paged by the same limit/offset as marks.",
+                    "type": "integer"
                 },
                 "hidden_ids": {
                     "description": "HiddenIDs is reserved for marks hidden by moderation; always empty for now.",

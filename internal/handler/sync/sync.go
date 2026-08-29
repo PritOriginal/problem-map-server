@@ -36,7 +36,7 @@ func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddlew
 // GetUserSync returns the personal changes since an instant
 //
 //	@Summary		Personal changes since an instant
-//	@Description	one request for a client coming back online: the caller's tasks updated after `since`, unread notifications received after it and checks submitted after it. Each collection is paged independently by limit/offset; `totals` carry the full counts. Store `server_time` and pass it as the next `since`
+//	@Description	one request for a client coming back online: the caller's tasks updated after `since`, unread notifications received after it and checks submitted after it. Each collection is paged independently by limit/offset; `totals` carry the full counts. Store `server_time` and pass it as the next `since`; with several server instances subtract a safety margin (`server_time - 1s`) to cover clock skew between them. `since` in the future is rejected with 400
 //	@Tags			users
 //	@Produce		json
 //	@Security		BearerAuth

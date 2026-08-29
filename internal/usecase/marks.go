@@ -32,8 +32,8 @@ type MarksRepository interface {
 	GetSimilarMarks(ctx context.Context, filters models.GetSimilarMarksFilters) ([]models.MarkWithDistance, error)
 	UpdateMark(ctx context.Context, markId int, upd models.MarkUpdate) error
 	DeleteMark(ctx context.Context, markId int) error
-	// GetDeletedMarkIDs lists the tombstones written by DeleteMark after since.
-	GetDeletedMarkIDs(ctx context.Context, since time.Time) ([]int, error)
+	// GetDeletedMarkIDs pages the tombstones written by DeleteMark after since.
+	GetDeletedMarkIDs(ctx context.Context, since time.Time, p models.Pagination) (models.Page[int], error)
 	FollowMark(ctx context.Context, userId, markId int) error
 	UnfollowMark(ctx context.Context, userId, markId int) error
 	GetFollowedMarks(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error)
@@ -389,9 +389,11 @@ func (uc *Marks) ListFollowedMarks(ctx context.Context, userId int, p models.Pag
 }
 
 // GetMarkChanges returns what an offline client missed since
-// filters.Since: marks updated after it (oldest change first, paginated)
-// and ids of marks deleted after it. ServerTime is taken before the
-// queries, so using it as the next Since cannot skip a concurrent change.
+// filters.Since: marks updated after it (oldest change first) and ids of
+// marks deleted after it, each paginated independently. ServerTime is
+// taken before the queries, so using it as the next Since cannot skip a
+// concurrent change on this instance; see the handler docs about clock
+// skew between instances.
 func (uc *Marks) GetMarkChanges(ctx context.Context, filters models.MarkChangesFilters) (models.MarkChanges, error) {
 	const op = "usecase.Marks.GetMarkChanges"
 
@@ -412,9 +414,11 @@ func (uc *Marks) GetMarkChanges(ctx context.Context, filters models.MarkChangesF
 	}
 	changes.Marks, changes.Total = page.Items, page.Total
 
-	if changes.DeletedIDs, err = uc.repos.Marks.GetDeletedMarkIDs(ctx, filters.Since); err != nil {
+	deleted, err := uc.repos.Marks.GetDeletedMarkIDs(ctx, filters.Since, filters.Pagination)
+	if err != nil {
 		return models.MarkChanges{}, mapRepoErr(op, err)
 	}
+	changes.DeletedIDs, changes.DeletedTotal = deleted.Items, deleted.Total
 	// TODO: fill HiddenIDs once marks get a hidden flag (moderation); until
 	// then hidden marks are indistinguishable from visible ones.
 	changes.HiddenIDs = []int{}

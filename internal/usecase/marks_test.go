@@ -95,18 +95,23 @@ func (suite *MarksSuite) TestGetMarkChanges() {
 		name       string
 		filters    models.MarkChangesFilters
 		getMarks   method[models.Page[models.Mark]]
-		getDeleted method[[]int]
+		getDeleted method[models.Page[int]]
 		wantErrArg bool
 	}{
 		{
 			name:       "Ok",
 			filters:    models.MarkChangesFilters{Since: since, Pagination: models.Pagination{Limit: 50}},
 			getMarks:   method[models.Page[models.Mark]]{data: models.Page[models.Mark]{Items: []models.Mark{{ID: 1}}, Total: 7}},
-			getDeleted: method[[]int]{data: []int{4, 5}},
+			getDeleted: method[models.Page[int]]{data: models.Page[int]{Items: []int{4, 5}, Total: 9}},
 		},
 		{
 			name:       "ErrSinceRequired",
 			filters:    models.MarkChangesFilters{Pagination: models.Pagination{Limit: 50}},
+			wantErrArg: true,
+		},
+		{
+			name:       "ErrSinceInFuture",
+			filters:    models.MarkChangesFilters{Since: time.Now().Add(time.Hour), Pagination: models.Pagination{Limit: 50}},
 			wantErrArg: true,
 		},
 		{
@@ -123,7 +128,7 @@ func (suite *MarksSuite) TestGetMarkChanges() {
 			name:       "ErrGetDeleted",
 			filters:    models.MarkChangesFilters{Since: since, Pagination: models.Pagination{Limit: 50}},
 			getMarks:   method[models.Page[models.Mark]]{data: models.Page[models.Mark]{}},
-			getDeleted: method[[]int]{err: errRepo},
+			getDeleted: method[models.Page[int]]{err: errRepo},
 		},
 	}
 
@@ -137,7 +142,7 @@ func (suite *MarksSuite) TestGetMarkChanges() {
 					Pagination:   tt.filters.Pagination,
 				}).Once().Return(tt.getMarks.data, tt.getMarks.err)
 				if tt.getMarks.err == nil {
-					suite.marksRepo.On("GetDeletedMarkIDs", mock.Anything, since).Once().
+					suite.marksRepo.On("GetDeletedMarkIDs", mock.Anything, since, tt.filters.Pagination).Once().
 						Return(tt.getDeleted.data, tt.getDeleted.err)
 				}
 			}
@@ -156,7 +161,8 @@ func (suite *MarksSuite) TestGetMarkChanges() {
 				suite.Require().NoError(err)
 				suite.Equal(tt.getMarks.data.Items, got.Marks)
 				suite.Equal(tt.getMarks.data.Total, got.Total)
-				suite.Equal(tt.getDeleted.data, got.DeletedIDs)
+				suite.Equal(tt.getDeleted.data.Items, got.DeletedIDs)
+				suite.Equal(tt.getDeleted.data.Total, got.DeletedTotal)
 				suite.NotNil(got.HiddenIDs)
 				suite.Empty(got.HiddenIDs)
 				suite.False(got.ServerTime.Before(before.UTC().Truncate(time.Second)))

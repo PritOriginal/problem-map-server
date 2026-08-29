@@ -56,6 +56,7 @@ func (suite *SyncSuite) TestGetUserSync() {
 			checks:        method[models.Page[models.Check]]{data: models.Page[models.Check]{Items: []models.Check{}, Total: 0}},
 		},
 		{name: "ErrSinceRequired", filters: models.UserSyncFilters{Pagination: p}, wantErrArg: true},
+		{name: "ErrSinceInFuture", filters: models.UserSyncFilters{Since: time.Now().Add(time.Hour), Pagination: p}, wantErrArg: true},
 		{name: "ErrPagination", filters: models.UserSyncFilters{Since: since, Pagination: models.Pagination{Limit: 501}}, wantErrArg: true},
 		{
 			name:    "ErrTasks",
