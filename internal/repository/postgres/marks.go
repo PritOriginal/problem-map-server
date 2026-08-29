@@ -25,7 +25,14 @@ func NewMarks(db *sqlx.DB, c *trmsqlx.CtxGetter) *MarksRepository {
 	}
 }
 
-const markColumns = "mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, created_at, updated_at"
+// markColumns lists the mark columns plus the follower aggregates. The
+// placeholder is the viewer id (see models.ViewerFromContext); it must be
+// bound through listQuery.ColumnArgs or numbered explicitly in raw queries.
+const markColumns = "marks.mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, marks.user_id, marks.created_at, marks.updated_at, " +
+	followerColumns
+
+const followerColumns = "(SELECT COUNT(*) FROM mark_followers f WHERE f.mark_id = marks.mark_id)::int AS followers_count, " +
+	"EXISTS(SELECT 1 FROM mark_followers f WHERE f.mark_id = marks.mark_id AND f.user_id = ?) AS is_following"
 
 // marksSortColumns is the whitelist of sortable columns; the empty key is
 // the default. Only values from this map ever reach the ORDER BY clause.
@@ -55,6 +62,7 @@ func (r *MarksRepository) GetMarks(ctx context.Context, filters models.GetMarksF
 	q := newListQuery(markColumns, "marks").
 		OrderBy(marksOrderBy(filters.Sort, filters.Order)).
 		Paginate(filters.Pagination)
+	q.ColumnArgs(models.ViewerFromContext(ctx))
 
 	if len(filters.MarkStatusIds) > 0 {
 		q.Where("mark_status_id IN (?)", filters.MarkStatusIds)
@@ -97,7 +105,7 @@ func (r *MarksRepository) GetMarksNearby(ctx context.Context, filters models.Get
 	).
 		OrderBy("distance_m ASC, mark_id ASC").
 		Paginate(filters.Pagination)
-	q.ColumnArgs(filters.Lon, filters.Lat)
+	q.ColumnArgs(models.ViewerFromContext(ctx), filters.Lon, filters.Lat)
 
 	q.Where("ST_DWithin(geom::geography, "+point+", ?)", filters.Lon, filters.Lat, filters.RadiusM)
 	if len(filters.MarkStatusIds) > 0 {
@@ -121,16 +129,13 @@ func (r *MarksRepository) GetMarkById(ctx context.Context, id int) (models.Mark,
 
 	mark := models.Mark{}
 
-	query := `SELECT
-				mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, created_at, updated_at 
-			FROM 
-				marks 
-			WHERE 
-				mark_id = $1
-			`
+	query, args, err := bind("SELECT "+markColumns+" FROM marks WHERE mark_id = ?", []any{models.ViewerFromContext(ctx), id})
+	if err != nil {
+		return mark, fmt.Errorf("%s: %w", op, err)
+	}
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	if err := tr.GetContext(ctx, &mark, query, id); err != nil {
+	if err := tr.GetContext(ctx, &mark, query, args...); err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
 			return mark, repository.ErrNotFound
@@ -146,9 +151,10 @@ func (r *MarksRepository) GetMarksByUserId(ctx context.Context, userId int, p mo
 	const op = "storage.postgres.GetMarksByUserId"
 
 	q := newListQuery(markColumns, "marks").
-		Where("user_id = ?", userId).
+		Where("marks.user_id = ?", userId).
 		OrderBy(marksOrderBy(models.MarksSortCreatedAt, models.SortDesc)).
 		Paginate(p)
+	q.ColumnArgs(models.ViewerFromContext(ctx))
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	page, err := selectPage[models.Mark](ctx, tr, q)
@@ -178,6 +184,161 @@ func (r *MarksRepository) AddMark(ctx context.Context, mark models.Mark) (int64,
 	}
 
 	return id, nil
+}
+
+// GetSimilarMarks returns active marks of the same type within
+// filters.RadiusM meters of the point, nearest first (duplicate detection).
+func (r *MarksRepository) GetSimilarMarks(ctx context.Context, filters models.GetSimilarMarksFilters) ([]models.MarkWithDistance, error) {
+	const op = "storage.postgres.GetSimilarMarks"
+
+	const point = "ST_SetSRID(ST_MakePoint(?, ?), 4326)::geography"
+
+	// Cap the result: a client only needs a handful of candidates.
+	q := newListQuery(
+		markColumns+", ST_Distance(geom::geography, "+point+") AS distance_m",
+		"marks",
+	).
+		OrderBy("distance_m ASC, mark_id ASC").
+		Paginate(models.Pagination{Limit: similarMarksLimit})
+	q.ColumnArgs(models.ViewerFromContext(ctx), filters.Lon, filters.Lat)
+
+	q.Where("ST_DWithin(geom::geography, "+point+", ?)", filters.Lon, filters.Lat, filters.RadiusM)
+	q.Where("type_mark_id = ?", filters.MarkTypeID)
+	q.Where("mark_status_id IN (?)", models.ActiveMarkStatuses())
+	if filters.ExcludeMarkID > 0 {
+		q.Where("marks.mark_id <> ?", filters.ExcludeMarkID)
+	}
+
+	query, args, err := q.selectQuery()
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	marks := []models.MarkWithDistance{}
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &marks, query, args...); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return marks, nil
+}
+
+// similarMarksLimit bounds the number of duplicate candidates returned.
+const similarMarksLimit = 20
+
+// UpdateMark changes the given fields and bumps updated_at.
+func (r *MarksRepository) UpdateMark(ctx context.Context, markId int, upd models.MarkUpdate) error {
+	const op = "storage.postgres.UpdateMark"
+
+	query := `
+		UPDATE marks SET
+			description = COALESCE($2, description),
+			type_mark_id = COALESCE($3, type_mark_id),
+			updated_at = NOW()
+		WHERE mark_id = $1
+		`
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	res, err := tr.ExecContext(ctx, query, markId, upd.Description, upd.MarkTypeID)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return repository.ErrNotFound
+	}
+
+	return nil
+}
+
+// DeleteMark removes the mark together with its checks, tasks, status
+// history and followers. Those tables reference marks without ON DELETE
+// CASCADE (except mark_followers), so the rows are deleted explicitly;
+// call it inside a transaction.
+func (r *MarksRepository) DeleteMark(ctx context.Context, markId int) error {
+	const op = "storage.postgres.DeleteMark"
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	for _, query := range []string{
+		"DELETE FROM checks WHERE mark_id = $1",
+		"DELETE FROM tasks WHERE mark_id = $1",
+		"DELETE FROM mark_status_history WHERE mark_id = $1",
+		"DELETE FROM mark_followers WHERE mark_id = $1",
+	} {
+		if _, err := tr.ExecContext(ctx, query, markId); err != nil {
+			return fmt.Errorf("%s: %w", op, err)
+		}
+	}
+
+	res, err := tr.ExecContext(ctx, "DELETE FROM marks WHERE mark_id = $1", markId)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return repository.ErrNotFound
+	}
+
+	return nil
+}
+
+// FollowMark subscribes the user to the mark; already following is not an error.
+func (r *MarksRepository) FollowMark(ctx context.Context, userId, markId int) error {
+	const op = "storage.postgres.FollowMark"
+
+	query := "INSERT INTO mark_followers (user_id, mark_id) VALUES ($1, $2) ON CONFLICT DO NOTHING"
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if _, err := tr.ExecContext(ctx, query, userId, markId); err != nil {
+		if isForeignKeyViolation(err) {
+			return repository.ErrNotFound
+		}
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
+
+// UnfollowMark removes the subscription; not following is not an error.
+func (r *MarksRepository) UnfollowMark(ctx context.Context, userId, markId int) error {
+	const op = "storage.postgres.UnfollowMark"
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if _, err := tr.ExecContext(ctx, "DELETE FROM mark_followers WHERE user_id = $1 AND mark_id = $2", userId, markId); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
+
+// GetFollowedMarks returns the marks the user follows, newest subscription first.
+func (r *MarksRepository) GetFollowedMarks(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error) {
+	const op = "storage.postgres.GetFollowedMarks"
+
+	q := newListQuery(markColumns, "marks JOIN mark_followers mf ON mf.mark_id = marks.mark_id").
+		Where("mf.user_id = ?", userId).
+		OrderBy("mf.created_at DESC, marks.mark_id DESC").
+		Paginate(p)
+	q.ColumnArgs(models.ViewerFromContext(ctx))
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	page, err := selectPage[models.Mark](ctx, tr, q)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return page, nil
+}
+
+// GetFollowerIDs returns the ids of users following the mark (for notifications).
+func (r *MarksRepository) GetFollowerIDs(ctx context.Context, markId int) ([]int, error) {
+	const op = "storage.postgres.GetFollowerIDs"
+
+	ids := []int{}
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &ids, "SELECT user_id FROM mark_followers WHERE mark_id = $1 ORDER BY user_id", markId); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return ids, nil
 }
 
 func (r *MarksRepository) GetMarkTypes(ctx context.Context) ([]models.MarkType, error) {

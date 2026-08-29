@@ -92,6 +92,69 @@ type Mark struct {
 	UserID       int            `json:"user_id" db:"user_id"`
 	CreatedAt    time.Time      `json:"created_at" db:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at" db:"updated_at"`
+	// FollowersCount is the number of users following the mark.
+	FollowersCount int `json:"followers_count" db:"followers_count"`
+	// IsFollowing reports whether the viewer (see ContextWithViewer) follows
+	// the mark; always false for anonymous requests.
+	IsFollowing bool `json:"is_following" db:"is_following"`
+}
+
+// MarkUpdate lists the mark fields a client may change; nil means "keep".
+type MarkUpdate struct {
+	Description *string
+	MarkTypeID  *int
+}
+
+// IsEmpty reports whether the update changes nothing.
+func (u MarkUpdate) IsEmpty() bool {
+	return u.Description == nil && u.MarkTypeID == nil
+}
+
+// Actor identifies who performs a mutation and what they are allowed to do.
+type Actor struct {
+	UserID int
+	Role   Role
+}
+
+// IsModerator reports whether the actor may act on any mark.
+func (a Actor) IsModerator() bool {
+	return a.Role == RoleModerator || a.Role == RoleAdmin
+}
+
+// DefaultDedupRadiusM is the radius used by similar-mark search when the
+// caller does not pass one.
+const DefaultDedupRadiusM = 50
+
+// GetSimilarMarksFilters selects active marks of the same type within
+// RadiusM meters of a point (duplicate detection).
+type GetSimilarMarksFilters struct {
+	Lon        float64
+	Lat        float64
+	MarkTypeID int
+	RadiusM    float64
+	// ExcludeMarkID is skipped in the result (0 means none), e.g. the mark
+	// being edited.
+	ExcludeMarkID int
+}
+
+// Validate checks the point, the type and the radius.
+func (f GetSimilarMarksFilters) Validate() error {
+	if err := ValidateLonLat(f.Lon, f.Lat); err != nil {
+		return err
+	}
+	if f.MarkTypeID <= 0 {
+		return errors.New("mark_type_id must be positive")
+	}
+	if math.IsNaN(f.RadiusM) || f.RadiusM <= 0 || f.RadiusM > MaxNearbyRadiusM {
+		return fmt.Errorf("radius must be between 1 and %d meters", MaxNearbyRadiusM)
+	}
+	return nil
+}
+
+// ActiveMarkStatuses are the statuses in which a mark still describes an
+// open problem; closed and refuted marks are ignored by duplicate search.
+func ActiveMarkStatuses() []MarkStatusType {
+	return []MarkStatusType{UnconfirmedStatus, ConfirmedStatus, UnderReviewStatus, RediscoveredStatus}
 }
 
 func (m *Mark) ToProtobufObject() *pb.Mark {

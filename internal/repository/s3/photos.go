@@ -9,6 +9,7 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
 )
 
 type PhotosRepo struct {
@@ -48,6 +49,47 @@ func (repo *PhotosRepo) AddPhoto(ctx context.Context, bucketName string, objectK
 	})
 	if err != nil {
 		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
+
+// DeletePhotos removes every object stored under marks/{markId}/ in all buckets.
+func (repo *PhotosRepo) DeletePhotos(ctx context.Context, markId int) error {
+	const op = "storage.s3.DeletePhotos"
+
+	buckets, err := repo.S3.GetBuckets(ctx)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	prefix := fmt.Sprintf("marks/%v/", markId)
+	for _, bucket := range buckets {
+		paginator := s3.NewListObjectsV2Paginator(repo.S3.Client, &s3.ListObjectsV2Input{
+			Bucket: bucket.Name,
+			Prefix: aws.String(prefix),
+		})
+		for paginator.HasMorePages() {
+			output, err := paginator.NextPage(ctx)
+			if err != nil {
+				return fmt.Errorf("%s: %w", op, err)
+			}
+			if len(output.Contents) == 0 {
+				continue
+			}
+
+			objects := make([]types.ObjectIdentifier, 0, len(output.Contents))
+			for _, object := range output.Contents {
+				objects = append(objects, types.ObjectIdentifier{Key: object.Key})
+			}
+			_, err = repo.S3.Client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+				Bucket: bucket.Name,
+				Delete: &types.Delete{Objects: objects, Quiet: aws.Bool(true)},
+			})
+			if err != nil {
+				return fmt.Errorf("%s: %w", op, err)
+			}
+		}
 	}
 
 	return nil

@@ -135,7 +135,7 @@ func (s *PostgresSuite) migrateUp(dsn string) {
 func (s *PostgresSuite) truncate() {
 	_, err := s.db.ExecContext(s.ctx, `
 		TRUNCATE TABLE
-			checks, tasks, mark_status_history, marks, users, admin_boundaries, types_marks,
+			checks, tasks, mark_status_history, mark_followers, marks, users, admin_boundaries, types_marks,
 			districts, cities, regions
 		RESTART IDENTITY CASCADE
 	`)
@@ -188,6 +188,9 @@ func (s *PostgresSuite) seed() {
 			('Проверить свалку', 1, 1, 1),
 			('Проверить лавку',  1, 2, 2),
 			('Проверить яму',    2, 3, 1);
+
+		-- Authors follow their own marks; nobody else does.
+		INSERT INTO mark_followers (user_id, mark_id) VALUES (1, 1), (1, 2), (2, 3);
 
 		INSERT INTO admin_boundaries (osm_id, name, admin_level, geom) VALUES
 			(1001, 'Центр', 8, ST_SetSRID(ST_Multi(ST_MakeEnvelope(41.39, 52.69, 41.42, 52.71)), 4326)),
