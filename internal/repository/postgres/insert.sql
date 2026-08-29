@@ -3,15 +3,25 @@ INSERT INTO districts (name, geom)
 	FROM planet_osm_polygon;
 
 
+-- Since migration 000037 every dictionary row needs a stable `code`
+-- (NOT NULL, UNIQUE) and its localised names live in `translations`.
 INSERT INTO
-	types_marks (name)
+	types_marks (name, code)
 VALUES
-	('Мусор'), ('Инфраструктура');
+	('Мусор', 'garbage'), ('Инфраструктура', 'infrastructure');
+
+INSERT INTO translations (entity, entity_id, lang, name)
+SELECT 'mark_type', type_mark_id, 'ru', name FROM types_marks
+ON CONFLICT DO NOTHING;
+INSERT INTO translations (entity, entity_id, lang, name)
+SELECT 'mark_type', type_mark_id, 'en', CASE code WHEN 'garbage' THEN 'Garbage' WHEN 'infrastructure' THEN 'Infrastructure' END
+FROM types_marks WHERE code IN ('garbage', 'infrastructure')
+ON CONFLICT DO NOTHING;
 
 INSERT INTO
 	users (name, login, password_hash, home_point, rating) 
 VALUES
-	("Степан", "Prit", "qwer", ST_SetSRID(ST_MakePoint(41.400636, 52.699922), 4326), 0);
+	('Степан', 'Prit', 'qwer', ST_SetSRID(ST_MakePoint(41.400636, 52.699922), 4326), 0);
 
 INSERT INTO 
 	marks (name, geom, type_mark_id, user_id, district_id, number_votes, number_checks) 

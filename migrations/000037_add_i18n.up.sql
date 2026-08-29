@@ -1,7 +1,9 @@
 -- Machine-readable codes for the dictionaries and a translations table.
 -- Codes are assigned by the current (Russian) name because ids differ
 -- between databases (e.g. a locally added type shifts the sequence);
--- unknown rows get a synthetic code so the NOT NULL/UNIQUE constraints hold.
+-- unknown rows get a synthetic code so the NOT NULL/UNIQUE constraints hold,
+-- and duplicated names (hence duplicated codes) get an `_<id>` suffix from
+-- the second row on, so the UNIQUE constraint cannot fail.
 
 ALTER TABLE types_marks ADD COLUMN code TEXT;
 UPDATE types_marks SET code = CASE name
@@ -14,6 +16,9 @@ UPDATE types_marks SET code = CASE name
     WHEN 'Информационные и визуальные дефекты' THEN 'visual_defects'
     ELSE 'type_' || type_mark_id
 END;
+UPDATE types_marks t SET code = t.code || '_' || t.type_mark_id
+FROM (SELECT type_mark_id, row_number() OVER (PARTITION BY code ORDER BY type_mark_id) AS rn FROM types_marks) d
+WHERE d.type_mark_id = t.type_mark_id AND d.rn > 1;
 ALTER TABLE types_marks ALTER COLUMN code SET NOT NULL;
 ALTER TABLE types_marks ADD CONSTRAINT types_marks_code_key UNIQUE (code);
 
@@ -28,6 +33,9 @@ UPDATE mark_statuses SET code = CASE name
     WHEN 'В работе'         THEN 'in_progress'
     ELSE 'status_' || mark_status_id
 END;
+UPDATE mark_statuses t SET code = t.code || '_' || t.mark_status_id
+FROM (SELECT mark_status_id, row_number() OVER (PARTITION BY code ORDER BY mark_status_id) AS rn FROM mark_statuses) d
+WHERE d.mark_status_id = t.mark_status_id AND d.rn > 1;
 ALTER TABLE mark_statuses ALTER COLUMN code SET NOT NULL;
 ALTER TABLE mark_statuses ADD CONSTRAINT mark_statuses_code_key UNIQUE (code);
 
@@ -38,6 +46,9 @@ UPDATE task_statuses SET code = CASE name
     WHEN 'Просрочено' THEN 'overdue'
     ELSE 'status_' || status_id
 END;
+UPDATE task_statuses t SET code = t.code || '_' || t.status_id
+FROM (SELECT status_id, row_number() OVER (PARTITION BY code ORDER BY status_id) AS rn FROM task_statuses) d
+WHERE d.status_id = t.status_id AND d.rn > 1;
 ALTER TABLE task_statuses ALTER COLUMN code SET NOT NULL;
 ALTER TABLE task_statuses ADD CONSTRAINT task_statuses_code_key UNIQUE (code);
 
