@@ -44,6 +44,16 @@ func Fail(c *gin.Context, status int, message string) {
 	})
 }
 
+// FailWithPayload writes an error response that still carries a payload,
+// e.g. a readiness report describing which dependency is down.
+func FailWithPayload[T any](c *gin.Context, status int, message string, payload T) {
+	c.JSON(status, Response[T]{
+		Success: false,
+		Payload: payload,
+		Error:   &ErrorInfo{Message: message},
+	})
+}
+
 func BadRequest(c *gin.Context, message string) {
 	Fail(c, http.StatusBadRequest, message)
 }

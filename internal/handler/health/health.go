@@ -53,7 +53,7 @@ func (h *handler) Healthz() gin.HandlerFunc {
 // Readyz godoc
 //
 //	@Summary		Readiness probe
-//	@Description	Pings every infrastructure dependency and reports their status; 503 when at least one is down.
+//	@Description	Pings every infrastructure dependency and reports their status. 503 when a required dependency (postgres) is down; optional ones (redis) are reported as "error" but do not affect readiness.
 //	@Tags			health
 //	@Produce		json
 //	@Success		200	{object}	responses.Response[usecase.HealthReport]
@@ -67,9 +67,6 @@ func (h *handler) Readyz() gin.HandlerFunc {
 			return
 		}
 
-		c.JSON(http.StatusServiceUnavailable, responses.Response[usecase.HealthReport]{
-			Payload: report,
-			Error:   &responses.ErrorInfo{Message: usecase.ErrUnavailable.Error()},
-		})
+		responses.FailWithPayload(c, http.StatusServiceUnavailable, usecase.ErrUnavailable.Error(), report)
 	}
 }

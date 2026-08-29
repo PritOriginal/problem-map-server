@@ -153,6 +153,7 @@ definitions:
           items:
             items:
               items:
+                format: float64
                 type: number
               type: array
             type: array
@@ -178,6 +179,7 @@ definitions:
       coordinates:
         items:
           items:
+            format: float64
             type: number
           type: array
         type: array
@@ -775,6 +777,7 @@ definitions:
   null.Int:
     properties:
       int64:
+        format: int64
         type: integer
       valid:
         description: Valid is true if Int64 is not NULL
@@ -1438,8 +1441,9 @@ paths:
       - marks
   /readyz:
     get:
-      description: Pings every infrastructure dependency and reports their status;
-        503 when at least one is down.
+      description: Pings every infrastructure dependency and reports their status.
+        503 when a required dependency (postgres) is down; optional ones (redis) are
+        reported as "error" but do not affect readiness.
       produces:
       - application/json
       responses:

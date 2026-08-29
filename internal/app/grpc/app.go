@@ -19,9 +19,7 @@ import (
 	tasksgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/tasks"
 	usersgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/users"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
-	"github.com/PritOriginal/problem-map-server/internal/repository/local"
 	"github.com/PritOriginal/problem-map-server/internal/repository/postgres"
-	"github.com/PritOriginal/problem-map-server/internal/repository/s3"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
 	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
@@ -54,9 +52,15 @@ type App struct {
 	shutdownTimeout time.Duration
 	port            int
 
-	// stopBackground cancels the health-check loop started by Run.
+	// backgroundCtx/stopBackground bound the health-check loop started by
+	// Run. They are created in New so that Stop is safe to call at any time,
+	// including before or concurrently with Run.
+	backgroundCtx  context.Context
 	stopBackground context.CancelFunc
-	background     sync.WaitGroup
+	// backgroundMu serialises "start the loop" against "cancel the loop" so
+	// Stop never returns from background.Wait before Run registers the loop.
+	backgroundMu sync.Mutex
+	background   sync.WaitGroup
 }
 
 func New(log *slog.Logger, cfg *config.Config) *App {
@@ -114,22 +118,8 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		),
 	)
 
-	var photoRepo usecase.PhotosRepository
-	var s3Client *s3.S3
-	switch cfg.PhotoStorage {
-	case config.Local:
-		photoRepo = local.NewPhotos()
-	case config.S3:
-		s3Client, err = s3.New(log, cfg.Aws)
-		if err != nil {
-			log.Error("failed connection to s3", slogger.Err(err))
-			panic(err)
-		}
-		log.Info("s3 connected!")
-
-		photoRepo = s3.NewPhotos(s3Client)
-		closers.Add("s3", s3Client)
-	}
+	photoRepo, photoCloser := app.NewPhotosRepository(log, cfg)
+	closers.Add("s3", photoCloser)
 
 	mapRepo := postgres.NewMap(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	mapUseCase := usecase.NewMap(log, usecase.MapRepositories{
@@ -159,9 +149,12 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	usersgrpc.Register(gRPCServer, usersUseCase)
 
 	healthUseCase := usecase.NewHealth(log, cfg.Health, usecase.HealthDependencies{
-		"postgres": postgresDB,
+		Required: map[string]usecase.Pinger{"postgres": postgresDB},
 	})
+	// Start NOT_SERVING: the first dependency check in watchHealth flips the
+	// status, so a probe that lands before it never sees a false SERVING.
 	healthServer := health.NewServer()
+	healthServer.SetServingStatus("", healthpb.HealthCheckResponse_NOT_SERVING)
 	healthpb.RegisterHealthServer(gRPCServer, healthServer)
 
 	srvMetrics.InitializeMetrics(gRPCServer)
@@ -170,6 +163,8 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	if cfg.GRPC.MetricsPort > 0 {
 		metricsServer = m.Server(":" + strconv.Itoa(cfg.GRPC.MetricsPort))
 	}
+
+	backgroundCtx, stopBackground := context.WithCancel(context.Background())
 
 	return &App{
 		gRPCServer:      gRPCServer,
@@ -180,6 +175,8 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		metricsServer:   metricsServer,
 		shutdownTimeout: cfg.ShutdownTimeout,
 		port:            cfg.GRPC.Port,
+		backgroundCtx:   backgroundCtx,
+		stopBackground:  stopBackground,
 	}
 }
 
@@ -202,9 +199,13 @@ func (a *App) Run() error {
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	a.stopBackground = cancel
-	a.background.Go(func() { a.watchHealth(ctx) })
+	// If Stop already ran (signal during startup) do not start the loop at
+	// all; otherwise Stop would have returned from background.Wait before
+	// this goroutine was registered.
+	if !a.startHealthLoop() {
+		_ = l.Close()
+		return nil
+	}
 
 	if a.metricsServer != nil {
 		go func() {
@@ -222,6 +223,18 @@ func (a *App) Run() error {
 	}
 
 	return nil
+}
+
+// startHealthLoop starts watchHealth unless Stop has already been called.
+func (a *App) startHealthLoop() bool {
+	a.backgroundMu.Lock()
+	defer a.backgroundMu.Unlock()
+
+	if a.backgroundCtx.Err() != nil {
+		return false
+	}
+	a.background.Go(func() { a.watchHealth(a.backgroundCtx) })
+	return true
 }
 
 // watchHealth mirrors the dependency readiness into the gRPC health service
@@ -254,9 +267,9 @@ func (a *App) Stop() {
 	log := a.log.With(slog.String("op", op))
 	log.Info("stopping gRPC server", slog.Int("port", a.port))
 
-	if a.stopBackground != nil {
-		a.stopBackground()
-	}
+	a.backgroundMu.Lock()
+	a.stopBackground()
+	a.backgroundMu.Unlock()
 	a.background.Wait()
 	a.health.Shutdown()
 

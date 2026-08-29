@@ -999,7 +999,7 @@ const docTemplate = `{
         },
         "/readyz": {
             "get": {
-                "description": "Pings every infrastructure dependency and reports their status; 503 when at least one is down.",
+                "description": "Pings every infrastructure dependency and reports their status. 503 when a required dependency (postgres) is down; optional ones (redis) are reported as \"error\" but do not affect readiness.",
                 "produces": [
                     "application/json"
                 ],
@@ -1548,7 +1548,8 @@ const docTemplate = `{
                             "items": {
                                 "type": "array",
                                 "items": {
-                                    "type": "number"
+                                    "type": "number",
+                                    "format": "float64"
                                 }
                             }
                         }
@@ -1585,7 +1586,8 @@ const docTemplate = `{
                     "items": {
                         "type": "array",
                         "items": {
-                            "type": "number"
+                            "type": "number",
+                            "format": "float64"
                         }
                     }
                 },
@@ -2503,7 +2505,8 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "int64": {
-                    "type": "integer"
+                    "type": "integer",
+                    "format": "int64"
                 },
                 "valid": {
                     "description": "Valid is true if Int64 is not NULL",

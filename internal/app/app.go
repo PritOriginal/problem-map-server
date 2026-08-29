@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"os/signal"
+	"reflect"
 	"syscall"
 
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
@@ -60,12 +61,26 @@ type namedCloser struct {
 	c    io.Closer
 }
 
-// Add registers c under name. A nil c is ignored.
+// Add registers c under name. A nil c is ignored, including a typed nil
+// pointer wrapped in the interface (e.g. a *s3.S3 that was never created).
 func (cs *Closers) Add(name string, c io.Closer) {
-	if c == nil {
+	if isNil(c) {
 		return
 	}
 	*cs = append(*cs, namedCloser{name: name, c: c})
+}
+
+func isNil(c io.Closer) bool {
+	if c == nil {
+		return true
+	}
+	v := reflect.ValueOf(c)
+	switch v.Kind() {
+	case reflect.Pointer, reflect.Map, reflect.Slice, reflect.Func, reflect.Chan, reflect.Interface:
+		return v.IsNil()
+	default:
+		return false
+	}
 }
 
 // Close closes every registered closer in reverse order, logging failures.

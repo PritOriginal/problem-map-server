@@ -21,10 +21,8 @@ import (
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/ratelimit"
-	"github.com/PritOriginal/problem-map-server/internal/repository/local"
 	"github.com/PritOriginal/problem-map-server/internal/repository/postgres"
 	"github.com/PritOriginal/problem-map-server/internal/repository/redis"
-	"github.com/PritOriginal/problem-map-server/internal/repository/s3"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
 	jwt "github.com/appleboy/gin-jwt/v3"
@@ -77,17 +75,19 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 	router := handler.GetRouter(log, cfg.Env, cfg.REST.TrustedProxies, metrics.New())
 
-	handler.SetSwagger(router, cfg)
+	handler.SetSwagger(router)
 
 	healthUseCase := usecase.NewHealth(log, cfg.Health, usecase.HealthDependencies{
-		"postgres": postgresDB,
-		"redis":    redisClient,
+		Required: map[string]usecase.Pinger{"postgres": postgresDB},
+		// Cache and rate limiting fail open without Redis, so its loss is
+		// reported but does not take the service out of rotation.
+		Optional: map[string]usecase.Pinger{"redis": redisClient},
 	})
 	health.Register(router, log, healthUseCase)
 
 	mapRepo := postgres.NewMap(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 
-	photoRepo, photoCloser := initPhotosRepository(log, cfg)
+	photoRepo, photoCloser := app.NewPhotosRepository(log, cfg)
 	closers.Add("s3", photoCloser)
 
 	mapUseCase := usecase.NewMap(log, usecase.MapRepositories{
@@ -156,24 +156,6 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		closers:         closers,
 		shutdownTimeout: cfg.ShutdownTimeout,
 		port:            cfg.REST.Port,
-	}
-}
-
-// initPhotosRepository returns the photo repository and, when a remote client
-// is used, a closer that must be called on shutdown (nil otherwise).
-func initPhotosRepository(log *slog.Logger, cfg *config.Config) (usecase.PhotosRepository, *s3.S3) {
-	switch cfg.PhotoStorage {
-	case config.S3:
-		s3Client, err := s3.New(log, cfg.Aws)
-		if err != nil {
-			log.Error("failed connection to s3", slogger.Err(err))
-			panic(err)
-		}
-		log.Info("s3 connected!")
-
-		return s3.NewPhotos(s3Client), s3Client
-	default:
-		return local.NewPhotos(), nil
 	}
 }
 

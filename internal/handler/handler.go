@@ -4,7 +4,6 @@ import (
 	"log/slog"
 
 	_ "github.com/PritOriginal/problem-map-server/docs"
-	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/handler/health"
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
@@ -66,6 +65,6 @@ func GetRouter(log *slog.Logger, env logger.Environment, trustedProxies []string
 	return r
 }
 
-func SetSwagger(r *gin.Engine, cfg *config.Config) {
+func SetSwagger(r *gin.Engine) {
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 }
