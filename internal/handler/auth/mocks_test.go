@@ -38,6 +38,126 @@ func (_m *MockAuth) EXPECT() *MockAuth_Expecter {
 	return &MockAuth_Expecter{mock: &_m.Mock}
 }
 
+// Logout provides a mock function for the type MockAuth
+func (_mock *MockAuth) Logout(ctx context.Context, userID int, refreshToken string) error {
+	ret := _mock.Called(ctx, userID, refreshToken)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Logout")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int, string) error); ok {
+		r0 = returnFunc(ctx, userID, refreshToken)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockAuth_Logout_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Logout'
+type MockAuth_Logout_Call struct {
+	*mock.Call
+}
+
+// Logout is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID int
+//   - refreshToken string
+func (_e *MockAuth_Expecter) Logout(ctx any, userID any, refreshToken any) *MockAuth_Logout_Call {
+	return &MockAuth_Logout_Call{Call: _e.mock.On("Logout", ctx, userID, refreshToken)}
+}
+
+func (_c *MockAuth_Logout_Call) Run(run func(ctx context.Context, userID int, refreshToken string)) *MockAuth_Logout_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		var arg2 string
+		if args[2] != nil {
+			arg2 = args[2].(string)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuth_Logout_Call) Return(err error) *MockAuth_Logout_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockAuth_Logout_Call) RunAndReturn(run func(ctx context.Context, userID int, refreshToken string) error) *MockAuth_Logout_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// LogoutAll provides a mock function for the type MockAuth
+func (_mock *MockAuth) LogoutAll(ctx context.Context, userID int) error {
+	ret := _mock.Called(ctx, userID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LogoutAll")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) error); ok {
+		r0 = returnFunc(ctx, userID)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// MockAuth_LogoutAll_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LogoutAll'
+type MockAuth_LogoutAll_Call struct {
+	*mock.Call
+}
+
+// LogoutAll is a helper method to define mock.On call
+//   - ctx context.Context
+//   - userID int
+func (_e *MockAuth_Expecter) LogoutAll(ctx any, userID any) *MockAuth_LogoutAll_Call {
+	return &MockAuth_LogoutAll_Call{Call: _e.mock.On("LogoutAll", ctx, userID)}
+}
+
+func (_c *MockAuth_LogoutAll_Call) Run(run func(ctx context.Context, userID int)) *MockAuth_LogoutAll_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockAuth_LogoutAll_Call) Return(err error) *MockAuth_LogoutAll_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *MockAuth_LogoutAll_Call) RunAndReturn(run func(ctx context.Context, userID int) error) *MockAuth_LogoutAll_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // RefreshTokens provides a mock function for the type MockAuth
 func (_mock *MockAuth) RefreshTokens(ctx context.Context, refreshToken string) (string, string, error) {
 	ret := _mock.Called(ctx, refreshToken)

@@ -16,7 +16,13 @@ type Cacher interface {
 	Set(ctx context.Context, key string, value any, expiration time.Duration) error
 }
 
+// New returns a middleware caching successful JSON responses. A nil cacher
+// disables caching: the middleware just passes the request through.
 func New(cacher Cacher, ttl time.Duration) gin.HandlerFunc {
+	if cacher == nil {
+		return func(c *gin.Context) { c.Next() }
+	}
+
 	return func(c *gin.Context) {
 		cacheKey := fmt.Sprintf("http:%s:%s", c.Request.Method, c.Request.URL.String())
 

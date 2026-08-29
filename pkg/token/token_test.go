@@ -54,6 +54,9 @@ func (s *TokenSuite) TestCreateToken() {
 			claims := s.parseClaims(tokenString)
 			s.Equal(strconv.Itoa(tt.userID), claims["sub"])
 			s.Equal(tt.role, claims[token.RoleClaim])
+			s.Equal(token.TypeAccess, claims[token.TypeClaim])
+			s.Equal(float64(0), claims[token.VersionClaim])
+			s.NotContains(claims, token.IDClaim)
 
 			iat := int64(claims["iat"].(float64))
 			nbf := int64(claims["nbf"].(float64))
@@ -163,7 +166,7 @@ func (s *TokenSuite) TestValidateClaims() {
 				return tok
 			},
 			key:  testKey,
-			want: token.Claims{UserID: 42, Role: "admin"},
+			want: token.Claims{UserID: 42, Role: "admin", Type: token.TypeAccess},
 		},
 		{
 			name: "NoRole",
@@ -173,7 +176,7 @@ func (s *TokenSuite) TestValidateClaims() {
 				return tok
 			},
 			key:  testKey,
-			want: token.Claims{UserID: 1},
+			want: token.Claims{UserID: 1, Type: token.TypeAccess},
 		},
 		{
 			name: "WrongKey",
@@ -224,6 +227,50 @@ func (s *TokenSuite) TestValidateClaims() {
 			}
 			s.Require().NoError(err)
 			s.Equal(tt.want, claims)
+		})
+	}
+}
+
+func (s *TokenSuite) TestCreate_RefreshClaims() {
+	tokenString, err := token.Create(token.Params{
+		TTL: time.Hour, UserID: 9, Role: "user", Type: token.TypeRefresh, Version: 3, ID: "jti-1",
+	}, testKey)
+	s.Require().NoError(err)
+
+	raw := s.parseClaims(tokenString)
+	s.Equal(token.TypeRefresh, raw[token.TypeClaim])
+	s.Equal("jti-1", raw[token.IDClaim])
+	s.Equal(float64(3), raw[token.VersionClaim])
+
+	claims, err := token.ValidateClaims(tokenString, testKey)
+	s.Require().NoError(err)
+	s.Equal(token.Claims{UserID: 9, Role: "user", Type: token.TypeRefresh, Version: 3, ID: "jti-1"}, claims)
+}
+
+func (s *TokenSuite) TestParseClaims() {
+	tests := []struct {
+		name    string
+		claims  map[string]any
+		want    token.Claims
+		wantErr bool
+	}{
+		{name: "Legacy", claims: map[string]any{"sub": "1"}, want: token.Claims{UserID: 1}},
+		{name: "VersionFloat", claims: map[string]any{"sub": "1", "ver": float64(2)}, want: token.Claims{UserID: 1, Version: 2}},
+		{name: "VersionInt64", claims: map[string]any{"sub": "1", "ver": int64(4)}, want: token.Claims{UserID: 1, Version: 4}},
+		{name: "VersionInt", claims: map[string]any{"sub": "1", "ver": 5}, want: token.Claims{UserID: 1, Version: 5}},
+		{name: "VersionGarbage", claims: map[string]any{"sub": "1", "ver": "x"}, want: token.Claims{UserID: 1}},
+		{name: "NoSub", claims: map[string]any{"role": "user"}, wantErr: true},
+		{name: "BadSub", claims: map[string]any{"sub": "abc"}, wantErr: true},
+	}
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			got, err := token.ParseClaims(tt.claims)
+			if tt.wantErr {
+				s.Error(err)
+				return
+			}
+			s.Require().NoError(err)
+			s.Equal(tt.want, got)
 		})
 	}
 }

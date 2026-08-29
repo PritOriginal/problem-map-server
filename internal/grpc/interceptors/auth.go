@@ -93,6 +93,10 @@ func (a *Auth) AuthFunc(ctx context.Context) (context.Context, error) {
 		a.log.Debug("invalid token", logger.Err(err))
 		return ctx, status.Error(codes.Unauthenticated, "invalid token")
 	}
+	if claims.Type != token.TypeAccess {
+		a.log.Debug("not an access token", slog.String("typ", claims.Type))
+		return ctx, status.Error(codes.Unauthenticated, "invalid token")
+	}
 
 	return ContextWithClaims(ctx, Claims{UserID: claims.UserID, Role: models.ParseRole(claims.Role)}), nil
 }

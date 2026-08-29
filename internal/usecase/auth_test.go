@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"testing"
+	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/models"
@@ -56,18 +57,60 @@ type AuthSuite struct {
 	uc        *usecase.Auth
 	log       *slog.Logger
 	usersRepo *usecase.MockUsersRepository
+	refresh   *usecase.MockRefreshStore
+	versions  *usecase.MockAuthVersionStore
 	authCfg   config.AuthConfig
 }
 
 func (suite *AuthSuite) SetupTest() {
 	suite.log = slogdiscard.NewDiscardLogger()
 	suite.usersRepo = usecase.NewMockUsersRepository(suite.T())
+	suite.refresh = usecase.NewMockRefreshStore(suite.T())
+	suite.versions = usecase.NewMockAuthVersionStore(suite.T())
 	cfg := config.MustLoadPath("../../configs/config-tests.yaml")
 	suite.authCfg = cfg.Auth
 	suite.uc = usecase.NewAuth(suite.log, cfg.Auth, usecase.AuthRepositories{
-		Users: suite.usersRepo,
+		Users:         suite.usersRepo,
+		RefreshTokens: suite.refresh,
+		AuthVersions:  suite.versions,
 	})
 }
+
+// errStore stands for an unavailable Redis: every store call fails open.
+var errStore = errors.New("store unavailable")
+
+// expectIssue registers the store calls made when a token pair is issued:
+// the version lookup and the refresh id registration.
+func (suite *AuthSuite) expectIssue(userID int, version int64, versionErr, saveErr error) {
+	suite.versions.On("AuthVersion", mock.Anything, userID).Once().Return(version, versionErr)
+	suite.refresh.On("SaveRefresh", mock.Anything, userID, mock.AnythingOfType("string"), suite.authCfg.JWT.Refresh.ExpiredIn).
+		Once().Return(saveErr)
+}
+
+// parseClaims verifies a token with the key and returns its claims.
+func (suite *AuthSuite) parseClaims(tokenString, key string) token.Claims {
+	claims, err := token.ValidateClaims(tokenString, key)
+	suite.Require().NoError(err)
+	return claims
+}
+
+// refreshToken issues a refresh token the way the usecase does.
+// refreshToken issues a refresh token at auth version currentVersion.
+func (suite *AuthSuite) refreshToken(userID int, jti string) string {
+	return suite.refreshTokenV(userID, jti, currentVersion)
+}
+
+func (suite *AuthSuite) refreshTokenV(userID int, jti string, version int64) string {
+	tok, err := token.Create(token.Params{
+		TTL: suite.authCfg.JWT.Refresh.ExpiredIn, UserID: userID, Role: string(models.RoleUser),
+		Type: token.TypeRefresh, ID: jti, Version: version,
+	}, suite.authCfg.JWT.Refresh.Key)
+	suite.Require().NoError(err)
+	return tok
+}
+
+// currentVersion is the auth version the stores report in the tests.
+const currentVersion int64 = 2
 
 func TestAuth(t *testing.T) {
 	suite.Run(t, new(AuthSuite))
@@ -216,18 +259,25 @@ func (suite *AuthSuite) TestSignIn() {
 
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			func() {
-				suite.usersRepo.On("GetUserByLogin", mock.Anything, mock.AnythingOfType("string")).Once().
-					Return(tt.getUserByLogin.data, tt.getUserByLogin.err)
-				if tt.getUserByLogin.err != nil {
-					return
-				}
-			}()
+			suite.usersRepo.On("GetUserByLogin", mock.Anything, mock.AnythingOfType("string")).Once().
+				Return(tt.getUserByLogin.data, tt.getUserByLogin.err)
+			if tt.wantErr == nil {
+				suite.expectIssue(1, 3, nil, nil)
+			}
 
-			accessToken, _, gotErr := suite.uc.SignIn(context.Background(), "login", tt.password)
+			accessToken, refreshToken, gotErr := suite.uc.SignIn(context.Background(), "login", tt.password)
 
 			if tt.wantErr == nil {
 				suite.NoError(gotErr)
+
+				rc := suite.parseClaims(refreshToken, suite.authCfg.JWT.Refresh.Key)
+				suite.Equal(token.TypeRefresh, rc.Type)
+				suite.NotEmpty(rc.ID)
+				suite.Equal(int64(3), rc.Version)
+				ac := suite.parseClaims(accessToken, suite.authCfg.JWT.Access.Key)
+				suite.Equal(token.TypeAccess, ac.Type)
+				suite.Empty(ac.ID)
+				suite.Equal(int64(3), ac.Version)
 
 				wantRole := tt.getUserByLogin.data.Role
 				if wantRole == "" {
@@ -249,59 +299,235 @@ func (suite *AuthSuite) TestSignIn() {
 	}
 }
 
+func (suite *AuthSuite) TestSignIn_StoresFailOpen() {
+	passwordHash, err := passwordUtils.HashPassword("password")
+	suite.NoError(err)
+
+	suite.usersRepo.On("GetUserByLogin", mock.Anything, "login").Once().
+		Return(models.User{Id: 1, PasswordHash: passwordHash}, nil)
+	suite.expectIssue(1, 0, errStore, errStore)
+
+	accessToken, _, err := suite.uc.SignIn(context.Background(), "login", "password")
+	suite.Require().NoError(err)
+	suite.Equal(int64(0), suite.parseClaims(accessToken, suite.authCfg.JWT.Access.Key).Version)
+}
+
+func (suite *AuthSuite) TestSignIn_WithoutStores() {
+	passwordHash, err := passwordUtils.HashPassword("password")
+	suite.NoError(err)
+	uc := usecase.NewAuth(suite.log, suite.authCfg, usecase.AuthRepositories{Users: suite.usersRepo})
+
+	suite.usersRepo.On("GetUserByLogin", mock.Anything, "login").Once().
+		Return(models.User{Id: 1, PasswordHash: passwordHash}, nil)
+
+	_, refreshToken, err := uc.SignIn(context.Background(), "login", "password")
+	suite.Require().NoError(err)
+	suite.NotEmpty(suite.parseClaims(refreshToken, suite.authCfg.JWT.Refresh.Key).ID)
+}
+
 func (suite *AuthSuite) TestRefreshTokens() {
-	userId := 1
-	refreshToken, err := token.CreateToken(suite.authCfg.JWT.Refresh.ExpiredIn, userId, string(models.RoleUser), suite.authCfg.JWT.Refresh.Key)
+	const userId = 1
+	const jti = "jti-1"
+
+	accessAsRefresh, err := token.CreateToken(time.Hour, userId, string(models.RoleUser), suite.authCfg.JWT.Refresh.Key)
+	suite.NoError(err)
+	noJTI, err := token.Create(token.Params{TTL: time.Hour, UserID: userId, Type: token.TypeRefresh}, suite.authCfg.JWT.Refresh.Key)
+	suite.NoError(err)
+	wrongKey, err := token.Create(token.Params{TTL: time.Hour, UserID: userId, Type: token.TypeRefresh, ID: jti}, suite.authCfg.JWT.Access.Key)
 	suite.NoError(err)
 
 	tests := []struct {
-		name        string
+		name          string
+		token         string
+		delete        method[bool]
+		wantDelete    bool
+		wantDeleteAll bool
+		// version is the stored auth version checked after the id lookup;
+		// nil when the check is not reached.
+		version     *method[int64]
 		getUserById method[models.User]
+		wantIssue   bool
 		wantErr     error
 	}{
 		{
-			name: "Ok",
-			getUserById: method[models.User]{
-				data: models.User{
-					Id: userId,
-				},
-				err: nil,
-			},
+			name:        "Ok",
+			token:       suite.refreshToken(userId, jti),
+			delete:      method[bool]{data: true},
+			wantDelete:  true,
+			version:     &method[int64]{data: currentVersion},
+			getUserById: method[models.User]{data: models.User{Id: userId, Role: models.RoleModerator}},
+			wantIssue:   true,
 		},
 		{
-			name: "ErrUnauthorizedUserNotFound",
-			getUserById: method[models.User]{
-				err: repository.ErrNotFound,
-			},
+			name:        "OkStoreUnavailableFailsOpen",
+			token:       suite.refreshToken(userId, jti),
+			delete:      method[bool]{err: errStore},
+			wantDelete:  true,
+			version:     &method[int64]{data: currentVersion},
+			getUserById: method[models.User]{data: models.User{Id: userId}},
+			wantIssue:   true,
+		},
+		{
+			name:        "OkVersionStoreUnavailableFailsOpen",
+			token:       suite.refreshTokenV(userId, jti, 0),
+			delete:      method[bool]{data: true},
+			wantDelete:  true,
+			version:     &method[int64]{err: errStore},
+			getUserById: method[models.User]{data: models.User{Id: userId}},
+			wantIssue:   true,
+		},
+		{
+			name:       "ErrUnauthorizedStaleVersion",
+			token:      suite.refreshTokenV(userId, jti, currentVersion-1),
+			delete:     method[bool]{data: true},
+			wantDelete: true,
+			version:    &method[int64]{data: currentVersion},
+			wantErr:    usecase.ErrUnauthorized,
+		},
+		{
+			name:          "ErrUnauthorizedReuseRevokesAll",
+			token:         suite.refreshToken(userId, jti),
+			delete:        method[bool]{data: false},
+			wantDelete:    true,
+			wantDeleteAll: true,
+			wantErr:       usecase.ErrUnauthorized,
+		},
+		{
+			name:    "ErrUnauthorizedAccessTokenType",
+			token:   accessAsRefresh,
 			wantErr: usecase.ErrUnauthorized,
 		},
 		{
-			name: "ErrRepo",
-			getUserById: method[models.User]{
-				err: errRepo,
-			},
-			wantErr: errRepo,
+			name:    "ErrUnauthorizedNoJTI",
+			token:   noJTI,
+			wantErr: usecase.ErrUnauthorized,
+		},
+		{
+			name:    "ErrUnauthorizedWrongKey",
+			token:   wrongKey,
+			wantErr: usecase.ErrUnauthorized,
+		},
+		{
+			name:    "ErrUnauthorizedGarbage",
+			token:   "not-a-jwt",
+			wantErr: usecase.ErrUnauthorized,
+		},
+		{
+			name:        "ErrUnauthorizedUserNotFound",
+			token:       suite.refreshToken(userId, jti),
+			delete:      method[bool]{data: true},
+			wantDelete:  true,
+			version:     &method[int64]{data: currentVersion},
+			getUserById: method[models.User]{err: repository.ErrNotFound},
+			wantErr:     usecase.ErrUnauthorized,
+		},
+		{
+			name:        "ErrRepo",
+			token:       suite.refreshToken(userId, jti),
+			delete:      method[bool]{data: true},
+			wantDelete:  true,
+			version:     &method[int64]{data: currentVersion},
+			getUserById: method[models.User]{err: errRepo},
+			wantErr:     errRepo,
 		},
 	}
 
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			func() {
-				suite.usersRepo.On("GetUserById", mock.Anything, mock.AnythingOfType("int")).Once().
+			if tt.wantDelete {
+				suite.refresh.On("DeleteRefresh", mock.Anything, userId, jti).Once().Return(tt.delete.data, tt.delete.err)
+			}
+			if tt.wantDeleteAll {
+				suite.refresh.On("DeleteAllRefresh", mock.Anything, userId).Once().Return(nil)
+			}
+			if tt.version != nil {
+				suite.versions.On("AuthVersion", mock.Anything, userId).Once().Return(tt.version.data, tt.version.err)
+			}
+			if tt.getUserById.data.Id != 0 || tt.getUserById.err != nil {
+				suite.usersRepo.On("GetUserById", mock.Anything, userId).Once().
 					Return(tt.getUserById.data, tt.getUserById.err)
-				if tt.getUserById.err != nil {
-					return
-				}
-			}()
+			}
+			if tt.wantIssue {
+				suite.expectIssue(userId, currentVersion, nil, nil)
+			}
 
-			_, _, gotErr := suite.uc.RefreshTokens(context.Background(), refreshToken)
+			accessToken, refreshToken, gotErr := suite.uc.RefreshTokens(context.Background(), tt.token)
 
 			if tt.wantErr == nil {
-				suite.NoError(gotErr)
+				suite.Require().NoError(gotErr)
+				rc := suite.parseClaims(refreshToken, suite.authCfg.JWT.Refresh.Key)
+				suite.NotEqual(jti, rc.ID, "a new refresh id must be issued")
+				suite.Equal(currentVersion, rc.Version)
+				ac := suite.parseClaims(accessToken, suite.authCfg.JWT.Access.Key)
+				suite.Equal(currentVersion, ac.Version)
+				wantRole := tt.getUserById.data.Role
+				if wantRole == "" {
+					wantRole = models.RoleUser
+				}
+				suite.Equal(string(wantRole), ac.Role)
 			} else {
 				suite.ErrorIs(gotErr, tt.wantErr)
 			}
-			suite.usersRepo.AssertExpectations(suite.T())
+		})
+	}
+}
+
+func (suite *AuthSuite) TestRefreshTokens_WithoutStores() {
+	uc := usecase.NewAuth(suite.log, suite.authCfg, usecase.AuthRepositories{Users: suite.usersRepo})
+	suite.usersRepo.On("GetUserById", mock.Anything, 1).Once().Return(models.User{Id: 1}, nil)
+
+	_, _, err := uc.RefreshTokens(context.Background(), suite.refreshToken(1, "jti"))
+	suite.NoError(err)
+}
+
+func (suite *AuthSuite) TestLogout() {
+	tests := []struct {
+		name       string
+		userID     int
+		token      string
+		wantDelete bool
+		deleteErr  error
+		wantErr    error
+	}{
+		{name: "Ok", userID: 1, token: suite.refreshToken(1, "jti"), wantDelete: true},
+		{name: "OkAlreadyRevoked", userID: 1, token: suite.refreshToken(1, "jti"), wantDelete: true},
+		{name: "OkStoreUnavailable", userID: 1, token: suite.refreshToken(1, "jti"), wantDelete: true, deleteErr: errStore},
+		{name: "ErrUnauthorizedForeignToken", userID: 2, token: suite.refreshToken(1, "jti"), wantErr: usecase.ErrUnauthorized},
+		{name: "ErrUnauthorizedGarbage", userID: 1, token: "abc", wantErr: usecase.ErrUnauthorized},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if tt.wantDelete {
+				suite.refresh.On("DeleteRefresh", mock.Anything, 1, "jti").Once().Return(tt.name == "Ok", tt.deleteErr)
+			}
+
+			err := suite.uc.Logout(context.Background(), tt.userID, tt.token)
+
+			if tt.wantErr == nil {
+				suite.NoError(err)
+			} else {
+				suite.ErrorIs(err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func (suite *AuthSuite) TestLogoutAll() {
+	tests := []struct {
+		name         string
+		deleteAllErr error
+		incrErr      error
+	}{
+		{name: "Ok"},
+		{name: "OkRefreshStoreUnavailable", deleteAllErr: errStore},
+		{name: "OkVersionStoreUnavailable", incrErr: errStore},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			suite.refresh.On("DeleteAllRefresh", mock.Anything, 1).Once().Return(tt.deleteAllErr)
+			suite.versions.On("IncrAuthVersion", mock.Anything, 1).Once().Return(int64(2), tt.incrErr)
+
+			suite.NoError(suite.uc.LogoutAll(context.Background(), 1))
 		})
 	}
 }

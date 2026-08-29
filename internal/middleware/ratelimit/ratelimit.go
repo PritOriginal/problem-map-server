@@ -32,7 +32,7 @@ type Config struct {
 // When the counter backend is unavailable the middleware fails open
 // and lets the request through.
 func New(log *slog.Logger, counter Counter, cfg Config) gin.HandlerFunc {
-	if cfg.Requests <= 0 || cfg.Window <= 0 {
+	if cfg.Requests <= 0 || cfg.Window <= 0 || counter == nil {
 		return func(c *gin.Context) { c.Next() }
 	}
 

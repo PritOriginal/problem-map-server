@@ -26,6 +26,16 @@ func ParseRole(raw string) Role {
 	return Role(raw)
 }
 
+// Valid reports whether r is one of the known roles.
+func (r Role) Valid() bool {
+	switch r {
+	case RoleUser, RoleModerator, RoleAdmin:
+		return true
+	default:
+		return false
+	}
+}
+
 type User struct {
 	Id           int    `json:"user_id" db:"user_id"`
 	Name         string `json:"username" db:"name"`
