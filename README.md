@@ -195,7 +195,7 @@ fatigue(o)  = 1 / (1 + β·o)                    o — просроченных 
 ### Push-уведомления (cmd/notifier)
 
 `cmd/notifier` подписывается на доменные события в NATS
-(`mark.status_changed`, `task.assigned`, `check.added`), сохраняет
+(`mark.status_changed`, `task.assigned`, `check.added`, `task.completed`), сохраняет
 уведомление каждому адресату в `notifications` и отправляет push на его
 устройства из `user_devices` (токены регистрирует клиент через
 `POST /users/me/devices`, см. Swagger).
@@ -266,6 +266,8 @@ Notifier получает OAuth2-токен по JWT сервисного акк
 | `mark.status_changed` | метка сменила статус | автору метки |
 | `task.assigned` | выдано задание на проверку | исполнителю |
 | `check.added` | добавлена проверка метки | автору метки |
+| `task.completed` | проверка закрыла выданное задание | — (пересчёт достижений исполнителя) |
+| `badge.earned` | пользователь получил бейдж (публикует сам notifier) | пользователю (`badge_earned`) |
 
 Запуск (нужны `db` и `nats.url`):
 
@@ -591,7 +593,7 @@ curl -o center.geojson 'http://localhost:3333/map/admin-boundaries/1.geojson'
 | `POST` | `/webhooks/{id}/test` | отправить событие `webhook.test` один раз (без ретраев) и вернуть результат; работает и для выключенного вебхука |
 
 `events` — точные темы (`mark.status_changed`, `task.assigned`,
-`check.added`), маски по домену (`mark.*`) или `*`.
+`check.added`, `task.completed`, `badge.earned`), маски по домену (`mark.*`) или `*`.
 
 ### Формат доставки
 

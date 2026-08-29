@@ -37,7 +37,7 @@ const (
 )
 
 // EventSubjects are the subject filters of StreamEvents.
-var EventSubjects = []string{"mark.>", "task.>", "check.>"}
+var EventSubjects = []string{"mark.>", "task.>", "check.>", "badge.>"}
 
 // Headers set on a dead-lettered message.
 const (
