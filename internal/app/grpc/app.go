@@ -139,8 +139,6 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	var photoRepo usecase.PhotosRepository
 	var s3Client *s3.S3
 	switch cfg.PhotoStorage {
-	case config.Local:
-		photoRepo = local.NewPhotos()
 	case config.S3:
 		s3Client, err = s3.New(log, cfg.Aws)
 		if err != nil {
@@ -151,6 +149,9 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 		photoRepo = s3.NewPhotos(s3Client)
 		closers.Add("s3", s3Client)
+	default:
+		// Same fallback as the REST app: local storage for any other value.
+		photoRepo = local.NewPhotos()
 	}
 
 	mapRepo := postgres.NewMap(postgresDB.DB, trmsqlx.DefaultCtxGetter)
