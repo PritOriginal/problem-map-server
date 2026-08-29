@@ -12,6 +12,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/app"
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/handler"
+	analyticsrest "github.com/PritOriginal/problem-map-server/internal/handler/analytics"
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
 	checksrest "github.com/PritOriginal/problem-map-server/internal/handler/checks"
 	"github.com/PritOriginal/problem-map-server/internal/handler/health"
@@ -100,6 +101,12 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Map: mapRepo,
 	})
 	maprest.Register(router, log, mapUseCase, redisClient)
+
+	analyticsRepo := postgres.NewAnalytics(postgresDB.DB, trmsqlx.DefaultCtxGetter)
+	analyticsUseCase := usecase.NewAnalytics(log, usecase.AnalyticsRepositories{
+		Analytics: analyticsRepo,
+	})
+	analyticsrest.Register(router, log, analyticsUseCase)
 
 	marksRepo := postgres.NewMarks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	checksRepo := postgres.NewChecks(postgresDB.DB, trmsqlx.DefaultCtxGetter)

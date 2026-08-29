@@ -57,13 +57,17 @@ type PostgresSuite struct {
 	db  *sqlx.DB
 	trm *manager.Manager
 
-	users  *postgres.UsersRepository
-	marks  *postgres.MarksRepository
-	checks *postgres.ChecksRepository
-	tasks  *postgres.TasksRepository
-	maps   *postgres.MapRepository
-
+	users         *postgres.UsersRepository
+	marks         *postgres.MarksRepository
+	checks        *postgres.ChecksRepository
+	tasks         *postgres.TasksRepository
+	maps          *postgres.MapRepository
+	analytics     *postgres.AnalyticsRepository
 	notifications *postgres.NotificationsRepository
+
+	// seedNow anchors the backdated timestamps of the fixtures (UTC, whole
+	// seconds) so tests can compute expected periods and durations exactly.
+	seedNow time.Time
 }
 
 func TestPostgresSuite(t *testing.T) {
@@ -106,6 +110,7 @@ func (s *PostgresSuite) SetupSuite() {
 	s.tasks = postgres.NewTasks(db, getter)
 	s.maps = postgres.NewMap(db, getter)
 	s.notifications = postgres.NewNotifications(db, getter)
+	s.analytics = postgres.NewAnalytics(db, getter)
 }
 
 func (s *PostgresSuite) TearDownSuite() {
@@ -201,6 +206,38 @@ func (s *PostgresSuite) seed() {
 			(1002, 'Пустой', 8, ST_SetSRID(ST_Multi(ST_MakeEnvelope(41.50, 52.80, 41.52, 52.82)), 4326));
 	`)
 	s.Require().NoError(err, "seed statuses, checks, tasks and admin boundaries")
+
+	// Backdate creation and status transitions so the analytics have
+	// deterministic durations and periods (relative to seedNow):
+	//   mark1: created 40 days ago, still unconfirmed (stale open mark)
+	//   mark2: created 10 days ago, confirmed 48 h later
+	//   mark3: created 5 days ago, under review 24 h later
+	s.seedNow = time.Now().UTC().Truncate(time.Second)
+	// lib/pq forbids several statements in one parametrized query, hence
+	// one UPDATE per table.
+	_, err = s.db.ExecContext(s.ctx, `
+		UPDATE marks SET
+			created_at = $1::timestamp - CASE mark_id
+				WHEN 1 THEN INTERVAL '40 days' WHEN 2 THEN INTERVAL '10 days' ELSE INTERVAL '5 days' END,
+			updated_at = $1::timestamp - CASE mark_id
+				WHEN 1 THEN INTERVAL '40 days' WHEN 2 THEN INTERVAL '8 days' ELSE INTERVAL '4 days' END
+	`, s.seedNow)
+	s.Require().NoError(err, "backdate marks")
+
+	_, err = s.db.ExecContext(s.ctx, `
+		UPDATE mark_status_history SET changed_at = $1::timestamp - CASE id
+			WHEN 1 THEN INTERVAL '40 days'
+			WHEN 2 THEN INTERVAL '10 days'
+			WHEN 3 THEN INTERVAL '5 days'
+			WHEN 4 THEN INTERVAL '8 days'
+			ELSE INTERVAL '4 days' END
+	`, s.seedNow)
+	s.Require().NoError(err, "backdate history")
+}
+
+// daysAgo returns seedNow minus the given number of days.
+func (s *PostgresSuite) daysAgo(days int) time.Time {
+	return s.seedNow.AddDate(0, 0, -days)
 }
 
 // ids collects the identifiers of items in order.

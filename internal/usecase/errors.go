@@ -20,6 +20,9 @@ var (
 	// ErrTooManyRequests is returned when a per-user quota (e.g. checks per
 	// day) is exhausted; handlers map it to 429.
 	ErrTooManyRequests = errors.New("too many requests")
+	// ErrTooManyHeatmapCells is a specific invalid-argument case: the heatmap
+	// grid would exceed models.MaxHeatmapCells, the client must raise cell_m.
+	ErrTooManyHeatmapCells = fmt.Errorf("%w: too many heatmap cells, increase cell_m", ErrInvalidArgument)
 )
 
 // mapRepoErr translates repository errors into usecase errors so that callers

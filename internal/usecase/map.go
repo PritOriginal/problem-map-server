@@ -2,6 +2,8 @@ package usecase
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
@@ -10,6 +12,7 @@ import (
 type MapRepository interface {
 	GetAdminBoundaries(ctx context.Context, filters models.GetAdminBoundaryFilters) ([]models.AdminBoundary, error)
 	GetAdminBoundariesMarksCount(ctx context.Context, filters models.GetAdminBoundaryMarksCountFilters) ([]models.AdminBoundaryMarksCount, error)
+	GetHeatmap(ctx context.Context, filters models.HeatmapFilters) ([]models.HeatmapCell, error)
 	GetRegions(ctx context.Context) ([]models.Region, error)
 	GetCities(ctx context.Context) ([]models.City, error)
 	GetDistricts(ctx context.Context) ([]models.District, error)
@@ -41,11 +44,37 @@ func (uc *Map) GetAdminBoundaries(ctx context.Context, filters models.GetAdminBo
 func (uc *Map) GetAdminBoundariesMarksCount(ctx context.Context, filters models.GetAdminBoundaryMarksCountFilters) ([]models.AdminBoundaryMarksCount, error) {
 	const op = "usecase.Map.GetAdminBoundariesMarksCount"
 
+	if err := filters.Validate(); err != nil {
+		return nil, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
+	}
+
 	boundariesCount, err := uc.repos.Map.GetAdminBoundariesMarksCount(ctx, filters)
 	if err != nil {
 		return nil, mapRepoErr(op, err)
 	}
 	return boundariesCount, nil
+}
+
+// GetHeatmap applies the default cell size and rejects grids that would
+// exceed models.MaxHeatmapCells with ErrTooManyHeatmapCells.
+func (uc *Map) GetHeatmap(ctx context.Context, filters models.HeatmapFilters) ([]models.HeatmapCell, error) {
+	const op = "usecase.Map.GetHeatmap"
+
+	if filters.CellM == 0 {
+		filters.CellM = models.DefaultHeatmapCellM
+	}
+	if err := filters.Validate(); err != nil {
+		if errors.Is(err, models.ErrTooManyHeatmapCells) {
+			return nil, fmt.Errorf("%s: %w", op, ErrTooManyHeatmapCells)
+		}
+		return nil, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
+	}
+
+	cells, err := uc.repos.Map.GetHeatmap(ctx, filters)
+	if err != nil {
+		return nil, mapRepoErr(op, err)
+	}
+	return cells, nil
 }
 
 func (uc *Map) GetRegions(ctx context.Context) ([]models.Region, error) {

@@ -4,6 +4,7 @@ package postgres_test
 
 import (
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"math"
 )
 
 func (s *PostgresSuite) TestMap_GetAdminBoundaries() {
@@ -115,6 +116,154 @@ func (s *PostgresSuite) TestMap_GetAdminBoundariesMarksCount() {
 			s.NotNil(got)
 			s.Equal(tt.want, got, "rows must be ordered by boundary id")
 		})
+	}
+}
+
+func (s *PostgresSuite) TestMap_GetAdminBoundariesMarksCount_StatusAndDateFilters() {
+	void := models.AdminBoundaryMarksCount{Id: fxBoundaryVoid, Name: "Пустой"}
+
+	tests := []struct {
+		name    string
+		filters models.GetAdminBoundaryMarksCountFilters
+		want    models.AdminBoundaryMarksCount
+	}{
+		{
+			name:    "status filter keeps only confirmed",
+			filters: models.GetAdminBoundaryMarksCountFilters{MarkStatusIds: []int{int(models.ConfirmedStatus)}},
+			want:    models.AdminBoundaryMarksCount{Id: fxBoundaryMain, Name: "Центр", TotalCount: 1, ConfirmedCount: 1},
+		},
+		{
+			name:    "several statuses",
+			filters: models.GetAdminBoundaryMarksCountFilters{MarkStatusIds: []int{int(models.UnconfirmedStatus), int(models.ConfirmedStatus)}},
+			want:    models.AdminBoundaryMarksCount{Id: fxBoundaryMain, Name: "Центр", TotalCount: 2, UnconfirmedCount: 1, ConfirmedCount: 1},
+		},
+		{
+			name:    "from excludes the 40 days old mark",
+			filters: models.GetAdminBoundaryMarksCountFilters{DateRange: models.DateRange{From: s.daysAgo(20)}},
+			want:    models.AdminBoundaryMarksCount{Id: fxBoundaryMain, Name: "Центр", TotalCount: 1, ConfirmedCount: 1},
+		},
+		{
+			name:    "to excludes the recent mark",
+			filters: models.GetAdminBoundaryMarksCountFilters{DateRange: models.DateRange{To: s.daysAgo(20)}},
+			want:    models.AdminBoundaryMarksCount{Id: fxBoundaryMain, Name: "Центр", TotalCount: 1, UnconfirmedCount: 1},
+		},
+		{
+			name: "status and range combined to nothing",
+			filters: models.GetAdminBoundaryMarksCountFilters{
+				MarkStatusIds: []int{int(models.ConfirmedStatus)},
+				DateRange:     models.DateRange{To: s.daysAgo(20)},
+			},
+			want: models.AdminBoundaryMarksCount{Id: fxBoundaryMain, Name: "Центр"},
+		},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			got, err := s.maps.GetAdminBoundariesMarksCount(s.ctx, tt.filters)
+			s.Require().NoError(err)
+			s.Equal([]models.AdminBoundaryMarksCount{tt.want, void}, got)
+		})
+	}
+}
+
+func (s *PostgresSuite) TestMap_GetHeatmap() {
+	// Bbox of the "Центр" boundary: marks 1 (type 1, unconfirmed) and
+	// 2 (type 2, confirmed) are inside, ~700 m apart; mark 3 is outside.
+	bbox := models.BBox{MinLon: 41.39, MinLat: 52.69, MaxLon: 41.42, MaxLat: 52.71}
+
+	tests := []struct {
+		name      string
+		filters   models.HeatmapFilters
+		wantCells int
+		wantTotal int
+	}{
+		{
+			name:      "coarse grid: both marks, cell count between 1 and 2",
+			filters:   models.HeatmapFilters{BBox: bbox, CellM: 5000},
+			wantCells: -1,
+			wantTotal: 2,
+		},
+		{
+			name:      "fine grid: one mark per cell",
+			filters:   models.HeatmapFilters{BBox: bbox, CellM: 100},
+			wantCells: 2,
+			wantTotal: 2,
+		},
+		{
+			name:      "type filter",
+			filters:   models.HeatmapFilters{BBox: bbox, CellM: 100, MarkTypeIds: []int{2}},
+			wantCells: 1,
+			wantTotal: 1,
+		},
+		{
+			name:      "status filter",
+			filters:   models.HeatmapFilters{BBox: bbox, CellM: 100, MarkStatusIds: []int{int(models.UnconfirmedStatus)}},
+			wantCells: 1,
+			wantTotal: 1,
+		},
+		{
+			name:      "type and status that never match together",
+			filters:   models.HeatmapFilters{BBox: bbox, CellM: 100, MarkTypeIds: []int{2}, MarkStatusIds: []int{int(models.UnconfirmedStatus)}},
+			wantCells: 0,
+		},
+		{
+			name:      "bbox without marks",
+			filters:   models.HeatmapFilters{BBox: models.BBox{MinLon: 41.50, MinLat: 52.80, MaxLon: 41.52, MaxLat: 52.82}, CellM: 100},
+			wantCells: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			cells, err := s.maps.GetHeatmap(s.ctx, tt.filters)
+			s.Require().NoError(err)
+			s.NotNil(cells)
+			if tt.wantCells >= 0 {
+				s.Len(cells, tt.wantCells)
+			} else {
+				s.GreaterOrEqual(len(cells), 1)
+				s.LessOrEqual(len(cells), 2)
+			}
+
+			total := 0
+			for _, cell := range cells {
+				total += cell.Count
+				s.Positive(cell.Count)
+				s.Require().NotNil(cell.Geom)
+				s.Equal(4326, cell.Geom.Ewkb.SRID())
+				// A hexagon ring: 6 vertices plus the closing point.
+				s.Equal(7, cell.Geom.Ewkb.NumCoords())
+				// The cell overlaps the bbox (it may stick out along the edge).
+				bounds := cell.Geom.Ewkb.Bounds()
+				s.Less(bounds.Min(0), tt.filters.BBox.MaxLon)
+				s.Greater(bounds.Max(0), tt.filters.BBox.MinLon)
+				s.Less(bounds.Min(1), tt.filters.BBox.MaxLat)
+				s.Greater(bounds.Max(1), tt.filters.BBox.MinLat)
+			}
+			s.Equal(tt.wantTotal, total)
+		})
+	}
+}
+
+// TestMap_GetHeatmap_CellIsGroundMeters checks that cell_m is a ground size:
+// at 52.7 N a flat-top hexagon of 250 m (center-to-vertex) spans ~500 m
+// east-west and ~433 m north-south on the ground, not 500 EPSG:3857 units
+// (which would be ~300 m here).
+func (s *PostgresSuite) TestMap_GetHeatmap_CellIsGroundMeters() {
+	bbox := models.BBox{MinLon: 41.39, MinLat: 52.69, MaxLon: 41.42, MaxLat: 52.71}
+	cells, err := s.maps.GetHeatmap(s.ctx, models.HeatmapFilters{BBox: bbox, CellM: 250})
+	s.Require().NoError(err)
+	// Marks 1 and 2 are ~850 m apart, so they land in different cells.
+	s.Require().Len(cells, 2)
+
+	const metersPerDegree = 111_319.49
+	for _, cell := range cells {
+		bounds := cell.Geom.Ewkb.Bounds()
+		midLat := (bounds.Min(1) + bounds.Max(1)) / 2
+		widthM := (bounds.Max(0) - bounds.Min(0)) * metersPerDegree * math.Cos(midLat*math.Pi/180)
+		heightM := (bounds.Max(1) - bounds.Min(1)) * metersPerDegree
+		s.InDelta(2*250, widthM, 25)
+		s.InDelta(math.Sqrt(3)*250, heightM, 25)
 	}
 }
 
