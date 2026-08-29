@@ -10,7 +10,6 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
-	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	jwt "github.com/appleboy/gin-jwt/v3"
@@ -133,28 +132,17 @@ func (h *handler) GetMe() gin.HandlerFunc {
 //	@Router			/users [get]
 func (h *handler) GetUsers() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		var query listquery.Pagination
-		if err := c.ShouldBindQuery(&query); err != nil {
-			h.log.Debug("failed parse query params", logger.Err(err))
-			responses.BadRequest(c, "invalid query params")
+		p, ok := listquery.BindPagination(c, h.log)
+		if !ok {
 			return
 		}
-		p := query.Model()
 
 		page, err := h.uc.ListUsers(c.Request.Context(), p)
 		if err != nil {
-			if errors.Is(err, usecase.ErrInvalidArgument) {
-				h.log.Debug("invalid pagination", logger.Err(err))
-				responses.BadRequest(c, "invalid query params")
-				return
-			}
-			h.log.Error("error get users", logger.Err(err))
-			responses.Internal(c, "error get users")
+			listquery.Fail(c, h.log, err, "error get users")
 			return
 		}
 
-		responses.OKList(c, GetUsersResponse{
-			Users: NewPublicUsers(page.Items),
-		}, listquery.Meta(p, page.Total))
+		listquery.OK(c, GetUsersResponse{Users: NewPublicUsers(page.Items)}, p, page.Total)
 	}
 }

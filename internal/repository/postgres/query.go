@@ -87,7 +87,7 @@ func (q *listQuery) selectQuery() (string, []any, error) {
 
 // countQuery renders "SELECT COUNT(*)" over the same FROM/WHERE.
 func (q *listQuery) countQuery() (string, []any, error) {
-	return bind("SELECT COUNT(*) FROM "+q.from+q.where(), append([]any(nil), q.args...))
+	return bind("SELECT COUNT(*) FROM "+q.from+q.where(), q.args)
 }
 
 // bind expands slice arguments (sqlx.In) and rebinds "?" to "$n".
@@ -100,8 +100,9 @@ func bind(query string, args []any) (string, []any, error) {
 }
 
 // selectPage runs the item query and, when a window was requested, a
-// separate count over the same conditions. Without a window Total is simply
-// the number of rows returned.
+// separate count over the same conditions. The count is skipped when the
+// page itself proves the total: no window at all, or a non-empty page
+// shorter than the limit (the last one).
 func selectPage[T any](ctx context.Context, tr trmsqlx.Tr, q *listQuery) (models.Page[T], error) {
 	page := models.Page[T]{Items: []T{}}
 
@@ -113,8 +114,13 @@ func selectPage[T any](ctx context.Context, tr trmsqlx.Tr, q *listQuery) (models
 		return page, err
 	}
 
-	if q.page.Limit == 0 {
-		page.Total = len(page.Items)
+	n := len(page.Items)
+	switch {
+	case q.page.Limit == 0:
+		page.Total = n
+		return page, nil
+	case n < q.page.Limit && (n > 0 || q.page.Offset == 0):
+		page.Total = q.page.Offset + n
 		return page, nil
 	}
 

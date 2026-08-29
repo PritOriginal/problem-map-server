@@ -111,9 +111,7 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 func (h *handler) GetMarks() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req GetMarksRequest
-		if err := c.ShouldBindQuery(&req); err != nil {
-			h.log.Debug("failed parse query params", logger.Err(err))
-			responses.BadRequest(c, "invalid query params")
+		if !listquery.Bind(c, h.log, &req) {
 			return
 		}
 		filters, err := req.Filters()
@@ -125,19 +123,11 @@ func (h *handler) GetMarks() gin.HandlerFunc {
 
 		page, err := h.uc.ListMarks(c.Request.Context(), filters)
 		if err != nil {
-			if errors.Is(err, usecase.ErrInvalidArgument) {
-				h.log.Debug("invalid marks filters", logger.Err(err))
-				responses.BadRequest(c, "invalid query params")
-				return
-			}
-			h.log.Error("error get marks", logger.Err(err))
-			responses.Internal(c, "error get marks")
+			listquery.Fail(c, h.log, err, "error get marks")
 			return
 		}
 
-		responses.OKList(c, GetMarksResponse{
-			Marks: page.Items,
-		}, listquery.Meta(filters.Pagination, page.Total))
+		listquery.OK(c, GetMarksResponse{Marks: page.Items}, filters.Pagination, page.Total)
 	}
 }
 
@@ -161,9 +151,7 @@ func (h *handler) GetMarks() gin.HandlerFunc {
 func (h *handler) GetMarksNearby() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req GetMarksNearbyRequest
-		if err := c.ShouldBindQuery(&req); err != nil {
-			h.log.Debug("failed parse query params", logger.Err(err))
-			responses.BadRequest(c, "invalid query params")
+		if !listquery.Bind(c, h.log, &req) {
 			return
 		}
 		filters, err := req.Filters()
@@ -175,19 +163,11 @@ func (h *handler) GetMarksNearby() gin.HandlerFunc {
 
 		page, err := h.uc.GetMarksNearby(c.Request.Context(), filters)
 		if err != nil {
-			if errors.Is(err, usecase.ErrInvalidArgument) {
-				h.log.Debug("invalid nearby filters", logger.Err(err))
-				responses.BadRequest(c, "invalid query params")
-				return
-			}
-			h.log.Error("error get nearby marks", logger.Err(err))
-			responses.Internal(c, "error get nearby marks")
+			listquery.Fail(c, h.log, err, "error get nearby marks")
 			return
 		}
 
-		responses.OKList(c, GetMarksNearbyResponse{
-			Marks: page.Items,
-		}, listquery.Meta(filters.Pagination, page.Total))
+		listquery.OK(c, GetMarksNearbyResponse{Marks: page.Items}, filters.Pagination, page.Total)
 	}
 }
 
@@ -253,29 +233,18 @@ func (h *handler) GetMarksByUserId() gin.HandlerFunc {
 			return
 		}
 
-		var query listquery.Pagination
-		if err := c.ShouldBindQuery(&query); err != nil {
-			h.log.Debug("failed parse query params", logger.Err(err))
-			responses.BadRequest(c, "invalid query params")
+		p, ok := listquery.BindPagination(c, h.log)
+		if !ok {
 			return
 		}
-		p := query.Model()
 
 		page, err := h.uc.ListMarksByUserId(c.Request.Context(), userId, p)
 		if err != nil {
-			if errors.Is(err, usecase.ErrInvalidArgument) {
-				h.log.Debug("invalid pagination", logger.Err(err))
-				responses.BadRequest(c, "invalid query params")
-				return
-			}
-			h.log.Error("error get marks by user id", slog.Int("user_id", userId), logger.Err(err))
-			responses.Internal(c, "error get marks by user id")
+			listquery.Fail(c, h.log, err, "error get marks by user id", slog.Int("user_id", userId))
 			return
 		}
 
-		responses.OKList(c, GetMarksByUserIdResponse{
-			Marks: page.Items,
-		}, listquery.Meta(p, page.Total))
+		listquery.OK(c, GetMarksByUserIdResponse{Marks: page.Items}, p, page.Total)
 	}
 }
 

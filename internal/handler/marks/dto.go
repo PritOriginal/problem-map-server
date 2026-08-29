@@ -67,8 +67,8 @@ func (r GetMarksRequest) Filters() (models.GetMarksFilters, error) {
 			return models.GetMarksFilters{}, fmt.Errorf("created_to must be RFC3339")
 		}
 	}
-	if !filters.CreatedFrom.IsZero() && !filters.CreatedTo.IsZero() && filters.CreatedTo.Before(filters.CreatedFrom) {
-		return models.GetMarksFilters{}, fmt.Errorf("created_to is before created_from")
+	if err := filters.Validate(); err != nil {
+		return models.GetMarksFilters{}, err
 	}
 
 	return filters, nil
@@ -85,7 +85,7 @@ type GetMarksNearbyRequest struct {
 	listquery.Pagination
 	Lon *float64 `form:"lon" binding:"required,min=-180,max=180"`
 	Lat *float64 `form:"lat" binding:"required,min=-90,max=90"`
-	// Radius in meters, at most 50 km.
+	// Radius in meters, at most models.MaxNearbyRadiusM (50 km).
 	Radius        float64 `form:"radius" binding:"required,gt=0,max=50000"`
 	MarkTypeIds   string  `form:"mark_type_ids"`
 	MarkStatusIds string  `form:"mark_status_ids"`

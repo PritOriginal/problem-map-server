@@ -107,29 +107,18 @@ func (h *handler) GetChecksByMarkId() gin.HandlerFunc {
 			return
 		}
 
-		var query listquery.Pagination
-		if err := c.ShouldBindQuery(&query); err != nil {
-			h.log.Debug("failed parse query params", logger.Err(err))
-			responses.BadRequest(c, "invalid query params")
+		p, ok := listquery.BindPagination(c, h.log)
+		if !ok {
 			return
 		}
-		p := query.Model()
 
 		page, err := h.uc.ListChecksByMarkId(c.Request.Context(), markId, p)
 		if err != nil {
-			if errors.Is(err, usecase.ErrInvalidArgument) {
-				h.log.Debug("invalid pagination", logger.Err(err))
-				responses.BadRequest(c, "invalid query params")
-				return
-			}
-			h.log.Error("error get checks by mark id", logger.Err(err))
-			responses.Internal(c, "error get checks by mark id")
+			listquery.Fail(c, h.log, err, "error get checks by mark id")
 			return
 		}
 
-		responses.OKList(c, GetChecksByMarkIdResponse{
-			Checks: page.Items,
-		}, listquery.Meta(p, page.Total))
+		listquery.OK(c, GetChecksByMarkIdResponse{Checks: page.Items}, p, page.Total)
 	}
 }
 
@@ -189,29 +178,18 @@ func (h *handler) GetChecksByUserId() gin.HandlerFunc {
 			return
 		}
 
-		var query listquery.Pagination
-		if err := c.ShouldBindQuery(&query); err != nil {
-			h.log.Debug("failed parse query params", logger.Err(err))
-			responses.BadRequest(c, "invalid query params")
+		p, ok := listquery.BindPagination(c, h.log)
+		if !ok {
 			return
 		}
-		p := query.Model()
 
 		page, err := h.uc.ListChecksByUserId(c.Request.Context(), userId, p)
 		if err != nil {
-			if errors.Is(err, usecase.ErrInvalidArgument) {
-				h.log.Debug("invalid pagination", logger.Err(err))
-				responses.BadRequest(c, "invalid query params")
-				return
-			}
-			h.log.Error("error get checks by user id", logger.Err(err))
-			responses.Internal(c, "error get checks by user id")
+			listquery.Fail(c, h.log, err, "error get checks by user id")
 			return
 		}
 
-		responses.OKList(c, GetChecksByUserIdResponse{
-			Checks: page.Items,
-		}, listquery.Meta(p, page.Total))
+		listquery.OK(c, GetChecksByUserIdResponse{Checks: page.Items}, p, page.Total)
 	}
 }
 

@@ -23,8 +23,8 @@ var (
 
 // Pagination describes a limit/offset window over a list query.
 // The zero value means "no limit" and is what internal callers
-// (tasker, gRPC) use to fetch everything; REST handlers should call
-// WithDefaults so that the public API always paginates.
+// (tasker, gRPC) use to fetch everything; REST handlers always set a
+// limit (see handler/listquery) so that the public API paginates.
 type Pagination struct {
 	Limit  int
 	Offset int
@@ -34,25 +34,12 @@ type Pagination struct {
 // Limit 0 is allowed and means "not set".
 func (p Pagination) Validate() error {
 	if p.Limit < 0 || p.Limit > MaxLimit {
-		return fmt.Errorf("%w: limit must be between 1 and %d", ErrInvalidPagination, MaxLimit)
+		return fmt.Errorf("%w: limit must be at most %d", ErrInvalidPagination, MaxLimit)
 	}
 	if p.Offset < 0 {
 		return fmt.Errorf("%w: offset must be non-negative", ErrInvalidPagination)
 	}
 	return nil
-}
-
-// WithDefaults returns a copy with Limit set to DefaultLimit when unset.
-func (p Pagination) WithDefaults() Pagination {
-	if p.Limit == 0 {
-		p.Limit = DefaultLimit
-	}
-	return p
-}
-
-// IsZero reports whether no window was requested at all.
-func (p Pagination) IsZero() bool {
-	return p.Limit == 0 && p.Offset == 0
 }
 
 // Page is a window of items together with the total number of matching rows.
@@ -90,20 +77,31 @@ func ParseBBox(s string) (BBox, error) {
 	return b, nil
 }
 
+// ErrInvalidCoordinates is returned for a lon/lat pair outside WGS84 ranges.
+var ErrInvalidCoordinates = errors.New("invalid coordinates")
+
+// ValidateLonLat checks that a WGS84 pair is finite and in range. NaN and
+// Inf are rejected explicitly because NaN slips through range comparisons.
+func ValidateLonLat(lon, lat float64) error {
+	if math.IsNaN(lon) || math.IsInf(lon, 0) || math.IsNaN(lat) || math.IsInf(lat, 0) {
+		return fmt.Errorf("%w: coordinates must be finite numbers", ErrInvalidCoordinates)
+	}
+	if lon < -180 || lon > 180 {
+		return fmt.Errorf("%w: longitude must be between -180 and 180", ErrInvalidCoordinates)
+	}
+	if lat < -90 || lat > 90 {
+		return fmt.Errorf("%w: latitude must be between -90 and 90", ErrInvalidCoordinates)
+	}
+	return nil
+}
+
 // Validate checks coordinate ranges and that min < max on both axes.
-// NaN and Inf are rejected explicitly because they slip through ordinary
-// range comparisons.
 func (b BBox) Validate() error {
-	for _, v := range [...]float64{b.MinLon, b.MinLat, b.MaxLon, b.MaxLat} {
-		if math.IsNaN(v) || math.IsInf(v, 0) {
-			return fmt.Errorf("%w: coordinates must be finite numbers", ErrInvalidBBox)
-		}
+	if err := ValidateLonLat(b.MinLon, b.MinLat); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidBBox, err)
 	}
-	if b.MinLon < -180 || b.MinLon > 180 || b.MaxLon < -180 || b.MaxLon > 180 {
-		return fmt.Errorf("%w: longitude must be between -180 and 180", ErrInvalidBBox)
-	}
-	if b.MinLat < -90 || b.MinLat > 90 || b.MaxLat < -90 || b.MaxLat > 90 {
-		return fmt.Errorf("%w: latitude must be between -90 and 90", ErrInvalidBBox)
+	if err := ValidateLonLat(b.MaxLon, b.MaxLat); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidBBox, err)
 	}
 	if b.MinLon >= b.MaxLon || b.MinLat >= b.MaxLat {
 		return fmt.Errorf("%w: min must be less than max", ErrInvalidBBox)

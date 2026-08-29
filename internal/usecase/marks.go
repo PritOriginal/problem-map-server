@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
-	"math"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/avito-tech/go-transaction-manager/trm/v2"
@@ -59,7 +58,7 @@ func NewMarks(log *slog.Logger, trManager trm.Manager, repos MarksRepositories) 
 func (uc *Marks) ListMarks(ctx context.Context, filters models.GetMarksFilters) (models.Page[models.Mark], error) {
 	const op = "usecase.Marks.ListMarks"
 
-	if err := validateMarksFilters(filters); err != nil {
+	if err := filters.Validate(); err != nil {
 		return models.Page[models.Mark]{}, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
 	}
 
@@ -68,27 +67,6 @@ func (uc *Marks) ListMarks(ctx context.Context, filters models.GetMarksFilters) 
 		return page, fmt.Errorf("%s: %w", op, err)
 	}
 	return page, nil
-}
-
-func validateMarksFilters(filters models.GetMarksFilters) error {
-	if err := filters.Pagination.Validate(); err != nil {
-		return err
-	}
-	if err := filters.Sort.Validate(); err != nil {
-		return err
-	}
-	if err := filters.Order.Validate(); err != nil {
-		return err
-	}
-	if filters.BBox != nil {
-		if err := filters.BBox.Validate(); err != nil {
-			return err
-		}
-	}
-	if !filters.CreatedFrom.IsZero() && !filters.CreatedTo.IsZero() && filters.CreatedTo.Before(filters.CreatedFrom) {
-		return fmt.Errorf("created_to is before created_from")
-	}
-	return nil
 }
 
 // GetMarks returns every mark matching the filters without pagination.
@@ -105,23 +83,15 @@ func (uc *Marks) GetMarks(ctx context.Context, filters models.GetMarksFilters) (
 }
 
 // MaxNearbyRadiusM caps the radius accepted by GetMarksNearby (50 km).
-const MaxNearbyRadiusM = 50_000
+const MaxNearbyRadiusM = models.MaxNearbyRadiusM
 
 // GetMarksNearby returns marks within filters.RadiusM meters of the point,
 // nearest first, with the distance to each mark.
 func (uc *Marks) GetMarksNearby(ctx context.Context, filters models.GetMarksNearbyFilters) (models.Page[models.MarkWithDistance], error) {
 	const op = "usecase.Marks.GetMarksNearby"
 
-	if err := filters.Pagination.Validate(); err != nil {
+	if err := filters.Validate(); err != nil {
 		return models.Page[models.MarkWithDistance]{}, fmt.Errorf("%s: %w: %w", op, ErrInvalidArgument, err)
-	}
-	// NaN compares false against every bound, so it has to be rejected explicitly.
-	if math.IsNaN(filters.Lon) || math.IsNaN(filters.Lat) || math.IsNaN(filters.RadiusM) ||
-		filters.Lon < -180 || filters.Lon > 180 || filters.Lat < -90 || filters.Lat > 90 {
-		return models.Page[models.MarkWithDistance]{}, fmt.Errorf("%s: %w: invalid coordinates", op, ErrInvalidArgument)
-	}
-	if filters.RadiusM <= 0 || filters.RadiusM > MaxNearbyRadiusM {
-		return models.Page[models.MarkWithDistance]{}, fmt.Errorf("%s: %w: radius must be between 1 and %d meters", op, ErrInvalidArgument, MaxNearbyRadiusM)
 	}
 
 	page, err := uc.repos.Marks.GetMarksNearby(ctx, filters)

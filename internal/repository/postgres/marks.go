@@ -27,12 +27,20 @@ func NewMarks(db *sqlx.DB, c *trmsqlx.CtxGetter) *MarksRepository {
 
 const markColumns = "mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, user_id, created_at, updated_at"
 
-// marksOrderBy maps the public sort keys to ORDER BY clauses. mark_id is
+// marksSortColumns is the whitelist of sortable columns; the empty key is
+// the default. Only values from this map ever reach the ORDER BY clause.
+var marksSortColumns = map[models.MarksSort]string{
+	"":                        "created_at",
+	models.MarksSortCreatedAt: "created_at",
+	models.MarksSortUpdatedAt: "updated_at",
+}
+
+// marksOrderBy maps the public sort keys to an ORDER BY clause. mark_id is
 // always appended as a tie-breaker so that pagination is stable.
 func marksOrderBy(sort models.MarksSort, order models.SortOrder) string {
-	column := "created_at"
-	if sort == models.MarksSortUpdatedAt {
-		column = "updated_at"
+	column, ok := marksSortColumns[sort]
+	if !ok {
+		column = marksSortColumns[""]
 	}
 	dir := "DESC"
 	if order == models.SortAsc {

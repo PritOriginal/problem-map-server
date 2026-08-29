@@ -68,7 +68,7 @@ func (suite *MarksSuite) TestGetMarks() {
 		suite.Run(tt.name, func() {
 			// GetMarks must always ask the repository for the full set.
 			suite.marksRepo.On("GetMarks", mock.Anything, mock.MatchedBy(func(f models.GetMarksFilters) bool {
-				return f.Pagination.IsZero()
+				return f.Pagination == models.Pagination{}
 			})).Once().Return(tt.getMarks.data, tt.getMarks.err)
 
 			got, gotErr := suite.uc.GetMarks(context.Background(), models.GetMarksFilters{

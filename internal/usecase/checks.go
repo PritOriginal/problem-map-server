@@ -225,11 +225,18 @@ func (uc *Checks) ListChecksByUserId(ctx context.Context, userId int, p models.P
 		return page, fmt.Errorf("%s: %w", op, err)
 	}
 
+	// One storage listing per distinct mark instead of one per check.
+	photosByMark := map[int]map[int][]string{}
 	for i := range page.Items {
-		page.Items[i].Photos, err = uc.repos.Photos.GetPhotosByCheckId(ctx, page.Items[i].MarkID, page.Items[i].ID)
-		if err != nil {
-			return page, fmt.Errorf("%s: %w", op, err)
+		markId := page.Items[i].MarkID
+		if _, ok := photosByMark[markId]; !ok {
+			photosMap, err := uc.repos.Photos.GetPhotosByMarkId(ctx, markId)
+			if err != nil {
+				return page, fmt.Errorf("%s: %w", op, err)
+			}
+			photosByMark[markId] = photosMap[markId]
 		}
+		page.Items[i].Photos = photosByMark[markId][page.Items[i].ID]
 	}
 
 	return page, nil

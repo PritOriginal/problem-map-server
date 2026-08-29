@@ -10,8 +10,6 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
-	"github.com/PritOriginal/problem-map-server/internal/usecase"
-	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	jwt "github.com/appleboy/gin-jwt/v3"
@@ -62,37 +60,23 @@ func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddlew
 func (h *handler) GetTasks() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		var req GetTasksRequest
-		if err := c.ShouldBindQuery(&req); err != nil {
-			h.log.Debug("failed parse query params", logger.Err(err))
-			responses.BadRequest(c, "invalid query params")
+		if !listquery.Bind(c, h.log, &req) {
 			return
 		}
-		statuses, err := handlers.ParseIntArray(req.Statuses)
+		filters, err := req.Filters()
 		if err != nil {
-			h.log.Debug("failed parse statuses", logger.Err(err))
-			responses.BadRequest(c, "failed parse statuses")
-			return
-		}
-		p := req.Model()
-
-		page, err := h.uc.ListTasks(c.Request.Context(), models.GetTasksFilters{
-			Statuses:   statuses,
-			Pagination: p,
-		})
-		if err != nil {
-			if errors.Is(err, usecase.ErrInvalidArgument) {
-				h.log.Debug("invalid pagination", logger.Err(err))
-				responses.BadRequest(c, "invalid query params")
-				return
-			}
-			h.log.Error("error get tasks", logger.Err(err))
-			responses.Internal(c, "error get tasks")
+			h.log.Debug("failed parse filters", logger.Err(err))
+			responses.BadRequest(c, err.Error())
 			return
 		}
 
-		responses.OKList(c, GetTasksResponse{
-			Tasks: page.Items,
-		}, listquery.Meta(p, page.Total))
+		page, err := h.uc.ListTasks(c.Request.Context(), filters)
+		if err != nil {
+			listquery.Fail(c, h.log, err, "error get tasks")
+			return
+		}
+
+		listquery.OK(c, GetTasksResponse{Tasks: page.Items}, filters.Pagination, page.Total)
 	}
 }
 
@@ -159,37 +143,23 @@ func (h *handler) GetTasksByUserId() gin.HandlerFunc {
 		}
 
 		var req GetTasksRequest
-		if err := c.ShouldBindQuery(&req); err != nil {
-			h.log.Debug("failed parse query params", logger.Err(err))
-			responses.BadRequest(c, "invalid query params")
+		if !listquery.Bind(c, h.log, &req) {
 			return
 		}
-		statuses, err := handlers.ParseIntArray(req.Statuses)
+		filters, err := req.Filters()
 		if err != nil {
-			h.log.Debug("failed parse statuses", logger.Err(err))
-			responses.BadRequest(c, "failed parse statuses")
-			return
-		}
-		p := req.Model()
-
-		page, err := h.uc.ListTasksByUserId(c.Request.Context(), userId, models.GetTasksByUserIdFilters{
-			Statuses:   statuses,
-			Pagination: p,
-		})
-		if err != nil {
-			if errors.Is(err, usecase.ErrInvalidArgument) {
-				h.log.Debug("invalid pagination", logger.Err(err))
-				responses.BadRequest(c, "invalid query params")
-				return
-			}
-			h.log.Error("error get tasks by user id", slog.Int("user_id", userId), logger.Err(err))
-			responses.Internal(c, "error get tasks by user id")
+			h.log.Debug("failed parse filters", logger.Err(err))
+			responses.BadRequest(c, err.Error())
 			return
 		}
 
-		responses.OKList(c, GetTasksByUserIdResponse{
-			Tasks: page.Items,
-		}, listquery.Meta(p, page.Total))
+		page, err := h.uc.ListTasksByUserId(c.Request.Context(), userId, models.GetTasksByUserIdFilters(filters))
+		if err != nil {
+			listquery.Fail(c, h.log, err, "error get tasks by user id", slog.Int("user_id", userId))
+			return
+		}
+
+		listquery.OK(c, GetTasksByUserIdResponse{Tasks: page.Items}, filters.Pagination, page.Total)
 	}
 }
 
