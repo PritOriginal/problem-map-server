@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/PritOriginal/problem-map-server/pkg/logger"
+	"github.com/PritOriginal/problem-map-server/internal/auth"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
 	jwt "github.com/appleboy/gin-jwt/v3"
 	"github.com/gin-gonic/gin"
@@ -16,7 +16,8 @@ import (
 
 // VersionChecker returns the current auth version of a user. It is
 // implemented by the Redis repository (usecase.AuthVersionStore) and by
-// VersionCache.
+// VersionCache. It is the same contract as auth.VersionChecker, declared
+// here so that mockery generates a mock for this package.
 type VersionChecker interface {
 	AuthVersion(ctx context.Context, userID int) (int64, error)
 }
@@ -99,27 +100,20 @@ func NewJWT(log *slog.Logger, p JWTParams) (*jwt.GinJWTMiddleware, error) {
 }
 
 // checkToken inspects the verified claims and returns a rejection reason,
-// or "" when the token is acceptable.
+// or "" when the token is acceptable. The checks themselves live in
+// internal/auth and are shared with the gRPC interceptor.
 func checkToken(c *gin.Context, log *slog.Logger, versions *VersionCache) string {
 	claims, err := token.ParseClaims(jwt.ExtractClaims(c))
 	if err != nil {
 		return "invalid token"
 	}
-	if claims.Type != token.TypeAccess {
-		return "not an access token"
-	}
-	if versions == nil {
-		return ""
-	}
 
-	current, err := versions.AuthVersion(c.Request.Context(), claims.UserID)
-	if err != nil {
-		log.Warn("auth version store unavailable, failing open",
-			slog.Int("user_id", claims.UserID), logger.Err(err))
-		return ""
+	var checker auth.VersionChecker
+	if versions != nil {
+		checker = versions
 	}
-	if claims.Version != current {
-		return "token revoked"
+	if _, err := auth.Verify(c.Request.Context(), log, claims, checker); err != nil {
+		return err.Error()
 	}
 
 	return ""

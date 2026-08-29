@@ -7,11 +7,12 @@ import (
 	"log/slog"
 	"strings"
 
+	"github.com/PritOriginal/problem-map-server/internal/auth"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors"
-	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
+	grpcauth "github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/auth"
 	"github.com/grpc-ecosystem/go-grpc-middleware/v2/interceptors/selector"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -61,16 +62,22 @@ func RequireClaims(ctx context.Context) (Claims, error) {
 // Auth validates the "authorization: Bearer <jwt>" metadata with the given
 // signing key and stores the claims in the context. A request without the
 // header is passed through unauthenticated; a request with an invalid token
-// is rejected with codes.Unauthenticated regardless of the method. Use
-// RequireAuth / RequireRole to protect specific methods.
+// (bad signature, expired, not an access token, or revoked by a bumped auth
+// version) is rejected with codes.Unauthenticated regardless of the method.
+// Use RequireAuth / RequireRole to protect specific methods.
 type Auth struct {
-	log *slog.Logger
-	key string
+	log      *slog.Logger
+	key      string
+	versions auth.VersionChecker
 }
 
 // NewAuth creates the authentication interceptor with the JWT signing key.
-func NewAuth(log *slog.Logger, key string) *Auth {
-	return &Auth{log: log, key: key}
+// versions is compared with the "ver" claim of every token, exactly as the
+// REST middleware does (see auth.Verify); nil disables the check and a
+// lookup error fails open. Pass the middleware.VersionCache shared with
+// the usecases so that every request does not hit Redis.
+func NewAuth(log *slog.Logger, key string, versions auth.VersionChecker) *Auth {
+	return &Auth{log: log, key: key, versions: versions}
 }
 
 // AuthFunc is the go-grpc-middleware auth function: it parses the bearer
@@ -93,22 +100,24 @@ func (a *Auth) AuthFunc(ctx context.Context) (context.Context, error) {
 		a.log.Debug("invalid token", logger.Err(err))
 		return ctx, status.Error(codes.Unauthenticated, "invalid token")
 	}
-	if claims.Type != token.TypeAccess {
-		a.log.Debug("not an access token", slog.String("typ", claims.Type))
+
+	id, err := auth.Verify(ctx, a.log, claims, a.versions)
+	if err != nil {
+		a.log.Debug("token rejected", slog.Int("user_id", claims.UserID), logger.Err(err))
 		return ctx, status.Error(codes.Unauthenticated, "invalid token")
 	}
 
-	return ContextWithClaims(ctx, Claims{UserID: claims.UserID, Role: models.ParseRole(claims.Role)}), nil
+	return ContextWithClaims(ctx, Claims{UserID: id.UserID, Role: id.Role}), nil
 }
 
 // Unary returns the unary interceptor that authenticates every call.
 func (a *Auth) Unary() grpc.UnaryServerInterceptor {
-	return auth.UnaryServerInterceptor(a.AuthFunc)
+	return grpcauth.UnaryServerInterceptor(a.AuthFunc)
 }
 
 // Stream returns the stream interceptor that authenticates every call.
 func (a *Auth) Stream() grpc.StreamServerInterceptor {
-	return auth.StreamServerInterceptor(a.AuthFunc)
+	return grpcauth.StreamServerInterceptor(a.AuthFunc)
 }
 
 // MatchMethods returns a selector matcher for the given full method names

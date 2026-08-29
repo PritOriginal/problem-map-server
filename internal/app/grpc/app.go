@@ -20,9 +20,11 @@ import (
 	marksgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/marks"
 	tasksgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/tasks"
 	usersgrpc "github.com/PritOriginal/problem-map-server/internal/grpc/users"
+	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository/postgres"
+	"github.com/PritOriginal/problem-map-server/internal/repository/redis"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
 	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
@@ -79,7 +81,7 @@ type App struct {
 
 func New(log *slog.Logger, cfg *config.Config) *App {
 	// Clients are registered in dependency order; app.Closers closes them in
-	// reverse (nats -> s3 -> database).
+	// reverse (nats -> s3 -> redis -> database).
 	var closers app.Closers
 
 	postgresDB, err := postgres.New(cfg.DB)
@@ -90,6 +92,22 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	log.Info("PostgreSQL connected!")
 	closers.Add("database", postgresDB)
 	trManager := manager.Must(trmsqlx.NewDefaultFactory(postgresDB.DB))
+
+	// Redis is optional, as in the REST app: the auth-version check fails
+	// open without it (a revoked access token is then accepted until exp).
+	// The client reconnects on its own; the health service reports the
+	// outage without taking the server out of rotation.
+	redisClient, err := redis.New(cfg.Redis)
+	if err != nil {
+		log.Warn("failed connection to redis, continuing without it", slogger.Err(err))
+	} else {
+		log.Info("Redis connected!")
+	}
+	closers.Add("redis", redisClient)
+
+	// Same cache of auth versions as the REST app, so that every call does
+	// not hit Redis and a bump is picked up within the cache TTL.
+	authVersions := middleware.NewVersionCache(redisClient, 0)
 
 	loggingOpts := []logging.Option{
 		logging.WithLogOnEvents(logging.FinishCall),
@@ -118,7 +136,7 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 	// Bearer tokens are parsed on every call; only the listed methods require
 	// them (see protectedMethods / moderationMethods).
-	authInterceptor := grpcauth.NewAuth(log, cfg.Auth.JWT.Access.Key)
+	authInterceptor := grpcauth.NewAuth(log, cfg.Auth.JWT.Access.Key, authVersions)
 
 	gRPCServer := grpc.NewServer(
 		grpc.ConnectionTimeout(cfg.GRPC.ConnectionTimeout),
@@ -175,6 +193,9 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 
 	healthUseCase := usecase.NewHealth(log, cfg.Health, usecase.HealthDependencies{
 		Required: map[string]usecase.Pinger{"postgres": postgresDB},
+		// The auth-version check fails open without Redis, so its loss is
+		// reported but does not flip the health status.
+		Optional: map[string]usecase.Pinger{"redis": redisClient},
 	})
 	// Start NOT_SERVING: the first dependency check in watchHealth flips the
 	// status, so a probe that lands before it never sees a false SERVING.

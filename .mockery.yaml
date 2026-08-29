@@ -22,6 +22,10 @@ packages:
     config:
       all: true
       recursive: true
+  github.com/PritOriginal/problem-map-server/internal/auth:
+    config:
+      all: true
+      filename: "mocks.go"
   github.com/PritOriginal/problem-map-server/internal/middleware:
     config:
       all: true

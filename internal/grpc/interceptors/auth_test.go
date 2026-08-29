@@ -2,14 +2,17 @@ package interceptors_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	pb "github.com/PritOriginal/problem-map-protos/gen/go"
+	"github.com/PritOriginal/problem-map-server/internal/auth"
 	"github.com/PritOriginal/problem-map-server/internal/grpc/interceptors"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -25,7 +28,7 @@ type AuthSuite struct {
 }
 
 func (suite *AuthSuite) SetupSuite() {
-	suite.auth = interceptors.NewAuth(slogdiscard.NewDiscardLogger(), testKey)
+	suite.auth = interceptors.NewAuth(slogdiscard.NewDiscardLogger(), testKey, nil)
 }
 
 func TestAuth(t *testing.T) {
@@ -119,6 +122,60 @@ func (suite *AuthSuite) TestAuthFunc() {
 		})
 	}
 }
+
+// TestAuthFuncVersions covers the "ver" check against the version store,
+// which the gRPC interceptor shares with the REST middleware.
+func (suite *AuthSuite) TestAuthFuncVersions() {
+	errStore := errors.New("redis down")
+
+	issue := func(typ string, version int64) string {
+		tok, err := token.Create(token.Params{
+			TTL: time.Minute, UserID: 7, Role: string(models.RoleAdmin), Type: typ, Version: version, ID: "jti",
+		}, testKey)
+		suite.Require().NoError(err)
+		return tok
+	}
+
+	tests := []struct {
+		name       string
+		token      string
+		version    *int64
+		versionErr error
+		wantCode   codes.Code
+	}{
+		{name: "VersionMatches", token: issue(token.TypeAccess, 2), version: ptr(int64(2)), wantCode: codes.OK},
+		{name: "VersionZeroNoEntry", token: issue(token.TypeAccess, 0), version: ptr(int64(0)), wantCode: codes.OK},
+		{name: "VersionBehind", token: issue(token.TypeAccess, 1), version: ptr(int64(2)), wantCode: codes.Unauthenticated},
+		{name: "VersionAhead", token: issue(token.TypeAccess, 3), version: ptr(int64(2)), wantCode: codes.Unauthenticated},
+		{name: "StoreUnavailableFailsOpen", token: issue(token.TypeAccess, 1), versionErr: errStore, wantCode: codes.OK},
+		{name: "RefreshTokenNotLookedUp", token: issue(token.TypeRefresh, 2), wantCode: codes.Unauthenticated},
+		{name: "LegacyNoTypeNotLookedUp", token: issue("", 2), wantCode: codes.Unauthenticated},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			versions := auth.NewMockVersionChecker(suite.T())
+			if tt.version != nil || tt.versionErr != nil {
+				var v int64
+				if tt.version != nil {
+					v = *tt.version
+				}
+				versions.On("AuthVersion", mock.Anything, 7).Once().Return(v, tt.versionErr)
+			}
+			a := interceptors.NewAuth(slogdiscard.NewDiscardLogger(), testKey, versions)
+
+			ctx, err := a.AuthFunc(ctxWithAuthorization("Bearer " + tt.token))
+			suite.Equal(tt.wantCode, status.Code(err))
+			if tt.wantCode != codes.OK {
+				return
+			}
+			claims, ok := interceptors.ClaimsFromContext(ctx)
+			suite.True(ok)
+			suite.Equal(interceptors.Claims{UserID: 7, Role: models.RoleAdmin}, claims)
+		})
+	}
+}
+
+func ptr[T any](v T) *T { return &v }
 
 func okHandler(_ context.Context, _ any) (any, error) { return "ok", nil }
 
