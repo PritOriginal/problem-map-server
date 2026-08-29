@@ -88,7 +88,26 @@ func (s *PostgresSuite) TestChecks_AddCheck_UnknownHistoryItem() {
 	})
 	s.Require().Error(err)
 	s.NotErrorIs(err, repository.ErrExists)
+	s.ErrorIs(err, repository.ErrInvalidReference)
 	s.ErrorContains(err, "fk_checks_mark_status_history")
+}
+
+// A check pointing at a missing user or mark is a client error (invalid
+// reference), not a storage failure.
+func (s *PostgresSuite) TestChecks_AddCheck_UnknownReference() {
+	tests := []struct {
+		name  string
+		check models.Check
+	}{
+		{name: "unknown user", check: models.Check{UserID: 999, MarkID: fxMarkNear, MarkStatusId: models.UnconfirmedStatus, MarkStatusHistoryItemId: 1}},
+		{name: "unknown mark", check: models.Check{UserID: fxUserAlice, MarkID: 999, MarkStatusId: models.UnconfirmedStatus, MarkStatusHistoryItemId: 1}},
+	}
+	for _, tt := range tests {
+		s.Run(tt.name, func() {
+			_, err := s.checks.AddCheck(s.ctx, tt.check)
+			s.ErrorIs(err, repository.ErrInvalidReference)
+		})
+	}
 }
 
 func (s *PostgresSuite) TestChecks_GetCheckById() {

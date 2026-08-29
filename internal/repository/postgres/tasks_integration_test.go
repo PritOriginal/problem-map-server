@@ -147,15 +147,15 @@ func (s *PostgresSuite) TestTasks_AddTask() {
 		wantErr bool
 	}{
 		{name: "task gets default unfulfilled status", task: models.Task{Name: "Сходить", UserID: fxUserBob, MarkID: fxMarkNear}},
-		{name: "unknown user violates foreign key", task: models.Task{Name: "x", UserID: 999, MarkID: fxMarkNear}, wantErr: true},
-		{name: "unknown mark violates foreign key", task: models.Task{Name: "x", UserID: fxUserBob, MarkID: 999}, wantErr: true},
+		{name: "unknown user is an invalid reference", task: models.Task{Name: "x", UserID: 999, MarkID: fxMarkNear}, wantErr: true},
+		{name: "unknown mark is an invalid reference", task: models.Task{Name: "x", UserID: fxUserBob, MarkID: 999}, wantErr: true},
 	}
 
 	for _, tt := range tests {
 		s.Run(tt.name, func() {
 			id, err := s.tasks.AddTask(s.ctx, tt.task)
 			if tt.wantErr {
-				s.Error(err)
+				s.ErrorIs(err, repository.ErrInvalidReference)
 				return
 			}
 			s.Require().NoError(err)

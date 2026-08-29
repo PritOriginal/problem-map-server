@@ -194,6 +194,14 @@ func (suite *TasksSuite) TestAddTask() {
 				err:  repository.ErrExists,
 			},
 		},
+		{
+			// Unknown user_id/mark_id is a client error (400), not a 500.
+			name: "ErrInvalidArgumentUnknownReference",
+			addTask: method[int64]{
+				data: int64(0),
+				err:  repository.ErrInvalidReference,
+			},
+		},
 	}
 
 	for _, tt := range tests {

@@ -251,6 +251,24 @@ func (suite *ChecksSuite) TestAddCheck() {
 			wantErr: usecase.ErrConflict,
 		},
 		{
+			// A missing user/mark surfaces as a foreign-key violation and must
+			// be reported as a client error, not a 500.
+			name: "ErrInvalidArgumentUnknownReference",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					NewMarkStatusID: models.UnconfirmedStatus,
+				},
+				err: nil,
+			},
+			getUserMarkCheck: method[models.Check]{
+				err: repository.ErrNotFound,
+			},
+			addCheck: method[int64]{
+				err: repository.ErrInvalidReference,
+			},
+			wantErr: usecase.ErrInvalidArgument,
+		},
+		{
 			name: "ErrAddCheck",
 			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
 				data: models.MarkStatusHistoryItem{

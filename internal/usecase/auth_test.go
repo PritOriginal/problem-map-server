@@ -44,6 +44,8 @@ func assertRepoErr(s *suite.Suite, got error, repoErrs ...error) {
 			s.ErrorIs(got, usecase.ErrNotFound)
 		case errors.Is(repoErr, repository.ErrExists):
 			s.ErrorIs(got, usecase.ErrConflict)
+		case errors.Is(repoErr, repository.ErrInvalidReference):
+			s.ErrorIs(got, usecase.ErrInvalidArgument)
 		default:
 			s.ErrorIs(got, repoErr)
 		}

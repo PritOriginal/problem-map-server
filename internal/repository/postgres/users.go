@@ -2,8 +2,6 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
@@ -39,12 +37,7 @@ func (r *UsersRepository) GetUserById(ctx context.Context, id int) (models.User,
 			`
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &user, query, id); err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return user, repository.ErrNotFound
-		default:
-			return user, fmt.Errorf("%s: %w", op, err)
-		}
+		return user, wrapPgError(op, err)
 	}
 
 	return user, nil
@@ -66,12 +59,7 @@ func (r *UsersRepository) GetUserByLogin(ctx context.Context, username string) (
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &user, query, username); err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return user, repository.ErrNotFound
-		default:
-			return user, fmt.Errorf("%s: %w", op, err)
-		}
+		return user, wrapPgError(op, err)
 	}
 	return user, nil
 
@@ -111,7 +99,7 @@ func (r *UsersRepository) AddUser(ctx context.Context, user models.User) (int64,
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &id, query, user.Name, user.Login, user.PasswordHash, user.HomePoint, user.Role); err != nil {
-		return 0, fmt.Errorf("%s: %w", op, wrapUniqueViolation(err))
+		return 0, wrapPgError(op, err)
 	}
 
 	return id, nil
@@ -188,12 +176,7 @@ func (r *UsersRepository) AddRatingEvent(ctx context.Context, event models.Ratin
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &id, query, event.UserID, event.Delta, event.Reason, event.MarkID, event.CheckID); err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return 0, repository.ErrNotFound
-		default:
-			return 0, fmt.Errorf("%s: %w", op, err)
-		}
+		return 0, wrapPgError(op, err)
 	}
 
 	return id, nil
@@ -265,12 +248,7 @@ func (r *UsersRepository) GetUserStats(ctx context.Context, userId int) (models.
 		models.ConfirmedStatus, models.UnderReviewStatus, models.RediscoveredStatus, models.ClosedStatus,
 		models.RefutedStatus, models.RatingReasonCheckCorrect, models.CompletedStatus,
 	); err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return stats, repository.ErrNotFound
-		default:
-			return stats, fmt.Errorf("%s: %w", op, err)
-		}
+		return stats, wrapPgError(op, err)
 	}
 
 	return stats, nil

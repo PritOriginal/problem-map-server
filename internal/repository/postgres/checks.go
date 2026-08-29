@@ -2,13 +2,10 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/repository"
 	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/jmoiron/sqlx"
 )
@@ -42,7 +39,7 @@ func (r *ChecksRepository) AddCheck(ctx context.Context, check models.Check) (in
 	if err := tr.GetContext(ctx, &id, query,
 		check.UserID, check.MarkID, check.MarkStatusId, check.MarkStatusHistoryItemId, check.Comment, check.Result,
 	); err != nil {
-		return 0, fmt.Errorf("%s: %w", op, wrapUniqueViolation(err))
+		return 0, wrapPgError(op, err)
 	}
 
 	return id, nil
@@ -65,12 +62,7 @@ func (r *ChecksRepository) GetCheckById(ctx context.Context, id int) (models.Che
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &check, query, id); err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return check, repository.ErrNotFound
-		default:
-			return check, fmt.Errorf("%s: %w", op, err)
-		}
+		return check, wrapPgError(op, err)
 	}
 
 	return check, nil
@@ -239,12 +231,7 @@ func (r *ChecksRepository) GetUserMarkCheck(ctx context.Context, userId int, mar
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &check, query, markStatusHistoryId, userId); err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return check, repository.ErrNotFound
-		default:
-			return check, fmt.Errorf("%s: %w", op, err)
-		}
+		return check, wrapPgError(op, err)
 	}
 
 	return check, nil

@@ -2,13 +2,10 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/repository"
 	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/jmoiron/sqlx"
 )
@@ -55,12 +52,7 @@ func (r *TasksRepository) GetTaskById(ctx context.Context, id int) (models.Task,
 	query := "SELECT * FROM tasks WHERE task_id = $1"
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &task, query, id); err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return task, repository.ErrNotFound
-		default:
-			return task, fmt.Errorf("%s: %w", op, err)
-		}
+		return task, wrapPgError(op, err)
 	}
 
 	return task, nil
@@ -103,12 +95,7 @@ func (r *TasksRepository) GetTaskByUserIdAndMarkId(ctx context.Context, userId i
 			`
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &task, query, userId, markId, statusId); err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return task, repository.ErrNotFound
-		default:
-			return task, fmt.Errorf("%s: %w", op, err)
-		}
+		return task, wrapPgError(op, err)
 	}
 
 	return task, nil
@@ -128,7 +115,7 @@ func (r *TasksRepository) AddTask(ctx context.Context, task models.Task) (int64,
 			`
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &id, query, task.Name, task.UserID, task.MarkID, task.DueAt); err != nil {
-		return 0, fmt.Errorf("%s: %w", op, wrapUniqueViolation(err))
+		return 0, wrapPgError(op, err)
 	}
 
 	return id, nil

@@ -2,8 +2,6 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
-	"errors"
 	"fmt"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
@@ -136,12 +134,7 @@ func (r *MarksRepository) GetMarkById(ctx context.Context, id int) (models.Mark,
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &mark, query, args...); err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return mark, repository.ErrNotFound
-		default:
-			return mark, fmt.Errorf("%s: %w", op, err)
-		}
+		return mark, wrapPgError(op, err)
 	}
 
 	return mark, nil
@@ -241,10 +234,8 @@ func (r *MarksRepository) UpdateMark(ctx context.Context, markId int, upd models
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	res, err := tr.ExecContext(ctx, query, markId, upd.Description, upd.MarkTypeID)
 	if err != nil {
-		if isForeignKeyViolation(err) {
-			return fmt.Errorf("%s: %w: unknown mark type", op, repository.ErrInvalidReference)
-		}
-		return fmt.Errorf("%s: %w", op, err)
+		// The only foreign key touched here is the mark type.
+		return wrapPgError(op, err)
 	}
 	if n, err := res.RowsAffected(); err == nil && n == 0 {
 		return repository.ErrNotFound
@@ -383,12 +374,7 @@ func (r *MarksRepository) LockMark(ctx context.Context, markId int) error {
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &id, "SELECT mark_id FROM marks WHERE mark_id = $1 FOR UPDATE", markId); err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return repository.ErrNotFound
-		default:
-			return fmt.Errorf("%s: %w", op, err)
-		}
+		return wrapPgError(op, err)
 	}
 
 	return nil
@@ -448,12 +434,7 @@ func (r *MarksRepository) GetLastMarkStatusHistoryItemWithStatus(ctx context.Con
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &historyItem, query, markId, newMarkStatusId); err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return historyItem, repository.ErrNotFound
-		default:
-			return historyItem, fmt.Errorf("%s: %w", op, err)
-		}
+		return historyItem, wrapPgError(op, err)
 	}
 
 	return historyItem, nil
@@ -478,12 +459,7 @@ func (r *MarksRepository) GetLastMarkStatusHistoryItem(ctx context.Context, mark
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &historyItem, query, markId); err != nil {
-		switch {
-		case errors.Is(err, sql.ErrNoRows):
-			return historyItem, repository.ErrNotFound
-		default:
-			return historyItem, fmt.Errorf("%s: %w", op, err)
-		}
+		return historyItem, wrapPgError(op, err)
 	}
 
 	return historyItem, nil
