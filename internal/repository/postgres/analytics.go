@@ -31,7 +31,8 @@ func NewAnalytics(db *sqlx.DB, c *trmsqlx.CtxGetter) *AnalyticsRepository {
 // analytics are computed over; args are appended and placeholders numbered
 // from the current length of args.
 func markConds(args *[]any, boundaryID, markTypeID int, r models.DateRange) []string {
-	conds := []string{"TRUE"}
+	// Hidden marks (spam under moderation) never enter public statistics.
+	conds := []string{"NOT m.hidden"}
 	if boundaryID > 0 {
 		*args = append(*args, boundaryID)
 		conds = append(conds, fmt.Sprintf(

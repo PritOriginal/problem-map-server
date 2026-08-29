@@ -133,3 +133,9 @@ webhooks:
   retry-interval: 30s
   retry-batch: 100
   allow-private-urls: false
+# Жалобы пользователей (модерация).
+reports:
+  # Сколько открытых жалоб на метку скрывают её автоматически.
+  hide-threshold: 5
+  # Лимит жалоб на пользователя за скользящие 24 часа.
+  max-per-day: 20

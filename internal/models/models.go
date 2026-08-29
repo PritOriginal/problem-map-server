@@ -121,6 +121,20 @@ type Mark struct {
 	// CommentsCount is the number of comments on the mark that are not
 	// deleted.
 	CommentsCount int `json:"comments_count" db:"comments_count"`
+
+	// Hidden marks are excluded from public lists, maps and exports; only
+	// the author and moderators see them (auto-hidden after
+	// reports.hide-threshold open reports, or by a moderator).
+	Hidden bool `json:"hidden" db:"hidden"`
+	// MergedIntoID is the mark this one was merged into as a duplicate
+	// (status DuplicateStatus); null otherwise.
+	MergedIntoID null.Int `json:"merged_into_id" db:"merged_into_id" swaggertype:"integer"`
+}
+
+// VisibleTo reports whether the viewer may see the mark: every mark that is
+// not hidden, and a hidden one only for its author and moderators.
+func (m Mark) VisibleTo(actor Actor) bool {
+	return !m.Hidden || actor.IsModerator() || (actor.UserID != 0 && actor.UserID == m.UserID)
 }
 
 // MarkUpdate lists the mark fields a client may change; nil means "keep".
@@ -386,6 +400,9 @@ const (
 	// InProgressStatus — «В работе»: the assigned organization started
 	// resolving the mark (Confirmed -> InProgress -> UnderReview).
 	InProgressStatus
+	// DuplicateStatus — «Дубликат»: the mark was merged into another one
+	// (Mark.MergedIntoID); terminal.
+	DuplicateStatus
 )
 
 // MarkStatus is a dictionary entry: Code is the stable machine-readable

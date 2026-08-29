@@ -162,6 +162,32 @@ func (r *TasksRepository) UpdateTaskStatus(ctx context.Context, taskId int, task
 	return nil
 }
 
+// MoveOpenTasks moves the issued tasks of the mark to target (a merge of
+// duplicates). A task whose user already holds an issued task on the
+// target, or who is the author of the target, is deleted instead. Call it
+// inside a transaction.
+func (r *TasksRepository) MoveOpenTasks(ctx context.Context, markId, targetId int) error {
+	const op = "storage.postgres.MoveOpenTasks"
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if _, err := tr.ExecContext(ctx, `
+		DELETE FROM tasks t
+		WHERE t.mark_id = $1 AND t.status_id = $3
+			AND (
+				EXISTS (SELECT 1 FROM tasks t2 WHERE t2.mark_id = $2 AND t2.user_id = t.user_id AND t2.status_id = $3)
+				OR EXISTS (SELECT 1 FROM marks m WHERE m.mark_id = $2 AND m.user_id = t.user_id)
+			)`, markId, targetId, models.UnfulfilledStatus); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	if _, err := tr.ExecContext(ctx, `
+		UPDATE tasks SET mark_id = $2, updated_at = NOW()
+		WHERE mark_id = $1 AND status_id = $3`, markId, targetId, models.UnfulfilledStatus); err != nil {
+		return wrapPgError(op, err)
+	}
+
+	return nil
+}
+
 // ExpireOverdueTasks moves every issued task whose due_at is before now to
 // OverdueStatus in a single UPDATE and returns the number of affected rows.
 func (r *TasksRepository) ExpireOverdueTasks(ctx context.Context, now time.Time) (int64, error) {

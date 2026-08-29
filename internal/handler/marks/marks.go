@@ -37,6 +37,8 @@ type Marks interface {
 	GetMarkTypes(ctx context.Context, lang models.Lang) ([]models.MarkType, error)
 	GetMarkStatuses(ctx context.Context, lang models.Lang) ([]models.MarkStatus, error)
 	GetMarkStatusHistoryByMarkId(ctx context.Context, markId int, withChecks bool) ([]models.MarkStatusHistoryItem, error)
+	SetHidden(ctx context.Context, actor models.Actor, markId int, hidden bool) (models.Mark, error)
+	MergeInto(ctx context.Context, actor models.Actor, markId, targetId int) (models.Mark, error)
 }
 
 type StatusUpdater interface {
@@ -123,6 +125,8 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 			{
 				moderation.POST("confirm", handler.Confirm())
 				moderation.POST("reject", handler.Reject())
+				moderation.PATCH("hidden", handler.SetHidden())
+				moderation.POST("merge-into/:targetId", handler.MergeInto())
 			}
 		}
 		marks.GET("user/:userId", handler.GetMarksByUserId())
@@ -163,9 +167,10 @@ func (h *handler) actorFromClaims(c *gin.Context) (models.Actor, bool) {
 }
 
 // viewerContext returns the request context with the authenticated user as
-// the viewer, so marks returned from mutations carry is_following.
+// the viewer, so marks returned from mutations carry is_following and
+// hidden marks stay visible to their author and to moderators.
 func viewerContext(c *gin.Context, userId int) context.Context {
-	return models.ContextWithViewer(c.Request.Context(), userId)
+	return models.ContextWithActor(c.Request.Context(), models.Actor{UserID: userId, Role: middleware.RoleFromClaims(c)})
 }
 
 // GetMarks lists markers matching the filters, paginated
@@ -784,7 +789,7 @@ func (h *handler) GetMarkStatuses() gin.HandlerFunc {
 // GetMarkStatusHistoryByMarkId displays the entire list of status changes history
 //
 //	@Summary		List mark statuses
-//	@Description	displays the entire list of status changes history for a specific marker by markId
+//	@Description	displays the entire list of status changes history for a specific marker by markId; a hidden mark is 404 for everybody but its author and moderators
 //	@Tags			marks
 //	@Security		ApiKeyAuth
 //	@Security		BearerAuth
@@ -794,6 +799,7 @@ func (h *handler) GetMarkStatuses() gin.HandlerFunc {
 //	@Param			withChecks	query		boolean	false	"with checks"
 //	@Success		200			{object}	responses.Response[marksrest.GetMarkStatusHistoryByMarkIdResponse]
 //	@Failure		400			{object}	responses.Response[any]
+//	@Failure		404			{object}	responses.Response[any]
 //	@Failure		500			{object}	responses.Response[any]
 //	@Router			/marks/{id}/status-history [get]
 func (h *handler) GetMarkStatusHistoryByMarkId() gin.HandlerFunc {
@@ -902,5 +908,101 @@ func (h *handler) Reject() gin.HandlerFunc {
 		responses.OK(c, RejectResponse{
 			NewMarkStausId: newStatus,
 		})
+	}
+}
+
+// SetHidden hides a mark from public lists or shows it again
+//
+//	@Summary		Hide or show mark
+//	@Description	`{"hidden": true}` hides the mark from public lists, maps, heatmap and export (only the author and moderators still see it; `GET /marks/{id}` is 404 for everybody else), `{"hidden": false}` shows it again. Hiding notifies the author and the moderators (`mark.hidden`)
+//	@Tags			moderation
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id		path		int							true	"mark id"
+//	@Param			request	body		marksrest.SetHiddenRequest	true	"visibility"
+//	@Success		200		{object}	responses.Response[marksrest.UpdateMarkResponse]
+//	@Failure		400		{object}	responses.Response[any]
+//	@Failure		401		{object}	responses.Response[any]
+//	@Failure		403		{object}	responses.Response[any]
+//	@Failure		404		{object}	responses.Response[any]
+//	@Failure		500		{object}	responses.Response[any]
+//	@Router			/marks/{id}/hidden [patch]
+func (h *handler) SetHidden() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "marksrest.SetHidden"
+
+		id, err := handlers.ParamInt(c, "id")
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		var req SetHiddenRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			h.log.Debug("failed binding request", logger.Err(err))
+			responses.BadRequest(c, "invalid request")
+			return
+		}
+
+		actor, ok := h.actorFromClaims(c)
+		if !ok {
+			return
+		}
+
+		mark, err := h.uc.SetHidden(viewerContext(c, actor.UserID), actor, id, *req.Hidden)
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		responses.OK(c, UpdateMarkResponse{Mark: mark})
+	}
+}
+
+// MergeInto merges a duplicate mark into another one
+//
+//	@Summary		Merge mark into another
+//	@Description	merge the mark `id` into `targetId` as a duplicate: both must be different active marks. The followers, the issued tasks and the reports of `id` move to the target (a user already following / assigned to / having reported the target keeps one row); `id` gets the status «Дубликат» (8) and `merged_into_id`. The author and the followers of `id` are notified (`mark.merged`). Candidates come from `GET /marks/similar`
+//	@Tags			moderation
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			id			path		int	true	"mark id (the duplicate)"
+//	@Param			targetId	path		int	true	"mark id to merge into"
+//	@Success		200			{object}	responses.Response[marksrest.MergeIntoResponse]
+//	@Failure		400			{object}	responses.Response[any]
+//	@Failure		401			{object}	responses.Response[any]
+//	@Failure		403			{object}	responses.Response[any]
+//	@Failure		404			{object}	responses.Response[any]
+//	@Failure		409			{object}	responses.Response[any]	"one of the marks is not active"
+//	@Failure		500			{object}	responses.Response[any]
+//	@Router			/marks/{id}/merge-into/{targetId} [post]
+func (h *handler) MergeInto() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "marksrest.MergeInto"
+
+		id, err := handlers.ParamInt(c, "id")
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+		targetId, err := handlers.ParamInt(c, "targetId")
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		actor, ok := h.actorFromClaims(c)
+		if !ok {
+			return
+		}
+
+		mark, err := h.uc.MergeInto(viewerContext(c, actor.UserID), actor, id, targetId)
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		responses.OK(c, MergeIntoResponse{Mark: mark, MergedIntoId: targetId})
 	}
 }

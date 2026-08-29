@@ -33,6 +33,8 @@ const (
 	SubjectCommentAdded  = "mark.comment_added"
 	SubjectTaskCompleted = "task.completed"
 	SubjectBadgeEarned   = "badge.earned"
+	SubjectMarkHidden    = "mark.hidden"
+	SubjectMarkMerged    = "mark.merged"
 )
 
 // Publisher sends a domain event to the broker. Implementations must be
@@ -261,6 +263,63 @@ func NewBadgeEarned(userID int, badgeCode string) BadgeEarned {
 		Header:    Header{Version: SchemaVersion, EventID: id.String()},
 		UserID:    userID,
 		BadgeCode: badgeCode,
+	}
+}
+
+// MarkHidden is published after a mark was hidden from public lists:
+// automatically when the open reports on it reached the threshold
+// (ReportsCount > 0) or by a moderator (ModeratorID > 0).
+type MarkHidden struct {
+	Header
+	MarkID int `json:"mark_id"`
+	// AuthorID is the user who created the mark.
+	AuthorID int `json:"author_id"`
+	// ReportsCount is the number of open reports that triggered the
+	// auto-hide; 0 for a moderator's decision.
+	ReportsCount int `json:"reports_count"`
+	// ModeratorID is the moderator who hid the mark; 0 for an auto-hide.
+	ModeratorID int `json:"moderator_id"`
+}
+
+func (MarkHidden) Subject() string { return SubjectMarkHidden }
+
+// NewMarkHidden builds the event with a fresh EventID.
+func NewMarkHidden(markID, authorID, reportsCount, moderatorID int) MarkHidden {
+	return MarkHidden{
+		Header:       newHeader(),
+		MarkID:       markID,
+		AuthorID:     authorID,
+		ReportsCount: reportsCount,
+		ModeratorID:  moderatorID,
+	}
+}
+
+// MarkMerged is published after a mark was merged into another one as a
+// duplicate. FollowerIDs are the users who followed the source mark before
+// the merge (their subscriptions were moved to the target).
+type MarkMerged struct {
+	Header
+	MarkID       int   `json:"mark_id"`
+	TargetMarkID int   `json:"target_mark_id"`
+	AuthorID     int   `json:"author_id"`
+	ModeratorID  int   `json:"moderator_id"`
+	FollowerIDs  []int `json:"follower_ids"`
+}
+
+func (MarkMerged) Subject() string { return SubjectMarkMerged }
+
+// NewMarkMerged builds the event with a fresh EventID.
+func NewMarkMerged(markID, targetMarkID, authorID, moderatorID int, followerIDs []int) MarkMerged {
+	if followerIDs == nil {
+		followerIDs = []int{}
+	}
+	return MarkMerged{
+		Header:       newHeader(),
+		MarkID:       markID,
+		TargetMarkID: targetMarkID,
+		AuthorID:     authorID,
+		ModeratorID:  moderatorID,
+		FollowerIDs:  followerIDs,
 	}
 }
 

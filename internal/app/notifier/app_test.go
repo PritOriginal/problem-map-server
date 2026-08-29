@@ -23,7 +23,19 @@ type recordingHandlers struct {
 	assigned      []events.MarkAssigned
 	slaBreached   []events.MarkSLABreached
 	commentAdded  []events.CommentAdded
+	hidden        []events.MarkHidden
+	merged        []events.MarkMerged
 	err           error
+}
+
+func (h *recordingHandlers) HandleMarkHidden(_ context.Context, ev events.MarkHidden) error {
+	h.hidden = append(h.hidden, ev)
+	return h.err
+}
+
+func (h *recordingHandlers) HandleMarkMerged(_ context.Context, ev events.MarkMerged) error {
+	h.merged = append(h.merged, ev)
+	return h.err
 }
 
 func (h *recordingHandlers) HandleMarkAssigned(_ context.Context, ev events.MarkAssigned) error {
@@ -182,6 +194,6 @@ func (suite *RouterSuite) TestSubjects() {
 	suite.ElementsMatch([]string{
 		events.SubjectMarkStatusChanged, events.SubjectTaskAssigned, events.SubjectCheckAdded,
 		events.SubjectMarkAssigned, events.SubjectMarkSLABreached, events.SubjectCommentAdded,
-		events.SubjectTaskCompleted,
+		events.SubjectTaskCompleted, events.SubjectMarkHidden, events.SubjectMarkMerged,
 	}, router.Subjects())
 }

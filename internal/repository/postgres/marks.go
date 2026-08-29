@@ -29,10 +29,26 @@ func NewMarks(db *sqlx.DB, c *trmsqlx.CtxGetter) *MarksRepository {
 // bound through listQuery.ColumnArgs or numbered explicitly in raw queries.
 var markColumns = "marks.mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, marks.user_id, marks.created_at, marks.updated_at, " +
 	"marks.organization_id, marks.sla_due_at, " + overdueColumn + ", " +
-	commentsCountColumn + ", " + followerColumns
+	commentsCountColumn + ", marks.hidden, marks.merged_into_id, " + followerColumns
 
 // commentsCountColumn counts the comments of the mark that are not deleted.
 const commentsCountColumn = "(SELECT COUNT(*) FROM mark_comments mc WHERE mc.mark_id = marks.mark_id AND mc.deleted_at IS NULL)::int AS comments_count"
+
+// markBriefColumns are the columns of models.MarkBrief.
+const markBriefColumns = "marks.mark_id, description, ST_AsEWKB(geom) AS geom, type_mark_id, mark_status_id, marks.user_id, marks.hidden, marks.created_at"
+
+// visibleMarks restricts a query over marks to the ones the viewer (see
+// models.ActorFromContext) may see: hidden marks are shown only to their
+// author and to moderators. It is applied to every public list; single-row
+// reads (GetMarkById) are unfiltered because the use cases need the raw
+// row, and the visibility check is done there (models.Mark.VisibleTo).
+func visibleMarks(ctx context.Context, q *listQuery) {
+	actor := models.ActorFromContext(ctx)
+	if actor.IsModerator() {
+		return
+	}
+	q.Where("(NOT marks.hidden OR marks.user_id = ?)", actor.UserID)
+}
 
 // overdueColumn computes is_overdue: the SLA deadline has passed while the
 // mark is still waiting for the organization (see models.SLAStatuses). It
@@ -140,6 +156,7 @@ func marksListQuery(ctx context.Context, filters models.GetMarksFilters) *listQu
 		OrderBy(marksOrderBy(filters.Sort, filters.Order)).
 		Paginate(filters.Pagination)
 	q.ColumnArgs(models.ViewerFromContext(ctx))
+	visibleMarks(ctx, q)
 
 	if len(filters.IDs) > 0 {
 		q.Where("mark_id IN (?)", filters.IDs)
@@ -183,6 +200,7 @@ func (r *MarksRepository) GetMarksNearby(ctx context.Context, filters models.Get
 		OrderBy("distance_m ASC, mark_id ASC").
 		Paginate(filters.Pagination)
 	q.ColumnArgs(models.ViewerFromContext(ctx), filters.Lon, filters.Lat)
+	visibleMarks(ctx, q)
 
 	q.Where("ST_DWithin(geom::geography, "+point+", ?)", filters.Lon, filters.Lat, filters.RadiusM)
 	if len(filters.MarkStatusIds) > 0 {
@@ -227,6 +245,7 @@ func (r *MarksRepository) GetMarksByUserId(ctx context.Context, userId int, p mo
 		OrderBy(marksOrderBy(models.MarksSortCreatedAt, models.SortDesc)).
 		Paginate(p)
 	q.ColumnArgs(models.ViewerFromContext(ctx))
+	visibleMarks(ctx, q)
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	page, err := selectPage[models.Mark](ctx, tr, q)
@@ -273,6 +292,7 @@ func (r *MarksRepository) GetSimilarMarks(ctx context.Context, filters models.Ge
 		OrderBy("distance_m ASC, mark_id ASC").
 		Paginate(models.Pagination{Limit: similarMarksLimit})
 	q.ColumnArgs(models.ViewerFromContext(ctx), filters.Lon, filters.Lat)
+	visibleMarks(ctx, q)
 
 	q.Where("ST_DWithin(geom::geography, "+point+", ?)", filters.Lon, filters.Lat, filters.RadiusM)
 	q.Where("type_mark_id = ?", filters.MarkTypeID)
@@ -445,6 +465,7 @@ func (r *MarksRepository) GetFollowedMarks(ctx context.Context, userId int, p mo
 		OrderBy("mf.created_at DESC, marks.mark_id DESC").
 		Paginate(p)
 	q.ColumnArgs(models.ViewerFromContext(ctx))
+	visibleMarks(ctx, q)
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	page, err := selectPage[models.Mark](ctx, tr, q)
@@ -739,7 +760,7 @@ func (r *MarksRepository) GetDistancesFromMarkToPoint(ctx context.Context, filte
 		JOIN
 			users u ON ST_DWithin(m.geom::geography, u.home_point::geography, $2)
 		WHERE
-			m.mark_status_id = ANY($1)
+			m.mark_status_id = ANY($1) AND NOT m.hidden
 		`
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
@@ -748,4 +769,89 @@ func (r *MarksRepository) GetDistancesFromMarkToPoint(ctx context.Context, filte
 	}
 
 	return distances, nil
+}
+
+// SetMarkHidden shows or hides the mark (repository.ErrNotFound when it
+// does not exist).
+func (r *MarksRepository) SetMarkHidden(ctx context.Context, markId int, hidden bool) error {
+	const op = "storage.postgres.SetMarkHidden"
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	res, err := tr.ExecContext(ctx, "UPDATE marks SET hidden = $2, updated_at = NOW() WHERE mark_id = $1", markId, hidden)
+	if err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return repository.ErrNotFound
+	}
+
+	return nil
+}
+
+// MergeMark marks the mark as a duplicate of target: the status becomes
+// DuplicateStatus (the trigger records it in the history) and
+// merged_into_id points at the target.
+func (r *MarksRepository) MergeMark(ctx context.Context, markId, targetId int) error {
+	const op = "storage.postgres.MergeMark"
+
+	query := "UPDATE marks SET mark_status_id = $3, merged_into_id = $2, updated_at = NOW() WHERE mark_id = $1"
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	res, err := tr.ExecContext(ctx, query, markId, targetId, models.DuplicateStatus)
+	if err != nil {
+		return wrapPgError(op, err)
+	}
+	if n, err := res.RowsAffected(); err == nil && n == 0 {
+		return repository.ErrNotFound
+	}
+
+	return nil
+}
+
+// MoveFollowers moves the followers of the mark to target: a user already
+// following the target keeps a single subscription. Call it inside a
+// transaction.
+func (r *MarksRepository) MoveFollowers(ctx context.Context, markId, targetId int) error {
+	const op = "storage.postgres.MoveFollowers"
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if _, err := tr.ExecContext(ctx, `
+		INSERT INTO mark_followers (user_id, mark_id, created_at)
+		SELECT user_id, $2, created_at FROM mark_followers WHERE mark_id = $1
+		ON CONFLICT DO NOTHING`, markId, targetId); err != nil {
+		return wrapPgError(op, err)
+	}
+	if _, err := tr.ExecContext(ctx, "DELETE FROM mark_followers WHERE mark_id = $1", markId); err != nil {
+		return fmt.Errorf("%s: %w", op, err)
+	}
+
+	return nil
+}
+
+// GetMarkBriefs returns the short form of the marks with the given ids
+// (missing ids are absent from the map). It is unfiltered by visibility:
+// only moderators read it (the moderation queue).
+func (r *MarksRepository) GetMarkBriefs(ctx context.Context, ids []int) (map[int]models.MarkBrief, error) {
+	const op = "storage.postgres.GetMarkBriefs"
+
+	briefs := map[int]models.MarkBrief{}
+	if len(ids) == 0 {
+		return briefs, nil
+	}
+
+	query, args, err := bind("SELECT "+markBriefColumns+" FROM marks WHERE marks.mark_id IN (?)", []any{ids})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	var rows []models.MarkBrief
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &rows, query, args...); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+	for _, m := range rows {
+		briefs[m.ID] = m
+	}
+
+	return briefs, nil
 }

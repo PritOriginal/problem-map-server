@@ -20,6 +20,12 @@ const (
 	// author of the parent comment (for a reply) and the followers of the
 	// mark when a comment is posted.
 	NotificationCommentAdded NotificationType = "comment_added"
+	// NotificationMarkHidden tells the author and the moderators that a
+	// mark was hidden (by reports or by a moderator).
+	NotificationMarkHidden NotificationType = "mark.hidden"
+	// NotificationMarkMerged tells the author and the followers that a mark
+	// was merged into another one as a duplicate.
+	NotificationMarkMerged NotificationType = "mark.merged"
 	// NotificationWebhookDisabled tells the owner that a webhook was
 	// deactivated after repeated delivery failures.
 	NotificationWebhookDisabled NotificationType = "webhook.disabled"

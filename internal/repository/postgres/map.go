@@ -66,7 +66,7 @@ func (r *MapRepository) GetAdminBoundariesMarksCount(ctx context.Context, filter
 	// Conditions on marks live in the LEFT JOIN ... ON clause so that
 	// boundaries without matching marks are kept (with zero counts);
 	// conditions on the boundaries themselves live in WHERE.
-	joinConditions := []string{"ST_Contains(b.geom, m.geom)"}
+	joinConditions := []string{"ST_Contains(b.geom, m.geom)", "NOT m.hidden"}
 	whereConditions := []string{"TRUE"}
 
 	if len(filters.AdminLevels) > 0 {
@@ -134,7 +134,7 @@ func (r *MapRepository) GetHeatmap(ctx context.Context, filters models.HeatmapFi
 
 	b := filters.BBox
 	args := []any{b.MinLon, b.MinLat, b.MaxLon, b.MaxLat, filters.CellSize3857()}
-	conds := []string{"ST_Intersects(m.geom, ST_MakeEnvelope($1, $2, $3, $4, 4326))"}
+	conds := []string{"ST_Intersects(m.geom, ST_MakeEnvelope($1, $2, $3, $4, 4326))", "NOT m.hidden"}
 
 	if len(filters.MarkTypeIds) > 0 {
 		args = append(args, pq.Array(filters.MarkTypeIds))

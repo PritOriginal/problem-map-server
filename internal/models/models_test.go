@@ -32,7 +32,7 @@ func TestMark_UnmarshalJSON(t *testing.T) {
 }
 
 func TestMark_MarshalJSON(t *testing.T) {
-	expectedMarkJSON := []byte(`{"mark_id":1,"description":"Свалка","geom":{"type":"Point","coordinates":[41.402893,52.700111]},"mark_type_id":1,"mark_status_id":1,"user_id":1,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z","followers_count":0,"is_following":false,"organization_id":null,"sla_due_at":null,"is_overdue":false,"comments_count":0}`)
+	expectedMarkJSON := []byte(`{"mark_id":1,"description":"Свалка","geom":{"type":"Point","coordinates":[41.402893,52.700111]},"mark_type_id":1,"mark_status_id":1,"user_id":1,"created_at":"2025-01-01T00:00:00Z","updated_at":"2025-01-01T00:00:00Z","followers_count":0,"is_following":false,"organization_id":null,"sla_due_at":null,"is_overdue":false,"comments_count":0,"hidden":false,"merged_into_id":null}`)
 
 	mark := Mark{
 		ID:           1,

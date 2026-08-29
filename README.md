@@ -497,6 +497,48 @@ error, `readyz` показывает `redis: error`), клиент перепо�
 - `GET /leaderboard?limit=&offset=` — `{user_id, username, rating}` по убыванию рейтинга;
 - `GET /users/{id}/rating-events?limit=&offset=` — журнал начислений (владельцу и модератору).
 
+## Модерация: жалобы, скрытие и слияние дублей
+
+Миграция `000039_add_reports_and_merge`: таблица `reports`, колонки
+`marks.hidden` и `marks.merged_into_id`, статус метки `8 — «Дубликат»`
+(`code: duplicate`, `models.DuplicateStatus`).
+
+Конфиг (`reports`):
+
+| Ключ | Env | Default | Смысл |
+|---|---|---|---|
+| `hide-threshold` | `REPORTS_HIDE_THRESHOLD` | `5` | сколько **открытых** жалоб на метку скрывают её автоматически |
+| `max-per-day` | `REPORTS_MAX_PER_DAY` | `20` | лимит жалоб на пользователя за скользящие 24 часа (`429`) |
+
+| Метод | Путь | Кто | Что делает |
+|---|---|---|---|
+| `POST` | `/reports` | JWT | `{target_type: mark\|check\|comment, target_id, reason: spam\|offensive\|wrong_place\|duplicate\|other, comment?}` → `201`. Метка/проверка должна существовать (`404`) и не быть своей (`403`); комментарий принимается по `target_id > 0` без проверки существования (таблица комментариев живёт в другой ветке). Повторная жалоба на тот же объект — `409`, превышение суточного лимита — `429` |
+| `GET` | `/moderation/queue?status=open&target_type=&limit&offset` | moderator/admin | очередь жалоб (по умолчанию открытые, старые первыми) с `target`: для метки — краткая метка `target.mark` (в том числе скрытая) |
+| `PATCH` | `/moderation/reports/{id}` | moderator/admin | `{status: resolved\|dismissed}`; уже решённая жалоба — `409` |
+| `GET` | `/moderation/reports/mine?limit&offset` | JWT | свои жалобы |
+| `PATCH` | `/marks/{id}/hidden` | moderator/admin | `{hidden: bool}` — скрыть/показать метку вручную |
+| `POST` | `/marks/{id}/merge-into/{targetId}` | moderator/admin | слить дубль `id` в `targetId` (см. ниже) |
+
+**Скрытые метки.** Когда число открытых жалоб на метку достигает
+`hide-threshold` (или модератор вызвал `PATCH /marks/{id}/hidden`), у метки
+выставляется `hidden = true` и публикуется событие `mark.hidden`; `cmd/notifier`
+уведомляет автора и всех модераторов (`users.role in (moderator, admin)`).
+Скрытая метка исключается из всех публичных выборок — `GET /marks`,
+`/marks/nearby`, `/marks/similar`, `/marks/user/{id}`, `/users/me/following`,
+`/marks/export`, тепловой карты, счётчиков по границам, аналитики и выдачи
+заданий tasker'ом; `GET /marks/{id}` для всех, кроме автора и модераторов,
+отвечает `404`. Автор и модераторы видят её везде (`hidden: true` в ответе).
+
+**Слияние дублей.** `POST /marks/{id}/merge-into/{targetId}` (обе метки
+активны и различны, иначе `409`/`400`) в одной транзакции переносит на
+`targetId` подписки (`mark_followers`, без дублей), выданные задания
+(`tasks` со статусом «Выдано»; задание удаляется, если у пользователя уже есть
+выданное задание на целевую метку или он её автор) и жалобы (одна жалоба на
+пользователя); исходная метка получает статус «Дубликат» и `merged_into_id`.
+После коммита публикуется `mark.merged`, уведомляются автор и подписчики
+исходной метки. Кандидаты для слияния — `GET /marks/similar`. События
+`mark.hidden` и `mark.merged` доступны и вебхукам.
+
 ## Часовые пояса
 
 Все временные метки (`created_at`, `updated_at`, `changed_at`, `due_at`, …) хранятся в PostgreSQL как `TIMESTAMPTZ`, то есть как момент времени, а не как «настенные» часы. Миграция `000036_timestamptz` переводит старые колонки `TIMESTAMP` в `TIMESTAMPTZ`, интерпретируя прежние значения как UTC (`USING col AT TIME ZONE 'UTC'`) — сами моменты при этом не сдвигаются.

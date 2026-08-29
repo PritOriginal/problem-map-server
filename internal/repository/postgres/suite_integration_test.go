@@ -71,6 +71,7 @@ type PostgresSuite struct {
 	comments      *postgres.CommentsRepository
 	achievements  *postgres.AchievementsRepository
 	settings      *postgres.SettingsRepository
+	reports       *postgres.ReportsRepository
 
 	// seedNow anchors the backdated timestamps of the fixtures (UTC, whole
 	// seconds) so tests can compute expected periods and durations exactly.
@@ -125,6 +126,7 @@ func (s *PostgresSuite) SetupSuite() {
 	s.organizations = postgres.NewOrganizations(db, getter)
 	s.achievements = postgres.NewAchievements(db, getter)
 	s.settings = postgres.NewSettings(db, getter)
+	s.reports = postgres.NewReports(db, getter)
 }
 
 func (s *PostgresSuite) TearDownSuite() {
@@ -159,7 +161,7 @@ func (s *PostgresSuite) truncate() {
 		TRUNCATE TABLE
 			settings_history, settings,
 			organization_responsibilities, organization_members, organizations,
-			webhook_deliveries, webhooks, api_keys, notifications, user_devices, mark_comments, user_badges,
+			reports, webhook_deliveries, webhooks, api_keys, notifications, user_devices, mark_comments, user_badges,
 			rating_events, checks, tasks, mark_status_history, mark_followers, mark_tombstones, marks, users, admin_boundaries, types_marks,
 			districts, cities, regions
 		RESTART IDENTITY CASCADE

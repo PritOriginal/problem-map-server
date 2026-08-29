@@ -136,6 +136,29 @@ func (r *UsersRepository) CountByRole(ctx context.Context, role models.Role) (in
 	return n, nil
 }
 
+// GetUserIDsByRole returns the ids of the users with any of the roles
+// (for notifications to moderators).
+func (r *UsersRepository) GetUserIDsByRole(ctx context.Context, roles ...models.Role) ([]int, error) {
+	const op = "storage.postgres.GetUserIDsByRole"
+
+	ids := []int{}
+	if len(roles) == 0 {
+		return ids, nil
+	}
+
+	query, args, err := bind("SELECT user_id FROM users WHERE role IN (?) ORDER BY user_id", []any{roles})
+	if err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.SelectContext(ctx, &ids, query, args...); err != nil {
+		return nil, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return ids, nil
+}
+
 // updateUser runs an UPDATE that must touch exactly one user and reports
 // repository.ErrNotFound when no row matched.
 func (r *UsersRepository) updateUser(ctx context.Context, op, query string, args ...any) error {

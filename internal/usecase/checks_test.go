@@ -623,6 +623,7 @@ func (suite *ChecksSuite) TestGetChecksByMarkId() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			func() {
+				suite.marksRepo.On("GetMarkById", mock.Anything, 1).Once().Return(models.Mark{ID: 1}, nil)
 				suite.checksRepo.On("GetChecksByMarkId", mock.Anything, mock.AnythingOfType("int"), models.Pagination{Limit: 10}).Once().
 					Return(models.Page[models.Check]{Items: tt.getChecksByMarkId.data, Total: len(tt.getChecksByMarkId.data)}, tt.getChecksByMarkId.err)
 				if tt.getChecksByMarkId.err != nil {
@@ -1390,4 +1391,22 @@ func (suite *MarkStatusUpdaterSuite) TestReject() {
 			suite.marksRepo.AssertExpectations(suite.T())
 		})
 	}
+}
+
+// TestListChecksByMarkId_Hidden: the checks of a hidden mark are ErrNotFound
+// for a stranger and readable by a moderator.
+func (suite *ChecksSuite) TestListChecksByMarkId_Hidden() {
+	hidden := models.Mark{ID: 1, UserID: 3, Hidden: true}
+	p := models.Pagination{Limit: 10}
+
+	suite.marksRepo.On("GetMarkById", mock.Anything, 1).Once().Return(hidden, nil)
+	_, err := suite.uc.ListChecksByMarkId(models.ContextWithViewer(context.Background(), 7), 1, p)
+	suite.ErrorIs(err, usecase.ErrNotFound)
+	suite.checksRepo.AssertNotCalled(suite.T(), "GetChecksByMarkId", mock.Anything, mock.Anything, mock.Anything)
+
+	suite.marksRepo.On("GetMarkById", mock.Anything, 1).Once().Return(hidden, nil)
+	suite.checksRepo.On("GetChecksByMarkId", mock.Anything, 1, p).Once().Return(models.Page[models.Check]{}, nil)
+	suite.photosRepo.On("GetPhotosByMarkId", mock.Anything, 1).Once().Return(map[int]map[int][]string{}, nil)
+	_, err = suite.uc.ListChecksByMarkId(models.ContextWithActor(context.Background(), models.Actor{UserID: 2, Role: models.RoleModerator}), 1, p)
+	suite.NoError(err)
 }

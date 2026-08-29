@@ -54,6 +54,9 @@ import (
 //	@tag.name			admin
 //	@tag.description	Runtime settings and dictionaries (admin only)
 
+//	@tag.name			moderation
+//	@tag.description	User reports and the moderation queue
+
 func main() {
 	os.Exit(run())
 }

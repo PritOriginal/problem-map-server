@@ -89,6 +89,7 @@ func KnownWebhookEvents() []string {
 	return []string{
 		events.SubjectMarkStatusChanged, events.SubjectTaskAssigned, events.SubjectTaskCompleted,
 		events.SubjectCheckAdded, events.SubjectBadgeEarned, events.SubjectCommentAdded,
+		events.SubjectMarkHidden, events.SubjectMarkMerged,
 	}
 }
 
