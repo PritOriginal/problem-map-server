@@ -223,7 +223,18 @@ definitions:
     - InProgressStatus
   github_com_PritOriginal_problem-map-server_internal_models.MarkType:
     properties:
+      active:
+        description: |-
+          Active reports whether new marks of the type may be created; inactive
+          types are hidden from the public dictionary.
+        type: boolean
       code:
+        type: string
+      color:
+        description: Color is a hex colour like "#ff8800" (optional).
+        type: string
+      icon:
+        description: Icon is a client-side icon identifier (optional).
         type: string
       id:
         type: integer
@@ -237,6 +248,9 @@ definitions:
       sla_hours:
         description: SLAHours is the time an organization has to resolve a mark of
           the type.
+        type: integer
+      sort_order:
+        description: SortOrder orders the dictionary (ascending, then by name).
         type: integer
     type: object
   github_com_PritOriginal_problem-map-server_internal_models.MarkWithDistance:
@@ -470,6 +484,21 @@ definitions:
     - RoleModerator
     - RoleAdmin
     - RoleService
+  github_com_PritOriginal_problem-map-server_internal_models.SettingChange:
+    properties:
+      id:
+        type: integer
+      key:
+        type: string
+      new:
+        type: object
+      old:
+        type: object
+      updated_at:
+        type: string
+      updated_by:
+        type: integer
+    type: object
   github_com_PritOriginal_problem-map-server_internal_models.Task:
     properties:
       created_at:
@@ -633,6 +662,54 @@ definitions:
     additionalProperties:
       type: string
     type: object
+  github_com_PritOriginal_problem-map-server_internal_usecase.RatingSettings:
+    properties:
+      check_correct:
+        type: integer
+      check_wrong:
+        type: integer
+      mark_confirmed:
+        type: integer
+      mark_refuted:
+        type: integer
+      task_completed:
+        type: integer
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_usecase.RuntimeSettings:
+    properties:
+      dedup_radius_m:
+        description: |-
+          DedupRadiusM is the radius (meters) within which an active mark of the
+          same type is treated as a duplicate on POST /marks.
+        type: integer
+      max_checks_per_day:
+        description: MaxChecksPerDay caps the checks a user may submit in a rolling
+          24 hours.
+        type: integer
+      rating:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.RatingSettings'
+      tasker:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.TaskerSettings'
+      vote_threshold:
+        description: |-
+          VoteThreshold is the vote score (confirming minus refuting checks) at
+          which a voting stage resolves (see Updater.Update).
+        type: integer
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_usecase.TaskerSettings:
+    properties:
+      max_radius_meters:
+        type: integer
+      max_tasks_per_user:
+        type: integer
+      required_checks:
+        type: integer
+      target_probability:
+        type: number
+      task_ttl_hours:
+        description: TaskTTLHours is how long an issued task stays valid (hours).
+        type: integer
+    type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo:
     properties:
       message:
@@ -676,6 +753,50 @@ definitions:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.HealthReport'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_MarkTypeResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_admin.MarkTypeResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_MarkTypesResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_admin.MarkTypesResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_SettingsHistoryResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_admin.SettingsHistoryResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_SettingsResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_admin.SettingsResponse'
       success:
         type: boolean
     type: object
@@ -1350,6 +1471,89 @@ definitions:
       success:
         type: boolean
     type: object
+  internal_handler_admin.CreateMarkTypeRequest:
+    properties:
+      code:
+        maxLength: 40
+        type: string
+      color:
+        description: Color is a hex colour like "#ff8800".
+        type: string
+      icon:
+        description: Icon is a client-side icon identifier.
+        maxLength: 64
+        type: string
+      name_en:
+        maxLength: 40
+        type: string
+      name_ru:
+        maxLength: 40
+        type: string
+      sla_hours:
+        minimum: 1
+        type: integer
+    required:
+    - code
+    - name_ru
+    - sla_hours
+    type: object
+  internal_handler_admin.MarkTypeResponse:
+    properties:
+      mark_type:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkType'
+    type: object
+  internal_handler_admin.MarkTypesResponse:
+    properties:
+      mark_types:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkType'
+        type: array
+    type: object
+  internal_handler_admin.SettingsHistoryResponse:
+    properties:
+      changes:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.SettingChange'
+        type: array
+    type: object
+  internal_handler_admin.SettingsResponse:
+    properties:
+      settings:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.RuntimeSettings'
+    type: object
+  internal_handler_admin.UpdateMarkTypeRequest:
+    properties:
+      active:
+        type: boolean
+      code:
+        maxLength: 40
+        type: string
+      color:
+        maxLength: 7
+        type: string
+      icon:
+        maxLength: 64
+        type: string
+      name_en:
+        maxLength: 40
+        type: string
+      name_ru:
+        maxLength: 40
+        type: string
+      sla_hours:
+        minimum: 1
+        type: integer
+      sort_order:
+        minimum: 0
+        type: integer
+    type: object
+  internal_handler_admin.UpdateSettingsRequest:
+    properties:
+      settings:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.RuntimeSettings'
+    required:
+    - settings
+    type: object
   internal_handler_analytics.GetTimeseriesResponse:
     properties:
       timeseries:
@@ -2014,6 +2218,242 @@ info:
   title: Problem Map API
   version: "1.0"
 paths:
+  /admin/mark-types:
+    get:
+      description: all mark types, inactive ones included, sorted by sort_order and
+        name
+      parameters:
+      - description: ru (default) or en
+        in: header
+        name: Accept-Language
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_MarkTypesResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: List mark types (admin)
+      tags:
+      - admin
+    post:
+      consumes:
+      - application/json
+      description: adds a mark type with its Russian and optional English name; 409
+        when the code is taken
+      parameters:
+      - description: mark type
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_admin.CreateMarkTypeRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_MarkTypeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Create mark type
+      tags:
+      - admin
+  /admin/mark-types/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: changes the given fields of a mark type (names, icon, color, SLA,
+        active, sort_order); omitted fields stay unchanged
+      parameters:
+      - description: mark type id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: fields to change
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_admin.UpdateMarkTypeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_MarkTypeResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Update mark type
+      tags:
+      - admin
+  /admin/settings:
+    get:
+      description: current values of the admin-editable settings (database, or the
+        config defaults until the first PUT)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_SettingsResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Get runtime settings
+      tags:
+      - admin
+    put:
+      consumes:
+      - application/json
+      description: stores the full settings document (every field is required) after
+        range validation; the change is applied within 30 s on every instance
+      parameters:
+      - description: settings
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_admin.UpdateSettingsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_SettingsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Update runtime settings
+      tags:
+      - admin
+  /admin/settings/history:
+    get:
+      description: latest changes of the runtime settings, newest first
+      parameters:
+      - default: 20
+        description: page size (1..100)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_admin_SettingsHistoryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Settings change history
+      tags:
+      - admin
   /analytics/kpi:
     get:
       description: Totals, per-status counts, confirmation/closing durations (hours,
@@ -5062,3 +5502,5 @@ tags:
   name: users
 - description: User notifications and push devices
   name: notifications
+- description: Runtime settings and dictionaries (admin only)
+  name: admin

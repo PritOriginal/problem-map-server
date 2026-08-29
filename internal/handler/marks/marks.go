@@ -42,6 +42,13 @@ type StatusUpdater interface {
 	Reject(ctx context.Context, markId int) (models.MarkStatusType, error)
 }
 
+// Route paths, exported so that the wiring can build the cache key prefix
+// of the dictionary responses invalidated by the admin endpoints.
+const (
+	Path      = "/marks"
+	TypesPath = "types"
+)
+
 type handler struct {
 	log           *slog.Logger
 	uc            Marks
@@ -70,7 +77,7 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 
 	// The viewer is recorded for every marks route so that is_following is
 	// filled in for authenticated readers; anonymous requests still pass.
-	marks := r.Group("/marks", middleware.OptionalAuth(params.AuthMiddleware))
+	marks := r.Group(Path, middleware.OptionalAuth(params.AuthMiddleware))
 	{
 		marks.GET("", handler.GetMarks())
 		marks.GET("nearby", handler.GetMarksNearby())
@@ -108,7 +115,7 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 		cache := marks.Group("")
 		cache.Use(mwcache.New(params.Cacher, 24*time.Hour))
 		{
-			cache.GET("types", handler.GetMarkTypes())
+			cache.GET(TypesPath, handler.GetMarkTypes())
 			cache.GET("statuses", handler.GetMarkStatuses())
 		}
 	}

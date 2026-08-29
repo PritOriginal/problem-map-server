@@ -40,6 +40,9 @@ import (
 //	@tag.name			notifications
 //	@tag.description	User notifications and push devices
 
+//	@tag.name			admin
+//	@tag.description	Runtime settings and dictionaries (admin only)
+
 func main() {
 	os.Exit(run())
 }

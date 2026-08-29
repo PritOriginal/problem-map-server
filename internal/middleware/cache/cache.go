@@ -62,6 +62,13 @@ func Key(method, url string, lang models.Lang) string {
 	return fmt.Sprintf("http:%s:%s:%s", method, url, lang)
 }
 
+// Prefix is the common prefix of the keys of every cached response of the
+// route (any query string, any language); it is what an invalidation
+// (e.g. usecase.DictionaryCache.DeleteByPrefix) matches on.
+func Prefix(method, path string) string {
+	return fmt.Sprintf("http:%s:%s", method, path)
+}
+
 type bodyLogWriter struct {
 	gin.ResponseWriter
 	body   *bytes.Buffer
