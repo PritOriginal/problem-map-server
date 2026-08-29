@@ -140,6 +140,8 @@ make docker-grpc
 
 1. `ExpireOverdue` — все задания в статусе «Выдано» с истёкшим `due_at`
    переводятся в «Просрочено» одним `UPDATE`;
+   тем же прогоном `SLA.ExpireOverdue` публикует `mark.sla_breached` для
+   меток служб с истёкшим `sla_due_at` (см. «Городские службы и SLA»);
 2. `Update` — для меток в статусах «Неподтверждённая» / «На проверке»
    подбираются исполнители и новые задания записываются одной транзакцией
    с `due_at = now + tasker.task-ttl`.
@@ -291,6 +293,47 @@ Redis недоступен:
 - `GET /users/{id}/stats`, `GET /users/me/stats` — `{rating, marks_total, marks_confirmed, marks_refuted, checks_total, checks_correct, tasks_completed}`;
 - `GET /leaderboard?limit=&offset=` — `{user_id, username, rating}` по убыванию рейтинга;
 - `GET /users/{id}/rating-events?limit=&offset=` — журнал начислений (владельцу и модератору).
+
+### Городские службы и SLA
+
+Организации (`organizations`) — исполнители: службы, которые устраняют
+подтверждённые проблемы. У организации есть участники
+(`organization_members`, у пользователя роль `service`) и зоны
+ответственности (`organization_responsibilities`: тип метки + граница
+`admin_boundaries`).
+
+Жизненный цикл метки со службой:
+
+1. При переходе в «Подтверждённая» (голосование или `POST /marks/{id}/confirm`)
+   в той же транзакции ищется организация по `mark_type_id` и
+   `ST_Contains(boundary.geom, mark.geom)`; при нескольких совпадениях
+   побеждает самая локальная граница (наибольший `admin_level`). Метке
+   проставляются `organization_id` и `sla_due_at = now + types_marks.sla_hours`
+   (по умолчанию 72 ч), после коммита публикуется `mark.assigned` —
+   уведомление получают все участники службы.
+2. `POST /marks/{id}/start` (участник назначенной службы) —
+   «Подтверждённая → В работе» (статус `7`).
+3. `POST /marks/{id}/resolve` (multipart `comment`, `photos[]`) —
+   «В работе → На проверке»; отчёт сохраняется как проверка от имени
+   сотрудника на этапе «В работе» (не участвует в голосовании этапа
+   проверки). Далее — обычное голосование жителей.
+4. `PATCH /marks/{id}/assign {organization_id}` — ручное переназначение
+   модератором/админом, срок SLA сбрасывается.
+
+`is_overdue` в JSON метки вычисляется на чтении: `sla_due_at < now` при
+статусе «Подтверждённая» / «В работе». Tasker публикует `mark.sla_breached`
+с детерминированным `event_id = uuid5(mark_id, sla_due_at)`, поэтому
+повторные прогоны не плодят уведомлений (`UNIQUE (event_id, user_id)`).
+
+Эндпоинты:
+
+- `GET /organizations` — публичный список `{id, name}`;
+- `GET /organizations/me` — своя организация с участниками и зонами (`service`, `admin`);
+- `GET /organizations/{id}/marks?status_ids=&overdue=&limit=&offset=` — очередь службы: просроченные → ближайший `sla_due_at` (участники и `admin`);
+- `POST /organizations`, `PATCH /organizations/{id}`, `GET /organizations/{id}` — администрирование (`admin`);
+- `POST /organizations/{id}/members {user_id}`, `DELETE /organizations/{id}/members/{user_id}` — участники (роль `service` ставится/снимается, сессии пользователя отзываются);
+- `POST|DELETE /organizations/{id}/responsibilities {mark_type_id, boundary_id}` — зоны ответственности;
+- `GET /analytics/kpi` дополнительно возвращает `sla_breach_share` (доля просроченных среди назначенных) и `by_organization[{organization_id, name, total, overdue}]`.
 
 ## Тесты
 
