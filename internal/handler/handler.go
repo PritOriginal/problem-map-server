@@ -8,7 +8,6 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/requestid"
-	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/gin-gonic/gin"
 	sloggin "github.com/samber/slog-gin"
@@ -20,10 +19,10 @@ const (
 	// MaxMultipartMemory is the amount of multipart form data kept in memory;
 	// the rest is spilled to temporary files.
 	MaxMultipartMemory = 32 << 20 // 32 MiB
-	// MaxBodySize is the maximum size of a request body accepted by the server:
-	// handlers.MaxPhotos photos of handlers.MaxPhotoSize plus room for the
-	// remaining form fields and multipart framing.
-	MaxBodySize = handlers.MaxPhotos*handlers.MaxPhotoSize + 1<<20
+	// MaxBodySize is the router-wide limit of a request body. It fits every
+	// JSON/form request; the multipart photo uploads (POST /marks,
+	// POST /checks) raise it to handlers.MaxUploadBodySize on their routes.
+	MaxBodySize = 1 << 20 // 1 MiB
 )
 
 // GetRouter builds the base router. trustedProxies lists the CIDRs/IPs of

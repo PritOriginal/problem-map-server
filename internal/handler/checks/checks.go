@@ -37,7 +37,7 @@ func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddlew
 		checks.GET("user/:userId", handler.GetChecksByUserId())
 		auth := checks.Group("", authMiddleware.MiddlewareFunc())
 		{
-			auth.POST("", handler.AddCheck())
+			auth.POST("", middleware.MaxBodySize(handlers.MaxUploadBodySize), handler.AddCheck())
 		}
 	}
 }

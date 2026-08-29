@@ -21,6 +21,10 @@ const (
 	MaxPhotos = 5
 	// MaxPhotoSize is the maximum size of a single uploaded photo in bytes.
 	MaxPhotoSize = 10 << 20 // 10 MiB
+	// MaxUploadBodySize is the request body limit for the multipart photo
+	// uploads: MaxPhotos photos of MaxPhotoSize plus room for the remaining
+	// form fields and multipart framing.
+	MaxUploadBodySize = MaxPhotos*MaxPhotoSize + 1<<20
 	// MaxPhotoDimension is the maximum width/height of an uploaded photo in pixels.
 	MaxPhotoDimension = 8000
 )

@@ -90,7 +90,7 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 		marks.GET("user/:userId", handler.GetMarksByUserId())
 		auth := marks.Group("", params.AuthMiddleware.MiddlewareFunc())
 		{
-			auth.POST("", handler.AddMark())
+			auth.POST("", middleware.MaxBodySize(handlers.MaxUploadBodySize), handler.AddMark())
 		}
 		cache := marks.Group("")
 		cache.Use(mwcache.New(params.Cacher, 24*time.Hour))
