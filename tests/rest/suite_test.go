@@ -66,8 +66,11 @@ func loadFixtures(t *testing.T) (*config.Config, *fixtures) {
 	t.Helper()
 
 	fixtureOnce.Do(func() {
-		fixtureCfg = config.MustLoadPath(testConfigPath)
-		seedFixtures(t, fixtureCfg)
+		cfg := config.MustLoadPath(testConfigPath)
+		seedFixtures(t, cfg)
+		// Published only after a complete seed: a failed seed aborts this
+		// suite and leaves fixtureCfg nil for the later ones.
+		fixtureCfg = cfg
 	})
 	require.NotNil(t, fixtureCfg, "fixtures failed to seed in an earlier suite")
 

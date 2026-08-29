@@ -305,18 +305,11 @@ func (st *MarksSuite) TestAddMark() {
 func addNewMark(t *testing.T, cfg *config.RESTConfig, accessToken string) responses.Response[marksrest.AddMarkResponse] {
 	t.Helper()
 
-	markTypeID := fixture.markTypeID
-	if markTypeID == 0 {
-		markTypesResponse := getMarkTypes(t, cfg, http.StatusOK)
-		require.NotEmpty(t, markTypesResponse.Payload.MarkTypes)
-		markTypeID = markTypesResponse.Payload.MarkTypes[0].ID
-	}
-
 	b := &bytes.Buffer{}
 	mpw := multipart.NewWriter(b)
 	require.NoError(t, mpw.WriteField("longitude", strconv.FormatFloat(fixtureMarkPoint.X(), 'f', -1, 64)))
 	require.NoError(t, mpw.WriteField("latitude", strconv.FormatFloat(fixtureMarkPoint.Y(), 'f', -1, 64)))
-	require.NoError(t, mpw.WriteField("mark_type_id", strconv.Itoa(markTypeID)))
+	require.NoError(t, mpw.WriteField("mark_type_id", strconv.Itoa(fixture.markTypeID)))
 	require.NoError(t, mpw.WriteField("description", "functional test mark"))
 
 	for _, image := range getImages(2) {

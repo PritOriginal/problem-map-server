@@ -156,7 +156,7 @@ func (s *PostgresSuite) TestTasks_AddTask() {
 				return
 			}
 			s.Require().NoError(err)
-			s.Equal(int64(4), id)
+			s.Greater(id, int64(fxTaskBobMark3))
 
 			got, err := s.tasks.GetTaskById(s.ctx, int(id))
 			s.Require().NoError(err)

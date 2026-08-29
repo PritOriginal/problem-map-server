@@ -54,10 +54,9 @@ var (
 type PostgresSuite struct {
 	suite.Suite
 
-	ctx       context.Context
-	container *tcpostgres.PostgresContainer
-	db        *sqlx.DB
-	trm       *manager.Manager
+	ctx context.Context
+	db  *sqlx.DB
+	trm *manager.Manager
 
 	users  *postgres.UsersRepository
 	marks  *postgres.MarksRepository
@@ -84,7 +83,9 @@ func (s *PostgresSuite) SetupSuite() {
 		),
 	)
 	s.Require().NoError(err, "start postgis container")
-	s.container = container
+	// Register termination right away so a failure later in SetupSuite still
+	// removes the container.
+	testcontainers.CleanupContainer(s.T(), container)
 
 	dsn, err := container.ConnectionString(s.ctx, "sslmode=disable")
 	s.Require().NoError(err)
@@ -108,9 +109,6 @@ func (s *PostgresSuite) SetupSuite() {
 func (s *PostgresSuite) TearDownSuite() {
 	if s.db != nil {
 		_ = s.db.Close()
-	}
-	if s.container != nil {
-		testcontainers.CleanupContainer(s.T(), s.container)
 	}
 }
 
@@ -138,7 +136,8 @@ func (s *PostgresSuite) migrateUp(dsn string) {
 func (s *PostgresSuite) truncate() {
 	_, err := s.db.ExecContext(s.ctx, `
 		TRUNCATE TABLE
-			checks, tasks, mark_status_history, marks, users, admin_boundaries, types_marks
+			checks, tasks, mark_status_history, marks, users, admin_boundaries, types_marks,
+			districts, cities, regions
 		RESTART IDENTITY CASCADE
 	`)
 	s.Require().NoError(err, "truncate")

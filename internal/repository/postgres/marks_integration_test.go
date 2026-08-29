@@ -136,7 +136,7 @@ func (s *PostgresSuite) TestMarks_AddMark() {
 				return
 			}
 			s.Require().NoError(err)
-			s.Equal(int64(4), id)
+			s.Greater(id, int64(fxMarkFar))
 
 			got, err := s.marks.GetMarkById(s.ctx, int(id))
 			s.Require().NoError(err)

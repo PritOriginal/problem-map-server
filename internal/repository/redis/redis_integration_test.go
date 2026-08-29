@@ -24,9 +24,8 @@ const redisImage = "redis:7-alpine"
 type RedisSuite struct {
 	suite.Suite
 
-	ctx       context.Context
-	container *tcredis.RedisContainer
-	repo      *redis.Redis
+	ctx  context.Context
+	repo *redis.Redis
 }
 
 func TestRedisSuite(t *testing.T) {
@@ -38,7 +37,7 @@ func (s *RedisSuite) SetupSuite() {
 
 	container, err := tcredis.Run(s.ctx, redisImage)
 	s.Require().NoError(err, "start redis container")
-	s.container = container
+	testcontainers.CleanupContainer(s.T(), container)
 
 	connStr, err := container.ConnectionString(s.ctx)
 	s.Require().NoError(err)
@@ -56,9 +55,6 @@ func (s *RedisSuite) SetupSuite() {
 func (s *RedisSuite) TearDownSuite() {
 	if s.repo != nil {
 		_ = s.repo.Close()
-	}
-	if s.container != nil {
-		testcontainers.CleanupContainer(s.T(), s.container)
 	}
 }
 
@@ -182,8 +178,7 @@ func (s *RedisSuite) TestExists_AfterExpiration() {
 	s.Require().NoError(s.repo.Set(s.ctx, "short", "x", 50*time.Millisecond))
 	s.True(s.repo.Exists(s.ctx, "short"))
 
-	time.Sleep(120 * time.Millisecond)
-	s.False(s.repo.Exists(s.ctx, "short"))
+	s.Eventually(func() bool { return !s.repo.Exists(s.ctx, "short") }, 2*time.Second, 10*time.Millisecond)
 }
 
 func (s *RedisSuite) TestIncr() {

@@ -156,10 +156,6 @@ func (s *PostgresSuite) TestMap_RegionsCitiesDistricts() {
 			('Район 2', 1, ST_SetSRID(ST_MakeEnvelope(41.5, 52.5, 42, 53), 4326));
 	`)
 	s.Require().NoError(err)
-	s.T().Cleanup(func() {
-		_, err := s.db.ExecContext(s.ctx, `TRUNCATE TABLE districts, cities, regions RESTART IDENTITY CASCADE`)
-		s.NoError(err)
-	})
 
 	s.Run("regions are scanned with polygon geometry", func() {
 		regions, err := s.maps.GetRegions(s.ctx)

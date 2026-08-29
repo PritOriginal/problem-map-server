@@ -27,13 +27,12 @@ const (
 type S3Suite struct {
 	suite.Suite
 
-	ctx       context.Context
-	container *tcminio.MinioContainer
-	endpoint  string
-	cfg       config.AwsConfig
-	raw       *awss3.Client
-	storage   *repos3.S3
-	photos    *repos3.PhotosRepo
+	ctx      context.Context
+	endpoint string
+	cfg      config.AwsConfig
+	raw      *awss3.Client
+	storage  *repos3.S3
+	photos   *repos3.PhotosRepo
 }
 
 func TestS3Suite(t *testing.T) {
@@ -45,7 +44,7 @@ func (s *S3Suite) SetupSuite() {
 
 	container, err := tcminio.Run(s.ctx, minioImage)
 	s.Require().NoError(err, "start minio container")
-	s.container = container
+	testcontainers.CleanupContainer(s.T(), container)
 
 	hostPort, err := container.ConnectionString(s.ctx)
 	s.Require().NoError(err)
@@ -69,9 +68,6 @@ func (s *S3Suite) SetupSuite() {
 func (s *S3Suite) TearDownSuite() {
 	if s.storage != nil {
 		_ = s.storage.Close()
-	}
-	if s.container != nil {
-		testcontainers.CleanupContainer(s.T(), s.container)
 	}
 }
 
