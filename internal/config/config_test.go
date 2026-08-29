@@ -4,41 +4,51 @@ import (
 	"testing"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
-func TestDatabaseConfig_DSN(t *testing.T) {
+type ConfigSuite struct {
+	suite.Suite
+}
+
+func TestConfig(t *testing.T) {
+	suite.Run(t, new(ConfigSuite))
+}
+
+func (suite *ConfigSuite) TestDatabaseConfigDSN() {
 	tests := []struct {
 		name string
 		cfg  config.DatabaseConfig
 		want string
 	}{
 		{
-			name: "plain",
+			name: "Plain",
 			cfg:  config.DatabaseConfig{Host: "localhost", Port: 5432, Username: "postgres", Password: "postgres", Name: "problem_map", SSLMode: "require"},
 			want: "postgres://postgres:postgres@localhost:5432/problem_map?sslmode=require",
 		},
 		{
-			name: "escapes reserved characters",
+			name: "EscapesReservedCharacters",
 			cfg:  config.DatabaseConfig{Host: "db", Port: 5432, Username: "us er", Password: "p@ss/w#rd", Name: "pm", SSLMode: "disable"},
 			want: "postgres://us%20er:p%40ss%2Fw%23rd@db:5432/pm?sslmode=disable",
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, tt.cfg.DSN())
+		suite.Run(tt.name, func() {
+			suite.Equal(tt.want, tt.cfg.DSN())
 		})
 	}
 }
 
-func TestConfig_Validate(t *testing.T) {
+func (suite *ConfigSuite) TestValidate() {
 	longKey := "0123456789abcdef0123456789abcdef"
 
 	valid := func() config.Config {
 		var c config.Config
 		c.Auth.JWT.Access.Key = longKey
 		c.Auth.JWT.Refresh.Key = longKey
-		c.DB.Password = "secret"
+		c.DB.Host = "localhost"
+		c.DB.Username = "postgres"
+		c.DB.Name = "problem_map"
 		return c
 	}
 
@@ -47,21 +57,24 @@ func TestConfig_Validate(t *testing.T) {
 		mutate  func(*config.Config)
 		wantErr string
 	}{
-		{name: "valid", mutate: func(*config.Config) {}},
-		{name: "short access key", mutate: func(c *config.Config) { c.Auth.JWT.Access.Key = "qwer" }, wantErr: "JWT_ACCESS_TOKEN_KEY"},
-		{name: "empty refresh key", mutate: func(c *config.Config) { c.Auth.JWT.Refresh.Key = "" }, wantErr: "JWT_REFRESH_TOKEN_KEY"},
-		{name: "empty db password", mutate: func(c *config.Config) { c.DB.Password = "" }, wantErr: "POSTGRES_PASSWORD"},
+		{name: "Valid", mutate: func(*config.Config) {}},
+		{name: "ShortAccessKey", mutate: func(c *config.Config) { c.Auth.JWT.Access.Key = "qwer" }, wantErr: "JWT_ACCESS_TOKEN_KEY"},
+		{name: "EmptyRefreshKey", mutate: func(c *config.Config) { c.Auth.JWT.Refresh.Key = "" }, wantErr: "JWT_REFRESH_TOKEN_KEY"},
+		{name: "EmptyDBPasswordAllowed", mutate: func(c *config.Config) { c.DB.Password = "" }},
+		{name: "EmptyDBHost", mutate: func(c *config.Config) { c.DB.Host = "" }, wantErr: "POSTGRES_HOST"},
+		{name: "EmptyDBUser", mutate: func(c *config.Config) { c.DB.Username = "" }, wantErr: "POSTGRES_USER"},
+		{name: "EmptyDBName", mutate: func(c *config.Config) { c.DB.Name = "" }, wantErr: "POSTGRES_DB"},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		suite.Run(tt.name, func() {
 			c := valid()
 			tt.mutate(&c)
 			err := c.Validate()
 			if tt.wantErr == "" {
-				assert.NoError(t, err)
+				suite.NoError(err)
 				return
 			}
-			assert.ErrorContains(t, err, tt.wantErr)
+			suite.ErrorContains(err, tt.wantErr)
 		})
 	}
 }

@@ -28,5 +28,5 @@ Backend проекта «Карта проблем»: Go 1.25, REST (Gin) + gRPC
 - Не редактировать вручную сгенерированное: `docs/swagger.*`, `docs/docs.go`, `*mocks*.go`, `trm_mocks.go` — только через `make swag` / `mockery`.
 - После изменения интерфейсов usecase/handler или swagger-аннотаций — `/regen`.
 - Тесты: testify `suite` + table-driven, моки mockery (`NewMockXxx(suite.T())`), логгер `slogdiscard`.
-- Секреты и локальные конфиги (`configs/config*.yaml`, `.env*`) не трогать и не коммитить.
+- Локальные конфиги и секреты (`configs/config.yaml`, `configs/config-docker.yaml`, `configs/.env`) не трогать и не коммитить. Трекаемые шаблоны (`configs/config.yaml.example`, `configs/config-tests.yaml`, `configs/.env.example`, `configs/.env.docker`) править можно, но только с плейсхолдерами — без реальных секретов.
 - Форматирование `gofmt`, перед PR — `go vet` и `golangci-lint`.

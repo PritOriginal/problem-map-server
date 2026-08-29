@@ -200,12 +200,21 @@ func (a AuthConfig) Validate() error {
 	)
 }
 
-// Validate checks that the database password is set.
+// Validate checks that the settings needed to reach the database are set.
+// The password is deliberately not required: trust/peer authentication and
+// managed connection proxies work without one.
 func (d DatabaseConfig) Validate() error {
-	if d.Password == "" {
-		return errors.New("db.password (POSTGRES_PASSWORD) must not be empty")
+	var errs []error
+	if d.Host == "" {
+		errs = append(errs, errors.New("db.host (POSTGRES_HOST) must not be empty"))
 	}
-	return nil
+	if d.Username == "" {
+		errs = append(errs, errors.New("db.username (POSTGRES_USER) must not be empty"))
+	}
+	if d.Name == "" {
+		errs = append(errs, errors.New("db.name (POSTGRES_DB) must not be empty"))
+	}
+	return errors.Join(errs...)
 }
 
 func validateJWTKey(name, key string) error {
