@@ -2016,11 +2016,11 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "avg_close_hours": {
-                    "description": "AvgCloseHours: unconfirmed -\u003e closed.",
+                    "description": "AvgCloseHours is the mean unconfirmed -\u003e closed time; null when no mark was closed.",
                     "type": "number"
                 },
                 "avg_confirm_hours": {
-                    "description": "AvgConfirmHours / MedianConfirmHours: unconfirmed -\u003e confirmed.",
+                    "description": "AvgConfirmHours is the mean unconfirmed -\u003e confirmed time; null when no mark was confirmed.",
                     "type": "number"
                 },
                 "by_status": {
@@ -2030,6 +2030,7 @@ const docTemplate = `{
                     }
                 },
                 "median_confirm_hours": {
+                    "description": "MedianConfirmHours is the median unconfirmed -\u003e confirmed time; null when no mark was confirmed.",
                     "type": "number"
                 },
                 "open_older_than_30d": {

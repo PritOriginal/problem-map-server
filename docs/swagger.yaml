@@ -79,16 +79,20 @@ definitions:
   github_com_PritOriginal_problem-map-server_internal_models.KPI:
     properties:
       avg_close_hours:
-        description: 'AvgCloseHours: unconfirmed -> closed.'
+        description: AvgCloseHours is the mean unconfirmed -> closed time; null when
+          no mark was closed.
         type: number
       avg_confirm_hours:
-        description: 'AvgConfirmHours / MedianConfirmHours: unconfirmed -> confirmed.'
+        description: AvgConfirmHours is the mean unconfirmed -> confirmed time; null
+          when no mark was confirmed.
         type: number
       by_status:
         additionalProperties:
           type: integer
         type: object
       median_confirm_hours:
+        description: MedianConfirmHours is the median unconfirmed -> confirmed time;
+          null when no mark was confirmed.
         type: number
       open_older_than_30d:
         description: |-

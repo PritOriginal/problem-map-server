@@ -54,10 +54,11 @@ func (f AnalyticsFilters) Validate() error {
 type KPI struct {
 	Total    int         `json:"total"`
 	ByStatus map[int]int `json:"by_status"`
-	// AvgConfirmHours / MedianConfirmHours: unconfirmed -> confirmed.
-	AvgConfirmHours    null.Float `json:"avg_confirm_hours" swaggertype:"number"`
+	// AvgConfirmHours is the mean unconfirmed -> confirmed time; null when no mark was confirmed.
+	AvgConfirmHours null.Float `json:"avg_confirm_hours" swaggertype:"number"`
+	// MedianConfirmHours is the median unconfirmed -> confirmed time; null when no mark was confirmed.
 	MedianConfirmHours null.Float `json:"median_confirm_hours" swaggertype:"number"`
-	// AvgCloseHours: unconfirmed -> closed.
+	// AvgCloseHours is the mean unconfirmed -> closed time; null when no mark was closed.
 	AvgCloseHours null.Float `json:"avg_close_hours" swaggertype:"number"`
 	// RefutedShare is refuted marks / total (0 when there are no marks).
 	RefutedShare float64 `json:"refuted_share"`
