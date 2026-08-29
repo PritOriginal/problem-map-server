@@ -458,6 +458,7 @@ func (suite *APNsSuite) TestContextCancelled() {
 	err := sender.Send(ctx, models.UserDevice{Platform: models.PlatformIOS, Token: "tok"},
 		models.Notification{ID: 1, Type: models.NotificationTaskAssigned, Title: "t"})
 	suite.ErrorIs(err, context.DeadlineExceeded)
+	suite.EqualError(err, "apns: context deadline exceeded")
 	suite.Equal(1, fake.count())
 }
 

@@ -140,10 +140,16 @@ func New(log *slog.Logger, cfg config.APNsConfig, opts ...Option) (*Sender, erro
 	return s, nil
 }
 
-// newTransport is the HTTP/2 transport APNs requires; the idle connection
-// is kept so the TLS handshake is not repeated for every push.
+// newTransport is the HTTP/2 transport APNs requires: with TLS the
+// protocol is negotiated through ALPN, so a direct connection to Apple is
+// always HTTP/2. HTTP(S)_PROXY is honoured like http.DefaultTransport does;
+// a CONNECT tunnel keeps TLS (and thus ALPN) end-to-end, but a proxy that
+// terminates TLS itself would downgrade to HTTP/1.1 and APNs would refuse
+// the request. The idle connection is kept so the TLS handshake is not
+// repeated for every push.
 func newTransport() *http.Transport {
 	return &http.Transport{
+		Proxy:               http.ProxyFromEnvironment,
 		ForceAttemptHTTP2:   true,
 		MaxIdleConns:        16,
 		IdleConnTimeout:     10 * time.Minute,
@@ -331,9 +337,9 @@ func (s *Sender) attempt(ctx context.Context, deviceToken string, notificationID
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		// The parent context is done: nothing to retry.
+		// The parent context is done: nothing to retry (Send adds the prefix).
 		if ctx.Err() != nil {
-			return 0, false, fmt.Errorf("apns: %w", ctx.Err())
+			return 0, false, ctx.Err()
 		}
 		return 0, true, fmt.Errorf("apns: request: %w", err)
 	}

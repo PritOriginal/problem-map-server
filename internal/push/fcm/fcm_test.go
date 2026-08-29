@@ -284,6 +284,7 @@ func (suite *FCMSuite) TestContextCancelledStopsRetries() {
 
 	err := sender.Send(ctx, models.UserDevice{Platform: models.PlatformAndroid, Token: "tok"}, models.Notification{})
 	suite.ErrorIs(err, context.Canceled)
+	suite.EqualError(err, "fcm: context canceled")
 }
 
 func (suite *FCMSuite) TestNew() {

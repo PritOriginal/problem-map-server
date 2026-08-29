@@ -244,9 +244,9 @@ func (s *Sender) attempt(ctx context.Context, body []byte) (retryAfter time.Dura
 
 	resp, err := s.client.Do(req)
 	if err != nil {
-		// The parent context is done: nothing to retry.
+		// The parent context is done: nothing to retry (Send adds the prefix).
 		if ctx.Err() != nil {
-			return 0, false, fmt.Errorf("fcm: %w", ctx.Err())
+			return 0, false, ctx.Err()
 		}
 		return 0, true, fmt.Errorf("fcm: request: %w", err)
 	}
