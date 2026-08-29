@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -61,7 +62,7 @@ func (suite *SettingsSuite) TestValidate() {
 		{name: "target probability above one", mutate: func(s *usecase.RuntimeSettings) { s.Tasker.TargetProbability = 1.5 }, wantErr: true},
 		{name: "target probability zero", mutate: func(s *usecase.RuntimeSettings) { s.Tasker.TargetProbability = 0 }},
 		{name: "radius zero", mutate: func(s *usecase.RuntimeSettings) { s.Tasker.MaxRadiusMeters = 0 }, wantErr: true},
-		{name: "ttl too long", mutate: func(s *usecase.RuntimeSettings) { s.Tasker.TaskTTLHours = usecase.MaxTaskTTLHours + 1 }, wantErr: true},
+		{name: "ttl too long", mutate: func(s *usecase.RuntimeSettings) { s.Tasker.TaskTTL = usecase.MaxTaskTTL + 1 }, wantErr: true},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
@@ -92,9 +93,63 @@ func (suite *SettingsSuite) TestRuntimeSettingsFromConfig() {
 		DedupRadiusM:    120,
 		MaxChecksPerDay: 9,
 		Rating:          usecase.RatingSettings{CheckCorrect: 5, CheckWrong: -3, MarkConfirmed: 7, MarkRefuted: -4, TaskCompleted: 2},
-		Tasker:          usecase.TaskerSettings{MaxTasksPerUser: 4, RequiredChecks: 3, TargetProbability: 0.9, MaxRadiusMeters: 7000, TaskTTLHours: 48},
+		Tasker:          usecase.TaskerSettings{MaxTasksPerUser: 4, RequiredChecks: 3, TargetProbability: 0.9, MaxRadiusMeters: 7000, TaskTTL: usecase.Duration(48 * time.Hour)},
 	}, got)
-	suite.Equal(48*time.Hour, got.Tasker.TaskTTL())
+	suite.Equal(48*time.Hour, time.Duration(got.Tasker.TaskTTL))
+}
+
+func (suite *SettingsSuite) TestDurationJSON() {
+	tests := []struct {
+		name    string
+		in      string
+		want    usecase.Duration
+		wantOut string
+		wantErr bool
+	}{
+		{name: "whole hours", in: `"72h"`, want: usecase.Duration(72 * time.Hour), wantOut: `"72h"`},
+		{name: "mixed", in: `"1h30m"`, want: usecase.Duration(90 * time.Minute), wantOut: `"1h30m0s"`},
+		{name: "number is rejected", in: `72`, wantErr: true},
+		{name: "garbage is rejected", in: `"soon"`, wantErr: true},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			var d usecase.Duration
+			err := json.Unmarshal([]byte(tt.in), &d)
+			if tt.wantErr {
+				suite.Error(err)
+				return
+			}
+			suite.NoError(err)
+			suite.Equal(tt.want, d)
+			out, err := json.Marshal(d)
+			suite.NoError(err)
+			suite.Equal(tt.wantOut, string(out))
+		})
+	}
+}
+
+func (suite *SettingsSuite) TestGet_ConcurrentRefreshIsSingleFlight() {
+	want := usecase.DefaultRuntimeSettings()
+	want.VoteThreshold = 6
+	// Exactly one database read for any number of concurrent callers.
+	suite.repo.On("GetSetting", mock.Anything, usecase.RuntimeSettingsKey).Once().
+		Return(suite.stored(want), nil)
+
+	const n = 32
+	var wg sync.WaitGroup
+	wg.Add(n)
+	for range n {
+		go func() {
+			defer wg.Done()
+			got := suite.uc.Get(context.Background())
+			// Either the fresh value or, while the refresh is in flight,
+			// the defaults.
+			suite.Contains([]usecase.RuntimeSettings{want, usecase.DefaultRuntimeSettings()}, got)
+		}()
+	}
+	wg.Wait()
+	suite.Equal(want, suite.uc.Get(context.Background()))
+	suite.repo.AssertExpectations(suite.T())
 }
 
 func (suite *SettingsSuite) TestGet_DefaultsWhenNotStored() {

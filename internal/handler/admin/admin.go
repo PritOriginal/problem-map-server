@@ -79,14 +79,14 @@ func (h *handler) GetSettings() gin.HandlerFunc {
 			return
 		}
 
-		responses.OK(c, SettingsResponse{Settings: s})
+		responses.OK(c, s)
 	}
 }
 
 // UpdateSettings replaces the runtime settings
 //
 //	@Summary		Update runtime settings
-//	@Description	stores the full settings document (every field is required) after range validation; the change is applied within 30 s on every instance
+//	@Description	stores the settings document after range validation (omitted fields keep their current values); the change is applied within 30 s on every instance
 //	@Tags			admin
 //	@Accept			json
 //	@Produce		json
@@ -102,13 +102,6 @@ func (h *handler) UpdateSettings() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		const op = "adminrest.UpdateSettings"
 
-		var req UpdateSettingsRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			h.log.Debug("failed binding request", logger.Err(err))
-			responses.BadRequest(c, "invalid request")
-			return
-		}
-
 		userId, err := middleware.UserIDFromClaims(c)
 		if err != nil {
 			h.log.Debug("invalid token", logger.Err(err))
@@ -116,13 +109,26 @@ func (h *handler) UpdateSettings() gin.HandlerFunc {
 			return
 		}
 
-		s, err := h.settings.Update(c.Request.Context(), *req.Settings, userId)
+		// The body is decoded over the current document so that a client
+		// sending a subset of the fields does not zero the rest.
+		req, err := h.settings.Load(c.Request.Context())
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+		if err := c.ShouldBindJSON(&req); err != nil {
+			h.log.Debug("failed binding request", logger.Err(err))
+			responses.BadRequest(c, "invalid request")
+			return
+		}
+
+		s, err := h.settings.Update(c.Request.Context(), req, userId)
 		if err != nil {
 			responses.FromError(c, h.log, op, err)
 			return
 		}
 
-		responses.OK(c, SettingsResponse{Settings: s})
+		responses.OK(c, s)
 	}
 }
 
@@ -162,7 +168,7 @@ func (h *handler) GetSettingsHistory() gin.HandlerFunc {
 // GetMarkTypes lists every mark type
 //
 //	@Summary		List mark types (admin)
-//	@Description	all mark types, inactive ones included, sorted by sort_order and name
+//	@Description	all mark types, inactive ones included, with name_ru/name_en, sorted by sort_order and name
 //	@Tags			admin
 //	@Produce		json
 //	@Security		BearerAuth
@@ -221,14 +227,14 @@ func (h *handler) CreateMarkType() gin.HandlerFunc {
 			return
 		}
 
-		responses.Created(c, MarkTypeResponse{MarkType: t})
+		responses.Created(c, t)
 	}
 }
 
 // UpdateMarkType changes a mark type
 //
 //	@Summary		Update mark type
-//	@Description	changes the given fields of a mark type (names, icon, color, SLA, active, sort_order); omitted fields stay unchanged
+//	@Description	changes the given fields of a mark type (names, icon, color, SLA, active, sort_order); omitted fields stay unchanged. Deactivating a type is allowed even when it has marks: they keep the type, it only disappears from GET /marks/types (POST /marks does not check it). 409 when the new code is taken
 //	@Tags			admin
 //	@Accept			json
 //	@Produce		json
@@ -267,6 +273,6 @@ func (h *handler) UpdateMarkType() gin.HandlerFunc {
 			return
 		}
 
-		responses.OK(c, MarkTypeResponse{MarkType: t})
+		responses.OK(c, t)
 	}
 }

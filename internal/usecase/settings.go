@@ -6,7 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"sync"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
@@ -36,8 +37,35 @@ const (
 	MaxTasksPerUserCap = 100
 	MaxRequiredChecks  = 100
 	MaxTaskRadiusM     = 100_000
-	MaxTaskTTLHours    = 24 * 365
+	MaxTaskTTL         = Duration(24 * 365 * time.Hour)
 )
+
+// Duration is a time.Duration that travels through JSON as a Go duration
+// string ("24h", "1h30m"); whole hours are written as "<n>h".
+type Duration time.Duration
+
+func (d Duration) String() string {
+	dur := time.Duration(d)
+	if dur%time.Hour == 0 {
+		return fmt.Sprintf("%dh", dur/time.Hour)
+	}
+	return dur.String()
+}
+
+func (d Duration) MarshalJSON() ([]byte, error) { return json.Marshal(d.String()) }
+
+func (d *Duration) UnmarshalJSON(b []byte) error {
+	var raw string
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return fmt.Errorf("duration must be a string like \"24h\": %w", err)
+	}
+	dur, err := time.ParseDuration(strings.TrimSpace(raw))
+	if err != nil {
+		return fmt.Errorf("invalid duration %q", raw)
+	}
+	*d = Duration(dur)
+	return nil
+}
 
 // RuntimeSettings are the parameters administrators may change at runtime
 // (GET/PUT /admin/settings). They override the corresponding config values
@@ -71,13 +99,9 @@ type TaskerSettings struct {
 	RequiredChecks    int     `json:"required_checks"`
 	TargetProbability float64 `json:"target_probability"`
 	MaxRadiusMeters   int     `json:"max_radius_meters"`
-	// TaskTTLHours is how long an issued task stays valid (hours).
-	TaskTTLHours int `json:"task_ttl_hours"`
-}
-
-// TaskTTL returns the task lifetime as a duration.
-func (t TaskerSettings) TaskTTL() time.Duration {
-	return time.Duration(t.TaskTTLHours) * time.Hour
+	// TaskTTL is how long an issued task stays valid (a duration string
+	// such as "72h").
+	TaskTTL Duration `json:"task_ttl" swaggertype:"string" example:"72h"`
 }
 
 // DefaultRuntimeSettings are the built-in defaults; they match the
@@ -99,7 +123,7 @@ func DefaultRuntimeSettings() RuntimeSettings {
 			RequiredChecks:    2,
 			TargetProbability: 0.8,
 			MaxRadiusMeters:   5000,
-			TaskTTLHours:      72,
+			TaskTTL:           Duration(72 * time.Hour),
 		},
 	}
 }
@@ -150,7 +174,7 @@ func (s *RuntimeSettings) ApplyTaskerConfig(cfg config.TaskerConfig) {
 		s.Tasker.MaxRadiusMeters = cfg.MaxRadiusMeters
 	}
 	if cfg.TaskTTL > 0 {
-		s.Tasker.TaskTTLHours = int(cfg.TaskTTL / time.Hour)
+		s.Tasker.TaskTTL = Duration(cfg.TaskTTL)
 	}
 }
 
@@ -184,7 +208,7 @@ func (s RuntimeSettings) Validate() error {
 	check(inRange(t.RequiredChecks, 1, MaxRequiredChecks), fmt.Sprintf("tasker.required_checks must be in [1, %d]", MaxRequiredChecks))
 	check(t.TargetProbability >= 0 && t.TargetProbability <= 1, "tasker.target_probability must be in [0, 1]")
 	check(inRange(t.MaxRadiusMeters, 1, MaxTaskRadiusM), fmt.Sprintf("tasker.max_radius_meters must be in [1, %d]", MaxTaskRadiusM))
-	check(inRange(t.TaskTTLHours, 1, MaxTaskTTLHours), fmt.Sprintf("tasker.task_ttl_hours must be in [1, %d]", MaxTaskTTLHours))
+	check(t.TaskTTL >= Duration(time.Minute) && t.TaskTTL <= MaxTaskTTL, fmt.Sprintf("tasker.task_ttl must be in [1m, %s]", MaxTaskTTL))
 
 	if len(errs) == 0 {
 		return nil
@@ -222,22 +246,31 @@ type Settings struct {
 	ttl      time.Duration
 	now      func() time.Time
 
-	mu        sync.Mutex
-	cached    RuntimeSettings
+	// snapshot is replaced atomically, so readers never block; refreshing
+	// makes the refresh of an expired snapshot single-flight: the first
+	// caller reloads, the others keep serving the stale value meanwhile.
+	snapshot   atomic.Pointer[settingsSnapshot]
+	refreshing atomic.Bool
+}
+
+type settingsSnapshot struct {
+	settings  RuntimeSettings
 	expiresAt time.Time
 }
 
 // NewSettings creates the settings service; defaults are returned until the
 // first PUT and fill in fields missing from a stored document.
 func NewSettings(log *slog.Logger, defaults RuntimeSettings, repo SettingsRepository) *Settings {
-	return &Settings{
+	uc := &Settings{
 		log:      log,
 		repo:     repo,
 		defaults: defaults,
 		ttl:      SettingsCacheTTL,
 		now:      time.Now,
-		cached:   defaults,
 	}
+	// Expired from the start: the first Get reads the database.
+	uc.snapshot.Store(&settingsSnapshot{settings: defaults})
+	return uc
 }
 
 // Get returns the current settings from the cache, refreshing it from the
@@ -246,22 +279,27 @@ func NewSettings(log *slog.Logger, defaults RuntimeSettings, repo SettingsReposi
 func (uc *Settings) Get(ctx context.Context) RuntimeSettings {
 	const op = "usecase.Settings.Get"
 
-	uc.mu.Lock()
-	defer uc.mu.Unlock()
-
+	current := uc.snapshot.Load()
 	now := uc.now()
-	if now.Before(uc.expiresAt) {
-		return uc.cached
+	if now.Before(current.expiresAt) || !uc.refreshing.CompareAndSwap(false, true) {
+		return current.settings
+	}
+	defer uc.refreshing.Store(false)
+
+	// Another caller may have refreshed between the Load and the CAS.
+	if current = uc.snapshot.Load(); now.Before(current.expiresAt) {
+		return current.settings
 	}
 
 	s, err := uc.load(ctx)
 	if err != nil {
 		uc.log.Error("failed to refresh settings, keeping the last known values", slog.String("op", op), logger.Err(err))
-	} else {
-		uc.cached = s
+		s = current.settings
 	}
-	uc.expiresAt = now.Add(uc.ttl)
-	return uc.cached
+	// A failure is cached for the TTL as well: no retry storm on a database
+	// hiccup.
+	uc.snapshot.Store(&settingsSnapshot{settings: s, expiresAt: now.Add(uc.ttl)})
+	return s
 }
 
 // Load reads the settings straight from the database (defaults when never
@@ -319,10 +357,7 @@ func (uc *Settings) Update(ctx context.Context, s RuntimeSettings, updatedBy int
 		return RuntimeSettings{}, mapRepoErr(op, err)
 	}
 
-	uc.mu.Lock()
-	uc.cached = s
-	uc.expiresAt = uc.now().Add(uc.ttl)
-	uc.mu.Unlock()
+	uc.snapshot.Store(&settingsSnapshot{settings: s, expiresAt: uc.now().Add(uc.ttl)})
 
 	uc.log.Info("runtime settings updated", slog.String("op", op), slog.Int("updated_by", updatedBy))
 	return s, nil

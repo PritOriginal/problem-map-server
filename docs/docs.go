@@ -22,7 +22,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "all mark types, inactive ones included, sorted by sort_order and name",
+                "description": "all mark types, inactive ones included, with name_ru/name_en, sorted by sort_order and name",
                 "produces": [
                     "application/json"
                 ],
@@ -140,7 +140,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "changes the given fields of a mark type (names, icon, color, SLA, active, sort_order); omitted fields stay unchanged",
+                "description": "changes the given fields of a mark type (names, icon, color, SLA, active, sort_order); omitted fields stay unchanged. Deactivating a type is allowed even when it has marks: they keep the type, it only disappears from GET /marks/types (POST /marks does not check it). 409 when the new code is taken",
                 "consumes": [
                     "application/json"
                 ],
@@ -263,7 +263,7 @@ const docTemplate = `{
                         "BearerAuth": []
                     }
                 ],
-                "description": "stores the full settings document (every field is required) after range validation; the change is applied within 30 s on every instance",
+                "description": "stores the settings document after range validation (omitted fields keep their current values); the change is applied within 30 s on every instance",
                 "consumes": [
                     "application/json"
                 ],
@@ -5231,6 +5231,13 @@ const docTemplate = `{
                 "name": {
                     "type": "string"
                 },
+                "name_en": {
+                    "type": "string"
+                },
+                "name_ru": {
+                    "description": "NameRU and NameEN are the stored translations; only the admin\nendpoints fill them in (the public dictionary carries Name in the\nrequested language).",
+                    "type": "string"
+                },
                 "sla_hours": {
                     "description": "SLAHours is the time an organization has to resolve a mark of the type.",
                     "type": "integer"
@@ -5580,6 +5587,7 @@ const docTemplate = `{
                     "type": "object"
                 },
                 "old": {
+                    "description": "Old is nil for the first write of the key.",
                     "type": "object"
                 },
                 "updated_at": {
@@ -5848,29 +5856,6 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_PritOriginal_problem-map-server_internal_usecase.RuntimeSettings": {
-            "type": "object",
-            "properties": {
-                "dedup_radius_m": {
-                    "description": "DedupRadiusM is the radius (meters) within which an active mark of the\nsame type is treated as a duplicate on POST /marks.",
-                    "type": "integer"
-                },
-                "max_checks_per_day": {
-                    "description": "MaxChecksPerDay caps the checks a user may submit in a rolling 24 hours.",
-                    "type": "integer"
-                },
-                "rating": {
-                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.RatingSettings"
-                },
-                "tasker": {
-                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.TaskerSettings"
-                },
-                "vote_threshold": {
-                    "description": "VoteThreshold is the vote score (confirming minus refuting checks) at\nwhich a voting stage resolves (see Updater.Update).",
-                    "type": "integer"
-                }
-            }
-        },
         "github_com_PritOriginal_problem-map-server_internal_usecase.TaskerSettings": {
             "type": "object",
             "properties": {
@@ -5886,9 +5871,10 @@ const docTemplate = `{
                 "target_probability": {
                     "type": "number"
                 },
-                "task_ttl_hours": {
-                    "description": "TaskTTLHours is how long an issued task stays valid (hours).",
-                    "type": "integer"
+                "task_ttl": {
+                    "description": "TaskTTL is how long an issued task stays valid (a duration string\nsuch as \"72h\").",
+                    "type": "string",
+                    "example": "72h"
                 }
             }
         },
@@ -7106,8 +7092,45 @@ const docTemplate = `{
         "internal_handler_admin.MarkTypeResponse": {
             "type": "object",
             "properties": {
-                "mark_type": {
-                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkType"
+                "active": {
+                    "description": "Active reports whether new marks of the type may be created; inactive\ntypes are hidden from the public dictionary.",
+                    "type": "boolean"
+                },
+                "code": {
+                    "type": "string"
+                },
+                "color": {
+                    "description": "Color is a hex colour like \"#ff8800\" (optional).",
+                    "type": "string"
+                },
+                "icon": {
+                    "description": "Icon is a client-side icon identifier (optional).",
+                    "type": "string"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "mark_type_id": {
+                    "description": "LegacyID mirrors ID under the key older clients read; it is filled\nby MarshalJSON. Deprecated: use ID (` + "`" + `id` + "`" + `).",
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "name_en": {
+                    "type": "string"
+                },
+                "name_ru": {
+                    "description": "NameRU and NameEN are the stored translations; only the admin\nendpoints fill them in (the public dictionary carries Name in the\nrequested language).",
+                    "type": "string"
+                },
+                "sla_hours": {
+                    "description": "SLAHours is the time an organization has to resolve a mark of the type.",
+                    "type": "integer"
+                },
+                "sort_order": {
+                    "description": "SortOrder orders the dictionary (ascending, then by name).",
+                    "type": "integer"
                 }
             }
         },
@@ -7136,8 +7159,23 @@ const docTemplate = `{
         "internal_handler_admin.SettingsResponse": {
             "type": "object",
             "properties": {
-                "settings": {
-                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.RuntimeSettings"
+                "dedup_radius_m": {
+                    "description": "DedupRadiusM is the radius (meters) within which an active mark of the\nsame type is treated as a duplicate on POST /marks.",
+                    "type": "integer"
+                },
+                "max_checks_per_day": {
+                    "description": "MaxChecksPerDay caps the checks a user may submit in a rolling 24 hours.",
+                    "type": "integer"
+                },
+                "rating": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.RatingSettings"
+                },
+                "tasker": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.TaskerSettings"
+                },
+                "vote_threshold": {
+                    "description": "VoteThreshold is the vote score (confirming minus refuting checks) at\nwhich a voting stage resolves (see Updater.Update).",
+                    "type": "integer"
                 }
             }
         },
@@ -7179,12 +7217,24 @@ const docTemplate = `{
         },
         "internal_handler_admin.UpdateSettingsRequest": {
             "type": "object",
-            "required": [
-                "settings"
-            ],
             "properties": {
-                "settings": {
-                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.RuntimeSettings"
+                "dedup_radius_m": {
+                    "description": "DedupRadiusM is the radius (meters) within which an active mark of the\nsame type is treated as a duplicate on POST /marks.",
+                    "type": "integer"
+                },
+                "max_checks_per_day": {
+                    "description": "MaxChecksPerDay caps the checks a user may submit in a rolling 24 hours.",
+                    "type": "integer"
+                },
+                "rating": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.RatingSettings"
+                },
+                "tasker": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.TaskerSettings"
+                },
+                "vote_threshold": {
+                    "description": "VoteThreshold is the vote score (confirming minus refuting checks) at\nwhich a voting stage resolves (see Updater.Update).",
+                    "type": "integer"
                 }
             }
         },

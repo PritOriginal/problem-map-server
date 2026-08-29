@@ -295,6 +295,11 @@ type MarkType struct {
 	Active bool `json:"active" db:"active"`
 	// SortOrder orders the dictionary (ascending, then by name).
 	SortOrder int `json:"sort_order" db:"sort_order"`
+	// NameRU and NameEN are the stored translations; only the admin
+	// endpoints fill them in (the public dictionary carries Name in the
+	// requested language).
+	NameRU string `json:"name_ru,omitempty" db:"name_ru"`
+	NameEN string `json:"name_en,omitempty" db:"name_en"`
 }
 
 // MarshalJSON emits the deprecated `mark_type_id` alias next to `id`.

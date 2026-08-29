@@ -118,7 +118,7 @@ func (suite *AdminSuite) TestGetSettings() {
 			if tt.statusCode == http.StatusOK {
 				var resp responses.Response[adminrest.SettingsResponse]
 				suite.Require().NoError(json.Unmarshal(w.Body.Bytes(), &resp))
-				suite.Equal(want, resp.Payload.Settings)
+				suite.Equal(want, resp.Payload)
 			}
 		})
 	}
@@ -127,24 +127,29 @@ func (suite *AdminSuite) TestGetSettings() {
 func (suite *AdminSuite) TestUpdateSettings() {
 	valid := usecase.DefaultRuntimeSettings()
 	valid.VoteThreshold = 4
-	raw, err := json.Marshal(adminrest.UpdateSettingsRequest{Settings: &valid})
+	raw, err := json.Marshal(valid)
 	suite.Require().NoError(err)
 
 	tests := []struct {
 		name       string
 		body       string
+		loadErr    error
 		err        error
 		statusCode int
 	}{
 		{name: "Ok200", body: string(raw), statusCode: http.StatusOK},
-		{name: "Err400Malformed", body: `{"settings":`, statusCode: http.StatusBadRequest},
-		{name: "Err400MissingSettings", body: `{}`, statusCode: http.StatusBadRequest},
+		{name: "Err400Malformed", body: `{"vote_threshold":`, statusCode: http.StatusBadRequest},
+		{name: "Err400BadDuration", body: `{"tasker":{"task_ttl":"soon"}}`, statusCode: http.StatusBadRequest},
+		{name: "Ok200PartialKeepsCurrent", body: `{"vote_threshold":4}`, statusCode: http.StatusOK},
+		{name: "Err500Load", body: string(raw), loadErr: errors.New("db"), statusCode: http.StatusInternalServerError},
 		{name: "Err400OutOfRange", body: string(raw), err: usecase.ErrInvalidArgument, statusCode: http.StatusBadRequest},
 		{name: "Err500", body: string(raw), err: errors.New("db"), statusCode: http.StatusInternalServerError},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			if tt.name != "Err400Malformed" && tt.name != "Err400MissingSettings" {
+			// The body is decoded over the current document.
+			suite.settings.On("Load", mock.Anything).Once().Return(usecase.DefaultRuntimeSettings(), tt.loadErr)
+			if tt.loadErr == nil && (tt.statusCode == http.StatusOK || tt.err != nil) {
 				// The admin from the token (user 7) is recorded as the author.
 				suite.settings.On("Update", mock.Anything, valid, 7).Once().Return(valid, tt.err)
 			}
@@ -154,7 +159,7 @@ func (suite *AdminSuite) TestUpdateSettings() {
 			if tt.statusCode == http.StatusOK {
 				var resp responses.Response[adminrest.SettingsResponse]
 				suite.Require().NoError(json.Unmarshal(w.Body.Bytes(), &resp))
-				suite.Equal(valid, resp.Payload.Settings)
+				suite.Equal(valid, resp.Payload)
 			}
 		})
 	}
@@ -258,7 +263,7 @@ func (suite *AdminSuite) TestCreateMarkType() {
 			if tt.statusCode == http.StatusCreated {
 				var resp responses.Response[adminrest.MarkTypeResponse]
 				suite.Require().NoError(json.Unmarshal(w.Body.Bytes(), &resp))
-				suite.Equal(9, resp.Payload.MarkType.ID)
+				suite.Equal(9, resp.Payload.ID)
 			}
 		})
 	}
@@ -297,7 +302,7 @@ func (suite *AdminSuite) TestUpdateMarkType() {
 			if tt.statusCode == http.StatusOK {
 				var resp responses.Response[adminrest.MarkTypeResponse]
 				suite.Require().NoError(json.Unmarshal(w.Body.Bytes(), &resp))
-				suite.Equal(2, resp.Payload.MarkType.ID)
+				suite.Equal(2, resp.Payload.ID)
 			}
 		})
 	}

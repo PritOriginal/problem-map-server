@@ -30,8 +30,12 @@ func (s *PostgresSuite) TestSettings_SetGetAndHistory() {
 	s.Equal(null.IntFrom(fxUserAlice), got.UpdatedBy)
 	s.False(got.UpdatedAt.IsZero())
 
-	// Same value again: the row is touched but no history row is added.
+	// Same value again: a no-op, the row keeps its author and no history
+	// row is added.
 	s.Require().NoError(s.settings.SetSetting(s.ctx, settingsKey, first, null.IntFrom(fxUserBob)))
+	same, err := s.settings.GetSetting(s.ctx, settingsKey)
+	s.Require().NoError(err)
+	s.Equal(got, same)
 
 	// A change: updated in place, recorded with old = first.
 	s.Require().NoError(s.settings.SetSetting(s.ctx, settingsKey, second, null.Int{}))
@@ -94,7 +98,8 @@ func (s *PostgresSuite) TestMarkTypes_AdminCRUD() {
 	t, err := s.marks.GetMarkTypeById(s.ctx, 5, models.LangEN)
 	s.Require().NoError(err)
 	s.Equal(models.MarkType{ID: 5, Code: "potholes", Name: "Potholes", SLAHours: 48,
-		Icon: null.StringFrom("pit"), Color: null.StringFrom("#ff8800"), Active: true, SortOrder: 0}, t)
+		Icon: null.StringFrom("pit"), Color: null.StringFrom("#ff8800"), Active: true, SortOrder: 0,
+		NameRU: "Ямы", NameEN: "Potholes"}, t)
 
 	t, err = s.marks.GetMarkTypeById(s.ctx, 5, models.LangRU)
 	s.Require().NoError(err)
@@ -111,6 +116,8 @@ func (s *PostgresSuite) TestMarkTypes_AdminCRUD() {
 	t, err = s.marks.GetMarkTypeById(s.ctx, 5, models.LangEN)
 	s.Require().NoError(err)
 	s.Equal("Road holes", t.Name)
+	s.Equal("Road holes", t.NameEN)
+	s.Equal("Ямы", t.NameRU)
 	s.False(t.Icon.Valid, "empty icon clears the column")
 	s.Equal(null.StringFrom("#ff8800"), t.Color, "untouched fields stay")
 	s.False(t.Active)

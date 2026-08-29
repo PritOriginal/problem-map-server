@@ -166,7 +166,7 @@ func (uc *Tasker) Update(ctx context.Context) (TaskerStats, error) {
 
 	assignments, stats := uc.plan(marks.Items, users.Items, tasks.Items, distances, limits)
 
-	dueAt := null.TimeFrom(uc.now().Add(limits.TaskTTL()))
+	dueAt := null.TimeFrom(uc.now().Add(time.Duration(limits.TaskTTL)))
 
 	// All assignments are written in one transaction so that a failure or a
 	// cancellation (SIGTERM) never leaves a partially written batch.

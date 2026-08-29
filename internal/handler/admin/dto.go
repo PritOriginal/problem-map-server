@@ -6,17 +6,14 @@ import (
 	"github.com/guregu/null/v6"
 )
 
-// SettingsResponse carries the runtime settings.
-type SettingsResponse struct {
-	Settings usecase.RuntimeSettings `json:"settings"`
-}
+// SettingsResponse is the payload of GET/PUT /admin/settings: the runtime
+// settings document itself.
+type SettingsResponse = usecase.RuntimeSettings
 
-// UpdateSettingsRequest is the JSON body of PUT /admin/settings: the full
-// document (every field is required; omitted numeric fields would read as
-// zero and be rejected by the range validation).
-type UpdateSettingsRequest struct {
-	Settings *usecase.RuntimeSettings `json:"settings" binding:"required"`
-}
+// UpdateSettingsRequest is the JSON body of PUT /admin/settings: the
+// settings document. It is decoded over the current values, so an omitted
+// field keeps its value; every present field is range-validated.
+type UpdateSettingsRequest = usecase.RuntimeSettings
 
 // HistoryRequest is bound from the query string of GET /admin/settings/history.
 type HistoryRequest struct {
@@ -31,9 +28,9 @@ type MarkTypesResponse struct {
 	MarkTypes []models.MarkType `json:"mark_types"`
 }
 
-type MarkTypeResponse struct {
-	MarkType models.MarkType `json:"mark_type"`
-}
+// MarkTypeResponse is the payload of POST/PATCH /admin/mark-types: the
+// mark type itself, with name_ru/name_en.
+type MarkTypeResponse = models.MarkType
 
 // CreateMarkTypeRequest is the JSON body of POST /admin/mark-types.
 type CreateMarkTypeRequest struct {

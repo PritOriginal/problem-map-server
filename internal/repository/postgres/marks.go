@@ -411,27 +411,33 @@ const markTypeColumns = `t.type_mark_id, t.code, t.sla_hours, t.icon, t.color, t
 // markTypeEntity is the translations.entity of mark types.
 const markTypeEntity = "mark_type"
 
+// markTypeNames are the stored translations selected for the admin
+// endpoints, in addition to markTypeColumns.
+const markTypeNames = `,
+		COALESCE((SELECT name FROM translations WHERE entity = '` + markTypeEntity + `' AND entity_id = t.type_mark_id AND lang = 'ru'), t.name) AS name_ru,
+		COALESCE((SELECT name FROM translations WHERE entity = '` + markTypeEntity + `' AND entity_id = t.type_mark_id AND lang = 'en'), '') AS name_en`
+
 // GetMarkTypes lists the active mark types with names in lang (falling back
 // to the default language, then to the raw name), sorted by sort_order and
 // then by the localised name.
 func (r *MarksRepository) GetMarkTypes(ctx context.Context, lang models.Lang) ([]models.MarkType, error) {
 	const op = "storage.postgres.GetMarkTypes"
 
-	return r.listMarkTypes(ctx, op, lang, "WHERE t.active")
+	return r.listMarkTypes(ctx, op, lang, "WHERE t.active", "")
 }
 
-// GetAllMarkTypes lists every mark type, inactive ones included (admin
-// dictionary), sorted like GetMarkTypes.
+// GetAllMarkTypes lists every mark type, inactive ones included, with both
+// stored names (admin dictionary), sorted like GetMarkTypes.
 func (r *MarksRepository) GetAllMarkTypes(ctx context.Context, lang models.Lang) ([]models.MarkType, error) {
 	const op = "storage.postgres.GetAllMarkTypes"
 
-	return r.listMarkTypes(ctx, op, lang, "")
+	return r.listMarkTypes(ctx, op, lang, "", markTypeNames)
 }
 
-func (r *MarksRepository) listMarkTypes(ctx context.Context, op string, lang models.Lang, where string) ([]models.MarkType, error) {
+func (r *MarksRepository) listMarkTypes(ctx context.Context, op string, lang models.Lang, where, extraColumns string) ([]models.MarkType, error) {
 	types := []models.MarkType{}
 
-	query := `SELECT ` + markTypeColumns + translatedName("t.name") + `
+	query := `SELECT ` + markTypeColumns + translatedName("t.name") + extraColumns + `
 		FROM types_marks t
 		` + translationJoins(markTypeEntity, "t.type_mark_id") + `
 		` + where + `
@@ -445,12 +451,13 @@ func (r *MarksRepository) listMarkTypes(ctx context.Context, op string, lang mod
 	return types, nil
 }
 
-// GetMarkTypeById returns one mark type (active or not) with its name in lang.
+// GetMarkTypeById returns one mark type (active or not) with its name in
+// lang and both stored names (admin endpoints).
 func (r *MarksRepository) GetMarkTypeById(ctx context.Context, id int, lang models.Lang) (models.MarkType, error) {
 	const op = "storage.postgres.GetMarkTypeById"
 
 	var t models.MarkType
-	query := `SELECT ` + markTypeColumns + translatedName("t.name") + `
+	query := `SELECT ` + markTypeColumns + translatedName("t.name") + markTypeNames + `
 		FROM types_marks t
 		` + translationJoins(markTypeEntity, "t.type_mark_id") + `
 		WHERE t.type_mark_id = $3`
