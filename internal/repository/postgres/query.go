@@ -158,7 +158,7 @@ func scanPage[T any](ctx context.Context, tr trmsqlx.Tr, query string, args []an
 	if err != nil {
 		return 0, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	cols, err := rows.Columns()
 	if err != nil {

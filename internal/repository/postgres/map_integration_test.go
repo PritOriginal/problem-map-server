@@ -3,8 +3,9 @@
 package postgres_test
 
 import (
-	"github.com/PritOriginal/problem-map-server/internal/models"
 	"math"
+
+	"github.com/PritOriginal/problem-map-server/internal/models"
 )
 
 func (s *PostgresSuite) TestMap_GetAdminBoundaries() {
