@@ -6,6 +6,11 @@ rest:
     read: 15s
     write: 10s
     idle: 5s
+  # Functional tests hit the auth endpoints many times from one IP; keep the
+  # limiter effectively off so they are not rejected with 429.
+  rate_limit:
+    requests: 1000
+    window: 1m
 grpc:
   port: 44044
   timeout: 5s

@@ -45,12 +45,17 @@ func (suite *RateLimitSuite) TestNew() {
 		name       string
 		path       string
 		count      int64
+		ttl        time.Duration
 		errIncr    error
 		statusCode int
+		retryAfter string
 	}{
-		{name: "FirstRequest", path: "/auth/signin", count: 1, statusCode: http.StatusOK},
-		{name: "AtLimit", path: "/auth/signin", count: 2, statusCode: http.StatusOK},
-		{name: "OverLimit", path: "/auth/signin", count: 3, statusCode: http.StatusTooManyRequests},
+		{name: "FirstRequest", path: "/auth/signin", count: 1, ttl: time.Minute, statusCode: http.StatusOK},
+		{name: "AtLimit", path: "/auth/signin", count: 2, ttl: 30 * time.Second, statusCode: http.StatusOK},
+		{name: "OverLimit", path: "/auth/signin", count: 3, ttl: 42 * time.Second, statusCode: http.StatusTooManyRequests, retryAfter: "42"},
+		{name: "OverLimitRoundsUp", path: "/auth/signin", count: 3, ttl: 1500 * time.Millisecond, statusCode: http.StatusTooManyRequests, retryAfter: "2"},
+		{name: "OverLimitNoTTLFallsBackToWindow", path: "/auth/signin", count: 3, ttl: 0, statusCode: http.StatusTooManyRequests, retryAfter: "60"},
+		{name: "OverLimitTTLAboveWindowClamped", path: "/auth/signin", count: 3, ttl: time.Hour, statusCode: http.StatusTooManyRequests, retryAfter: "60"},
 		{name: "FailOpen", path: "/auth/signin", errIncr: errors.New("redis down"), statusCode: http.StatusOK},
 		{name: "Disabled", path: "/disabled", statusCode: http.StatusOK},
 	}
@@ -58,7 +63,7 @@ func (suite *RateLimitSuite) TestNew() {
 		suite.Run(tt.name, func() {
 			if tt.path != "/disabled" {
 				suite.counter.On("Incr", mock.Anything, "ratelimit:/auth/signin:192.0.2.1", time.Minute).Once().
-					Return(tt.count, tt.errIncr)
+					Return(tt.count, tt.ttl, tt.errIncr)
 			}
 
 			w := httptest.NewRecorder()
@@ -67,9 +72,7 @@ func (suite *RateLimitSuite) TestNew() {
 			suite.r.ServeHTTP(w, req)
 
 			suite.Equal(tt.statusCode, w.Code)
-			if tt.statusCode == http.StatusTooManyRequests {
-				suite.Equal("60", w.Header().Get("Retry-After"))
-			}
+			suite.Equal(tt.retryAfter, w.Header().Get("Retry-After"))
 		})
 	}
 }

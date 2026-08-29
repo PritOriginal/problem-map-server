@@ -66,14 +66,30 @@ func (r *Redis) Set(ctx context.Context, key string, value any, expiration time.
 	return nil
 }
 
-// Incr increments the integer stored under key and returns the new value.
-// The expiration is set only when the key has just been created.
-func (r *Redis) Incr(ctx context.Context, key string, expiration time.Duration) (int64, error) {
-	pipe := r.Client.TxPipeline()
-	incr := pipe.Incr(ctx, key)
-	pipe.ExpireNX(ctx, key, expiration)
-	if _, err := pipe.Exec(ctx); err != nil {
-		return 0, err
+// incrScript atomically increments key, sets its TTL when the key has just
+// been created (or has somehow lost its TTL) and returns {count, ttl_ms}.
+// It only uses INCR/PTTL/PEXPIRE, so it works on Redis < 7.0 too (unlike
+// EXPIRE ... NX), and a failure cannot leave a counter without expiry.
+var incrScript = redis.NewScript(`
+local count = redis.call("INCR", KEYS[1])
+local ttl = redis.call("PTTL", KEYS[1])
+if count == 1 or ttl < 0 then
+	redis.call("PEXPIRE", KEYS[1], ARGV[1])
+	ttl = tonumber(ARGV[1])
+end
+return {count, ttl}
+`)
+
+// Incr increments the integer stored under key and returns the new value
+// together with the remaining time before the key expires. The expiration is
+// set to window only when the key has just been created.
+func (r *Redis) Incr(ctx context.Context, key string, window time.Duration) (int64, time.Duration, error) {
+	res, err := incrScript.Run(ctx, r.Client, []string{key}, window.Milliseconds()).Int64Slice()
+	if err != nil {
+		return 0, 0, err
 	}
-	return incr.Val(), nil
+	if len(res) != 2 {
+		return 0, 0, fmt.Errorf("redis.Incr: unexpected script reply %v", res)
+	}
+	return res[0], time.Duration(res[1]) * time.Millisecond, nil
 }

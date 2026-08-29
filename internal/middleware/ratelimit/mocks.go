@@ -39,7 +39,7 @@ func (_m *MockCounter) EXPECT() *MockCounter_Expecter {
 }
 
 // Incr provides a mock function for the type MockCounter
-func (_mock *MockCounter) Incr(ctx context.Context, key string, window time.Duration) (int64, error) {
+func (_mock *MockCounter) Incr(ctx context.Context, key string, window time.Duration) (int64, time.Duration, error) {
 	ret := _mock.Called(ctx, key, window)
 
 	if len(ret) == 0 {
@@ -47,8 +47,9 @@ func (_mock *MockCounter) Incr(ctx context.Context, key string, window time.Dura
 	}
 
 	var r0 int64
-	var r1 error
-	if returnFunc, ok := ret.Get(0).(func(context.Context, string, time.Duration) (int64, error)); ok {
+	var r1 time.Duration
+	var r2 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, string, time.Duration) (int64, time.Duration, error)); ok {
 		return returnFunc(ctx, key, window)
 	}
 	if returnFunc, ok := ret.Get(0).(func(context.Context, string, time.Duration) int64); ok {
@@ -56,12 +57,17 @@ func (_mock *MockCounter) Incr(ctx context.Context, key string, window time.Dura
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
-	if returnFunc, ok := ret.Get(1).(func(context.Context, string, time.Duration) error); ok {
+	if returnFunc, ok := ret.Get(1).(func(context.Context, string, time.Duration) time.Duration); ok {
 		r1 = returnFunc(ctx, key, window)
 	} else {
-		r1 = ret.Error(1)
+		r1 = ret.Get(1).(time.Duration)
 	}
-	return r0, r1
+	if returnFunc, ok := ret.Get(2).(func(context.Context, string, time.Duration) error); ok {
+		r2 = returnFunc(ctx, key, window)
+	} else {
+		r2 = ret.Error(2)
+	}
+	return r0, r1, r2
 }
 
 // MockCounter_Incr_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Incr'
@@ -100,12 +106,12 @@ func (_c *MockCounter_Incr_Call) Run(run func(ctx context.Context, key string, w
 	return _c
 }
 
-func (_c *MockCounter_Incr_Call) Return(n int64, err error) *MockCounter_Incr_Call {
-	_c.Call.Return(n, err)
+func (_c *MockCounter_Incr_Call) Return(count int64, ttl time.Duration, err error) *MockCounter_Incr_Call {
+	_c.Call.Return(count, ttl, err)
 	return _c
 }
 
-func (_c *MockCounter_Incr_Call) RunAndReturn(run func(ctx context.Context, key string, window time.Duration) (int64, error)) *MockCounter_Incr_Call {
+func (_c *MockCounter_Incr_Call) RunAndReturn(run func(ctx context.Context, key string, window time.Duration) (int64, time.Duration, error)) *MockCounter_Incr_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
 	"strconv"
 	"time"
@@ -14,10 +15,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// Counter increments the counter stored under key and returns the new value.
-// When the key is created its TTL is set to window.
+// Counter increments the counter stored under key and returns the new value
+// together with the time left until the key expires. When the key is created
+// its TTL is set to window.
 type Counter interface {
-	Incr(ctx context.Context, key string, window time.Duration) (int64, error)
+	Incr(ctx context.Context, key string, window time.Duration) (count int64, ttl time.Duration, err error)
 }
 
 // Config describes the limiter: Requests per Window per client IP.
@@ -37,7 +39,7 @@ func New(log *slog.Logger, counter Counter, cfg Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		key := fmt.Sprintf("ratelimit:%s:%s", c.FullPath(), c.ClientIP())
 
-		count, err := counter.Incr(c.Request.Context(), key, cfg.Window)
+		count, ttl, err := counter.Incr(c.Request.Context(), key, cfg.Window)
 		if err != nil {
 			log.Warn("rate limiter unavailable, failing open", logger.Err(err))
 			c.Next()
@@ -45,7 +47,7 @@ func New(log *slog.Logger, counter Counter, cfg Config) gin.HandlerFunc {
 		}
 
 		if count > int64(cfg.Requests) {
-			c.Header("Retry-After", strconv.Itoa(int(cfg.Window.Seconds())))
+			c.Header("Retry-After", strconv.Itoa(retryAfterSeconds(ttl, cfg.Window)))
 			responses.Fail(c, http.StatusTooManyRequests, "too many requests")
 			c.Abort()
 			return
@@ -53,4 +55,14 @@ func New(log *slog.Logger, counter Counter, cfg Config) gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// retryAfterSeconds converts the remaining window TTL into a Retry-After
+// value: rounded up to whole seconds, at least 1, and never more than the
+// full window (a backend reporting no TTL falls back to the window).
+func retryAfterSeconds(ttl, window time.Duration) int {
+	if ttl <= 0 || ttl > window {
+		ttl = window
+	}
+	return int(math.Ceil(ttl.Seconds()))
 }
