@@ -2131,6 +2131,159 @@ const docTemplate = `{
                 }
             }
         },
+        "/marks/{id}/hidden": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "` + "`" + `{\"hidden\": true}` + "`" + ` hides the mark from public lists, maps, heatmap and export (only the author and moderators still see it; ` + "`" + `GET /marks/{id}` + "`" + ` is 404 for everybody else), ` + "`" + `{\"hidden\": false}` + "`" + ` shows it again. Hiding notifies the author and the moderators (` + "`" + `mark.hidden` + "`" + `)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "moderation"
+                ],
+                "summary": "Hide or show mark",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "mark id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "visibility",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler_marks.SetHiddenRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_UpdateMarkResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
+        "/marks/{id}/merge-into/{targetId}": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "merge the mark ` + "`" + `id` + "`" + ` into ` + "`" + `targetId` + "`" + ` as a duplicate: both must be different active marks. The followers, the issued tasks and the reports of ` + "`" + `id` + "`" + ` move to the target (a user already following / assigned to / having reported the target keeps one row); ` + "`" + `id` + "`" + ` gets the status «Дубликат» (8) and ` + "`" + `merged_into_id` + "`" + `. The author and the followers of ` + "`" + `id` + "`" + ` are notified (` + "`" + `mark.merged` + "`" + `). Candidates come from ` + "`" + `GET /marks/similar` + "`" + `",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "moderation"
+                ],
+                "summary": "Merge mark into another",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "mark id (the duplicate)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "mark id to merge into",
+                        "name": "targetId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_MergeIntoResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "409": {
+                        "description": "one of the marks is not active",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
         "/marks/{id}/reject": {
             "post": {
                 "security": [
@@ -2397,6 +2550,235 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
+        "/moderation/queue": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "page of reports (open by default, oldest first) with their targets: for a mark report ` + "`" + `target.mark` + "`" + ` is the short form of the mark (including hidden ones); pagination info is in the top-level ` + "`" + `meta` + "`" + ` field",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "moderation"
+                ],
+                "summary": "Moderation queue",
+                "parameters": [
+                    {
+                        "enum": [
+                            "open",
+                            "resolved",
+                            "dismissed"
+                        ],
+                        "type": "string",
+                        "default": "open",
+                        "description": "report status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "mark",
+                            "check",
+                            "comment"
+                        ],
+                        "type": "string",
+                        "description": "target type",
+                        "name": "target_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "page size, 1..500",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "page offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_reports_GetQueueResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
+        "/moderation/reports/mine": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "page of the reports filed by the current user, oldest first; pagination info is in the top-level ` + "`" + `meta` + "`" + ` field",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "moderation"
+                ],
+                "summary": "My reports",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 100,
+                        "description": "page size, 1..500",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 0,
+                        "description": "page offset",
+                        "name": "offset",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_reports_GetMyReportsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
+        "/moderation/reports/{id}": {
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "set the final status of an open report: ` + "`" + `resolved` + "`" + ` (the complaint was justified) or ` + "`" + `dismissed` + "`" + `. A report that is already decided is 409",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "moderation"
+                ],
+                "summary": "Decide report",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "report id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "decision",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler_reports.ResolveReportRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_reports_ResolveReportResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
@@ -3302,6 +3684,87 @@ const docTemplate = `{
                         "description": "Service Unavailable",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-github_com_PritOriginal_problem-map-server_internal_usecase_HealthReport"
+                        }
+                    }
+                }
+            }
+        },
+        "/reports": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "file a complaint about a mark, a check or a comment. A mark or a check must exist (404) and must not be the reporter's own (403); a comment is accepted by id only. One report per target per user (409 on repeat); at most ` + "`" + `reports.max-per-day` + "`" + ` reports per user in 24 hours (429). When the open reports on a mark reach ` + "`" + `reports.hide-threshold` + "`" + ` the mark is hidden automatically",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "moderation"
+                ],
+                "summary": "Report content",
+                "parameters": [
+                    {
+                        "description": "report",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_handler_reports.CreateReportRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_reports_CreateReportResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "429": {
+                        "description": "Too Many Requests",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     }
                 }
@@ -4736,6 +5199,10 @@ const docTemplate = `{
                 "geom": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON"
                 },
+                "hidden": {
+                    "description": "Hidden marks are excluded from public lists, maps and exports; only\nthe author and moderators see them (auto-hidden after\nreports.hide-threshold open reports, or by a moderator).",
+                    "type": "boolean"
+                },
                 "is_following": {
                     "description": "IsFollowing reports whether the viewer (see ContextWithViewer) follows\nthe mark; always false for anonymous requests.",
                     "type": "boolean"
@@ -4753,6 +5220,10 @@ const docTemplate = `{
                 "mark_type_id": {
                     "type": "integer"
                 },
+                "merged_into_id": {
+                    "description": "MergedIntoID is the mark this one was merged into as a duplicate\n(status DuplicateStatus); null otherwise.",
+                    "type": "integer"
+                },
                 "organization_id": {
                     "description": "OrganizationID is the city service assigned to resolve the mark; null\nuntil the mark is confirmed and a responsible organization is found.",
                     "type": "integer"
@@ -4764,6 +5235,35 @@ const docTemplate = `{
                 },
                 "updated_at": {
                     "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_internal_models.MarkBrief": {
+            "type": "object",
+            "properties": {
+                "created_at": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "geom": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON"
+                },
+                "hidden": {
+                    "type": "boolean"
+                },
+                "mark_id": {
+                    "type": "integer"
+                },
+                "mark_status_id": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType"
+                },
+                "mark_type_id": {
+                    "type": "integer"
                 },
                 "user_id": {
                     "type": "integer"
@@ -4829,7 +5329,8 @@ const docTemplate = `{
                 4,
                 5,
                 6,
-                7
+                7,
+                8
             ],
             "x-enum-varnames": [
                 "UnconfirmedStatus",
@@ -4838,7 +5339,8 @@ const docTemplate = `{
                 "RediscoveredStatus",
                 "ClosedStatus",
                 "RefutedStatus",
-                "InProgressStatus"
+                "InProgressStatus",
+                "DuplicateStatus"
             ]
         },
         "github_com_PritOriginal_problem-map-server_internal_models.MarkType": {
@@ -4882,6 +5384,10 @@ const docTemplate = `{
                 "geom": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON"
                 },
+                "hidden": {
+                    "description": "Hidden marks are excluded from public lists, maps and exports; only\nthe author and moderators see them (auto-hidden after\nreports.hide-threshold open reports, or by a moderator).",
+                    "type": "boolean"
+                },
                 "is_following": {
                     "description": "IsFollowing reports whether the viewer (see ContextWithViewer) follows\nthe mark; always false for anonymous requests.",
                     "type": "boolean"
@@ -4897,6 +5403,10 @@ const docTemplate = `{
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType"
                 },
                 "mark_type_id": {
+                    "type": "integer"
+                },
+                "merged_into_id": {
+                    "description": "MergedIntoID is the mark this one was merged into as a duplicate\n(status DuplicateStatus); null otherwise.",
                     "type": "integer"
                 },
                 "organization_id": {
@@ -4980,6 +5490,8 @@ const docTemplate = `{
                 "check.added",
                 "mark.assigned",
                 "mark.sla_breached",
+                "mark.hidden",
+                "mark.merged",
                 "webhook.disabled"
             ],
             "x-enum-varnames": [
@@ -4988,6 +5500,8 @@ const docTemplate = `{
                 "NotificationCheckAdded",
                 "NotificationMarkAssigned",
                 "NotificationMarkSLABreached",
+                "NotificationMarkHidden",
+                "NotificationMarkMerged",
                 "NotificationWebhookDisabled"
             ]
         },
@@ -5171,6 +5685,138 @@ const docTemplate = `{
                 },
                 "region_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_internal_models.Report": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "reason": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.ReportReason"
+                },
+                "report_id": {
+                    "type": "integer"
+                },
+                "reporter_id": {
+                    "type": "integer"
+                },
+                "resolved_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "resolved_by": {
+                    "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.ReportStatus"
+                },
+                "target_id": {
+                    "type": "integer"
+                },
+                "target_type": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.ReportTargetType"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_internal_models.ReportReason": {
+            "type": "string",
+            "enum": [
+                "spam",
+                "offensive",
+                "wrong_place",
+                "duplicate",
+                "other"
+            ],
+            "x-enum-varnames": [
+                "ReportReasonSpam",
+                "ReportReasonOffensive",
+                "ReportReasonWrongPlace",
+                "ReportReasonDuplicate",
+                "ReportReasonOther"
+            ]
+        },
+        "github_com_PritOriginal_problem-map-server_internal_models.ReportStatus": {
+            "type": "string",
+            "enum": [
+                "open",
+                "resolved",
+                "dismissed"
+            ],
+            "x-enum-varnames": [
+                "ReportStatusOpen",
+                "ReportStatusResolved",
+                "ReportStatusDismissed"
+            ]
+        },
+        "github_com_PritOriginal_problem-map-server_internal_models.ReportTarget": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "mark": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkBrief"
+                },
+                "type": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.ReportTargetType"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_internal_models.ReportTargetType": {
+            "type": "string",
+            "enum": [
+                "mark",
+                "check",
+                "comment"
+            ],
+            "x-enum-varnames": [
+                "ReportTargetMark",
+                "ReportTargetCheck",
+                "ReportTargetComment"
+            ]
+        },
+        "github_com_PritOriginal_problem-map-server_internal_models.ReportWithTarget": {
+            "type": "object",
+            "properties": {
+                "comment": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "reason": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.ReportReason"
+                },
+                "report_id": {
+                    "type": "integer"
+                },
+                "reporter_id": {
+                    "type": "integer"
+                },
+                "resolved_at": {
+                    "type": "string",
+                    "format": "date-time"
+                },
+                "resolved_by": {
+                    "type": "integer"
+                },
+                "status": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.ReportStatus"
+                },
+                "target": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.ReportTarget"
+                },
+                "target_id": {
+                    "type": "integer"
+                },
+                "target_type": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.ReportTargetType"
                 }
             }
         },
@@ -5974,6 +6620,23 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_MergeIntoResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_marks.MergeIntoResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
         "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_RejectResponse": {
             "type": "object",
             "properties": {
@@ -6223,6 +6886,74 @@ const docTemplate = `{
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_organizations.ResponsibilityResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_reports_CreateReportResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_reports.CreateReportResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_reports_GetMyReportsResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_reports.GetMyReportsResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_reports_GetQueueResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_reports.GetQueueResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_reports_ResolveReportResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_reports.ResolveReportResponse"
                 },
                 "success": {
                     "type": "boolean"
@@ -6952,11 +7683,33 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler_marks.MergeIntoResponse": {
+            "type": "object",
+            "properties": {
+                "mark": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark"
+                },
+                "merged_into_id": {
+                    "type": "integer"
+                }
+            }
+        },
         "internal_handler_marks.RejectResponse": {
             "type": "object",
             "properties": {
                 "new_mark_staus_id": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType"
+                }
+            }
+        },
+        "internal_handler_marks.SetHiddenRequest": {
+            "type": "object",
+            "required": [
+                "hidden"
+            ],
+            "properties": {
+                "hidden": {
+                    "type": "boolean"
                 }
             }
         },
@@ -7203,6 +7956,96 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 255,
                     "minLength": 1
+                }
+            }
+        },
+        "internal_handler_reports.CreateReportRequest": {
+            "type": "object",
+            "required": [
+                "reason",
+                "target_id",
+                "target_type"
+            ],
+            "properties": {
+                "comment": {
+                    "description": "Comment is limited to models.MaxReportCommentLen runes (the binding\ntag cannot reference the constant; a test keeps them in sync).",
+                    "type": "string",
+                    "maxLength": 1000
+                },
+                "reason": {
+                    "type": "string",
+                    "enum": [
+                        "spam",
+                        "offensive",
+                        "wrong_place",
+                        "duplicate",
+                        "other"
+                    ]
+                },
+                "target_id": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "target_type": {
+                    "type": "string",
+                    "enum": [
+                        "mark",
+                        "check",
+                        "comment"
+                    ]
+                }
+            }
+        },
+        "internal_handler_reports.CreateReportResponse": {
+            "type": "object",
+            "properties": {
+                "report": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Report"
+                }
+            }
+        },
+        "internal_handler_reports.GetMyReportsResponse": {
+            "type": "object",
+            "properties": {
+                "reports": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Report"
+                    }
+                }
+            }
+        },
+        "internal_handler_reports.GetQueueResponse": {
+            "type": "object",
+            "properties": {
+                "reports": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.ReportWithTarget"
+                    }
+                }
+            }
+        },
+        "internal_handler_reports.ResolveReportRequest": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "resolved",
+                        "dismissed"
+                    ]
+                }
+            }
+        },
+        "internal_handler_reports.ResolveReportResponse": {
+            "type": "object",
+            "properties": {
+                "report": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Report"
                 }
             }
         },
@@ -7574,6 +8417,10 @@ const docTemplate = `{
         {
             "description": "User notifications and push devices",
             "name": "notifications"
+        },
+        {
+            "description": "User reports and the moderation queue",
+            "name": "moderation"
         }
     ]
 }`

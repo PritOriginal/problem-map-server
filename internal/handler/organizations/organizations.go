@@ -476,7 +476,7 @@ func (h *handler) GetMarks() gin.HandlerFunc {
 			return
 		}
 
-		page, err := h.uc.ListMarks(models.ContextWithViewer(c.Request.Context(), actor.UserID), actor, id, filters)
+		page, err := h.uc.ListMarks(models.ContextWithActor(c.Request.Context(), actor), actor, id, filters)
 		if err != nil {
 			responses.FromError(c, h.log, op, err)
 			return
@@ -517,7 +517,7 @@ func (h *handler) Start() gin.HandlerFunc {
 			return
 		}
 
-		mark, err := h.uc.Start(models.ContextWithViewer(c.Request.Context(), actor.UserID), actor, id)
+		mark, err := h.uc.Start(models.ContextWithActor(c.Request.Context(), actor), actor, id)
 		if err != nil {
 			responses.FromError(c, h.log, op, err)
 			return
@@ -574,7 +574,7 @@ func (h *handler) Resolve() gin.HandlerFunc {
 			return
 		}
 
-		mark, err := h.uc.Resolve(models.ContextWithViewer(c.Request.Context(), actor.UserID), actor, id, req.Comment, photos)
+		mark, err := h.uc.Resolve(models.ContextWithActor(c.Request.Context(), actor), actor, id, req.Comment, photos)
 		if err != nil {
 			responses.FromError(c, h.log, op, err)
 			return
@@ -624,7 +624,7 @@ func (h *handler) Assign() gin.HandlerFunc {
 			return
 		}
 
-		mark, err := h.uc.Assign(models.ContextWithViewer(c.Request.Context(), actor.UserID), id, req.OrganizationID)
+		mark, err := h.uc.Assign(models.ContextWithActor(c.Request.Context(), actor), id, req.OrganizationID)
 		if err != nil {
 			responses.FromError(c, h.log, op, err)
 			return

@@ -20,6 +20,7 @@ import (
 	marksrest "github.com/PritOriginal/problem-map-server/internal/handler/marks"
 	notificationsrest "github.com/PritOriginal/problem-map-server/internal/handler/notifications"
 	organizationsrest "github.com/PritOriginal/problem-map-server/internal/handler/organizations"
+	reportsrest "github.com/PritOriginal/problem-map-server/internal/handler/reports"
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
 	webhooksrest "github.com/PritOriginal/problem-map-server/internal/handler/webhooks"
@@ -132,11 +133,15 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Checks: checksRepo,
 		Users:  usersRepo,
 	}).WithEvents(publisher).WithAssigner(organizationsUseCase)
+	tasksRepo := postgres.NewTasks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
+	reportsRepo := postgres.NewReports(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	marksUseCase := usecase.NewMarks(log, cfg.Marks, trManager, usecase.MarksRepositories{
-		Marks:  marksRepo,
-		Checks: checksRepo,
-		Photos: photoRepo,
-	})
+		Marks:   marksRepo,
+		Checks:  checksRepo,
+		Photos:  photoRepo,
+		Tasks:   tasksRepo,
+		Reports: reportsRepo,
+	}).WithEvents(publisher)
 	exportUseCase := usecase.NewExport(log, cfg.Export, usecase.ExportRepositories{
 		Marks: marksRepo,
 	})
@@ -152,7 +157,6 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		}),
 	})
 
-	tasksRepo := postgres.NewTasks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	checksUseCase := usecase.NewChecks(log, cfg.Rating, trManager, markStatusUpdater, usecase.ChecksRepositories{
 		Marks:         marksRepo,
 		Checks:        checksRepo,
@@ -162,6 +166,13 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		Organizations: organizationsRepo,
 	}).WithEvents(publisher)
 	checksrest.Register(router, log, authMiddleware, checksUseCase)
+
+	reportsUseCase := usecase.NewReports(log, cfg.Reports, trManager, usecase.ReportsRepositories{
+		Reports: reportsRepo,
+		Marks:   marksRepo,
+		Checks:  checksRepo,
+	}).WithEvents(publisher)
+	reportsrest.Register(router, log, authMiddleware, reportsUseCase)
 
 	usersUseCase := usecase.NewUsers(log, usecase.UsersRepositories{
 		Users:         usersRepo,

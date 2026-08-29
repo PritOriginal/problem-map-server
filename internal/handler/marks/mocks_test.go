@@ -1119,6 +1119,162 @@ func (_c *MockMarks_ListMarksByUserId_Call) RunAndReturn(run func(ctx context.Co
 	return _c
 }
 
+// MergeInto provides a mock function for the type MockMarks
+func (_mock *MockMarks) MergeInto(ctx context.Context, actor models.Actor, markId int, targetId int) (models.Mark, error) {
+	ret := _mock.Called(ctx, actor, markId, targetId)
+
+	if len(ret) == 0 {
+		panic("no return value specified for MergeInto")
+	}
+
+	var r0 models.Mark
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Actor, int, int) (models.Mark, error)); ok {
+		return returnFunc(ctx, actor, markId, targetId)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Actor, int, int) models.Mark); ok {
+		r0 = returnFunc(ctx, actor, markId, targetId)
+	} else {
+		r0 = ret.Get(0).(models.Mark)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.Actor, int, int) error); ok {
+		r1 = returnFunc(ctx, actor, markId, targetId)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMarks_MergeInto_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'MergeInto'
+type MockMarks_MergeInto_Call struct {
+	*mock.Call
+}
+
+// MergeInto is a helper method to define mock.On call
+//   - ctx context.Context
+//   - actor models.Actor
+//   - markId int
+//   - targetId int
+func (_e *MockMarks_Expecter) MergeInto(ctx any, actor any, markId any, targetId any) *MockMarks_MergeInto_Call {
+	return &MockMarks_MergeInto_Call{Call: _e.mock.On("MergeInto", ctx, actor, markId, targetId)}
+}
+
+func (_c *MockMarks_MergeInto_Call) Run(run func(ctx context.Context, actor models.Actor, markId int, targetId int)) *MockMarks_MergeInto_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 models.Actor
+		if args[1] != nil {
+			arg1 = args[1].(models.Actor)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		var arg3 int
+		if args[3] != nil {
+			arg3 = args[3].(int)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarks_MergeInto_Call) Return(mark models.Mark, err error) *MockMarks_MergeInto_Call {
+	_c.Call.Return(mark, err)
+	return _c
+}
+
+func (_c *MockMarks_MergeInto_Call) RunAndReturn(run func(ctx context.Context, actor models.Actor, markId int, targetId int) (models.Mark, error)) *MockMarks_MergeInto_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SetHidden provides a mock function for the type MockMarks
+func (_mock *MockMarks) SetHidden(ctx context.Context, actor models.Actor, markId int, hidden bool) (models.Mark, error) {
+	ret := _mock.Called(ctx, actor, markId, hidden)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetHidden")
+	}
+
+	var r0 models.Mark
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Actor, int, bool) (models.Mark, error)); ok {
+		return returnFunc(ctx, actor, markId, hidden)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.Actor, int, bool) models.Mark); ok {
+		r0 = returnFunc(ctx, actor, markId, hidden)
+	} else {
+		r0 = ret.Get(0).(models.Mark)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.Actor, int, bool) error); ok {
+		r1 = returnFunc(ctx, actor, markId, hidden)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMarks_SetHidden_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetHidden'
+type MockMarks_SetHidden_Call struct {
+	*mock.Call
+}
+
+// SetHidden is a helper method to define mock.On call
+//   - ctx context.Context
+//   - actor models.Actor
+//   - markId int
+//   - hidden bool
+func (_e *MockMarks_Expecter) SetHidden(ctx any, actor any, markId any, hidden any) *MockMarks_SetHidden_Call {
+	return &MockMarks_SetHidden_Call{Call: _e.mock.On("SetHidden", ctx, actor, markId, hidden)}
+}
+
+func (_c *MockMarks_SetHidden_Call) Run(run func(ctx context.Context, actor models.Actor, markId int, hidden bool)) *MockMarks_SetHidden_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 models.Actor
+		if args[1] != nil {
+			arg1 = args[1].(models.Actor)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		var arg3 bool
+		if args[3] != nil {
+			arg3 = args[3].(bool)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarks_SetHidden_Call) Return(mark models.Mark, err error) *MockMarks_SetHidden_Call {
+	_c.Call.Return(mark, err)
+	return _c
+}
+
+func (_c *MockMarks_SetHidden_Call) RunAndReturn(run func(ctx context.Context, actor models.Actor, markId int, hidden bool) (models.Mark, error)) *MockMarks_SetHidden_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // UnfollowMark provides a mock function for the type MockMarks
 func (_mock *MockMarks) UnfollowMark(ctx context.Context, userId int, markId int) error {
 	ret := _mock.Called(ctx, userId, markId)

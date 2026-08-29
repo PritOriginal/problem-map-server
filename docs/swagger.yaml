@@ -137,6 +137,12 @@ definitions:
         type: integer
       geom:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON'
+      hidden:
+        description: |-
+          Hidden marks are excluded from public lists, maps and exports; only
+          the author and moderators see them (auto-hidden after
+          reports.hide-threshold open reports, or by a moderator).
+        type: boolean
       is_following:
         description: |-
           IsFollowing reports whether the viewer (see ContextWithViewer) follows
@@ -153,6 +159,11 @@ definitions:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
       mark_type_id:
         type: integer
+      merged_into_id:
+        description: |-
+          MergedIntoID is the mark this one was merged into as a duplicate
+          (status DuplicateStatus); null otherwise.
+        type: integer
       organization_id:
         description: |-
           OrganizationID is the city service assigned to resolve the mark; null
@@ -165,6 +176,25 @@ definitions:
         type: string
       updated_at:
         type: string
+      user_id:
+        type: integer
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.MarkBrief:
+    properties:
+      created_at:
+        type: string
+      description:
+        type: string
+      geom:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON'
+      hidden:
+        type: boolean
+      mark_id:
+        type: integer
+      mark_status_id:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
+      mark_type_id:
+        type: integer
       user_id:
         type: integer
     type: object
@@ -212,6 +242,7 @@ definitions:
     - 5
     - 6
     - 7
+    - 8
     type: integer
     x-enum-varnames:
     - UnconfirmedStatus
@@ -221,6 +252,7 @@ definitions:
     - ClosedStatus
     - RefutedStatus
     - InProgressStatus
+    - DuplicateStatus
   github_com_PritOriginal_problem-map-server_internal_models.MarkType:
     properties:
       code:
@@ -252,6 +284,12 @@ definitions:
         type: integer
       geom:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PointJSON'
+      hidden:
+        description: |-
+          Hidden marks are excluded from public lists, maps and exports; only
+          the author and moderators see them (auto-hidden after
+          reports.hide-threshold open reports, or by a moderator).
+        type: boolean
       is_following:
         description: |-
           IsFollowing reports whether the viewer (see ContextWithViewer) follows
@@ -267,6 +305,11 @@ definitions:
       mark_status_id:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
       mark_type_id:
+        type: integer
+      merged_into_id:
+        description: |-
+          MergedIntoID is the mark this one was merged into as a duplicate
+          (status DuplicateStatus); null otherwise.
         type: integer
       organization_id:
         description: |-
@@ -327,6 +370,8 @@ definitions:
     - check.added
     - mark.assigned
     - mark.sla_breached
+    - mark.hidden
+    - mark.merged
     - webhook.disabled
     type: string
     x-enum-varnames:
@@ -335,6 +380,8 @@ definitions:
     - NotificationCheckAdded
     - NotificationMarkAssigned
     - NotificationMarkSLABreached
+    - NotificationMarkHidden
+    - NotificationMarkMerged
     - NotificationWebhookDisabled
   github_com_PritOriginal_problem-map-server_internal_models.Organization:
     properties:
@@ -457,6 +504,99 @@ definitions:
         type: string
       region_id:
         type: integer
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.Report:
+    properties:
+      comment:
+        type: string
+      created_at:
+        type: string
+      reason:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.ReportReason'
+      report_id:
+        type: integer
+      reporter_id:
+        type: integer
+      resolved_at:
+        format: date-time
+        type: string
+      resolved_by:
+        type: integer
+      status:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.ReportStatus'
+      target_id:
+        type: integer
+      target_type:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.ReportTargetType'
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.ReportReason:
+    enum:
+    - spam
+    - offensive
+    - wrong_place
+    - duplicate
+    - other
+    type: string
+    x-enum-varnames:
+    - ReportReasonSpam
+    - ReportReasonOffensive
+    - ReportReasonWrongPlace
+    - ReportReasonDuplicate
+    - ReportReasonOther
+  github_com_PritOriginal_problem-map-server_internal_models.ReportStatus:
+    enum:
+    - open
+    - resolved
+    - dismissed
+    type: string
+    x-enum-varnames:
+    - ReportStatusOpen
+    - ReportStatusResolved
+    - ReportStatusDismissed
+  github_com_PritOriginal_problem-map-server_internal_models.ReportTarget:
+    properties:
+      id:
+        type: integer
+      mark:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkBrief'
+      type:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.ReportTargetType'
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.ReportTargetType:
+    enum:
+    - mark
+    - check
+    - comment
+    type: string
+    x-enum-varnames:
+    - ReportTargetMark
+    - ReportTargetCheck
+    - ReportTargetComment
+  github_com_PritOriginal_problem-map-server_internal_models.ReportWithTarget:
+    properties:
+      comment:
+        type: string
+      created_at:
+        type: string
+      reason:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.ReportReason'
+      report_id:
+        type: integer
+      reporter_id:
+        type: integer
+      resolved_at:
+        format: date-time
+        type: string
+      resolved_by:
+        type: integer
+      status:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.ReportStatus'
+      target:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.ReportTarget'
+      target_id:
+        type: integer
+      target_type:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.ReportTargetType'
     type: object
   github_com_PritOriginal_problem-map-server_internal_models.Role:
     enum:
@@ -987,6 +1127,17 @@ definitions:
       success:
         type: boolean
     type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_MergeIntoResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_marks.MergeIntoResponse'
+      success:
+        type: boolean
+    type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_RejectResponse:
     properties:
       error:
@@ -1149,6 +1300,50 @@ definitions:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_organizations.ResponsibilityResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_reports_CreateReportResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_reports.CreateReportResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_reports_GetMyReportsResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_reports.GetMyReportsResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_reports_GetQueueResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_reports.GetQueueResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_reports_ResolveReportResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_reports.ResolveReportResponse'
       success:
         type: boolean
     type: object
@@ -1621,10 +1816,24 @@ definitions:
           $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkWithDistance'
         type: array
     type: object
+  internal_handler_marks.MergeIntoResponse:
+    properties:
+      mark:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Mark'
+      merged_into_id:
+        type: integer
+    type: object
   internal_handler_marks.RejectResponse:
     properties:
       new_mark_staus_id:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkStatusType'
+    type: object
+  internal_handler_marks.SetHiddenRequest:
+    properties:
+      hidden:
+        type: boolean
+    required:
+    - hidden
     type: object
   internal_handler_marks.SimilarMarksPayload:
     properties:
@@ -1786,6 +1995,70 @@ definitions:
         maxLength: 255
         minLength: 1
         type: string
+    type: object
+  internal_handler_reports.CreateReportRequest:
+    properties:
+      comment:
+        description: |-
+          Comment is limited to models.MaxReportCommentLen runes (the binding
+          tag cannot reference the constant; a test keeps them in sync).
+        maxLength: 1000
+        type: string
+      reason:
+        enum:
+        - spam
+        - offensive
+        - wrong_place
+        - duplicate
+        - other
+        type: string
+      target_id:
+        minimum: 1
+        type: integer
+      target_type:
+        enum:
+        - mark
+        - check
+        - comment
+        type: string
+    required:
+    - reason
+    - target_id
+    - target_type
+    type: object
+  internal_handler_reports.CreateReportResponse:
+    properties:
+      report:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Report'
+    type: object
+  internal_handler_reports.GetMyReportsResponse:
+    properties:
+      reports:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Report'
+        type: array
+    type: object
+  internal_handler_reports.GetQueueResponse:
+    properties:
+      reports:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.ReportWithTarget'
+        type: array
+    type: object
+  internal_handler_reports.ResolveReportRequest:
+    properties:
+      status:
+        enum:
+        - resolved
+        - dismissed
+        type: string
+    required:
+    - status
+    type: object
+  internal_handler_reports.ResolveReportResponse:
+    properties:
+      report:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Report'
     type: object
   internal_handler_tasks.AddTaskRequest:
     properties:
@@ -3170,6 +3443,113 @@ paths:
       summary: Follow mark
       tags:
       - marks
+  /marks/{id}/hidden:
+    patch:
+      consumes:
+      - application/json
+      description: '`{"hidden": true}` hides the mark from public lists, maps, heatmap
+        and export (only the author and moderators still see it; `GET /marks/{id}`
+        is 404 for everybody else), `{"hidden": false}` shows it again. Hiding notifies
+        the author and the moderators (`mark.hidden`)'
+      parameters:
+      - description: mark id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: visibility
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_marks.SetHiddenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_UpdateMarkResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Hide or show mark
+      tags:
+      - moderation
+  /marks/{id}/merge-into/{targetId}:
+    post:
+      description: 'merge the mark `id` into `targetId` as a duplicate: both must
+        be different active marks. The followers, the issued tasks and the reports
+        of `id` move to the target (a user already following / assigned to / having
+        reported the target keeps one row); `id` gets the status «Дубликат» (8) and
+        `merged_into_id`. The author and the followers of `id` are notified (`mark.merged`).
+        Candidates come from `GET /marks/similar`'
+      parameters:
+      - description: mark id (the duplicate)
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: mark id to merge into
+        in: path
+        name: targetId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_MergeIntoResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "409":
+          description: one of the marks is not active
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Merge mark into another
+      tags:
+      - moderation
   /marks/{id}/reject:
     post:
       consumes:
@@ -3635,6 +4015,160 @@ paths:
       summary: List markers by user id
       tags:
       - marks
+  /moderation/queue:
+    get:
+      description: 'page of reports (open by default, oldest first) with their targets:
+        for a mark report `target.mark` is the short form of the mark (including hidden
+        ones); pagination info is in the top-level `meta` field'
+      parameters:
+      - default: open
+        description: report status
+        enum:
+        - open
+        - resolved
+        - dismissed
+        in: query
+        name: status
+        type: string
+      - description: target type
+        enum:
+        - mark
+        - check
+        - comment
+        in: query
+        name: target_type
+        type: string
+      - default: 100
+        description: page size, 1..500
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: page offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_reports_GetQueueResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Moderation queue
+      tags:
+      - moderation
+  /moderation/reports/{id}:
+    patch:
+      consumes:
+      - application/json
+      description: 'set the final status of an open report: `resolved` (the complaint
+        was justified) or `dismissed`. A report that is already decided is 409'
+      parameters:
+      - description: report id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: decision
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_reports.ResolveReportRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_reports_ResolveReportResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Decide report
+      tags:
+      - moderation
+  /moderation/reports/mine:
+    get:
+      description: page of the reports filed by the current user, oldest first; pagination
+        info is in the top-level `meta` field
+      parameters:
+      - default: 100
+        description: page size, 1..500
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: page offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_reports_GetMyReportsResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: My reports
+      tags:
+      - moderation
   /notifications:
     get:
       description: get notifications of the authenticated user, newest first; pagination
@@ -4225,6 +4759,62 @@ paths:
       summary: Readiness probe
       tags:
       - health
+  /reports:
+    post:
+      consumes:
+      - application/json
+      description: file a complaint about a mark, a check or a comment. A mark or
+        a check must exist (404) and must not be the reporter's own (403); a comment
+        is accepted by id only. One report per target per user (409 on repeat); at
+        most `reports.max-per-day` reports per user in 24 hours (429). When the open
+        reports on a mark reach `reports.hide-threshold` the mark is hidden automatically
+      parameters:
+      - description: report
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler_reports.CreateReportRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_reports_CreateReportResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "429":
+          description: Too Many Requests
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Report content
+      tags:
+      - moderation
   /tasks:
     get:
       description: get tasks page; pagination info is returned in the top-level `meta`
@@ -5062,3 +5652,5 @@ tags:
   name: users
 - description: User notifications and push devices
   name: notifications
+- description: User reports and the moderation queue
+  name: moderation

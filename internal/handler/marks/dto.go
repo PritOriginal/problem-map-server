@@ -225,3 +225,17 @@ type ConfirmResponse struct {
 type RejectResponse struct {
 	NewMarkStausId models.MarkStatusType `json:"new_mark_staus_id"`
 }
+
+// SetHiddenRequest is the JSON body of PATCH /marks/{id}/hidden. Hidden is
+// a pointer so that false is a valid value while a missing field is
+// rejected.
+type SetHiddenRequest struct {
+	Hidden *bool `json:"hidden" binding:"required"`
+}
+
+// MergeIntoResponse is the merged (source) mark after
+// POST /marks/{id}/merge-into/{targetId}.
+type MergeIntoResponse struct {
+	Mark         models.Mark `json:"mark"`
+	MergedIntoId int         `json:"merged_into_id"`
+}

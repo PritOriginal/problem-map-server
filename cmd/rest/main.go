@@ -40,6 +40,9 @@ import (
 //	@tag.name			notifications
 //	@tag.description	User notifications and push devices
 
+//	@tag.name			moderation
+//	@tag.description	User reports and the moderation queue
+
 func main() {
 	os.Exit(run())
 }
