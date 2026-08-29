@@ -92,3 +92,41 @@ type GetTasksByUserIdFilters struct {
 
 	Pagination Pagination
 }
+
+// RatingReason explains a rating change (rating_events.reason).
+type RatingReason string
+
+const (
+	// RatingReasonCheckCorrect — the checker's vote matched the stage outcome.
+	RatingReasonCheckCorrect RatingReason = "check_correct"
+	// RatingReasonCheckWrong — the checker's vote contradicted the outcome.
+	RatingReasonCheckWrong RatingReason = "check_wrong"
+	// RatingReasonMarkConfirmed — the author's mark was confirmed.
+	RatingReasonMarkConfirmed RatingReason = "mark_confirmed"
+	// RatingReasonMarkRefuted — the author's mark was refuted.
+	RatingReasonMarkRefuted RatingReason = "mark_refuted"
+	// RatingReasonTaskCompleted — a check closed an issued task.
+	RatingReasonTaskCompleted RatingReason = "task_completed"
+)
+
+// RatingEvent is one change of a user's rating.
+type RatingEvent struct {
+	ID        int64        `json:"id" db:"id"`
+	UserID    int          `json:"user_id" db:"user_id"`
+	Delta     int          `json:"delta" db:"delta"`
+	Reason    RatingReason `json:"reason" db:"reason"`
+	MarkID    null.Int     `json:"mark_id" db:"mark_id" swaggertype:"integer"`
+	CheckID   null.Int     `json:"check_id" db:"check_id" swaggertype:"integer"`
+	CreatedAt time.Time    `json:"created_at" db:"created_at"`
+}
+
+// UserStats aggregates a user's activity for the profile page.
+type UserStats struct {
+	Rating         int `json:"rating" db:"rating"`
+	MarksTotal     int `json:"marks_total" db:"marks_total"`
+	MarksConfirmed int `json:"marks_confirmed" db:"marks_confirmed"`
+	MarksRefuted   int `json:"marks_refuted" db:"marks_refuted"`
+	ChecksTotal    int `json:"checks_total" db:"checks_total"`
+	ChecksCorrect  int `json:"checks_correct" db:"checks_correct"`
+	TasksCompleted int `json:"tasks_completed" db:"tasks_completed"`
+}

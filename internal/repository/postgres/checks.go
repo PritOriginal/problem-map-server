@@ -184,6 +184,25 @@ func (r *ChecksRepository) GetChecksByUserIdAndMarkIdSince(ctx context.Context, 
 	return checks, nil
 }
 
+// CountChecksByUserIdSince counts the user's checks created after since
+// (used by the daily anti-fraud limit).
+func (r *ChecksRepository) CountChecksByUserIdSince(ctx context.Context, userId int, since time.Time) (int, error) {
+	const op = "storage.postgres.CountChecksByUserIdSince"
+
+	var n int
+
+	// checks.created_at is a plain TIMESTAMP; the explicit cast keeps the
+	// client's offset from being dropped when the parameter is inferred.
+	query := `SELECT COUNT(*) FROM checks WHERE user_id = $1 AND created_at > $2::timestamptz`
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.GetContext(ctx, &n, query, userId, since); err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return n, nil
+}
+
 func (r *ChecksRepository) GetUserMarkCheck(ctx context.Context, userId int, markStatusHistoryId int) (models.Check, error) {
 	const op = "storage.postgres.GetUserMarkCheck"
 

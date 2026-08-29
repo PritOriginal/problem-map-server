@@ -29,6 +29,7 @@ type Config struct {
 	Aws             AwsConfig        `yaml:"aws"`
 	Nats            NatsConfig       `yaml:"nats"`
 	Tasker          TaskerConfig     `yaml:"tasker"`
+	Rating          RatingConfig     `yaml:"rating"`
 }
 
 type PhotoStorageType string
@@ -177,6 +178,31 @@ func (t TaskerConfig) Validate() error {
 	return errors.Join(errs...)
 }
 
+// RatingConfig holds the rating deltas awarded when a mark's voting stage
+// resolves (see usecase.Updater) and the anti-fraud limits of AddCheck.
+type RatingConfig struct {
+	// CheckCorrect is awarded to a checker whose vote matched the outcome.
+	CheckCorrect int `yaml:"check-correct" env:"RATING_CHECK_CORRECT" env-default:"2"`
+	// CheckWrong is awarded (usually negative) to a checker whose vote did not.
+	CheckWrong int `yaml:"check-wrong" env:"RATING_CHECK_WRONG" env-default:"-1"`
+	// MarkConfirmed is awarded to the author when a mark gets confirmed.
+	MarkConfirmed int `yaml:"mark-confirmed" env:"RATING_MARK_CONFIRMED" env-default:"3"`
+	// MarkRefuted is awarded to the author when a mark gets refuted.
+	MarkRefuted int `yaml:"mark-refuted" env:"RATING_MARK_REFUTED" env-default:"-2"`
+	// TaskCompleted is awarded when a check closes an issued task.
+	TaskCompleted int `yaml:"task-completed" env:"RATING_TASK_COMPLETED" env-default:"1"`
+	// MaxChecksPerDay caps the checks a user may submit in a rolling 24 hours.
+	MaxChecksPerDay int `yaml:"max-checks-per-day" env:"RATING_MAX_CHECKS_PER_DAY" env-default:"50"`
+}
+
+// Validate checks that the anti-fraud limit is sane.
+func (r RatingConfig) Validate() error {
+	if r.MaxChecksPerDay <= 0 {
+		return errors.New("rating.max-checks-per-day (RATING_MAX_CHECKS_PER_DAY) must be positive")
+	}
+	return nil
+}
+
 type NatsConfig struct {
 	URL  string `yaml:"url" env:"NATS_URL"`
 	Name string `yaml:"name" env:"NATS_NAME"`
@@ -248,7 +274,7 @@ const MinJWTKeyLength = 32
 
 // Validate checks that security-sensitive settings are present and sane.
 func (c *Config) Validate() error {
-	if err := errors.Join(c.Auth.Validate(), c.DB.Validate(), c.Tasker.Validate()); err != nil {
+	if err := errors.Join(c.Auth.Validate(), c.DB.Validate(), c.Tasker.Validate(), c.Rating.Validate()); err != nil {
 		return fmt.Errorf("invalid config: %w", err)
 	}
 	return nil
