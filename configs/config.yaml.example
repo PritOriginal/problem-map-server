@@ -61,3 +61,13 @@ tasker:
 
 marks:
   dedup-radius-m: 50
+
+# Rating deltas awarded when a voting stage resolves and the anti-fraud
+# limits of POST /checks (env: RATING_*).
+rating:
+  check-correct: 2
+  check-wrong: -1
+  mark-confirmed: 3
+  mark-refuted: -2
+  task-completed: 1
+  max-checks-per-day: 50
