@@ -19,7 +19,7 @@ type MapSuite struct {
 }
 
 func (st *MapSuite) SetupSuite() {
-	st.Cfg = config.MustLoadPath("../../configs/config.yaml")
+	st.Cfg, _ = loadFixtures(st.T())
 }
 
 func TestMapSuite(t *testing.T) {
@@ -63,7 +63,7 @@ func (st *MapSuite) TestGetAdminBoundaries() {
 				query: tt.query,
 			}))
 			st.NoError(err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			st.Equal(tt.statusCode, resp.StatusCode)
 
@@ -133,7 +133,7 @@ func (st *MapSuite) TestGetAdminBoundariesMarksCount() {
 				query: tt.query,
 			}))
 			st.NoError(err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			st.Equal(tt.statusCode, resp.StatusCode)
 
@@ -161,7 +161,7 @@ func (st *MapSuite) TestGetRegions() {
 	st.NoError(err)
 	st.Equal(http.StatusOK, resp.StatusCode)
 
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var response responses.Response[maprest.GetRegionsResponse]
 
@@ -181,7 +181,7 @@ func (st *MapSuite) TestGetCities() {
 	st.NoError(err)
 	st.Equal(http.StatusOK, resp.StatusCode)
 
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var response responses.Response[maprest.GetCitiesResponse]
 
@@ -201,7 +201,7 @@ func (st *MapSuite) TestGetDistricts() {
 	st.NoError(err)
 	st.Equal(http.StatusOK, resp.StatusCode)
 
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var response responses.Response[maprest.GetDistrictsResponse]
 

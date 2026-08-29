@@ -7,13 +7,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"math"
-	"math/rand"
 	"net/http"
 	"strconv"
 	"testing"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
+	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -22,10 +22,11 @@ import (
 type TasksSuite struct {
 	suite.Suite
 	Cfg *config.Config
+	fx  *fixtures
 }
 
 func (st *TasksSuite) SetupSuite() {
-	st.Cfg = config.MustLoadPath("../../configs/config.yaml")
+	st.Cfg, st.fx = loadFixtures(st.T())
 }
 
 func TestTasksSuite(t *testing.T) {
@@ -36,6 +37,33 @@ func (st *TasksSuite) TestGetTasks() {
 	response := getTasks(st.T(), &st.Cfg.REST, http.StatusOK)
 	st.Equal(response.Success, true)
 	st.NotNil(response.Payload.Tasks)
+	st.Contains(ids(response.Payload.Tasks, func(t models.Task) int { return t.ID }), st.fx.taskID, "fixture task must be listed")
+}
+
+func addTask(t *testing.T, cfg *config.RESTConfig, body *bytes.Buffer, accessToken string, expectedStatusCode int) responses.Response[tasksrest.AddTaskResponse] {
+	t.Helper()
+
+	req, err := http.NewRequest(http.MethodPost, makeUrl(makeUrlParams{
+		host: cfg.Host,
+		port: cfg.Port,
+		path: "/tasks",
+	}), body)
+	require.NoError(t, err)
+	req.Header.Set("Content-Type", "application/json")
+	if accessToken != "" {
+		req.Header.Set("Authorization", "Bearer "+accessToken)
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, expectedStatusCode, resp.StatusCode)
+
+	var response responses.Response[tasksrest.AddTaskResponse]
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&response))
+
+	return response
 }
 
 func getTasks(t *testing.T, cfg *config.RESTConfig, expectedStatusCode int) responses.Response[tasksrest.GetTasksResponse] {
@@ -45,9 +73,9 @@ func getTasks(t *testing.T, cfg *config.RESTConfig, expectedStatusCode int) resp
 		path: "/tasks",
 	}))
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
-	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, expectedStatusCode, resp.StatusCode)
 
 	var response responses.Response[tasksrest.GetTasksResponse]
 
@@ -58,8 +86,6 @@ func getTasks(t *testing.T, cfg *config.RESTConfig, expectedStatusCode int) resp
 }
 
 func (st *TasksSuite) TestGetTaskById() {
-	getTasksResponse := getTasks(st.T(), &st.Cfg.REST, http.StatusOK)
-
 	tests := []struct {
 		name       string
 		id         string
@@ -67,7 +93,7 @@ func (st *TasksSuite) TestGetTaskById() {
 	}{
 		{
 			name:       "Ok200",
-			id:         strconv.Itoa(getTasksResponse.Payload.Tasks[0].ID),
+			id:         strconv.Itoa(st.fx.taskID),
 			statusCode: http.StatusOK,
 		},
 		{
@@ -86,10 +112,10 @@ func (st *TasksSuite) TestGetTaskById() {
 			resp, err := http.Get(makeUrl(makeUrlParams{
 				host: st.Cfg.REST.Host,
 				port: st.Cfg.REST.Port,
-				path: fmt.Sprintf("tasks/%s", tt.id),
+				path: fmt.Sprintf("/tasks/%s", tt.id),
 			}))
 			st.NoError(err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			st.Equal(tt.statusCode, resp.StatusCode)
 
@@ -100,7 +126,9 @@ func (st *TasksSuite) TestGetTaskById() {
 
 			if tt.statusCode < 300 {
 				st.Equal(response.Success, true)
-				st.NotNil(response.Payload.Task)
+				st.Require().NotNil(response.Payload.Task)
+				st.Equal(st.fx.taskID, response.Payload.Task.ID)
+				st.Equal(st.fx.markID, response.Payload.Task.MarkID)
 			} else {
 				st.Equal(response.Success, false)
 			}
@@ -109,8 +137,6 @@ func (st *TasksSuite) TestGetTaskById() {
 }
 
 func (st *TasksSuite) TestGetTasksByUserId() {
-	getUsersResponse := getUsers(st.T(), &st.Cfg.REST, http.StatusOK)
-
 	tests := []struct {
 		name       string
 		id         string
@@ -118,7 +144,7 @@ func (st *TasksSuite) TestGetTasksByUserId() {
 	}{
 		{
 			name:       "Ok200",
-			id:         strconv.Itoa(getUsersResponse.Payload.Users[0].Id),
+			id:         strconv.Itoa(st.fx.user.ID),
 			statusCode: http.StatusOK,
 		},
 		{
@@ -135,7 +161,7 @@ func (st *TasksSuite) TestGetTasksByUserId() {
 				path: fmt.Sprintf("/tasks/user/%s", tt.id),
 			}))
 			st.NoError(err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			st.Equal(tt.statusCode, resp.StatusCode)
 
@@ -154,12 +180,11 @@ func (st *TasksSuite) TestGetTasksByUserId() {
 }
 
 func (st *TasksSuite) TestAddTask() {
-	moderatorAccessToken := moderatorToken(st.T(), st.Cfg)
-	userSignIn := addNewUser(st.T(), &st.Cfg.REST)
+	moderatorAccessToken := st.fx.moderatorToken
+	userAccessToken := st.fx.user.AccessToken
 
-	getMarksResponse := getMarks(st.T(), &st.Cfg.REST, "", http.StatusOK)
-	markIndex := rand.Intn(len(getMarksResponse.Payload.Marks))
-	mark := getMarksResponse.Payload.Marks[markIndex]
+	// A fresh mark so the fixture task on fx.markID is left untouched.
+	markID := addNewMark(st.T(), &st.Cfg.REST, userAccessToken, st.fx.markTypeID).Payload.MarkId
 
 	tests := []struct {
 		name        string
@@ -172,7 +197,7 @@ func (st *TasksSuite) TestAddTask() {
 			name: "Ok201",
 			req: tasksrest.AddTaskRequest{
 				Name:   "test",
-				MarkID: mark.ID,
+				MarkID: markID,
 			},
 			accessToken: moderatorAccessToken,
 			statusCode:  http.StatusCreated,
@@ -181,7 +206,7 @@ func (st *TasksSuite) TestAddTask() {
 			name: "Err401NoToken",
 			req: tasksrest.AddTaskRequest{
 				Name:   "test",
-				MarkID: mark.ID,
+				MarkID: markID,
 			},
 			statusCode: http.StatusUnauthorized,
 		},
@@ -189,9 +214,9 @@ func (st *TasksSuite) TestAddTask() {
 			name: "Err403User",
 			req: tasksrest.AddTaskRequest{
 				Name:   "test",
-				MarkID: mark.ID,
+				MarkID: markID,
 			},
-			accessToken: userSignIn.Payload.AccessToken,
+			accessToken: userAccessToken,
 			statusCode:  http.StatusForbidden,
 		},
 		{
@@ -220,30 +245,11 @@ func (st *TasksSuite) TestAddTask() {
 				request = bytes.NewBuffer([]byte(tt.rawReq))
 			}
 
-			req, err := http.NewRequest(http.MethodPost, makeUrl(makeUrlParams{
-				host: st.Cfg.REST.Host,
-				port: st.Cfg.REST.Port,
-				path: "/tasks",
-			}), request)
-			st.NoError(err)
-			req.Header.Set("Content-Type", "application/json")
-			if tt.accessToken != "" {
-				req.Header.Set("Authorization", "Bearer "+tt.accessToken)
-			}
-
-			resp, err := http.DefaultClient.Do(req)
-			st.NoError(err)
-			defer resp.Body.Close()
-
-			st.Equal(tt.statusCode, resp.StatusCode)
-
-			var response responses.Response[tasksrest.AddTaskResponse]
-			err = json.NewDecoder(resp.Body).Decode(&response)
-			st.NoError(err)
+			response := addTask(st.T(), &st.Cfg.REST, request, tt.accessToken, tt.statusCode)
 
 			if tt.statusCode < 300 {
 				st.Equal(response.Success, true)
-				st.NotNil(response.Payload.TaskId)
+				st.NotZero(response.Payload.TaskId)
 			} else {
 				st.Equal(response.Success, false)
 			}

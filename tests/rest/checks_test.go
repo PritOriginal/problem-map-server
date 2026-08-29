@@ -6,8 +6,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
-	"math/rand"
+	"math"
 	"mime/multipart"
 	"net/http"
 	"strconv"
@@ -15,8 +14,8 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	checksrest "github.com/PritOriginal/problem-map-server/internal/handler/checks"
+	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
-	"github.com/brianvoe/gofakeit/v7"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
@@ -24,10 +23,11 @@ import (
 type ChecksSuite struct {
 	suite.Suite
 	Cfg *config.Config
+	fx  *fixtures
 }
 
 func (st *ChecksSuite) SetupSuite() {
-	st.Cfg = config.MustLoadPath("../../configs/config.yaml")
+	st.Cfg, st.fx = loadFixtures(st.T())
 }
 
 func TestChecksSuite(t *testing.T) {
@@ -35,8 +35,8 @@ func TestChecksSuite(t *testing.T) {
 }
 
 func (st *ChecksSuite) TestGetCheckById() {
-	signInResponse := addNewUser(st.T(), &st.Cfg.REST)
-	addCheckResponse := addNewCheck(st.T(), &st.Cfg.REST, signInResponse.Payload.AccessToken)
+	checker := addNewUser(st.T(), &st.Cfg.REST)
+	addCheckResponse := addNewCheck(st.T(), &st.Cfg.REST, st.fx.markID, checker.Payload.AccessToken)
 
 	tests := []struct {
 		name       string
@@ -55,7 +55,7 @@ func (st *ChecksSuite) TestGetCheckById() {
 		},
 		{
 			name:       "Err404",
-			id:         "1",
+			id:         strconv.Itoa(math.MaxInt32),
 			statusCode: http.StatusNotFound,
 		},
 	}
@@ -68,7 +68,7 @@ func (st *ChecksSuite) TestGetCheckById() {
 				path: fmt.Sprintf("/checks/%s", tt.id),
 			}))
 			st.NoError(err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			st.Equal(tt.statusCode, resp.StatusCode)
 
@@ -78,7 +78,9 @@ func (st *ChecksSuite) TestGetCheckById() {
 
 			if tt.statusCode < 300 {
 				st.Equal(response.Success, true)
-				st.NotNil(response.Payload.Check)
+				st.Require().NotNil(response.Payload.Check)
+				st.Equal(addCheckResponse.Payload.CheckId, response.Payload.Check.ID)
+				st.Equal(st.fx.markID, response.Payload.Check.MarkID)
 			} else {
 				st.Equal(response.Success, false)
 			}
@@ -87,7 +89,9 @@ func (st *ChecksSuite) TestGetCheckById() {
 }
 
 func (st *ChecksSuite) TestGetChecksByMarkId() {
-	getMarksResponse := getMarks(st.T(), &st.Cfg.REST, "", http.StatusOK)
+	checker := addNewUser(st.T(), &st.Cfg.REST)
+	markID := addNewMark(st.T(), &st.Cfg.REST, st.fx.user.AccessToken, st.fx.markTypeID).Payload.MarkId
+	checkID := addNewCheck(st.T(), &st.Cfg.REST, markID, checker.Payload.AccessToken).Payload.CheckId
 
 	tests := []struct {
 		name       string
@@ -96,7 +100,7 @@ func (st *ChecksSuite) TestGetChecksByMarkId() {
 	}{
 		{
 			name:       "Ok200",
-			id:         strconv.Itoa(getMarksResponse.Payload.Marks[0].ID),
+			id:         strconv.Itoa(markID),
 			statusCode: http.StatusOK,
 		},
 		{
@@ -114,7 +118,7 @@ func (st *ChecksSuite) TestGetChecksByMarkId() {
 				path: fmt.Sprintf("/checks/mark/%s", tt.id),
 			}))
 			st.NoError(err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			st.Equal(tt.statusCode, resp.StatusCode)
 
@@ -123,15 +127,25 @@ func (st *ChecksSuite) TestGetChecksByMarkId() {
 			st.NoError(err)
 
 			if tt.statusCode < 300 {
-				st.NotNil(response.Payload.Checks)
+				st.Equal(response.Success, true)
+				// The mark author's own check is created together with the
+				// mark, so the list holds it plus the checker's one.
+				for _, check := range response.Payload.Checks {
+					st.Equal(markID, check.MarkID)
+				}
+				st.Contains(ids(response.Payload.Checks, func(c models.Check) int { return c.ID }), checkID)
 			} else {
+				st.Equal(response.Success, false)
 			}
 		})
 	}
 }
 
 func (st *ChecksSuite) TestGetChecksByUserId() {
-	getUsersResponse := getUsers(st.T(), &st.Cfg.REST, http.StatusOK)
+	checker := addNewUser(st.T(), &st.Cfg.REST)
+	checkerID := currentUserId(st.T(), &st.Cfg.REST, checker.Payload.AccessToken)
+	markID := addNewMark(st.T(), &st.Cfg.REST, st.fx.user.AccessToken, st.fx.markTypeID).Payload.MarkId
+	checkID := addNewCheck(st.T(), &st.Cfg.REST, markID, checker.Payload.AccessToken).Payload.CheckId
 
 	tests := []struct {
 		name       string
@@ -140,7 +154,7 @@ func (st *ChecksSuite) TestGetChecksByUserId() {
 	}{
 		{
 			name:       "Ok200",
-			id:         strconv.Itoa(getUsersResponse.Payload.Users[0].Id),
+			id:         strconv.Itoa(checkerID),
 			statusCode: http.StatusOK,
 		},
 		{
@@ -158,7 +172,7 @@ func (st *ChecksSuite) TestGetChecksByUserId() {
 				path: fmt.Sprintf("/checks/user/%s", tt.id),
 			}))
 			st.NoError(err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			st.Equal(tt.statusCode, resp.StatusCode)
 
@@ -168,7 +182,8 @@ func (st *ChecksSuite) TestGetChecksByUserId() {
 
 			if tt.statusCode < 300 {
 				st.Equal(response.Success, true)
-				st.NotNil(response.Payload.Checks)
+				st.Require().Len(response.Payload.Checks, 1)
+				st.Equal(checkID, response.Payload.Checks[0].ID)
 			} else {
 				st.Equal(response.Success, false)
 			}
@@ -178,9 +193,7 @@ func (st *ChecksSuite) TestGetChecksByUserId() {
 
 func (st *ChecksSuite) TestAddCheck() {
 	signInResponse := addNewUser(st.T(), &st.Cfg.REST)
-	getMarksResponse := getMarks(st.T(), &st.Cfg.REST, "", http.StatusOK)
-	randomMarkIndex := rand.Intn(len(getMarksResponse.Payload.Marks))
-	randomMark := getMarksResponse.Payload.Marks[randomMarkIndex]
+	markID := addNewMark(st.T(), &st.Cfg.REST, st.fx.user.AccessToken, st.fx.markTypeID).Payload.MarkId
 
 	tests := []struct {
 		name       string
@@ -190,7 +203,7 @@ func (st *ChecksSuite) TestAddCheck() {
 		{
 			name: "Ok201",
 			req: checksrest.AddCheckRequest{
-				MarkID:  randomMark.ID,
+				MarkID:  markID,
 				Result:  true,
 				Comment: "",
 			},
@@ -207,7 +220,7 @@ func (st *ChecksSuite) TestAddCheck() {
 		{
 			name: "Err400NotFoundMark",
 			req: checksrest.AddCheckRequest{
-				MarkID:  1,
+				MarkID:  math.MaxInt32,
 				Result:  true,
 				Comment: "",
 			},
@@ -216,7 +229,7 @@ func (st *ChecksSuite) TestAddCheck() {
 		{
 			name: "Err409Conflict",
 			req: checksrest.AddCheckRequest{
-				MarkID:  randomMark.ID,
+				MarkID:  markID,
 				Result:  true,
 				Comment: "",
 			},
@@ -236,7 +249,7 @@ func (st *ChecksSuite) TestAddCheck() {
 
 			if tt.statusCode < 300 {
 				st.Equal(response.Success, true)
-				st.NotNil(response.Payload.CheckId)
+				st.NotZero(response.Payload.CheckId)
 			} else {
 				st.Equal(response.Success, false)
 			}
@@ -244,18 +257,17 @@ func (st *ChecksSuite) TestAddCheck() {
 	}
 }
 
-func addNewCheck(t *testing.T, cfg *config.RESTConfig, accessToken string) responses.Response[checksrest.AddCheckResponse] {
-	getMarksResponse := getMarks(t, cfg, "", http.StatusOK)
-	randomMarkIndex := rand.Intn(len(getMarksResponse.Payload.Marks))
-	randomMark := getMarksResponse.Payload.Marks[randomMarkIndex]
+// addNewCheck leaves a positive check on markID on behalf of accessToken.
+func addNewCheck(t *testing.T, cfg *config.RESTConfig, markID int, accessToken string) responses.Response[checksrest.AddCheckResponse] {
+	t.Helper()
 
 	return addCheck(
 		t,
 		cfg,
 		checksrest.AddCheckRequest{
-			MarkID:  randomMark.ID,
-			Result:  gofakeit.Bool(),
-			Comment: "",
+			MarkID:  markID,
+			Result:  true,
+			Comment: "functional test check",
 		},
 		accessToken, http.StatusCreated,
 	)
@@ -264,18 +276,12 @@ func addNewCheck(t *testing.T, cfg *config.RESTConfig, accessToken string) respo
 func addCheck(t *testing.T, cfg *config.RESTConfig, request checksrest.AddCheckRequest, accessToken string, expectedStatusCode int) responses.Response[checksrest.AddCheckResponse] {
 	b := &bytes.Buffer{}
 	mpw := multipart.NewWriter(b)
-	mpw.WriteField("mark_id", strconv.Itoa(request.MarkID))
-	mpw.WriteField("result", strconv.FormatBool(request.Result))
-	mpw.WriteField("comment", request.Comment)
+	require.NoError(t, mpw.WriteField("mark_id", strconv.Itoa(request.MarkID)))
+	require.NoError(t, mpw.WriteField("result", strconv.FormatBool(request.Result)))
+	require.NoError(t, mpw.WriteField("comment", request.Comment))
 
-	images := getImages(3)
-	for _, image := range images {
-		fw, err := mpw.CreateFormFile("photos", "test.jpg")
-		require.NoError(t, err)
-		io.Copy(fw, bytes.NewBuffer(image))
-	}
-
-	mpw.Close()
+	attachPhotos(t, mpw, 2)
+	require.NoError(t, mpw.Close())
 
 	req, err := http.NewRequest(
 		http.MethodPost,
@@ -293,7 +299,7 @@ func addCheck(t *testing.T, cfg *config.RESTConfig, request checksrest.AddCheckR
 
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	require.Equal(t, expectedStatusCode, resp.StatusCode)
 

@@ -3,7 +3,6 @@
 package tests
 
 import (
-	"net/http"
 	"testing"
 
 	"github.com/PritOriginal/problem-map-server/tests/grpc/suite"
@@ -16,40 +15,11 @@ func TestGetMarks(t *testing.T) {
 
 	resp, err := st.MarksClient.GetMarks(ctx, &emptypb.Empty{})
 	require.NoError(t, err)
-	require.NotEmpty(t, resp.Marks)
-}
+	require.NotNil(t, resp)
 
-func BenchmarkGetMarks(b *testing.B) {
-	ctx, st := suite.NewBench(b)
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		resp, err := st.MarksClient.GetMarks(ctx, &emptypb.Empty{})
-		_ = resp
-		_ = err
+	for _, mark := range resp.Marks {
+		require.NotZero(t, mark.Id)
+		require.NotNil(t, mark.Geom, "mark %d must carry geometry", mark.Id)
+		require.NotNil(t, mark.Geom.Coordinates)
 	}
-
-	// b.RunParallel(func(p *testing.PB) {
-	// 	for p.Next() {
-	// 		resp, err := st.MapClient.GetMarks(ctx, &emptypb.Empty{})
-	// 		_ = resp
-	// 		_ = err
-	// 	}
-	// })
-}
-
-func BenchmarkGetMarks_rest(b *testing.B) {
-	client := &http.Client{}
-
-	b.ResetTimer()
-	// for i := 0; i < b.N; i++ {
-	// 	client.Get("http://localhost:3333/map/marks")
-	// 	// http.Get("http://localhost:3333/map/marks")
-	// }
-
-	b.RunParallel(func(p *testing.PB) {
-		for p.Next() {
-			client.Get("http://localhost:3333/map/marks")
-		}
-	})
 }
