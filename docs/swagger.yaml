@@ -76,6 +76,31 @@ definitions:
       name:
         type: string
     type: object
+  github_com_PritOriginal_problem-map-server_internal_models.KPI:
+    properties:
+      avg_close_hours:
+        description: 'AvgCloseHours: unconfirmed -> closed.'
+        type: number
+      avg_confirm_hours:
+        description: 'AvgConfirmHours / MedianConfirmHours: unconfirmed -> confirmed.'
+        type: number
+      by_status:
+        additionalProperties:
+          type: integer
+        type: object
+      median_confirm_hours:
+        type: number
+      open_older_than_30d:
+        description: |-
+          OpenOlderThan30d counts marks neither closed nor refuted that were
+          created more than 30 days ago.
+        type: integer
+      refuted_share:
+        description: RefutedShare is refuted marks / total (0 when there are no marks).
+        type: number
+      total:
+        type: integer
+    type: object
   github_com_PritOriginal_problem-map-server_internal_models.Mark:
     properties:
       created_at:
@@ -257,6 +282,30 @@ definitions:
     - UnfulfilledStatus
     - CompletedStatus
     - OverdueStatus
+  github_com_PritOriginal_problem-map-server_internal_models.TimeseriesPoint:
+    properties:
+      closed:
+        type: integer
+      confirmed:
+        type: integer
+      created:
+        type: integer
+      period:
+        type: string
+      refuted:
+        type: integer
+    type: object
+  github_com_PritOriginal_problem-map-server_internal_models.TopType:
+    properties:
+      count:
+        type: integer
+      mark_type_id:
+        type: integer
+      name:
+        type: string
+      share:
+        type: number
+    type: object
   github_com_PritOriginal_problem-map-server_internal_models.User:
     properties:
       home_point:
@@ -300,6 +349,17 @@ definitions:
       success:
         type: boolean
     type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-github_com_PritOriginal_problem-map-server_internal_models_KPI:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.KPI'
+      success:
+        type: boolean
+    type: object
   ? github_com_PritOriginal_problem-map-server_pkg_responses.Response-github_com_PritOriginal_problem-map-server_internal_usecase_HealthReport
   : properties:
       error:
@@ -308,6 +368,28 @@ definitions:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.HealthReport'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_analytics_GetTimeseriesResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_analytics.GetTimeseriesResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_analytics_GetTopTypesResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_analytics.GetTopTypesResponse'
       success:
         type: boolean
     type: object
@@ -440,6 +522,17 @@ definitions:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_map.GetRegionsResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_HeatmapResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_map.HeatmapResponse'
       success:
         type: boolean
     type: object
@@ -641,6 +734,20 @@ definitions:
       success:
         type: boolean
     type: object
+  internal_handler_analytics.GetTimeseriesResponse:
+    properties:
+      timeseries:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.TimeseriesPoint'
+        type: array
+    type: object
+  internal_handler_analytics.GetTopTypesResponse:
+    properties:
+      types:
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.TopType'
+        type: array
+    type: object
   internal_handler_auth.RefreshTokensRequest:
     properties:
       refresh_token:
@@ -761,6 +868,33 @@ definitions:
         items:
           $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Region'
         type: array
+    type: object
+  internal_handler_map.HeatmapFeature:
+    properties:
+      geometry:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PolygonJSON'
+      properties:
+        $ref: '#/definitions/internal_handler_map.HeatmapProperties'
+      type:
+        enum:
+        - Feature
+        type: string
+    type: object
+  internal_handler_map.HeatmapProperties:
+    properties:
+      count:
+        type: integer
+    type: object
+  internal_handler_map.HeatmapResponse:
+    properties:
+      features:
+        items:
+          $ref: '#/definitions/internal_handler_map.HeatmapFeature'
+        type: array
+      type:
+        enum:
+        - FeatureCollection
+        type: string
     type: object
   internal_handler_marks.AddMarkResponse:
     properties:
@@ -914,6 +1048,135 @@ info:
   title: Problem Map API
   version: "1.0"
 paths:
+  /analytics/kpi:
+    get:
+      description: Totals, per-status counts, confirmation/closing durations (hours,
+        from the status history), refuted share and stale open marks. All filters
+        are optional.
+      parameters:
+      - description: only marks inside this admin boundary
+        in: query
+        name: boundary_id
+        type: integer
+      - description: only marks of this type
+        in: query
+        name: mark_type_id
+        type: integer
+      - description: marks created at or after (RFC3339)
+        in: query
+        name: from
+        type: string
+      - description: marks created at or before (RFC3339)
+        in: query
+        name: to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-github_com_PritOriginal_problem-map-server_internal_models_KPI'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: KPI summary
+      tags:
+      - analytics
+  /analytics/timeseries:
+    get:
+      description: 'Number of marks created and transitions to confirmed / closed
+        / refuted per period; empty periods are returned with zeros. Defaults: step=day,
+        to=now, from=to minus 30 days (12 weeks / 12 months for coarser steps).'
+      parameters:
+      - description: only marks inside this admin boundary
+        in: query
+        name: boundary_id
+        type: integer
+      - description: only marks of this type
+        in: query
+        name: mark_type_id
+        type: integer
+      - description: start of the range (RFC3339)
+        in: query
+        name: from
+        type: string
+      - description: end of the range (RFC3339)
+        in: query
+        name: to
+        type: string
+      - default: day
+        description: bucket size
+        enum:
+        - day
+        - week
+        - month
+        in: query
+        name: step
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_analytics_GetTimeseriesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: Marks time series
+      tags:
+      - analytics
+  /analytics/top-types:
+    get:
+      description: Mark types ordered by the number of matching marks with their share
+        of the total.
+      parameters:
+      - description: only marks inside this admin boundary
+        in: query
+        name: boundary_id
+        type: integer
+      - description: marks created at or after (RFC3339)
+        in: query
+        name: from
+        type: string
+      - description: marks created at or before (RFC3339)
+        in: query
+        name: to
+        type: string
+      - default: 10
+        description: number of rows (1..100)
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_analytics_GetTopTypesResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: Top mark types
+      tags:
+      - analytics
   /auth/signin:
     post:
       consumes:
@@ -1222,6 +1485,21 @@ paths:
           type: number
         name: mark_type_ids
         type: array
+      - collectionFormat: csv
+        description: filter by mark status
+        in: query
+        items:
+          type: number
+        name: mark_status_ids
+        type: array
+      - description: marks created at or after (RFC3339)
+        in: query
+        name: from
+        type: string
+      - description: marks created at or before (RFC3339)
+        in: query
+        name: to
+        type: string
       produces:
       - application/json
       responses:
@@ -1276,6 +1554,55 @@ paths:
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
       summary: List districts
+      tags:
+      - map
+  /map/heatmap:
+    get:
+      description: 'GeoJSON FeatureCollection of hexagons (EPSG:3857 grid, returned
+        in WGS84) with the number of marks in each; empty cells are omitted. At most
+        5000 cells: a finer grid is rejected with 400, increase cell_m. Cached for
+        60 seconds per query.'
+      parameters:
+      - description: minLon,minLat,maxLon,maxLat
+        in: query
+        name: bbox
+        required: true
+        type: string
+      - default: 250
+        description: hexagon size in meters (10..100000)
+        in: query
+        name: cell_m
+        type: number
+      - collectionFormat: csv
+        description: filter by mark type
+        in: query
+        items:
+          type: number
+        name: mark_type_ids
+        type: array
+      - collectionFormat: csv
+        description: filter by mark status
+        in: query
+        items:
+          type: number
+        name: mark_status_ids
+        type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_HeatmapResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      summary: Marks heatmap
       tags:
       - map
   /map/regions:

@@ -15,6 +15,193 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/analytics/kpi": {
+            "get": {
+                "description": "Totals, per-status counts, confirmation/closing durations (hours, from the status history), refuted share and stale open marks. All filters are optional.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "analytics"
+                ],
+                "summary": "KPI summary",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "only marks inside this admin boundary",
+                        "name": "boundary_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "only marks of this type",
+                        "name": "mark_type_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "marks created at or after (RFC3339)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "marks created at or before (RFC3339)",
+                        "name": "to",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-github_com_PritOriginal_problem-map-server_internal_models_KPI"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
+        "/analytics/timeseries": {
+            "get": {
+                "description": "Number of marks created and transitions to confirmed / closed / refuted per period; empty periods are returned with zeros. Defaults: step=day, to=now, from=to minus 30 days (12 weeks / 12 months for coarser steps).",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "analytics"
+                ],
+                "summary": "Marks time series",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "only marks inside this admin boundary",
+                        "name": "boundary_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "only marks of this type",
+                        "name": "mark_type_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "start of the range (RFC3339)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "end of the range (RFC3339)",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "day",
+                            "week",
+                            "month"
+                        ],
+                        "type": "string",
+                        "default": "day",
+                        "description": "bucket size",
+                        "name": "step",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_analytics_GetTimeseriesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
+        "/analytics/top-types": {
+            "get": {
+                "description": "Mark types ordered by the number of matching marks with their share of the total.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "analytics"
+                ],
+                "summary": "Top mark types",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "only marks inside this admin boundary",
+                        "name": "boundary_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "marks created at or after (RFC3339)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "marks created at or before (RFC3339)",
+                        "name": "to",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "number of rows (1..100)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_analytics_GetTopTypesResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
         "/auth/signin": {
             "post": {
                 "description": "sign in user",
@@ -486,6 +673,28 @@ const docTemplate = `{
                         "description": "filter by mark type",
                         "name": "mark_type_ids",
                         "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "number"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "filter by mark status",
+                        "name": "mark_status_ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "marks created at or after (RFC3339)",
+                        "name": "from",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "marks created at or before (RFC3339)",
+                        "name": "to",
+                        "in": "query"
                     }
                 ],
                 "responses": {
@@ -557,6 +766,74 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_GetDistrictsResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
+        "/map/heatmap": {
+            "get": {
+                "description": "GeoJSON FeatureCollection of hexagons (EPSG:3857 grid, returned in WGS84) with the number of marks in each; empty cells are omitted. At most 5000 cells: a finer grid is rejected with 400, increase cell_m. Cached for 60 seconds per query.",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "map"
+                ],
+                "summary": "Marks heatmap",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "minLon,minLat,maxLon,maxLat",
+                        "name": "bbox",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "number",
+                        "default": 250,
+                        "description": "hexagon size in meters (10..100000)",
+                        "name": "cell_m",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "number"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "filter by mark type",
+                        "name": "mark_type_ids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "number"
+                        },
+                        "collectionFormat": "csv",
+                        "description": "filter by mark status",
+                        "name": "mark_status_ids",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_HeatmapResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
                     },
                     "500": {
@@ -1735,6 +2012,39 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_PritOriginal_problem-map-server_internal_models.KPI": {
+            "type": "object",
+            "properties": {
+                "avg_close_hours": {
+                    "description": "AvgCloseHours: unconfirmed -\u003e closed.",
+                    "type": "number"
+                },
+                "avg_confirm_hours": {
+                    "description": "AvgConfirmHours / MedianConfirmHours: unconfirmed -\u003e confirmed.",
+                    "type": "number"
+                },
+                "by_status": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "integer"
+                    }
+                },
+                "median_confirm_hours": {
+                    "type": "number"
+                },
+                "open_older_than_30d": {
+                    "description": "OpenOlderThan30d counts marks neither closed nor refuted that were\ncreated more than 30 days ago.",
+                    "type": "integer"
+                },
+                "refuted_share": {
+                    "description": "RefutedShare is refuted marks / total (0 when there are no marks).",
+                    "type": "number"
+                },
+                "total": {
+                    "type": "integer"
+                }
+            }
+        },
         "github_com_PritOriginal_problem-map-server_internal_models.Mark": {
             "type": "object",
             "properties": {
@@ -1998,6 +2308,43 @@ const docTemplate = `{
                 "OverdueStatus"
             ]
         },
+        "github_com_PritOriginal_problem-map-server_internal_models.TimeseriesPoint": {
+            "type": "object",
+            "properties": {
+                "closed": {
+                    "type": "integer"
+                },
+                "confirmed": {
+                    "type": "integer"
+                },
+                "created": {
+                    "type": "integer"
+                },
+                "period": {
+                    "type": "string"
+                },
+                "refuted": {
+                    "type": "integer"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_internal_models.TopType": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                },
+                "mark_type_id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "share": {
+                    "type": "number"
+                }
+            }
+        },
         "github_com_PritOriginal_problem-map-server_internal_models.User": {
             "type": "object",
             "properties": {
@@ -2064,6 +2411,23 @@ const docTemplate = `{
                 }
             }
         },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-github_com_PritOriginal_problem-map-server_internal_models_KPI": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
+                "payload": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.KPI"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
         "github_com_PritOriginal_problem-map-server_pkg_responses.Response-github_com_PritOriginal_problem-map-server_internal_usecase_HealthReport": {
             "type": "object",
             "properties": {
@@ -2075,6 +2439,40 @@ const docTemplate = `{
                 },
                 "payload": {
                     "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_usecase.HealthReport"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_analytics_GetTimeseriesResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_analytics.GetTimeseriesResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_analytics_GetTopTypesResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_analytics.GetTopTypesResponse"
                 },
                 "success": {
                     "type": "boolean"
@@ -2279,6 +2677,23 @@ const docTemplate = `{
                 },
                 "payload": {
                     "$ref": "#/definitions/internal_handler_map.GetRegionsResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_map_HeatmapResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_map.HeatmapResponse"
                 },
                 "success": {
                     "type": "boolean"
@@ -2591,6 +3006,28 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_handler_analytics.GetTimeseriesResponse": {
+            "type": "object",
+            "properties": {
+                "timeseries": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.TimeseriesPoint"
+                    }
+                }
+            }
+        },
+        "internal_handler_analytics.GetTopTypesResponse": {
+            "type": "object",
+            "properties": {
+                "types": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.TopType"
+                    }
+                }
+            }
+        },
         "internal_handler_auth.RefreshTokensRequest": {
             "type": "object",
             "required": [
@@ -2770,6 +3207,48 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.Region"
                     }
+                }
+            }
+        },
+        "internal_handler_map.HeatmapFeature": {
+            "type": "object",
+            "properties": {
+                "geometry": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.PolygonJSON"
+                },
+                "properties": {
+                    "$ref": "#/definitions/internal_handler_map.HeatmapProperties"
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "Feature"
+                    ]
+                }
+            }
+        },
+        "internal_handler_map.HeatmapProperties": {
+            "type": "object",
+            "properties": {
+                "count": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_handler_map.HeatmapResponse": {
+            "type": "object",
+            "properties": {
+                "features": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_handler_map.HeatmapFeature"
+                    }
+                },
+                "type": {
+                    "type": "string",
+                    "enum": [
+                        "FeatureCollection"
+                    ]
                 }
             }
         },
