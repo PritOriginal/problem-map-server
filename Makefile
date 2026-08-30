@@ -75,7 +75,7 @@ test-functional-grpc: ## Run gRPC functional tests (server must be running)
 
 test-cover: ## Unit test coverage without mocks
 	go test ./... -coverprofile cover.test.tmp -coverpkg ./...
-	cat cover.test.tmp | grep -v "mocks" > cover.test
+	cat cover.test.tmp | grep -v "mocks"x > cover.test
 	rm cover.test.tmp
 	go tool cover -func cover.test
 

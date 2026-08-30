@@ -6,12 +6,14 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/lang"
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/internal/version"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
@@ -25,7 +27,7 @@ func TestCache(t *testing.T) {
 	suite.Run(t, new(CacheSuite))
 }
 
-const cacheKey = "http:GET:/data:ru"
+var cacheKey = cache.Key(http.MethodGet, "/data", models.LangRU)
 
 func (s *CacheSuite) router(cacher cache.Cacher, opts ...cache.Option) (*gin.Engine, *int) {
 	gin.SetMode(gin.TestMode)
@@ -182,7 +184,7 @@ func (s *CacheSuite) TestErrorsAreNotCachedNorTagged() {
 	cacher := cache.NewMockCacher(s.T())
 	r, _ := s.router(cacher)
 
-	cacher.On("GetBytes", mock.Anything, "http:GET:/data?status=500:ru").Once().Return(nil, errors.New("miss"))
+	cacher.On("GetBytes", mock.Anything, cache.Key(http.MethodGet, "/data?status=500", models.LangRU)).Once().Return(nil, errors.New("miss"))
 
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/data?status=500", nil))
@@ -197,7 +199,7 @@ func (s *CacheSuite) TestBigResponseIsStreamedWithoutETag() {
 	cacher := cache.NewMockCacher(s.T())
 	r, calls := s.router(cacher)
 
-	cacher.On("GetBytes", mock.Anything, "http:GET:/data?status=big:ru").Twice().Return(nil, errors.New("miss"))
+	cacher.On("GetBytes", mock.Anything, cache.Key(http.MethodGet, "/data?status=big", models.LangRU)).Twice().Return(nil, errors.New("miss"))
 
 	for range 2 {
 		w := httptest.NewRecorder()
@@ -225,8 +227,8 @@ func (s *CacheSuite) TestKeyIncludesLanguage() {
 		c.JSON(http.StatusOK, gin.H{"lang": models.LangFromContext(c.Request.Context())})
 	})
 
-	cacher.On("GetBytes", mock.Anything, "http:GET:/data:en").Once().Return(nil, errors.New("miss"))
-	cacher.On("Set", mock.Anything, "http:GET:/data:en", mock.Anything, time.Minute).Once().Return(nil)
+	cacher.On("GetBytes", mock.Anything, cache.Key(http.MethodGet, "/data", models.LangEN)).Once().Return(nil, errors.New("miss"))
+	cacher.On("Set", mock.Anything, cache.Key(http.MethodGet, "/data", models.LangEN), mock.Anything, time.Minute).Once().Return(nil)
 
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/data", nil)
@@ -268,4 +270,15 @@ func (s *CacheSuite) TestMatches() {
 			s.Equal(tt.want, cache.Matches(tt.ifNoneMatch, `"a"`))
 		})
 	}
+}
+
+// The build id is part of every cache key, so a redeploy that changes the
+// shape of a response cannot serve the entry stored by the previous build.
+func (s *CacheSuite) TestKeyIncludesBuild() {
+	key := cache.Key(http.MethodGet, "/data", models.LangRU)
+
+	s.Contains(key, version.Build())
+	s.True(strings.HasPrefix(key, cache.Prefix(http.MethodGet, "/data")),
+		"an invalidation by prefix must still match the key")
+	s.NotEqual(key, "http:GET:/data:ru", "the unversioned key must not be reachable")
 }

@@ -24,7 +24,7 @@ jobs:
       - name: Build app
         run: |
           go mod download
-          go build -o server-rest ./cmd/rest
+          go build -ldflags "-X github.com/PritOriginal/problem-map-server/internal/version.Version=${{ github.sha }}" -o server-rest ./cmd/rest
 
       - name: Build migrator
         run: |
