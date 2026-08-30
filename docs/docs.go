@@ -1057,7 +1057,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "UUID chosen by the client; a repeat with the same key within 24h returns the stored response with ` + "`" + `Idempotent-Replayed: true` + "`" + ` (409 while the first request is in flight, 422 when reused with other form fields)",
+                        "description": "UUID chosen by the client; a repeat with the same key within 24h returns the stored response with ` + "`" + `Idempotent-Replayed: true` + "`" + ` (425 while the first request is in flight, 422 when reused with other form fields)",
                         "name": "Idempotency-Key",
                         "in": "header"
                     }
@@ -1100,7 +1100,13 @@ const docTemplate = `{
                         }
                     },
                     "422": {
-                        "description": "Idempotency-Key reused with a different payload",
+                        "description": "Idempotency-Key reused with a different payload (` + "`" + `error.code` + "`" + ` is ` + "`" + `idempotency_key_reused` + "`" + `)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "425": {
+                        "description": "a request with the same Idempotency-Key is in flight (` + "`" + `error.code` + "`" + ` is ` + "`" + `idempotency_in_flight` + "`" + `); retry after ` + "`" + `Retry-After` + "`" + ` seconds",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
@@ -2107,7 +2113,7 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "UUID chosen by the client; a repeat with the same key within 24h returns the stored response with ` + "`" + `Idempotent-Replayed: true` + "`" + ` (409 while the first request is in flight, 422 when reused with other form fields)",
+                        "description": "UUID chosen by the client; a repeat with the same key within 24h returns the stored response with ` + "`" + `Idempotent-Replayed: true` + "`" + ` (425 while the first request is in flight, 422 when reused with other form fields)",
                         "name": "Idempotency-Key",
                         "in": "header"
                     },
@@ -2175,13 +2181,19 @@ const docTemplate = `{
                         }
                     },
                     "409": {
-                        "description": "active marks of the same type exist within the dedup radius; ` + "`" + `payload.similar_marks` + "`" + ` lists them with ` + "`" + `distance_m` + "`" + `. Repeat with ` + "`" + `?force=true` + "`" + ` to create anyway. Also returned (without payload) while a request with the same Idempotency-Key is in progress",
+                        "description": "active marks of the same type exist within the dedup radius; ` + "`" + `error.code` + "`" + ` is ` + "`" + `similar_marks` + "`" + ` and ` + "`" + `payload.similar_marks` + "`" + ` lists them with ` + "`" + `distance_m` + "`" + `. Repeat with ` + "`" + `?force=true` + "`" + ` to create anyway",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_SimilarMarksPayload"
                         }
                     },
                     "422": {
-                        "description": "Idempotency-Key reused with a different payload",
+                        "description": "Idempotency-Key reused with a different payload (` + "`" + `error.code` + "`" + ` is ` + "`" + `idempotency_key_reused` + "`" + `)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "425": {
+                        "description": "a request with the same Idempotency-Key is in flight (` + "`" + `error.code` + "`" + ` is ` + "`" + `idempotency_in_flight` + "`" + `); retry after ` + "`" + `Retry-After` + "`" + ` seconds",
                         "schema": {
                             "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
                         }
@@ -7846,6 +7858,9 @@ const docTemplate = `{
         "github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo": {
             "type": "object",
             "properties": {
+                "code": {
+                    "type": "string"
+                },
                 "message": {
                     "type": "string"
                 }

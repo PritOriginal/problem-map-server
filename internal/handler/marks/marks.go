@@ -392,7 +392,7 @@ func (h *handler) GetMarksByUserId() gin.HandlerFunc {
 //	@Accept			mpfd
 //	@Produce		json
 //	@Security		BearerAuth
-//	@Param			Idempotency-Key	header		string	false	"UUID chosen by the client; a repeat with the same key within 24h returns the stored response with `Idempotent-Replayed: true` (409 while the first request is in flight, 422 when reused with other form fields)"
+//	@Param			Idempotency-Key	header		string	false	"UUID chosen by the client; a repeat with the same key within 24h returns the stored response with `Idempotent-Replayed: true` (425 while the first request is in flight, 422 when reused with other form fields)"
 //	@Param			photos			formData	file	true	"Photos of the problem"
 //	@Param			longitude		formData	number	true	"Longitude in degrees (X), WGS84"	example(41.44)
 //	@Param			latitude		formData	number	true	"Latitude in degrees (Y), WGS84"	example(52.72)
@@ -402,8 +402,9 @@ func (h *handler) GetMarksByUserId() gin.HandlerFunc {
 //	@Success		201				{object}	responses.Response[marksrest.AddMarkResponse]
 //	@Failure		400				{object}	responses.Response[any]
 //	@Failure		401				{object}	responses.Response[any]
-//	@Failure		409				{object}	responses.Response[marksrest.SimilarMarksPayload]	"active marks of the same type exist within the dedup radius; `payload.similar_marks` lists them with `distance_m`. Repeat with `?force=true` to create anyway. Also returned (without payload) while a request with the same Idempotency-Key is in progress"
-//	@Failure		422				{object}	responses.Response[any]								"Idempotency-Key reused with a different payload"
+//	@Failure		409				{object}	responses.Response[marksrest.SimilarMarksPayload]	"active marks of the same type exist within the dedup radius; `error.code` is `similar_marks` and `payload.similar_marks` lists them with `distance_m`. Repeat with `?force=true` to create anyway"
+//	@Failure		422				{object}	responses.Response[any]								"Idempotency-Key reused with a different payload (`error.code` is `idempotency_key_reused`)"
+//	@Failure		425				{object}	responses.Response[any]								"a request with the same Idempotency-Key is in flight (`error.code` is `idempotency_in_flight`); retry after `Retry-After` seconds"
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/marks [post]
 func (h *handler) AddMark() gin.HandlerFunc {
@@ -454,7 +455,7 @@ func (h *handler) AddMark() gin.HandlerFunc {
 			var similar *usecase.SimilarMarksError
 			if errors.As(err, &similar) {
 				h.log.Debug(op, logger.Err(err))
-				responses.FailWithPayload(c, http.StatusConflict, "similar marks nearby", SimilarMarksPayload{
+				responses.FailWithCodePayload(c, http.StatusConflict, responses.CodeSimilarMarks, "similar marks nearby", SimilarMarksPayload{
 					SimilarMarks: similar.Marks,
 				})
 				return

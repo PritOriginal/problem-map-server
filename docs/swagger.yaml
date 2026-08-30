@@ -997,6 +997,8 @@ definitions:
     type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo:
     properties:
+      code:
+        type: string
       message:
         type: string
     type: object
@@ -3694,7 +3696,7 @@ paths:
         per rolling 24 hours (429)
       parameters:
       - description: 'UUID chosen by the client; a repeat with the same key within
-          24h returns the stored response with `Idempotent-Replayed: true` (409 while
+          24h returns the stored response with `Idempotent-Replayed: true` (425 while
           the first request is in flight, 422 when reused with other form fields)'
         in: header
         name: Idempotency-Key
@@ -3727,7 +3729,13 @@ paths:
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "422":
-          description: Idempotency-Key reused with a different payload
+          description: Idempotency-Key reused with a different payload (`error.code`
+            is `idempotency_key_reused`)
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "425":
+          description: a request with the same Idempotency-Key is in flight (`error.code`
+            is `idempotency_in_flight`); retry after `Retry-After` seconds
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "429":
@@ -4396,7 +4404,7 @@ paths:
         is Y (GeoJSON/PostGIS order)'
       parameters:
       - description: 'UUID chosen by the client; a repeat with the same key within
-          24h returns the stored response with `Idempotent-Replayed: true` (409 while
+          24h returns the stored response with `Idempotent-Replayed: true` (425 while
           the first request is in flight, 422 when reused with other form fields)'
         in: header
         name: Idempotency-Key
@@ -4449,13 +4457,18 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "409":
           description: active marks of the same type exist within the dedup radius;
-            `payload.similar_marks` lists them with `distance_m`. Repeat with `?force=true`
-            to create anyway. Also returned (without payload) while a request with
-            the same Idempotency-Key is in progress
+            `error.code` is `similar_marks` and `payload.similar_marks` lists them
+            with `distance_m`. Repeat with `?force=true` to create anyway
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_SimilarMarksPayload'
         "422":
-          description: Idempotency-Key reused with a different payload
+          description: Idempotency-Key reused with a different payload (`error.code`
+            is `idempotency_key_reused`)
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "425":
+          description: a request with the same Idempotency-Key is in flight (`error.code`
+            is `idempotency_in_flight`); retry after `Retry-After` seconds
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "500":

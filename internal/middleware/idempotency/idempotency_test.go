@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -93,6 +94,14 @@ func (s *IdempotencySuite) do(r *gin.Engine, req request) *httptest.ResponseReco
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, httpReq)
 	return w
+}
+
+// errorCode reads error.code of the response envelope.
+func (s *IdempotencySuite) errorCode(w *httptest.ResponseRecorder) string {
+	var body responses.Response[any]
+	s.Require().NoError(json.Unmarshal(w.Body.Bytes(), &body))
+	s.Require().NotNil(body.Error)
+	return body.Error.Code
 }
 
 // stored decodes the record written through Set.
@@ -221,8 +230,10 @@ func (s *IdempotencySuite) TestConcurrentRepeatIsConflict() {
 		s.Run(tt.name, func() {
 			tt.setup()
 			w := s.do(r, request{body: `{"a":1}`, key: idemKey})
-			s.Equal(http.StatusConflict, w.Code)
+			s.Equal(http.StatusTooEarly, w.Code)
+			s.Equal(strconv.Itoa(idempotency.RetryAfterSeconds), w.Header().Get("Retry-After"))
 			s.Contains(w.Body.String(), idempotency.MsgInProgress)
+			s.Equal(responses.CodeIdempotencyInFlight, s.errorCode(w))
 		})
 	}
 	s.Equal(1, *calls)
@@ -252,6 +263,7 @@ func (s *IdempotencySuite) TestDifferentPayloadIsRejected() {
 			w := s.do(r, tt.req)
 			s.Equal(http.StatusUnprocessableEntity, w.Code)
 			s.Contains(w.Body.String(), idempotency.MsgPayloadMismatch)
+			s.Equal(responses.CodeIdempotencyKeyReused, s.errorCode(w))
 		})
 	}
 	s.Equal(1, *calls)

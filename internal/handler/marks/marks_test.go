@@ -711,6 +711,7 @@ func (suite *MarksSuite) TestAddMarkSimilar() {
 				suite.Require().NoError(json.Unmarshal(w.Body.Bytes(), &body))
 				suite.False(body.Success)
 				suite.Require().NotNil(body.Error)
+				suite.Equal(responses.CodeSimilarMarks, body.Error.Code)
 				suite.Require().Len(body.Payload.SimilarMarks, 1)
 				suite.Equal(5, body.Payload.SimilarMarks[0].ID)
 				suite.Equal(12.5, body.Payload.SimilarMarks[0].DistanceM)
