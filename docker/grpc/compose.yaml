@@ -1,3 +1,6 @@
+# Relative paths below (./configs, ./migrations, ./osm) are resolved against
+# the repository root: run via `make docker-rest|docker-grpc` or pass
+# `--project-directory .` to `docker compose`.
 services:
   server:
     build:
@@ -5,13 +8,21 @@ services:
       dockerfile: ./docker/grpc/Dockerfile
       target: final
     container_name: server-grpc
+    restart: always
     networks:
       - server-network
+    env_file:
+      - ./configs/.env.docker
+    volumes:
+      - ./configs/.env.docker:/etc/problem-map/.env:ro
     ports:
       - ${GRPC_PORT}:${GRPC_PORT}
+      - ${GRPC_METRICS_PORT}:${GRPC_METRICS_PORT}
     depends_on:
       migrate:
         condition: service_completed_successfully
+      redis:
+        condition: service_healthy
   postgres:
     image: postgis/postgis
     container_name: postgres
@@ -25,8 +36,24 @@ services:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: [ "CMD", "pg_isready", "-U", "${POSTGRES_USER}", "-d", "${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    restart: always
+    expose:
+      - ${REDIS_PORT}
+    networks:
+      - server-network
+    command: ["redis-server", "--port", "${REDIS_PORT}"]
+    healthcheck:
+      test: [ "CMD", "redis-cli", "-p", "${REDIS_PORT}", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -40,7 +67,7 @@ services:
       - server-network
     volumes:
       - ./migrations:/migrations
-    command: ["-path", "/migrations/", "-database", "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=disable", "up"]
+    command: ["-path", "/migrations/", "-database", "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}/${POSTGRES_DB}?sslmode=${POSTGRES_SSLMODE:-disable}", "up"]
   osm2pgsql:
     image: iboates/osm2pgsql:latest
     environment:
@@ -56,3 +83,6 @@ services:
 
 networks:
   server-network:
+
+volumes:
+  postgres-data:

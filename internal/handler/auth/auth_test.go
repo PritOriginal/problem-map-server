@@ -4,16 +4,22 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
-	"github.com/PritOriginal/problem-map-server/internal/repository"
+	"github.com/PritOriginal/problem-map-server/internal/handler/handlertest"
+	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
+	"github.com/PritOriginal/problem-map-server/pkg/token"
+	jwt "github.com/appleboy/gin-jwt/v3"
 	"github.com/gin-gonic/gin"
 	mock "github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
+	"github.com/twpayne/go-geom"
 )
 
 type AuthSuite struct {
@@ -22,7 +28,7 @@ type AuthSuite struct {
 	uc *authrest.MockAuth
 }
 
-func (suite *AuthSuite) SetupSuite() {
+func (suite *AuthSuite) SetupTest() {
 	suite.uc = authrest.NewMockAuth(suite.T())
 
 	log := slogdiscard.NewDiscardLogger()
@@ -30,7 +36,20 @@ func (suite *AuthSuite) SetupSuite() {
 	gin.SetMode(gin.TestMode)
 	suite.r = gin.New()
 
-	authrest.Register(suite.r, log, suite.uc)
+	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{Key: []byte(testKey)})
+	suite.Require().NoError(err)
+	suite.Require().NoError(authMiddleware.MiddlewareInit())
+
+	authrest.Register(suite.r, log, suite.uc, authMiddleware)
+}
+
+const testKey = "1234"
+
+// bearer returns an Authorization header value for user 1.
+func (suite *AuthSuite) bearer() string {
+	accessToken, err := token.CreateToken(time.Minute, 1, "user", testKey)
+	suite.Require().NoError(err)
+	return "Bearer " + accessToken
 }
 
 func TestAuth(t *testing.T) {
@@ -49,9 +68,10 @@ func (suite *AuthSuite) TestSignUp() {
 		{
 			name: "Ok201",
 			req: authrest.SignUpRequest{
-				Username: "name",
-				Login:    "username",
-				Password: "password",
+				Username:  "name",
+				Login:     "username",
+				Password:  "password",
+				HomePoint: models.NewPoint(geom.Coord{41.400422, 52.699787}),
 			},
 			wantErrParseReq: false,
 			errSignUp:       nil,
@@ -69,6 +89,17 @@ func (suite *AuthSuite) TestSignUp() {
 			req: authrest.SignUpRequest{
 				Username: "name",
 				Login:    "username",
+				Password: "password",
+			},
+			wantErrParseReq: true,
+			errSignUp:       nil,
+			statusCode:      400,
+		},
+		{
+			name: "Err400InvalidReq",
+			req: authrest.SignUpRequest{
+				Username: "name",
+				Login:    "username",
 			},
 			wantErrParseReq: true,
 			errSignUp:       nil,
@@ -77,9 +108,10 @@ func (suite *AuthSuite) TestSignUp() {
 		{
 			name: "Err409",
 			req: authrest.SignUpRequest{
-				Username: "name",
-				Login:    "username",
-				Password: "password",
+				Username:  "name",
+				Login:     "username",
+				Password:  "password",
+				HomePoint: models.NewPoint(geom.Coord{41.400422, 52.699787}),
 			},
 			wantErrParseReq: false,
 			errSignUp:       usecase.ErrConflict,
@@ -88,9 +120,10 @@ func (suite *AuthSuite) TestSignUp() {
 		{
 			name: "Err500",
 			req: authrest.SignUpRequest{
-				Username: "name",
-				Login:    "username",
-				Password: "password",
+				Username:  "name",
+				Login:     "username",
+				Password:  "password",
+				HomePoint: models.NewPoint(geom.Coord{41.400422, 52.699787}),
 			},
 			wantErrParseReq: false,
 			errSignUp:       errors.New(""),
@@ -100,7 +133,7 @@ func (suite *AuthSuite) TestSignUp() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			if !tt.wantErrParseReq {
-				suite.uc.On("SignUp", mock.Anything, mock.AnythingOfType("string"), mock.AnythingOfType("string"), mock.AnythingOfType("string")).Once().
+				suite.uc.On("SignUp", mock.Anything, mock.AnythingOfType("usecase.SignUpParams")).Once().
 					Return(int64(1), tt.errSignUp)
 			}
 
@@ -119,7 +152,7 @@ func (suite *AuthSuite) TestSignUp() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -166,7 +199,7 @@ func (suite *AuthSuite) TestSignIn() {
 				Password: "password",
 			},
 			wantErrParseReq: false,
-			errSignIn:       repository.ErrNotFound,
+			errSignIn:       usecase.ErrUnauthorized,
 			statusCode:      401,
 		},
 		{
@@ -202,7 +235,7 @@ func (suite *AuthSuite) TestSignIn() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -289,7 +322,83 @@ func (suite *AuthSuite) TestRefreshTokens() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+		})
+	}
+}
+
+func (suite *AuthSuite) TestLogout() {
+	tests := []struct {
+		name       string
+		noToken    bool
+		rawReq     string
+		req        authrest.LogoutRequest
+		wantUCCall bool
+		errLogout  error
+		statusCode int
+	}{
+		{name: "Ok204", req: authrest.LogoutRequest{RefreshToken: "a.b.c"}, wantUCCall: true, statusCode: http.StatusNoContent},
+		{name: "Err401NoToken", noToken: true, req: authrest.LogoutRequest{RefreshToken: "a.b.c"}, statusCode: http.StatusUnauthorized},
+		{name: "Err400InvalidJSON", rawReq: "{", statusCode: http.StatusBadRequest},
+		{name: "Err400EmptyRefresh", req: authrest.LogoutRequest{}, statusCode: http.StatusBadRequest},
+		{name: "Err400NotJWT", req: authrest.LogoutRequest{RefreshToken: "abc"}, statusCode: http.StatusBadRequest},
+		{name: "Err401ForeignToken", req: authrest.LogoutRequest{RefreshToken: "a.b.c"}, wantUCCall: true, errLogout: usecase.ErrUnauthorized, statusCode: http.StatusUnauthorized},
+		{name: "Err500", req: authrest.LogoutRequest{RefreshToken: "a.b.c"}, wantUCCall: true, errLogout: errors.New(""), statusCode: http.StatusInternalServerError},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if tt.wantUCCall {
+				suite.uc.On("Logout", mock.Anything, 1, tt.req.RefreshToken).Once().Return(tt.errLogout)
+			}
+
+			var buf *bytes.Buffer
+			if tt.rawReq == "" {
+				body, err := json.Marshal(tt.req)
+				suite.NoError(err)
+				buf = bytes.NewBuffer(body)
+			} else {
+				buf = bytes.NewBufferString(tt.rawReq)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "/auth/logout", buf)
+			if !tt.noToken {
+				req.Header.Set("Authorization", suite.bearer())
+			}
+
+			suite.r.ServeHTTP(w, req)
+
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+		})
+	}
+}
+
+func (suite *AuthSuite) TestLogoutAll() {
+	tests := []struct {
+		name         string
+		noToken      bool
+		errLogoutAll error
+		statusCode   int
+	}{
+		{name: "Ok204", statusCode: http.StatusNoContent},
+		{name: "Err401NoToken", noToken: true, statusCode: http.StatusUnauthorized},
+		{name: "Err500", errLogoutAll: errors.New(""), statusCode: http.StatusInternalServerError},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			if !tt.noToken {
+				suite.uc.On("LogoutAll", mock.Anything, 1).Once().Return(tt.errLogoutAll)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest(http.MethodPost, "/auth/logout-all", nil)
+			if !tt.noToken {
+				req.Header.Set("Authorization", suite.bearer())
+			}
+
+			suite.r.ServeHTTP(w, req)
+
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }

@@ -15,7 +15,7 @@ func TestPoint_UnmarshalJSON(t *testing.T) {
 	if err := p.UnmarshalJSON(data); err != nil {
 		t.Errorf("Point.UnmarshalJSON() error = %v", err)
 	}
-	p.Ewkb.Point.SetSRID(4326)
+	p.Ewkb.SetSRID(4326)
 	if !reflect.DeepEqual(p, expectedPoint) {
 		t.Errorf("Points not equal")
 	}
@@ -51,7 +51,7 @@ func TestPolygon_UnmarshalJSON(t *testing.T) {
 	if err := p.UnmarshalJSON(data); err != nil {
 		t.Errorf("Polygon.UnmarshalJSON() error = %v", err)
 	}
-	p.Ewkb.Polygon.SetSRID(4326)
+	p.Ewkb.SetSRID(4326)
 	if !reflect.DeepEqual(p, expectedPolygon) {
 		t.Errorf("Polygons not equal")
 	}
@@ -106,7 +106,7 @@ func TestMultiPolygon_UnmarshalJSON(t *testing.T) {
 	if err := mp.UnmarshalJSON(data); err != nil {
 		t.Errorf("MultiPolygon.UnmarshalJSON() error = %v", err)
 	}
-	mp.Ewkb.MultiPolygon.SetSRID(4326)
+	mp.Ewkb.SetSRID(4326)
 	if !reflect.DeepEqual(mp, expectedMultiPolygon) {
 		t.Errorf("MultiPolygon not equal")
 	}

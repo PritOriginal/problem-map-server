@@ -6,14 +6,38 @@ import (
 	"io"
 	"log/slog"
 	"testing"
+	"time"
 
+	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
+	"github.com/guregu/null/v6"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 )
+
+// ratingCfg mirrors the config defaults so that delta assertions read naturally.
+var ratingCfg = config.RatingConfig{
+	CheckCorrect:    2,
+	CheckWrong:      -1,
+	MarkConfirmed:   3,
+	MarkRefuted:     -2,
+	TaskCompleted:   1,
+	MaxChecksPerDay: 50,
+}
+
+// Fixed identities used by AddCheck tests: the checker never owns the mark.
+const (
+	testCheckerID = 1
+	testAuthorID  = 2
+)
+
+// runInTx makes the transaction manager mock run the callback directly.
+func runInTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	return fn(ctx)
+}
 
 type ChecksSuite struct {
 	suite.Suite
@@ -23,20 +47,29 @@ type ChecksSuite struct {
 	updater    *usecase.MockMarkStatusUpdater
 	marksRepo  *usecase.MockMarksRepository
 	checksRepo *usecase.MockChecksRepository
+	tasksRepo  *usecase.MockTasksRepository
 	photosRepo *usecase.MockPhotosRepository
+	usersRepo  *usecase.MockUsersRepository
+	orgsRepo   *usecase.MockMembershipChecker
 }
 
-func (suite *ChecksSuite) SetupSuite() {
+func (suite *ChecksSuite) SetupTest() {
 	suite.log = slogdiscard.NewDiscardLogger()
 	suite.trManager = usecase.NewMockManager(suite.T())
 	suite.updater = usecase.NewMockMarkStatusUpdater(suite.T())
 	suite.marksRepo = usecase.NewMockMarksRepository(suite.T())
 	suite.checksRepo = usecase.NewMockChecksRepository(suite.T())
+	suite.tasksRepo = usecase.NewMockTasksRepository(suite.T())
 	suite.photosRepo = usecase.NewMockPhotosRepository(suite.T())
-	suite.uc = usecase.NewChecks(suite.log, suite.trManager, suite.updater, usecase.ChecksRepositories{
-		Marks:  suite.marksRepo,
-		Checks: suite.checksRepo,
-		Photos: suite.photosRepo,
+	suite.usersRepo = usecase.NewMockUsersRepository(suite.T())
+	suite.orgsRepo = usecase.NewMockMembershipChecker(suite.T())
+	suite.uc = usecase.NewChecks(suite.log, ratingCfg, suite.trManager, suite.updater, usecase.ChecksRepositories{
+		Marks:         suite.marksRepo,
+		Checks:        suite.checksRepo,
+		Tasks:         suite.tasksRepo,
+		Photos:        suite.photosRepo,
+		Users:         suite.usersRepo,
+		Organizations: suite.orgsRepo,
 	})
 }
 
@@ -49,10 +82,12 @@ func (suite *ChecksSuite) TestAddCheck() {
 		name                         string
 		getLastMarkStatusHistoryItem method[models.MarkStatusHistoryItem]
 		getUserMarkCheck             method[models.Check]
-		trDo                         method[any]
 		addCheck                     method[int64]
 		addPhotos                    method[any]
 		update                       method[any]
+		getTask                      method[models.Task]
+		updateTaskStatus             method[any]
+		wantErr                      error
 	}{
 		{
 			name: "Ok",
@@ -75,6 +110,92 @@ func (suite *ChecksSuite) TestAddCheck() {
 			update: method[any]{
 				err: nil,
 			},
+			getTask: method[models.Task]{
+				data: models.Task{ID: 1},
+				err:  nil,
+			},
+			updateTaskStatus: method[any]{
+				err: nil,
+			},
+		},
+		{
+			name: "OkWithoutTask",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					NewMarkStatusID: models.UnconfirmedStatus,
+				},
+				err: nil,
+			},
+			getUserMarkCheck: method[models.Check]{
+				err: repository.ErrNotFound,
+			},
+			addCheck: method[int64]{
+				data: int64(1),
+				err:  nil,
+			},
+			addPhotos: method[any]{
+				err: nil,
+			},
+			update: method[any]{
+				err: nil,
+			},
+			getTask: method[models.Task]{
+				err: repository.ErrNotFound,
+			},
+		},
+		{
+			name: "ErrGetTask",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					NewMarkStatusID: models.UnconfirmedStatus,
+				},
+				err: nil,
+			},
+			getUserMarkCheck: method[models.Check]{
+				err: repository.ErrNotFound,
+			},
+			addCheck: method[int64]{
+				data: int64(1),
+				err:  nil,
+			},
+			addPhotos: method[any]{
+				err: nil,
+			},
+			update: method[any]{
+				err: nil,
+			},
+			getTask: method[models.Task]{
+				err: errRepo,
+			},
+		},
+		{
+			name: "ErrUpdateTaskStatus",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					NewMarkStatusID: models.UnconfirmedStatus,
+				},
+				err: nil,
+			},
+			getUserMarkCheck: method[models.Check]{
+				err: repository.ErrNotFound,
+			},
+			addCheck: method[int64]{
+				data: int64(1),
+				err:  nil,
+			},
+			addPhotos: method[any]{
+				err: nil,
+			},
+			update: method[any]{
+				err: nil,
+			},
+			getTask: method[models.Task]{
+				data: models.Task{ID: 1},
+				err:  nil,
+			},
+			updateTaskStatus: method[any]{
+				err: errRepo,
+			},
 		},
 		{
 			name: "ErrNotFoundMarkStatus",
@@ -88,7 +209,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 				data: models.MarkStatusHistoryItem{
 					NewMarkStatusID: models.UnconfirmedStatus,
 				},
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 		{
@@ -100,39 +221,11 @@ func (suite *ChecksSuite) TestAddCheck() {
 				err: nil,
 			},
 			getUserMarkCheck: method[models.Check]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 		{
-			name: "OkFalseHasPossibilityAdd",
-			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
-				data: models.MarkStatusHistoryItem{},
-				err:  nil,
-			},
-		},
-		{
-			name: "ErrGetLastMarkStatusHistoryItem",
-			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
-				data: models.MarkStatusHistoryItem{
-					NewMarkStatusID: models.UnconfirmedStatus,
-				},
-				err: errors.New(""),
-			},
-		},
-		{
-			name: "ErrGetUserMarkCheck",
-			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
-				data: models.MarkStatusHistoryItem{
-					NewMarkStatusID: models.UnconfirmedStatus,
-				},
-				err: nil,
-			},
-			getUserMarkCheck: method[models.Check]{
-				err: errors.New(""),
-			},
-		},
-		{
-			name: "OkFalseHasPossibilityAdd",
+			name: "ErrConflictAlreadyChecked",
 			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
 				data: models.MarkStatusHistoryItem{
 					NewMarkStatusID: models.UnconfirmedStatus,
@@ -142,6 +235,41 @@ func (suite *ChecksSuite) TestAddCheck() {
 			getUserMarkCheck: method[models.Check]{
 				err: nil,
 			},
+			wantErr: usecase.ErrConflict,
+		},
+		{
+			name: "ErrConflictAddCheckExists",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					NewMarkStatusID: models.UnconfirmedStatus,
+				},
+				err: nil,
+			},
+			getUserMarkCheck: method[models.Check]{
+				err: repository.ErrNotFound,
+			},
+			addCheck: method[int64]{
+				err: repository.ErrExists,
+			},
+			wantErr: usecase.ErrConflict,
+		},
+		{
+			// A missing user/mark surfaces as a foreign-key violation and must
+			// be reported as a client error, not a 500.
+			name: "ErrInvalidArgumentUnknownReference",
+			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
+				data: models.MarkStatusHistoryItem{
+					NewMarkStatusID: models.UnconfirmedStatus,
+				},
+				err: nil,
+			},
+			getUserMarkCheck: method[models.Check]{
+				err: repository.ErrNotFound,
+			},
+			addCheck: method[int64]{
+				err: repository.ErrInvalidReference,
+			},
+			wantErr: usecase.ErrInvalidArgument,
 		},
 		{
 			name: "ErrAddCheck",
@@ -154,12 +282,9 @@ func (suite *ChecksSuite) TestAddCheck() {
 			getUserMarkCheck: method[models.Check]{
 				err: repository.ErrNotFound,
 			},
-			trDo: method[any]{
-				err: errors.New(""),
-			},
 			addCheck: method[int64]{
 				data: int64(0),
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 		{
@@ -173,15 +298,12 @@ func (suite *ChecksSuite) TestAddCheck() {
 			getUserMarkCheck: method[models.Check]{
 				err: repository.ErrNotFound,
 			},
-			trDo: method[any]{
-				err: errors.New(""),
-			},
 			addCheck: method[int64]{
 				data: int64(1),
 				err:  nil,
 			},
 			addPhotos: method[any]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 		{
@@ -195,9 +317,6 @@ func (suite *ChecksSuite) TestAddCheck() {
 			getUserMarkCheck: method[models.Check]{
 				err: repository.ErrNotFound,
 			},
-			trDo: method[any]{
-				err: errors.New(""),
-			},
 			addCheck: method[int64]{
 				data: int64(1),
 				err:  nil,
@@ -206,68 +325,194 @@ func (suite *ChecksSuite) TestAddCheck() {
 				err: nil,
 			},
 			update: method[any]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 	}
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			func() {
+				// Everything runs inside a single transaction under the mark lock.
+				suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
+				suite.marksRepo.On("LockMark", mock.Anything, 1).Once().Return(nil)
+
+				suite.marksRepo.On("GetMarkById", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(models.Mark{ID: 1, UserID: testAuthorID}, nil)
+
 				suite.marksRepo.On("GetLastMarkStatusHistoryItem", mock.Anything, mock.AnythingOfType("int")).Once().
 					Return(tt.getLastMarkStatusHistoryItem.data, tt.getLastMarkStatusHistoryItem.err)
 				if tt.getLastMarkStatusHistoryItem.err != nil {
 					return
 				}
 
+				suite.checksRepo.On("CountChecksByUserIdSince", mock.Anything, testCheckerID, mock.AnythingOfType("time.Time")).Once().
+					Return(0, nil)
+
 				suite.checksRepo.On("GetUserMarkCheck", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int"), mock.Anything).Once().
 					Return(tt.getUserMarkCheck.data, tt.getUserMarkCheck.err)
-				if tt.getUserMarkCheck.err != repository.ErrNotFound {
+				if !errors.Is(tt.getUserMarkCheck.err, repository.ErrNotFound) {
 					return
 				}
 
-				suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Run(func(args mock.Arguments) {
-					fn := args.Get(1).(func(ctx context.Context) error)
-					ctx := args.Get(0).(context.Context)
-					_ = fn(ctx)
-				}).Return(tt.trDo.err)
-				{
-					suite.checksRepo.On("AddCheck", mock.Anything, mock.Anything).Once().
-						Return(tt.addCheck.data, tt.addCheck.err)
-					if tt.addCheck.err != nil {
-						return
-					}
-
-					suite.photosRepo.On("AddPhotos", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int"), mock.Anything).Once().
-						Return(tt.addPhotos.err)
-					if tt.addPhotos.err != nil {
-						return
-					}
-
-					suite.updater.On("Update", mock.Anything, mock.AnythingOfType("int")).Once().
-						Return(tt.update.err)
-					if tt.update.err != nil {
-						return
-					}
-				}
-				if tt.trDo.err != nil {
+				suite.checksRepo.On("AddCheck", mock.Anything, mock.Anything).Once().
+					Return(tt.addCheck.data, tt.addCheck.err)
+				if tt.addCheck.err != nil {
 					return
 				}
+
+				suite.photosRepo.On("AddPhotos", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int"), mock.Anything).Once().
+					Return(tt.addPhotos.err)
+				if tt.addPhotos.err != nil {
+					return
+				}
+
+				suite.updater.On("Update", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(tt.update.err)
+				if tt.update.err != nil {
+					return
+				}
+
+				suite.tasksRepo.On("GetTaskByUserIdAndMarkId", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int"), models.UnfulfilledStatus).Once().
+					Return(tt.getTask.data, tt.getTask.err)
+				if tt.getTask.err != nil {
+					return
+				}
+
+				suite.tasksRepo.On("UpdateTaskStatus", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("models.TaskStatusType")).Once().
+					Return(tt.updateTaskStatus.err)
+				if tt.updateTaskStatus.err != nil {
+					return
+				}
+
+				suite.usersRepo.On("AddRatingEvent", mock.Anything, models.RatingEvent{
+					UserID:  testCheckerID,
+					Delta:   ratingCfg.TaskCompleted,
+					Reason:  models.RatingReasonTaskCompleted,
+					MarkID:  null.IntFrom(1),
+					CheckID: null.IntFrom(tt.addCheck.data),
+				}).Once().Return(int64(1), nil)
 			}()
 
-			_, gotErr := suite.uc.AddCheck(context.Background(), models.Check{}, []io.Reader{})
+			_, gotErr := suite.uc.AddCheck(context.Background(), models.Check{UserID: testCheckerID, MarkID: 1}, []io.Reader{})
 
-			if tt.getLastMarkStatusHistoryItem.err == nil &&
-				tt.getUserMarkCheck.err == repository.ErrNotFound &&
+			switch {
+			case tt.getLastMarkStatusHistoryItem.err == nil &&
+				errors.Is(tt.getUserMarkCheck.err, repository.ErrNotFound) &&
 				tt.addCheck.err == nil &&
 				tt.addPhotos.err == nil &&
-				tt.update.err == nil {
+				tt.update.err == nil &&
+				(tt.getTask.err == nil || errors.Is(tt.getTask.err, repository.ErrNotFound)) &&
+				tt.updateTaskStatus.err == nil:
 				suite.NoError(gotErr)
-			} else {
-				suite.NotNil(gotErr)
+			case tt.wantErr != nil:
+				suite.ErrorIs(gotErr, tt.wantErr)
+			default:
+				suite.Error(gotErr)
 			}
 			suite.checksRepo.AssertExpectations(suite.T())
 			suite.photosRepo.AssertExpectations(suite.T())
 			suite.updater.AssertExpectations(suite.T())
+			suite.tasksRepo.AssertExpectations(suite.T())
+			suite.usersRepo.AssertExpectations(suite.T())
+			suite.trManager.AssertExpectations(suite.T())
+		})
+	}
+}
+
+// TestAddCheckOwnMark: the author may not vote on their own mark; nothing
+// is written.
+func (suite *ChecksSuite) TestAddCheckOwnMark() {
+	suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
+	suite.marksRepo.On("LockMark", mock.Anything, 1).Once().Return(nil)
+	suite.marksRepo.On("GetMarkById", mock.Anything, 1).Once().
+		Return(models.Mark{ID: 1, UserID: testCheckerID}, nil)
+
+	_, err := suite.uc.AddCheck(context.Background(), models.Check{UserID: testCheckerID, MarkID: 1}, nil)
+
+	suite.ErrorIs(err, usecase.ErrForbidden)
+	suite.marksRepo.AssertNotCalled(suite.T(), "GetLastMarkStatusHistoryItem", mock.Anything, mock.Anything)
+	suite.checksRepo.AssertNotCalled(suite.T(), "AddCheck", mock.Anything, mock.Anything)
+}
+
+// TestAddCheckAssignedOrganizationMember: a member of the organization the
+// mark is assigned to may not vote on it (it reports through Resolve);
+// nothing is written. Outsiders vote as usual.
+func (suite *ChecksSuite) TestAddCheckAssignedOrganizationMember() {
+	suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
+	suite.marksRepo.On("LockMark", mock.Anything, 1).Once().Return(nil)
+	suite.marksRepo.On("GetMarkById", mock.Anything, 1).Once().
+		Return(models.Mark{ID: 1, UserID: 2, OrganizationID: null.IntFrom(10)}, nil)
+	suite.orgsRepo.On("IsMember", mock.Anything, 10, testCheckerID).Once().Return(true, nil)
+
+	_, err := suite.uc.AddCheck(context.Background(), models.Check{UserID: testCheckerID, MarkID: 1}, nil)
+
+	suite.ErrorIs(err, usecase.ErrForbidden)
+	suite.marksRepo.AssertNotCalled(suite.T(), "GetLastMarkStatusHistoryItem", mock.Anything, mock.Anything)
+	suite.checksRepo.AssertNotCalled(suite.T(), "AddCheck", mock.Anything, mock.Anything)
+}
+
+// TestAddCheckMarkNotFound: an unknown mark is reported by the lock, before
+// any other lookup.
+func (suite *ChecksSuite) TestAddCheckMarkNotFound() {
+	suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
+	suite.marksRepo.On("LockMark", mock.Anything, 1).Once().Return(repository.ErrNotFound)
+
+	_, err := suite.uc.AddCheck(context.Background(), models.Check{UserID: testCheckerID, MarkID: 1}, nil)
+
+	suite.ErrorIs(err, usecase.ErrNotFound)
+	suite.marksRepo.AssertNotCalled(suite.T(), "GetMarkById", mock.Anything, mock.Anything)
+}
+
+// TestAddCheckDailyLimit covers the rolling 24h quota.
+func (suite *ChecksSuite) TestAddCheckDailyLimit() {
+	tests := []struct {
+		name    string
+		count   int
+		countEr error
+		wantErr error
+	}{
+		{name: "BelowLimit", count: ratingCfg.MaxChecksPerDay - 1},
+		{name: "AtLimit", count: ratingCfg.MaxChecksPerDay, wantErr: usecase.ErrTooManyRequests},
+		{name: "AboveLimit", count: ratingCfg.MaxChecksPerDay + 10, wantErr: usecase.ErrTooManyRequests},
+		{name: "ErrCount", countEr: errRepo, wantErr: errRepo},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
+			suite.marksRepo.On("LockMark", mock.Anything, 1).Once().Return(nil)
+			suite.marksRepo.On("GetMarkById", mock.Anything, 1).Once().
+				Return(models.Mark{ID: 1, UserID: testAuthorID}, nil)
+			suite.marksRepo.On("GetLastMarkStatusHistoryItem", mock.Anything, 1).Once().
+				Return(models.MarkStatusHistoryItem{ID: 7, NewMarkStatusID: models.UnconfirmedStatus}, nil)
+			suite.checksRepo.On("CountChecksByUserIdSince", mock.Anything, testCheckerID, mock.AnythingOfType("time.Time")).Once().
+				Run(func(args mock.Arguments) {
+					since := args.Get(2).(time.Time)
+					suite.WithinDuration(time.Now().Add(-24*time.Hour), since, time.Minute)
+				}).
+				Return(tt.count, tt.countEr)
+
+			if tt.wantErr == nil {
+				suite.checksRepo.On("GetUserMarkCheck", mock.Anything, testCheckerID, 7).Once().
+					Return(models.Check{}, repository.ErrNotFound)
+				suite.checksRepo.On("AddCheck", mock.Anything, mock.Anything).Once().Return(int64(5), nil)
+				suite.photosRepo.On("AddPhotos", mock.Anything, 1, 5, mock.Anything).Once().Return(nil)
+				suite.updater.On("Update", mock.Anything, 1).Once().Return(nil)
+				suite.tasksRepo.On("GetTaskByUserIdAndMarkId", mock.Anything, testCheckerID, 1, models.UnfulfilledStatus).Once().
+					Return(models.Task{}, repository.ErrNotFound)
+			}
+
+			id, err := suite.uc.AddCheck(context.Background(), models.Check{UserID: testCheckerID, MarkID: 1}, nil)
+
+			// Mocks are strict: a rejected check that still reached AddCheck
+			// would fail on the missing expectation.
+			if tt.wantErr != nil {
+				suite.ErrorIs(err, tt.wantErr)
+			} else {
+				suite.NoError(err)
+				suite.Equal(int64(5), id)
+			}
+			// No task was closed, so no rating is awarded here.
+			suite.usersRepo.AssertNotCalled(suite.T(), "AddRatingEvent", mock.Anything, mock.Anything)
 		})
 	}
 }
@@ -286,7 +531,14 @@ func (suite *ChecksSuite) TestGetCheckById() {
 		{
 			name: "ErrGetCheckById",
 			getCheckById: method[models.Check]{
-				err: errors.New(""),
+				err: errRepo,
+			},
+			getPhotosByCheckId: method[[]string]{},
+		},
+		{
+			name: "ErrGetCheckByIdNotFound",
+			getCheckById: method[models.Check]{
+				err: repository.ErrNotFound,
 			},
 			getPhotosByCheckId: method[[]string]{},
 		},
@@ -294,7 +546,7 @@ func (suite *ChecksSuite) TestGetCheckById() {
 			name:         "ErrGetPhotosByCheckId",
 			getCheckById: method[models.Check]{},
 			getPhotosByCheckId: method[[]string]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 	}
@@ -319,7 +571,7 @@ func (suite *ChecksSuite) TestGetCheckById() {
 			if tt.getCheckById.err == nil && tt.getPhotosByCheckId.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getCheckById.err, tt.getPhotosByCheckId.err)
 			}
 			suite.checksRepo.AssertExpectations(suite.T())
 			suite.photosRepo.AssertExpectations(suite.T())
@@ -348,7 +600,7 @@ func (suite *ChecksSuite) TestGetChecksByMarkId() {
 			name: "ErrGetChecksByMarkId",
 			getChecksByMarkId: method[[]models.Check]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 			getPhotosByMarkId: method[map[int]map[int][]string]{
 				data: nil,
@@ -363,7 +615,7 @@ func (suite *ChecksSuite) TestGetChecksByMarkId() {
 			},
 			getPhotosByMarkId: method[map[int]map[int][]string]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 	}
@@ -371,8 +623,9 @@ func (suite *ChecksSuite) TestGetChecksByMarkId() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			func() {
-				suite.checksRepo.On("GetChecksByMarkId", mock.Anything, mock.AnythingOfType("int")).Once().
-					Return(tt.getChecksByMarkId.data, tt.getChecksByMarkId.err)
+				suite.marksRepo.On("GetMarkById", mock.Anything, 1).Once().Return(models.Mark{ID: 1}, nil)
+				suite.checksRepo.On("GetChecksByMarkId", mock.Anything, mock.AnythingOfType("int"), models.Pagination{Limit: 10}).Once().
+					Return(models.Page[models.Check]{Items: tt.getChecksByMarkId.data, Total: len(tt.getChecksByMarkId.data)}, tt.getChecksByMarkId.err)
 				if tt.getChecksByMarkId.err != nil {
 					return
 				}
@@ -384,12 +637,12 @@ func (suite *ChecksSuite) TestGetChecksByMarkId() {
 				}
 			}()
 
-			_, gotErr := suite.uc.GetChecksByMarkId(context.Background(), 1)
+			_, gotErr := suite.uc.ListChecksByMarkId(context.Background(), 1, models.Pagination{Limit: 10})
 
 			if tt.getChecksByMarkId.err == nil && tt.getPhotosByMarkId.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getChecksByMarkId.err, tt.getPhotosByMarkId.err)
 			}
 			suite.checksRepo.AssertExpectations(suite.T())
 			suite.photosRepo.AssertExpectations(suite.T())
@@ -398,68 +651,61 @@ func (suite *ChecksSuite) TestGetChecksByMarkId() {
 }
 
 func (suite *ChecksSuite) TestGetChecksByUserId() {
+	// Two checks on mark 1 and one on mark 2: photos must be listed once per mark.
+	checks := []models.Check{{ID: 10, MarkID: 1}, {ID: 11, MarkID: 1}, {ID: 12, MarkID: 2}}
+	photos := map[int]map[int][]string{
+		1: {10: {"a.jpg"}, 11: {"b.jpg"}},
+		2: {12: {"c.jpg"}},
+	}
+
 	tests := []struct {
-		name               string
-		getChecksByUserId  method[[]models.Check]
-		getPhotosByCheckId method[[]string]
+		name              string
+		getChecksByUserId method[[]models.Check]
+		getPhotosByMarkId method[map[int]map[int][]string]
+		wantPhotos        [][]string
 	}{
 		{
-			name: "Ok",
-			getChecksByUserId: method[[]models.Check]{
-				data: []models.Check{{}},
-				err:  nil,
-			},
-			getPhotosByCheckId: method[[]string]{
-				data: []string{},
-				err:  nil,
-			},
+			name:              "Ok",
+			getChecksByUserId: method[[]models.Check]{data: checks},
+			getPhotosByMarkId: method[map[int]map[int][]string]{data: photos},
+			wantPhotos:        [][]string{{"a.jpg"}, {"b.jpg"}, {"c.jpg"}},
 		},
 		{
-			name: "ErrGetChecksByUserId",
-			getChecksByUserId: method[[]models.Check]{
-				data: nil,
-				err:  errors.New(""),
-			},
-			getPhotosByCheckId: method[[]string]{
-				data: nil,
-				err:  nil,
-			},
+			name:              "ErrGetChecksByUserId",
+			getChecksByUserId: method[[]models.Check]{err: errRepo},
 		},
 		{
-			name: "ErrGetPhotosByCheckId",
-			getChecksByUserId: method[[]models.Check]{
-				data: []models.Check{{}},
-				err:  nil,
-			},
-			getPhotosByCheckId: method[[]string]{
-				data: nil,
-				err:  errors.New(""),
-			},
+			name:              "ErrGetPhotosByMarkId",
+			getChecksByUserId: method[[]models.Check]{data: checks},
+			getPhotosByMarkId: method[map[int]map[int][]string]{err: errRepo},
 		},
 	}
 
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
-			func() {
-				suite.checksRepo.On("GetChecksByUserId", mock.Anything, mock.AnythingOfType("int")).Once().
-					Return(tt.getChecksByUserId.data, tt.getChecksByUserId.err)
-				if tt.getChecksByUserId.err != nil {
-					return
+			suite.checksRepo.On("GetChecksByUserId", mock.Anything, mock.AnythingOfType("int"), models.Pagination{Limit: 10}).Once().
+				Return(models.Page[models.Check]{Items: tt.getChecksByUserId.data, Total: len(tt.getChecksByUserId.data)}, tt.getChecksByUserId.err)
+			if tt.getChecksByUserId.err == nil {
+				if tt.getPhotosByMarkId.err != nil {
+					suite.photosRepo.On("GetPhotosByMarkId", mock.Anything, mock.AnythingOfType("int")).Once().
+						Return(nil, tt.getPhotosByMarkId.err)
+				} else {
+					for markId := range photos {
+						suite.photosRepo.On("GetPhotosByMarkId", mock.Anything, markId).Once().
+							Return(tt.getPhotosByMarkId.data, nil)
+					}
 				}
+			}
 
-				suite.photosRepo.On("GetPhotosByCheckId", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("int")).Once().
-					Return(tt.getPhotosByCheckId.data, tt.getPhotosByCheckId.err)
-				if tt.getPhotosByCheckId.err != nil {
-					return
-				}
-			}()
+			got, gotErr := suite.uc.ListChecksByUserId(context.Background(), 1, models.Pagination{Limit: 10})
 
-			_, gotErr := suite.uc.GetChecksByUserId(context.Background(), 1)
-
-			if tt.getChecksByUserId.err == nil && tt.getPhotosByCheckId.err == nil {
+			if tt.getChecksByUserId.err == nil && tt.getPhotosByMarkId.err == nil {
 				suite.NoError(gotErr)
+				for i, want := range tt.wantPhotos {
+					suite.Equal(want, got.Items[i].Photos)
+				}
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getChecksByUserId.err, tt.getPhotosByMarkId.err)
 			}
 			suite.checksRepo.AssertExpectations(suite.T())
 			suite.photosRepo.AssertExpectations(suite.T())
@@ -467,21 +713,39 @@ func (suite *ChecksSuite) TestGetChecksByUserId() {
 	}
 }
 
+func (suite *ChecksSuite) TestListChecksInvalidPagination() {
+	bad := models.Pagination{Limit: models.MaxLimit + 1}
+
+	_, err := suite.uc.ListChecksByMarkId(context.Background(), 1, bad)
+	suite.ErrorIs(err, usecase.ErrInvalidArgument)
+
+	_, err = suite.uc.ListChecksByUserId(context.Background(), 1, bad)
+	suite.ErrorIs(err, usecase.ErrInvalidArgument)
+
+	suite.checksRepo.AssertNotCalled(suite.T(), "GetChecksByMarkId", mock.Anything, mock.Anything, bad)
+	suite.checksRepo.AssertNotCalled(suite.T(), "GetChecksByUserId", mock.Anything, mock.Anything, bad)
+}
+
 type MarkStatusUpdaterSuite struct {
 	suite.Suite
 	u          *usecase.Updater
 	log        *slog.Logger
+	trManager  *usecase.MockManager
 	marksRepo  *usecase.MockMarksRepository
 	checksRepo *usecase.MockChecksRepository
+	usersRepo  *usecase.MockUsersRepository
 }
 
-func (suite *MarkStatusUpdaterSuite) SetupSuite() {
+func (suite *MarkStatusUpdaterSuite) SetupTest() {
 	suite.log = slogdiscard.NewDiscardLogger()
+	suite.trManager = usecase.NewMockManager(suite.T())
 	suite.marksRepo = usecase.NewMockMarksRepository(suite.T())
 	suite.checksRepo = usecase.NewMockChecksRepository(suite.T())
-	suite.u = usecase.NewUpdater(suite.log, usecase.UpdaterRepositories{
+	suite.usersRepo = usecase.NewMockUsersRepository(suite.T())
+	suite.u = usecase.NewUpdater(suite.log, ratingCfg, suite.trManager, usecase.UpdaterRepositories{
 		Marks:  suite.marksRepo,
 		Checks: suite.checksRepo,
+		Users:  suite.usersRepo,
 	})
 }
 
@@ -584,7 +848,7 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 			},
 			wantUpdated: true,
 			updateMarkStatus: method[any]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 		{
@@ -648,13 +912,13 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 			},
 			wantUpdated: true,
 			updateMarkStatus: method[any]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 		{
 			name: "Err-GetMarkStatusHistoryByMarkId",
 			getLastMarkStatusHistoryItem: method[models.MarkStatusHistoryItem]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 		{
@@ -666,7 +930,7 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 			},
 			getMarkById: method[models.Mark]{
 				data: models.Mark{},
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 		{
@@ -691,7 +955,7 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 						Result: false,
 					},
 				},
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 	}
@@ -723,6 +987,9 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 						if tt.updateMarkStatus.err != nil {
 							return
 						}
+						// One event per check plus one for the author (first decision).
+						suite.usersRepo.On("AddRatingEvent", mock.Anything, mock.AnythingOfType("models.RatingEvent")).
+							Times(len(tt.getChecksByMarkHistoryId.data)+1).Return(int64(1), nil)
 					}
 				}
 			}()
@@ -735,12 +1002,155 @@ func (suite *MarkStatusUpdaterSuite) TestUpdateMarkStatus() {
 				tt.updateMarkStatus.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getLastMarkStatusHistoryItem.err, tt.getMarkById.err, tt.getChecksByMarkHistoryId.err, tt.updateMarkStatus.err)
 			}
 			suite.marksRepo.AssertExpectations(suite.T())
 			suite.checksRepo.AssertExpectations(suite.T())
+			suite.usersRepo.AssertExpectations(suite.T())
 		})
 	}
+}
+
+// TestRatingDeltas pins the rating awarded on every resolved voting stage:
+// checkers are rated by whether their vote matched the outcome, the author
+// only on the first decision about the mark.
+func (suite *MarkStatusUpdaterSuite) TestRatingDeltas() {
+	const (
+		markId   = 10
+		authorId = 42
+	)
+	checks := []models.Check{
+		{ID: 1, UserID: 101, Result: true},
+		{ID: 2, UserID: 102, Result: false},
+		{ID: 3, UserID: 103, Result: true},
+	}
+	checkerEvent := func(check models.Check, correct bool) models.RatingEvent {
+		event := models.RatingEvent{
+			UserID:  check.UserID,
+			Delta:   ratingCfg.CheckWrong,
+			Reason:  models.RatingReasonCheckWrong,
+			MarkID:  null.IntFrom(markId),
+			CheckID: null.IntFrom(int64(check.ID)),
+		}
+		if correct {
+			event.Delta = ratingCfg.CheckCorrect
+			event.Reason = models.RatingReasonCheckCorrect
+		}
+		return event
+	}
+	authorEvent := func(confirmed bool) models.RatingEvent {
+		event := models.RatingEvent{
+			UserID: authorId,
+			Delta:  ratingCfg.MarkRefuted,
+			Reason: models.RatingReasonMarkRefuted,
+			MarkID: null.IntFrom(markId),
+		}
+		if confirmed {
+			event.Delta = ratingCfg.MarkConfirmed
+			event.Reason = models.RatingReasonMarkConfirmed
+		}
+		return event
+	}
+
+	tests := []struct {
+		name       string
+		status     models.MarkStatusType
+		confirm    bool
+		wantStatus models.MarkStatusType
+		wantEvents []models.RatingEvent
+	}{
+		{
+			name: "Unconfirmed->Confirmed", status: models.UnconfirmedStatus, confirm: true,
+			wantStatus: models.ConfirmedStatus,
+			wantEvents: []models.RatingEvent{
+				checkerEvent(checks[0], true), checkerEvent(checks[1], false), checkerEvent(checks[2], true),
+				authorEvent(true),
+			},
+		},
+		{
+			name: "Unconfirmed->Refuted", status: models.UnconfirmedStatus, confirm: false,
+			wantStatus: models.RefutedStatus,
+			wantEvents: []models.RatingEvent{
+				checkerEvent(checks[0], false), checkerEvent(checks[1], true), checkerEvent(checks[2], false),
+				authorEvent(false),
+			},
+		},
+		{
+			name: "UnderReview->Closed (no author event)", status: models.UnderReviewStatus, confirm: true,
+			wantStatus: models.ClosedStatus,
+			wantEvents: []models.RatingEvent{
+				checkerEvent(checks[0], true), checkerEvent(checks[1], false), checkerEvent(checks[2], true),
+			},
+		},
+		{
+			name: "UnderReview->Rediscovered (no author event)", status: models.UnderReviewStatus, confirm: false,
+			wantStatus: models.RediscoveredStatus,
+			wantEvents: []models.RatingEvent{
+				checkerEvent(checks[0], false), checkerEvent(checks[1], true), checkerEvent(checks[2], false),
+			},
+		},
+		{
+			name: "Confirmed->Refuted by moderator (no author event)", status: models.ConfirmedStatus, confirm: false,
+			wantStatus: models.RefutedStatus,
+			wantEvents: []models.RatingEvent{
+				checkerEvent(checks[0], false), checkerEvent(checks[1], true), checkerEvent(checks[2], false),
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
+			suite.marksRepo.On("LockMark", mock.Anything, markId).Once().Return(nil)
+			suite.marksRepo.On("GetMarkById", mock.Anything, markId).Once().
+				Return(models.Mark{ID: markId, UserID: authorId, MarkStatusID: tt.status}, nil)
+			suite.marksRepo.On("GetLastMarkStatusHistoryItem", mock.Anything, markId).Once().
+				Return(models.MarkStatusHistoryItem{ID: 3}, nil)
+			suite.checksRepo.On("GetChecksByMarkHistoryId", mock.Anything, 3).Once().Return(checks, nil)
+			suite.marksRepo.On("UpdateMarkStatus", mock.Anything, markId, tt.wantStatus).Once().Return(nil)
+
+			var got []models.RatingEvent
+			suite.usersRepo.On("AddRatingEvent", mock.Anything, mock.AnythingOfType("models.RatingEvent")).
+				Times(len(tt.wantEvents)).
+				Run(func(args mock.Arguments) {
+					got = append(got, args.Get(1).(models.RatingEvent))
+				}).
+				Return(int64(1), nil)
+
+			var (
+				status models.MarkStatusType
+				err    error
+			)
+			if tt.confirm {
+				status, err = suite.u.Confirm(context.Background(), markId)
+			} else {
+				status, err = suite.u.Reject(context.Background(), markId)
+			}
+
+			suite.NoError(err)
+			suite.Equal(tt.wantStatus, status)
+			suite.Equal(tt.wantEvents, got)
+		})
+	}
+}
+
+// TestRatingEventFailureAborts: a failed rating write is propagated so the
+// surrounding transaction rolls back the status change.
+func (suite *MarkStatusUpdaterSuite) TestRatingEventFailureAborts() {
+	suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
+	suite.marksRepo.On("LockMark", mock.Anything, 1).Once().Return(nil)
+	suite.marksRepo.On("GetMarkById", mock.Anything, 1).Once().
+		Return(models.Mark{ID: 1, UserID: 2, MarkStatusID: models.UnconfirmedStatus}, nil)
+	suite.marksRepo.On("GetLastMarkStatusHistoryItem", mock.Anything, 1).Once().
+		Return(models.MarkStatusHistoryItem{ID: 1}, nil)
+	suite.checksRepo.On("GetChecksByMarkHistoryId", mock.Anything, 1).Once().
+		Return([]models.Check{{ID: 1, UserID: 3, Result: true}}, nil)
+	suite.marksRepo.On("UpdateMarkStatus", mock.Anything, 1, models.ConfirmedStatus).Once().Return(nil)
+	suite.usersRepo.On("AddRatingEvent", mock.Anything, mock.Anything).Once().Return(int64(0), errRepo)
+
+	_, err := suite.u.Confirm(context.Background(), 1)
+
+	suite.ErrorIs(err, errRepo)
 }
 
 func (suite *MarkStatusUpdaterSuite) TestConfirm() {
@@ -799,7 +1209,14 @@ func (suite *MarkStatusUpdaterSuite) TestConfirm() {
 			name: "Err-GetMarkById",
 			getMarkById: method[models.Mark]{
 				data: models.Mark{},
-				err:  errors.New(""),
+				err:  errRepo,
+			},
+		},
+		{
+			name: "Err-GetMarkByIdNotFound",
+			getMarkById: method[models.Mark]{
+				data: models.Mark{},
+				err:  repository.ErrNotFound,
 			},
 		},
 		{
@@ -808,7 +1225,7 @@ func (suite *MarkStatusUpdaterSuite) TestConfirm() {
 				data: models.Mark{MarkStatusID: models.UnconfirmedStatus},
 			},
 			updateMarkStatus: method[any]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 	}
@@ -816,9 +1233,20 @@ func (suite *MarkStatusUpdaterSuite) TestConfirm() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			func() {
+				suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
+				suite.marksRepo.On("LockMark", mock.Anything, mock.AnythingOfType("int")).Once().Return(nil)
+
 				suite.marksRepo.On("GetMarkById", mock.Anything, mock.AnythingOfType("int")).Once().
 					Return(tt.getMarkById.data, tt.getMarkById.err)
-				if tt.getMarkById.err != nil || tt.err == usecase.ErrConflict {
+				if tt.getMarkById.err != nil {
+					return
+				}
+
+				suite.marksRepo.On("GetLastMarkStatusHistoryItem", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(models.MarkStatusHistoryItem{ID: 1}, nil)
+				suite.checksRepo.On("GetChecksByMarkHistoryId", mock.Anything, 1).Once().
+					Return([]models.Check{{ID: 1, UserID: 3, Result: true}}, nil)
+				if errors.Is(tt.err, usecase.ErrConflict) {
 					return
 				}
 
@@ -827,6 +1255,9 @@ func (suite *MarkStatusUpdaterSuite) TestConfirm() {
 				if tt.updateMarkStatus.err != nil {
 					return
 				}
+
+				suite.usersRepo.On("AddRatingEvent", mock.Anything, mock.AnythingOfType("models.RatingEvent")).
+					Return(int64(1), nil)
 			}()
 
 			got, gotErr := suite.u.Confirm(context.Background(), 1)
@@ -835,7 +1266,7 @@ func (suite *MarkStatusUpdaterSuite) TestConfirm() {
 				suite.Equal(tt.want, got)
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getMarkById.err, tt.updateMarkStatus.err, tt.err)
 			}
 			suite.marksRepo.AssertExpectations(suite.T())
 		})
@@ -898,7 +1329,14 @@ func (suite *MarkStatusUpdaterSuite) TestReject() {
 			name: "Err-GetMarkById",
 			getMarkById: method[models.Mark]{
 				data: models.Mark{},
-				err:  errors.New(""),
+				err:  errRepo,
+			},
+		},
+		{
+			name: "Err-GetMarkByIdNotFound",
+			getMarkById: method[models.Mark]{
+				data: models.Mark{},
+				err:  repository.ErrNotFound,
 			},
 		},
 		{
@@ -907,7 +1345,7 @@ func (suite *MarkStatusUpdaterSuite) TestReject() {
 				data: models.Mark{MarkStatusID: models.UnconfirmedStatus},
 			},
 			updateMarkStatus: method[any]{
-				err: errors.New(""),
+				err: errRepo,
 			},
 		},
 	}
@@ -915,9 +1353,20 @@ func (suite *MarkStatusUpdaterSuite) TestReject() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			func() {
+				suite.trManager.On("Do", mock.Anything, mock.Anything).Once().Return(runInTx)
+				suite.marksRepo.On("LockMark", mock.Anything, mock.AnythingOfType("int")).Once().Return(nil)
+
 				suite.marksRepo.On("GetMarkById", mock.Anything, mock.AnythingOfType("int")).Once().
 					Return(tt.getMarkById.data, tt.getMarkById.err)
-				if tt.getMarkById.err != nil || tt.err == usecase.ErrConflict {
+				if tt.getMarkById.err != nil {
+					return
+				}
+
+				suite.marksRepo.On("GetLastMarkStatusHistoryItem", mock.Anything, mock.AnythingOfType("int")).Once().
+					Return(models.MarkStatusHistoryItem{ID: 1}, nil)
+				suite.checksRepo.On("GetChecksByMarkHistoryId", mock.Anything, 1).Once().
+					Return([]models.Check{{ID: 1, UserID: 3, Result: true}}, nil)
+				if errors.Is(tt.err, usecase.ErrConflict) {
 					return
 				}
 
@@ -926,6 +1375,9 @@ func (suite *MarkStatusUpdaterSuite) TestReject() {
 				if tt.updateMarkStatus.err != nil {
 					return
 				}
+
+				suite.usersRepo.On("AddRatingEvent", mock.Anything, mock.AnythingOfType("models.RatingEvent")).
+					Return(int64(1), nil)
 			}()
 
 			got, gotErr := suite.u.Reject(context.Background(), 1)
@@ -934,9 +1386,27 @@ func (suite *MarkStatusUpdaterSuite) TestReject() {
 				suite.Equal(tt.want, got)
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getMarkById.err, tt.updateMarkStatus.err, tt.err)
 			}
 			suite.marksRepo.AssertExpectations(suite.T())
 		})
 	}
+}
+
+// TestListChecksByMarkId_Hidden: the checks of a hidden mark are ErrNotFound
+// for a stranger and readable by a moderator.
+func (suite *ChecksSuite) TestListChecksByMarkId_Hidden() {
+	hidden := models.Mark{ID: 1, UserID: 3, Hidden: true}
+	p := models.Pagination{Limit: 10}
+
+	suite.marksRepo.On("GetMarkById", mock.Anything, 1).Once().Return(hidden, nil)
+	_, err := suite.uc.ListChecksByMarkId(models.ContextWithViewer(context.Background(), 7), 1, p)
+	suite.ErrorIs(err, usecase.ErrNotFound)
+	suite.checksRepo.AssertNotCalled(suite.T(), "GetChecksByMarkId", mock.Anything, mock.Anything, mock.Anything)
+
+	suite.marksRepo.On("GetMarkById", mock.Anything, 1).Once().Return(hidden, nil)
+	suite.checksRepo.On("GetChecksByMarkId", mock.Anything, 1, p).Once().Return(models.Page[models.Check]{}, nil)
+	suite.photosRepo.On("GetPhotosByMarkId", mock.Anything, 1).Once().Return(map[int]map[int][]string{}, nil)
+	_, err = suite.uc.ListChecksByMarkId(models.ContextWithActor(context.Background(), models.Actor{UserID: 2, Role: models.RoleModerator}), 1, p)
+	suite.NoError(err)
 }

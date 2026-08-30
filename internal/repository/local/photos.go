@@ -19,13 +19,22 @@ func (repo *PhotosRepo) AddPhotos(ctx context.Context, markId, reviewId int, pho
 		if err != nil {
 			return err
 		}
-		defer file.Close()
 
 		if _, err := io.Copy(file, photo); err != nil {
+			_ = file.Close()
+			return err
+		}
+
+		if err := file.Close(); err != nil {
 			return err
 		}
 	}
 
+	return nil
+}
+
+// DeletePhotos is a no-op: the local store does not index files by mark.
+func (repo *PhotosRepo) DeletePhotos(ctx context.Context, markId int) error {
 	return nil
 }
 

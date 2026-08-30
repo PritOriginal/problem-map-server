@@ -1,0 +1,143 @@
+package config_test
+
+import (
+	"testing"
+	"time"
+
+	"github.com/PritOriginal/problem-map-server/internal/config"
+	"github.com/stretchr/testify/suite"
+)
+
+type ConfigSuite struct {
+	suite.Suite
+}
+
+func TestConfig(t *testing.T) {
+	suite.Run(t, new(ConfigSuite))
+}
+
+func (suite *ConfigSuite) TestDatabaseConfigDSN() {
+	tests := []struct {
+		name string
+		cfg  config.DatabaseConfig
+		want string
+	}{
+		{
+			name: "Plain",
+			cfg:  config.DatabaseConfig{Host: "localhost", Port: 5432, Username: "postgres", Password: "postgres", Name: "problem_map", SSLMode: "require"},
+			want: "postgres://postgres:postgres@localhost:5432/problem_map?sslmode=require&timezone=UTC",
+		},
+		{
+			name: "EscapesReservedCharacters",
+			cfg:  config.DatabaseConfig{Host: "db", Port: 5432, Username: "us er", Password: "p@ss/w#rd", Name: "pm", SSLMode: "disable"},
+			want: "postgres://us%20er:p%40ss%2Fw%23rd@db:5432/pm?sslmode=disable&timezone=UTC",
+		},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			suite.Equal(tt.want, tt.cfg.DSN())
+		})
+	}
+}
+
+func (suite *ConfigSuite) TestNatsConfig() {
+	suite.True(config.NatsConfig{}.JetStream(), "empty delivery means jetstream")
+	suite.True(config.NatsConfig{Delivery: config.NatsDeliveryJetStream}.JetStream())
+	suite.False(config.NatsConfig{Delivery: config.NatsDeliveryCore}.JetStream())
+
+	suite.ErrorContains(config.NatsConfig{}.Validate(), "NATS_URL")
+	suite.NoError(config.NatsConfig{URL: "nats://127.0.0.1:4222"}.Validate())
+	suite.ErrorContains(config.NatsConfig{URL: "nats://127.0.0.1:4222", Delivery: "x"}.Validate(), "NATS_DELIVERY")
+}
+
+func (suite *ConfigSuite) TestValidate() {
+	longKey := "0123456789abcdef0123456789abcdef"
+
+	valid := func() config.Config {
+		var c config.Config
+		c.Auth.JWT.Access.Key = longKey
+		c.Auth.JWT.Refresh.Key = longKey
+		c.DB.Host = "localhost"
+		c.DB.Username = "postgres"
+		c.DB.Name = "problem_map"
+		c.DB.Password = "secret"
+		c.Tasker = config.TaskerConfig{
+			Interval: time.Minute, TaskTTL: time.Hour, MaxTasksPerUser: 1, RequiredChecks: 1,
+			TargetProbability: 0.5, MaxRadiusMeters: 100,
+		}
+		c.Marks = config.MarksConfig{DedupRadiusM: 50}
+		c.Comments = config.CommentsConfig{EditWindow: 15 * time.Minute, MaxPerDay: 100}
+		c.Rating = config.RatingConfig{CheckCorrect: 2, CheckWrong: -1, MarkConfirmed: 3, MarkRefuted: -2, TaskCompleted: 1, MaxChecksPerDay: 50}
+		c.Push = config.PushConfig{
+			SendTimeout: 15 * time.Second,
+			FCM:         config.FCMConfig{Timeout: 5 * time.Second, MaxRetries: 3, Concurrency: 8},
+			APNs:        config.APNsConfig{Environment: config.APNsProduction, Timeout: 5 * time.Second, MaxRetries: 3, Concurrency: 8},
+		}
+		c.Export.MaxRows = 50_000
+		c.Export.RateLimit.Requests = 2
+		c.Export.RateLimit.Window = time.Minute
+		c.Webhooks = config.WebhooksConfig{Timeout: 10 * time.Second, RetryInterval: 30 * time.Second, RetryBatch: 100}
+		c.REST.Idempotency = config.IdempotencyConfig{TTL: 24 * time.Hour, LockTTL: 30 * time.Second}
+		c.Reports = config.ReportsConfig{HideThreshold: 5, MaxPerDay: 20}
+		return c
+	}
+
+	tests := []struct {
+		name    string
+		mutate  func(*config.Config)
+		wantErr string
+	}{
+		{name: "Valid", mutate: func(*config.Config) {}},
+		{name: "zero checks per day", mutate: func(c *config.Config) { c.Rating.MaxChecksPerDay = 0 }, wantErr: "RATING_MAX_CHECKS_PER_DAY"},
+		{name: "ShortAccessKey", mutate: func(c *config.Config) { c.Auth.JWT.Access.Key = "qwer" }, wantErr: "JWT_ACCESS_TOKEN_KEY"},
+		{name: "EmptyRefreshKey", mutate: func(c *config.Config) { c.Auth.JWT.Refresh.Key = "" }, wantErr: "JWT_REFRESH_TOKEN_KEY"},
+		{name: "EmptyDBPasswordAllowed", mutate: func(c *config.Config) { c.DB.Password = "" }},
+		{name: "EmptyDBHost", mutate: func(c *config.Config) { c.DB.Host = "" }, wantErr: "POSTGRES_HOST"},
+		{name: "EmptyDBUser", mutate: func(c *config.Config) { c.DB.Username = "" }, wantErr: "POSTGRES_USER"},
+		{name: "EmptyDBName", mutate: func(c *config.Config) { c.DB.Name = "" }, wantErr: "POSTGRES_DB"},
+		{name: "ZeroDedupRadius", mutate: func(c *config.Config) { c.Marks.DedupRadiusM = 0 }, wantErr: "MARKS_DEDUP_RADIUS_M"},
+		{name: "valid", mutate: func(*config.Config) {}},
+		{name: "short access key", mutate: func(c *config.Config) { c.Auth.JWT.Access.Key = "qwer" }, wantErr: "JWT_ACCESS_TOKEN_KEY"},
+		{name: "empty refresh key", mutate: func(c *config.Config) { c.Auth.JWT.Refresh.Key = "" }, wantErr: "JWT_REFRESH_TOKEN_KEY"},
+		{name: "zero tasker interval", mutate: func(c *config.Config) { c.Tasker.Interval = 0 }, wantErr: "TASKER_INTERVAL"},
+		{name: "target probability above one", mutate: func(c *config.Config) { c.Tasker.TargetProbability = 1.5 }, wantErr: "TASKER_TARGET_PROBABILITY"},
+		{name: "negative factor", mutate: func(c *config.Config) { c.Tasker.LoadDelta = -1 }, wantErr: "load-delta"},
+		{name: "zero push send timeout", mutate: func(c *config.Config) { c.Push.SendTimeout = 0 }, wantErr: "PUSH_SEND_TIMEOUT"},
+		{name: "both fcm credentials", mutate: func(c *config.Config) {
+			c.Push.FCM.CredentialsFile = "sa.json"
+			c.Push.FCM.CredentialsJSON = "{}"
+		}, wantErr: "FCM_CREDENTIALS_FILE"},
+		{name: "too many fcm retries", mutate: func(c *config.Config) { c.Push.FCM.MaxRetries = 4 }, wantErr: "FCM_MAX_RETRIES"},
+		{name: "zero fcm concurrency", mutate: func(c *config.Config) { c.Push.FCM.Concurrency = 0 }, wantErr: "FCM_CONCURRENCY"},
+		{name: "apns key file and p8 together", mutate: func(c *config.Config) {
+			c.Push.APNs.KeyFile = "key.p8"
+			c.Push.APNs.KeyP8 = "-----BEGIN PRIVATE KEY-----"
+			c.Push.APNs.KeyID, c.Push.APNs.TeamID, c.Push.APNs.BundleID = "K", "T", "b"
+		}, wantErr: "APNS_KEY_P8"},
+		{name: "apns key without ids", mutate: func(c *config.Config) { c.Push.APNs.KeyFile = "key.p8" }, wantErr: "APNS_KEY_ID"},
+		{name: "apns unknown environment", mutate: func(c *config.Config) { c.Push.APNs.Environment = "staging" }, wantErr: "APNS_ENVIRONMENT"},
+		{name: "too many apns retries", mutate: func(c *config.Config) { c.Push.APNs.MaxRetries = 4 }, wantErr: "APNS_MAX_RETRIES"},
+		{name: "zero apns concurrency", mutate: func(c *config.Config) { c.Push.APNs.Concurrency = 0 }, wantErr: "APNS_CONCURRENCY"},
+		{name: "CoreDelivery", mutate: func(c *config.Config) { c.Nats.Delivery = config.NatsDeliveryCore }},
+		{name: "UnknownDelivery", mutate: func(c *config.Config) { c.Nats.Delivery = "rabbit" }, wantErr: "NATS_DELIVERY"},
+		{name: "zero export rows", mutate: func(c *config.Config) { c.Export.MaxRows = 0 }, wantErr: "EXPORT_MAX_ROWS"},
+		{name: "negative export rate limit", mutate: func(c *config.Config) { c.Export.RateLimit.Requests = -1 }, wantErr: "export.rate-limit"},
+		{name: "zero webhook timeout", mutate: func(c *config.Config) { c.Webhooks.Timeout = 0 }, wantErr: "WEBHOOKS_TIMEOUT"},
+		{name: "zero webhook retry interval", mutate: func(c *config.Config) { c.Webhooks.RetryInterval = 0 }, wantErr: "WEBHOOKS_RETRY_INTERVAL"},
+		{name: "zero webhook retry batch", mutate: func(c *config.Config) { c.Webhooks.RetryBatch = 0 }, wantErr: "WEBHOOKS_RETRY_BATCH"},
+		{name: "zero idempotency ttl", mutate: func(c *config.Config) { c.REST.Idempotency.TTL = 0 }, wantErr: "REST_IDEMPOTENCY_TTL"},
+		{name: "zero idempotency lock ttl", mutate: func(c *config.Config) { c.REST.Idempotency.LockTTL = 0 }, wantErr: "REST_IDEMPOTENCY_LOCK_TTL"},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			c := valid()
+			tt.mutate(&c)
+			err := c.Validate()
+			if tt.wantErr == "" {
+				suite.NoError(err)
+				return
+			}
+			suite.ErrorContains(err, tt.wantErr)
+		})
+	}
+}

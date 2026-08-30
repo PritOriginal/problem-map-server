@@ -26,3 +26,31 @@ go.work.sum
 
 # logs
 log.txt
+
+# local configs and secrets
+configs/config*.yaml
+!configs/config.yaml.example
+!configs/config-tests.yaml
+configs/.env*
+!configs/.env.example
+!configs/.env.docker
+
+# debug binaries (VS Code / dlv)
+__debug_bin*
+
+# locally built binaries
+/rest
+/grpc
+/tasker
+/migrator
+
+# local data
+photos/
+osm/data/
+test-cover/
+tests/images/
+
+# IDE / tooling
+.idea/
+.vscode/
+.claude/worktrees/

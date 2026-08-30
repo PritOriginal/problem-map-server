@@ -2,20 +2,23 @@ package authrest
 
 import (
 	"context"
-	"errors"
 	"log/slog"
+	"net/http"
 
-	"github.com/PritOriginal/problem-map-server/internal/repository"
+	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
+	jwt "github.com/appleboy/gin-jwt/v3"
 	"github.com/gin-gonic/gin"
 )
 
 type Auth interface {
-	SignUp(ctx context.Context, username, login, password string) (int64, error)
+	SignUp(ctx context.Context, params usecase.SignUpParams) (int64, error)
 	SignIn(ctx context.Context, login, password string) (string, string, error)
 	RefreshTokens(ctx context.Context, refreshToken string) (string, string, error)
+	Logout(ctx context.Context, userID int, refreshToken string) error
+	LogoutAll(ctx context.Context, userID int) error
 }
 
 type handler struct {
@@ -23,14 +26,22 @@ type handler struct {
 	uc  Auth
 }
 
-func Register(r *gin.Engine, log *slog.Logger, uc Auth) {
+// Register mounts auth routes. Extra middlewares (e.g. rate limiting) are
+// applied to every auth route; logout routes additionally require a bearer
+// token.
+func Register(r *gin.Engine, log *slog.Logger, uc Auth, authMiddleware *jwt.GinJWTMiddleware, middlewares ...gin.HandlerFunc) {
 	handler := &handler{log: log, uc: uc}
 
-	auth := r.Group("/auth")
+	auth := r.Group("/auth", middlewares...)
 	{
 		auth.POST("signup", handler.SignUp())
 		auth.POST("signin", handler.SignIn())
 		auth.POST("tokens/refresh", handler.RefreshTokens())
+		protected := auth.Group("", authMiddleware.MiddlewareFunc())
+		{
+			protected.POST("logout", handler.Logout())
+			protected.POST("logout-all", handler.LogoutAll())
+		}
 	}
 }
 
@@ -49,6 +60,8 @@ func Register(r *gin.Engine, log *slog.Logger, uc Auth) {
 //	@Router			/auth/signup [post]
 func (h *handler) SignUp() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		const op = "authrest.SignUp"
+
 		var req SignUpRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			h.log.Debug("failed binding request", logger.Err(err))
@@ -56,16 +69,14 @@ func (h *handler) SignUp() gin.HandlerFunc {
 			return
 		}
 
-		userId, err := h.uc.SignUp(c.Request.Context(), req.Username, req.Login, req.Password)
+		userId, err := h.uc.SignUp(c.Request.Context(), usecase.SignUpParams{
+			Username:  req.Username,
+			Login:     req.Login,
+			Password:  req.Password,
+			HomePoint: req.HomePoint,
+		})
 		if err != nil {
-			switch err {
-			case usecase.ErrConflict:
-				h.log.Debug("user already exists", slog.String("login", req.Login))
-				responses.Conflict(c, "user already exists")
-			default:
-				h.log.Error("failed sign up", logger.Err(err))
-				responses.Internal(c, "failed sign up")
-			}
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -91,6 +102,8 @@ func (h *handler) SignUp() gin.HandlerFunc {
 //	@Router			/auth/signin [post]
 func (h *handler) SignIn() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		const op = "authrest.SignIn"
+
 		var req SignInRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			h.log.Debug("failed binding request", logger.Err(err))
@@ -100,13 +113,7 @@ func (h *handler) SignIn() gin.HandlerFunc {
 
 		accessToken, refreshToken, err := h.uc.SignIn(c.Request.Context(), req.Login, req.Password)
 		if err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
-				h.log.Debug("failed sign in")
-				responses.Unauthorized(c, "failed sign in")
-			} else {
-				h.log.Error("failed sign in", logger.Err(err))
-				responses.Internal(c, "failed sign in")
-			}
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -132,6 +139,8 @@ func (h *handler) SignIn() gin.HandlerFunc {
 //	@Router			/auth/tokens/refresh [post]
 func (h *handler) RefreshTokens() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		const op = "authrest.RefreshTokens"
+
 		var req RefreshTokensRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			h.log.Debug("failed binding request", logger.Err(err))
@@ -141,13 +150,7 @@ func (h *handler) RefreshTokens() gin.HandlerFunc {
 
 		accessToken, refreshToken, err := h.uc.RefreshTokens(c.Request.Context(), req.RefreshToken)
 		if err != nil {
-			if errors.Is(err, usecase.ErrUnauthorized) {
-				h.log.Debug("failed refresh tokens", slog.String("refresh_token", req.RefreshToken))
-				responses.Unauthorized(c, "failed refresh tokens")
-			} else {
-				h.log.Error("failed refresh tokens", logger.Err(err))
-				responses.Internal(c, "failed refresh tokens")
-			}
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -155,5 +158,77 @@ func (h *handler) RefreshTokens() gin.HandlerFunc {
 			AccessToken:  accessToken,
 			RefreshToken: refreshToken,
 		})
+	}
+}
+
+// Logout revokes the given refresh token
+//
+//	@Summary		Logout
+//	@Description	revoke the refresh token of the current session; the access token stays valid until it expires
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Param			request	body	authrest.LogoutRequest	true	"refresh token to revoke"
+//	@Success		204
+//	@Failure		400	{object}	responses.Response[any]
+//	@Failure		401	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
+//	@Router			/auth/logout [post]
+func (h *handler) Logout() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "authrest.Logout"
+
+		userId, err := middleware.UserIDFromClaims(c)
+		if err != nil {
+			h.log.Debug("invalid token", logger.Err(err))
+			responses.Unauthorized(c, "invalid token")
+			return
+		}
+
+		var req LogoutRequest
+		if err := c.ShouldBindJSON(&req); err != nil {
+			h.log.Debug("failed binding request", logger.Err(err))
+			responses.BadRequest(c, "invalid request")
+			return
+		}
+
+		if err := h.uc.Logout(c.Request.Context(), userId, req.RefreshToken); err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		c.Status(http.StatusNoContent)
+	}
+}
+
+// LogoutAll revokes every session of the current user
+//
+//	@Summary		Logout everywhere
+//	@Description	revoke all refresh tokens of the current user and invalidate every issued access token
+//	@Tags			auth
+//	@Produce		json
+//	@Security		BearerAuth
+//	@Success		204
+//	@Failure		401	{object}	responses.Response[any]
+//	@Failure		500	{object}	responses.Response[any]
+//	@Router			/auth/logout-all [post]
+func (h *handler) LogoutAll() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "authrest.LogoutAll"
+
+		userId, err := middleware.UserIDFromClaims(c)
+		if err != nil {
+			h.log.Debug("invalid token", logger.Err(err))
+			responses.Unauthorized(c, "invalid token")
+			return
+		}
+
+		if err := h.uc.LogoutAll(c.Request.Context(), userId); err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		c.Status(http.StatusNoContent)
 	}
 }

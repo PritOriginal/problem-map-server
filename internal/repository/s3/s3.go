@@ -7,6 +7,7 @@ import (
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/aws/aws-sdk-go-v2/aws"
+	awshttp "github.com/aws/aws-sdk-go-v2/aws/transport/http"
 	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
@@ -42,6 +43,22 @@ func New(log *slog.Logger, cfg config.AwsConfig) (*S3, error) {
 	}
 
 	return &clientS3, nil
+}
+
+// Close releases resources held by the S3 client. The AWS SDK v2 client keeps
+// idle HTTP connections in its transport; closing them lets the process exit
+// promptly.
+func (client *S3) Close() error {
+	if client.Client == nil {
+		return nil
+	}
+	switch hc := client.Client.Options().HTTPClient.(type) {
+	case *awshttp.BuildableClient:
+		hc.GetTransport().CloseIdleConnections()
+	case interface{ CloseIdleConnections() }:
+		hc.CloseIdleConnections()
+	}
+	return nil
 }
 
 func (client *S3) GetBuckets(ctx context.Context) ([]types.Bucket, error) {

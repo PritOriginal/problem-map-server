@@ -74,7 +74,7 @@ type MockMap_GetAdminBoundaries_Call struct {
 // GetAdminBoundaries is a helper method to define mock.On call
 //   - ctx context.Context
 //   - filters models.GetAdminBoundaryFilters
-func (_e *MockMap_Expecter) GetAdminBoundaries(ctx interface{}, filters interface{}) *MockMap_GetAdminBoundaries_Call {
+func (_e *MockMap_Expecter) GetAdminBoundaries(ctx any, filters any) *MockMap_GetAdminBoundaries_Call {
 	return &MockMap_GetAdminBoundaries_Call{Call: _e.mock.On("GetAdminBoundaries", ctx, filters)}
 }
 
@@ -142,7 +142,7 @@ type MockMap_GetAdminBoundariesMarksCount_Call struct {
 // GetAdminBoundariesMarksCount is a helper method to define mock.On call
 //   - ctx context.Context
 //   - filters models.GetAdminBoundaryMarksCountFilters
-func (_e *MockMap_Expecter) GetAdminBoundariesMarksCount(ctx interface{}, filters interface{}) *MockMap_GetAdminBoundariesMarksCount_Call {
+func (_e *MockMap_Expecter) GetAdminBoundariesMarksCount(ctx any, filters any) *MockMap_GetAdminBoundariesMarksCount_Call {
 	return &MockMap_GetAdminBoundariesMarksCount_Call{Call: _e.mock.On("GetAdminBoundariesMarksCount", ctx, filters)}
 }
 
@@ -170,6 +170,72 @@ func (_c *MockMap_GetAdminBoundariesMarksCount_Call) Return(adminBoundaryMarksCo
 }
 
 func (_c *MockMap_GetAdminBoundariesMarksCount_Call) RunAndReturn(run func(ctx context.Context, filters models.GetAdminBoundaryMarksCountFilters) ([]models.AdminBoundaryMarksCount, error)) *MockMap_GetAdminBoundariesMarksCount_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetAdminBoundaryById provides a mock function for the type MockMap
+func (_mock *MockMap) GetAdminBoundaryById(ctx context.Context, id int) (models.AdminBoundary, error) {
+	ret := _mock.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAdminBoundaryById")
+	}
+
+	var r0 models.AdminBoundary
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) (models.AdminBoundary, error)); ok {
+		return returnFunc(ctx, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, int) models.AdminBoundary); ok {
+		r0 = returnFunc(ctx, id)
+	} else {
+		r0 = ret.Get(0).(models.AdminBoundary)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, int) error); ok {
+		r1 = returnFunc(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMap_GetAdminBoundaryById_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAdminBoundaryById'
+type MockMap_GetAdminBoundaryById_Call struct {
+	*mock.Call
+}
+
+// GetAdminBoundaryById is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id int
+func (_e *MockMap_Expecter) GetAdminBoundaryById(ctx any, id any) *MockMap_GetAdminBoundaryById_Call {
+	return &MockMap_GetAdminBoundaryById_Call{Call: _e.mock.On("GetAdminBoundaryById", ctx, id)}
+}
+
+func (_c *MockMap_GetAdminBoundaryById_Call) Run(run func(ctx context.Context, id int)) *MockMap_GetAdminBoundaryById_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 int
+		if args[1] != nil {
+			arg1 = args[1].(int)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMap_GetAdminBoundaryById_Call) Return(adminBoundary models.AdminBoundary, err error) *MockMap_GetAdminBoundaryById_Call {
+	_c.Call.Return(adminBoundary, err)
+	return _c
+}
+
+func (_c *MockMap_GetAdminBoundaryById_Call) RunAndReturn(run func(ctx context.Context, id int) (models.AdminBoundary, error)) *MockMap_GetAdminBoundaryById_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -209,7 +275,7 @@ type MockMap_GetCities_Call struct {
 
 // GetCities is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockMap_Expecter) GetCities(ctx interface{}) *MockMap_GetCities_Call {
+func (_e *MockMap_Expecter) GetCities(ctx any) *MockMap_GetCities_Call {
 	return &MockMap_GetCities_Call{Call: _e.mock.On("GetCities", ctx)}
 }
 
@@ -271,7 +337,7 @@ type MockMap_GetDistricts_Call struct {
 
 // GetDistricts is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockMap_Expecter) GetDistricts(ctx interface{}) *MockMap_GetDistricts_Call {
+func (_e *MockMap_Expecter) GetDistricts(ctx any) *MockMap_GetDistricts_Call {
 	return &MockMap_GetDistricts_Call{Call: _e.mock.On("GetDistricts", ctx)}
 }
 
@@ -294,6 +360,74 @@ func (_c *MockMap_GetDistricts_Call) Return(districts []models.District, err err
 }
 
 func (_c *MockMap_GetDistricts_Call) RunAndReturn(run func(ctx context.Context) ([]models.District, error)) *MockMap_GetDistricts_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// GetHeatmap provides a mock function for the type MockMap
+func (_mock *MockMap) GetHeatmap(ctx context.Context, filters models.HeatmapFilters) ([]models.HeatmapCell, error) {
+	ret := _mock.Called(ctx, filters)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetHeatmap")
+	}
+
+	var r0 []models.HeatmapCell
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.HeatmapFilters) ([]models.HeatmapCell, error)); ok {
+		return returnFunc(ctx, filters)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, models.HeatmapFilters) []models.HeatmapCell); ok {
+		r0 = returnFunc(ctx, filters)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]models.HeatmapCell)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, models.HeatmapFilters) error); ok {
+		r1 = returnFunc(ctx, filters)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// MockMap_GetHeatmap_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetHeatmap'
+type MockMap_GetHeatmap_Call struct {
+	*mock.Call
+}
+
+// GetHeatmap is a helper method to define mock.On call
+//   - ctx context.Context
+//   - filters models.HeatmapFilters
+func (_e *MockMap_Expecter) GetHeatmap(ctx any, filters any) *MockMap_GetHeatmap_Call {
+	return &MockMap_GetHeatmap_Call{Call: _e.mock.On("GetHeatmap", ctx, filters)}
+}
+
+func (_c *MockMap_GetHeatmap_Call) Run(run func(ctx context.Context, filters models.HeatmapFilters)) *MockMap_GetHeatmap_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 models.HeatmapFilters
+		if args[1] != nil {
+			arg1 = args[1].(models.HeatmapFilters)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMap_GetHeatmap_Call) Return(heatmapCells []models.HeatmapCell, err error) *MockMap_GetHeatmap_Call {
+	_c.Call.Return(heatmapCells, err)
+	return _c
+}
+
+func (_c *MockMap_GetHeatmap_Call) RunAndReturn(run func(ctx context.Context, filters models.HeatmapFilters) ([]models.HeatmapCell, error)) *MockMap_GetHeatmap_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -333,7 +467,7 @@ type MockMap_GetRegions_Call struct {
 
 // GetRegions is a helper method to define mock.On call
 //   - ctx context.Context
-func (_e *MockMap_Expecter) GetRegions(ctx interface{}) *MockMap_GetRegions_Call {
+func (_e *MockMap_Expecter) GetRegions(ctx any) *MockMap_GetRegions_Call {
 	return &MockMap_GetRegions_Call{Call: _e.mock.On("GetRegions", ctx)}
 }
 

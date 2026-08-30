@@ -6,17 +6,26 @@ rest:
     read: 15s
     write: 10s
     idle: 5s
+  idempotency:
+    ttl: 24h
+    lock-ttl: 30s
 grpc:
   port: 44044
   timeout: 5s
+  connection-timeout: 120s
+  metrics-port: 9091
+health:
+  timeout: 3s
+  cache-ttl: 2s
+shutdown-timeout: 10s
 photo-storage: local
 auth:
   jwt:
     access:
-      key: qwer
+      key: CHANGE_ME_dev_only_access_key_000000
       expired_in: 12h
     refresh:
-      key: 1234
+      key: CHANGE_ME_dev_only_refresh_key_00000
       expired_in: 24h
 db:
   host: 127.0.0.1
@@ -24,6 +33,11 @@ db:
   username: postgres
   password: postgres
   name: problem_map
+  sslmode: disable
+  pool:
+    max_open_conns: 25
+    max_idle_conns: 5
+    conn_max_lifetime: 5m
 redis:
   host: 127.0.0.1
   port: 6379
@@ -32,3 +46,96 @@ aws:
   key:
   secret_key:
   endpoint:
+# Domain-event broker. Leave url empty to disable event publishing
+# (notifications are then not produced); required by cmd/notifier.
+# delivery: jetstream (default; at-least-once, needs `nats-server -js`,
+# falls back to core with a warning) or core (at-most-once).
+nats:
+  url: # nats://127.0.0.1:4222
+  name: problem-map
+  delivery: jetstream
+tasker:
+  interval: 15m
+  task-ttl: 72h
+  max-tasks-per-user: 3
+  required-checks: 2
+  target-probability: 0.8
+  max-radius-meters: 5000
+  distance-lambda: 0.05
+  load-delta: 0.3
+  fatigue-beta: 0.2
+
+marks:
+  dedup-radius-m: 50
+
+# Comments on marks (env: COMMENTS_*): how long the author may edit a
+# comment and how many comments a user may post per rolling 24 hours.
+comments:
+  edit-window: 15m
+  max-per-day: 100
+
+# Rating deltas awarded when a voting stage resolves and the anti-fraud
+# limits of POST /checks (env: RATING_*).
+rating:
+  check-correct: 2
+  check-wrong: -1
+  mark-confirmed: 3
+  mark-refuted: -2
+  task-completed: 1
+  max-checks-per-day: 50
+
+# Push delivery in cmd/notifier (env: PUSH_*, FCM_*, APNS_*). Without the
+# provider's credentials pushes of its platforms are only logged. See README,
+# "Push-уведомления".
+push:
+  # Delivery of one notification to all devices of its addressee, including retries.
+  send-timeout: 15s
+  # Firebase Cloud Messaging (HTTP v1): android and web devices. Set exactly
+  # one of credentials-file / credentials-json (service account key JSON);
+  # project-id defaults to project_id of the credentials.
+  fcm:
+    project-id:
+    credentials-file: # /etc/problem-map/firebase-sa.json
+    credentials-json:
+    timeout: 5s
+    max-retries: 3   # on 5xx / 429, 0-3
+    concurrency: 8   # simultaneous requests to FCM
+  # Apple Push Notification service (HTTP/2, token-based auth): ios devices.
+  # Set exactly one of key-file / key-p8 (the .p8 key from the developer
+  # account); key-id, team-id and bundle-id are required with it.
+  apns:
+    key-file: # /etc/problem-map/AuthKey_XXXXXXXXXX.p8
+    key-p8:
+    key-id:
+    team-id:
+    bundle-id:
+    # production (App Store, TestFlight) | sandbox (Xcode development builds)
+    environment: production
+    timeout: 5s
+    max-retries: 3
+    concurrency: 8
+
+# Notification worker (cmd/notifier): HTTP port serving Prometheus metrics
+# (push_sent_total, events_consumed_total, ...); 0 disables /metrics.
+notifier:
+  metrics-port: 0
+# GET /marks/export: row cap and per-IP rate limit (env: EXPORT_*).
+export:
+  max-rows: 50000
+  rate-limit:
+    requests: 2
+    window: 1m
+
+# Outgoing webhooks (env: WEBHOOKS_*). allow-private-urls lifts the SSRF
+# guard and must stay false outside local development.
+webhooks:
+  timeout: 10s
+  retry-interval: 30s
+  retry-batch: 100
+  allow-private-urls: false
+# Жалобы пользователей (модерация).
+reports:
+  # Сколько открытых жалоб на метку скрывают её автоматически.
+  hide-threshold: 5
+  # Лимит жалоб на пользователя за скользящие 24 часа.
+  max-per-day: 20

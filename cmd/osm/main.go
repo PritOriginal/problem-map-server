@@ -20,12 +20,12 @@ func main() {
 	}
 	for _, file := range files {
 		fileName := file.Name()
-		overpassFileName := "./osm/overpass/" + fileName
+		overpassFileName := filepath.Clean("./osm/overpass/" + fileName)
 		if filepath.Ext(overpassFileName) != ".overpassql" {
 			continue
 		}
 
-		query, err := os.ReadFile(overpassFileName)
+		query, err := os.ReadFile(overpassFileName) //nolint:gosec // путь ограничен каталогом osm/overpass
 		if err != nil {
 			log.Println("file reading error: ", err)
 			return
@@ -59,7 +59,7 @@ func getOsmData(query string) ([]byte, error) {
 		return nil, err
 	}
 
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -73,14 +73,14 @@ func saveToFile(name string, data []byte) error {
 	dirName := name[:strings.LastIndex(name, "/")]
 	if _, err := os.Stat(dirName); err != nil {
 		if os.IsNotExist(err) {
-			err := os.Mkdir(dirName, 0755)
+			err := os.Mkdir(dirName, 0750)
 			if err != nil {
 				return err
 			}
 		}
 	}
 
-	err := os.WriteFile(name, data, 0644)
+	err := os.WriteFile(name, data, 0600)
 	if err != nil {
 		return err
 	}

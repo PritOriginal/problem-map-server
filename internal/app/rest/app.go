@@ -2,123 +2,299 @@ package rest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"path"
 	"strconv"
 	"time"
 
+	"github.com/PritOriginal/problem-map-server/internal/app"
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	"github.com/PritOriginal/problem-map-server/internal/handler"
+	achievementsrest "github.com/PritOriginal/problem-map-server/internal/handler/achievements"
+	adminrest "github.com/PritOriginal/problem-map-server/internal/handler/admin"
+	analyticsrest "github.com/PritOriginal/problem-map-server/internal/handler/analytics"
+	apikeysrest "github.com/PritOriginal/problem-map-server/internal/handler/apikeys"
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
 	checksrest "github.com/PritOriginal/problem-map-server/internal/handler/checks"
+	commentsrest "github.com/PritOriginal/problem-map-server/internal/handler/comments"
+	"github.com/PritOriginal/problem-map-server/internal/handler/health"
 	maprest "github.com/PritOriginal/problem-map-server/internal/handler/map"
 	marksrest "github.com/PritOriginal/problem-map-server/internal/handler/marks"
+	notificationsrest "github.com/PritOriginal/problem-map-server/internal/handler/notifications"
+	openrest "github.com/PritOriginal/problem-map-server/internal/handler/open"
+	organizationsrest "github.com/PritOriginal/problem-map-server/internal/handler/organizations"
+	reportsrest "github.com/PritOriginal/problem-map-server/internal/handler/reports"
+	syncrest "github.com/PritOriginal/problem-map-server/internal/handler/sync"
 	tasksrest "github.com/PritOriginal/problem-map-server/internal/handler/tasks"
 	usersrest "github.com/PritOriginal/problem-map-server/internal/handler/users"
-	"github.com/PritOriginal/problem-map-server/internal/repository/local"
+	webhooksrest "github.com/PritOriginal/problem-map-server/internal/handler/webhooks"
+	"github.com/PritOriginal/problem-map-server/internal/middleware"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/apikey"
+	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/idempotency"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/metrics"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/ratelimit"
 	"github.com/PritOriginal/problem-map-server/internal/repository/postgres"
 	"github.com/PritOriginal/problem-map-server/internal/repository/redis"
-	"github.com/PritOriginal/problem-map-server/internal/repository/s3"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	slogger "github.com/PritOriginal/problem-map-server/pkg/logger"
-	jwt "github.com/appleboy/gin-jwt/v3"
 	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
-	"github.com/gin-gonic/gin"
 )
 
 type App struct {
-	server *http.Server
-	log    *slog.Logger
-	db     *postgres.Postgres
-	router *gin.Engine
-	port   int
+	server          *http.Server
+	log             *slog.Logger
+	closers         app.Closers
+	shutdownTimeout time.Duration
+	port            int
 }
 
 func New(log *slog.Logger, cfg *config.Config) *App {
+	// Clients are registered in dependency order; app.Closers closes them in
+	// reverse (nats -> s3 -> redis -> database).
+	var closers app.Closers
+
 	postgresDB, err := postgres.New(cfg.DB)
 	if err != nil {
 		log.Error("failed connection to database", slogger.Err(err))
 		panic(err)
 	}
 	log.Info("PostgreSQL connected!")
+	closers.Add("database", postgresDB)
 	trManager := manager.Must(trmsqlx.NewDefaultFactory(postgresDB.DB))
 
-	redis, err := redis.New(cfg.Redis)
+	// Redis is optional: the cache, the rate limiter, the refresh-token
+	// store and the auth-version check all fail open without it. The client
+	// reconnects on its own, and readyz reports "redis: error" meanwhile.
+	redisClient, err := redis.New(cfg.Redis)
 	if err != nil {
-		log.Error("failed connection to redis", slogger.Err(err))
-		panic(err)
+		log.Error("failed connection to redis, continuing without it", slogger.Err(err))
+	} else {
+		log.Info("Redis connected!")
 	}
-	log.Info("Redis connected!")
+	closers.Add("redis", redisClient)
 
-	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
-		Key: []byte(cfg.Auth.JWT.Access.Key),
+	// One cache of auth versions is shared by the middleware and the
+	// usecases, so a bump made here is seen by the middleware at once.
+	authVersions := middleware.NewVersionCache(redisClient, 0)
+	authMiddleware, err := middleware.NewJWT(log, middleware.JWTParams{
+		Key:      cfg.Auth.JWT.Access.Key,
+		Versions: authVersions,
 	})
 	if err != nil {
 		log.Error("failed create auth middleware", slogger.Err(err))
 		panic(err)
 	}
-	errInit := authMiddleware.MiddlewareInit()
-	if errInit != nil {
-		log.Error("failed init auth middleware", slogger.Err(errInit))
-		panic(errInit)
-	}
 
-	router := handler.GetRouter(log, cfg.Env)
+	m := metrics.New()
+	router := handler.GetRouter(log, cfg.Env, cfg.REST.TrustedProxies, m)
 
-	handler.SetSwagger(router, cfg)
+	// Idempotency-Key support of the mutating routes; fails open without Redis.
+	idempotencyMiddleware := idempotency.New(log, redisClient, idempotency.Config{
+		TTL:     cfg.REST.Idempotency.TTL,
+		LockTTL: cfg.REST.Idempotency.LockTTL,
+	})
+	// Per-item idempotency of the batch endpoints over the same store and
+	// TTL; fails open without Redis, like the middleware.
+	idempotencyKeys := idempotency.NewKeys(log, redisClient, idempotency.Config{
+		TTL: cfg.REST.Idempotency.TTL,
+	})
+
+	handler.SetSwagger(router)
+
+	healthUseCase := usecase.NewHealth(log, cfg.Health, usecase.HealthDependencies{
+		Required: map[string]usecase.Pinger{"postgres": postgresDB},
+		// Cache and rate limiting fail open without Redis, so its loss is
+		// reported but does not take the service out of rotation.
+		Optional: map[string]usecase.Pinger{"redis": redisClient},
+	})
+	health.Register(router, log, healthUseCase)
+
+	// Runtime settings: the database overrides the config defaults; the
+	// usecases below read them through the provider (cached, see
+	// usecase.SettingsCacheTTL).
+	settingsUseCase := usecase.NewSettings(log, usecase.RuntimeSettingsFromConfig(cfg),
+		postgres.NewSettings(postgresDB.DB, trmsqlx.DefaultCtxGetter))
 
 	mapRepo := postgres.NewMap(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 
-	photoRepo := initPhotosRepository(log, cfg)
+	photoRepo, photoCloser := app.NewPhotosRepository(log, cfg)
+	closers.Add("s3", photoCloser)
+
+	publisher, publisherCloser := app.NewPublisher(log, cfg.Nats, m.Registry())
+	closers.Add("nats", publisherCloser)
+
+	// API keys: read-only access to the public routes with a per-key
+	// limit. The middleware is optional there, anonymous requests keep
+	// their limits.
+	apiKeysUseCase := usecase.NewAPIKeys(log, usecase.APIKeysRepositories{
+		APIKeys:  postgres.NewAPIKeys(postgresDB.DB, trmsqlx.DefaultCtxGetter),
+		Cache:    redisClient,
+		Throttle: redisClient,
+	})
+	apikeysrest.Register(router, log, authMiddleware, apiKeysUseCase)
+	apiKeyMiddleware := apikey.Optional(log, apikey.Params{
+		Auth:     apiKeysUseCase,
+		Counter:  redisClient,
+		Recorder: m,
+	})
 
 	mapUseCase := usecase.NewMap(log, usecase.MapRepositories{
 		Map: mapRepo,
 	})
-	maprest.Register(router, log, mapUseCase, redis)
+	maprest.Register(router, log, mapUseCase, redisClient, apiKeyMiddleware)
+
+	analyticsRepo := postgres.NewAnalytics(postgresDB.DB, trmsqlx.DefaultCtxGetter)
+	analyticsUseCase := usecase.NewAnalytics(log, usecase.AnalyticsRepositories{
+		Analytics: analyticsRepo,
+	})
+	analyticsrest.Register(router, log, analyticsUseCase, apiKeyMiddleware)
+	openrest.Register(router, log, analyticsUseCase, redisClient, apiKeyMiddleware)
 
 	marksRepo := postgres.NewMarks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	checksRepo := postgres.NewChecks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
-	markStatusUpdater := usecase.NewUpdater(log, usecase.UpdaterRepositories{
+	usersRepo := postgres.NewUsers(postgresDB.DB, trmsqlx.DefaultCtxGetter)
+	organizationsRepo := postgres.NewOrganizations(postgresDB.DB, trmsqlx.DefaultCtxGetter)
+	organizationsUseCase := usecase.NewOrganizations(log, trManager, usecase.OrganizationsRepositories{
+		Organizations: organizationsRepo,
+		Marks:         marksRepo,
+		Checks:        checksRepo,
+		Photos:        photoRepo,
+		Users:         usersRepo,
+		RefreshTokens: redisClient,
+		AuthVersions:  authVersions,
+	}).WithEvents(publisher)
+	organizationsrest.Register(router, log, authMiddleware, organizationsUseCase)
+
+	// Confirmed marks are handed to the responsible city service.
+	markStatusUpdater := usecase.NewUpdater(log, cfg.Rating, trManager, usecase.UpdaterRepositories{
 		Marks:  marksRepo,
 		Checks: checksRepo,
-	})
-	marksUseCase := usecase.NewMarks(log, trManager, usecase.MarksRepositories{
-		Marks:  marksRepo,
-		Checks: checksRepo,
-		Photos: photoRepo,
+		Users:  usersRepo,
+	}).WithEvents(publisher).WithAssigner(organizationsUseCase).WithSettings(settingsUseCase)
+	tasksRepo := postgres.NewTasks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
+	reportsRepo := postgres.NewReports(postgresDB.DB, trmsqlx.DefaultCtxGetter)
+	marksUseCase := usecase.NewMarks(log, cfg.Marks, trManager, usecase.MarksRepositories{
+		Marks:   marksRepo,
+		Checks:  checksRepo,
+		Photos:  photoRepo,
+		Tasks:   tasksRepo,
+		Reports: reportsRepo,
+	}).WithEvents(publisher).WithSettings(settingsUseCase)
+	exportUseCase := usecase.NewExport(log, cfg.Export, usecase.ExportRepositories{
+		Marks: marksRepo,
 	})
 	marksrest.Register(router, log, marksrest.Params{
 		AuthMiddleware: authMiddleware,
-		Cacher:         redis,
+		Cacher:         redisClient,
 		Usecase:        marksUseCase,
 		StatusUpdater:  markStatusUpdater,
+		Exporter:       exportUseCase,
+		ExportRateLimit: ratelimit.New(log, redisClient, ratelimit.Config{
+			Requests: cfg.Export.RateLimit.Requests,
+			Window:   cfg.Export.RateLimit.Window,
+		}),
+		APIKey:          apiKeyMiddleware,
+		Idempotency:     idempotencyMiddleware,
+		IdempotencyKeys: idempotencyKeys,
 	})
 
-	checksUseCase := usecase.NewChecks(log, trManager, markStatusUpdater, usecase.ChecksRepositories{
-		Marks:  marksRepo,
-		Checks: checksRepo,
-		Photos: photoRepo,
-	})
-	checksrest.Register(router, log, authMiddleware, checksUseCase)
+	commentsRepo := postgres.NewComments(postgresDB.DB, trmsqlx.DefaultCtxGetter)
+	commentsUseCase := usecase.NewComments(log, cfg.Comments, usecase.CommentsRepositories{
+		Comments: commentsRepo,
+		Marks:    marksRepo,
+	}).WithEvents(publisher)
+	commentsrest.Register(router, log, authMiddleware, commentsUseCase)
 
-	usersRepo := postgres.NewUsers(postgresDB.DB, trmsqlx.DefaultCtxGetter)
+	checksUseCase := usecase.NewChecks(log, cfg.Rating, trManager, markStatusUpdater, usecase.ChecksRepositories{
+		Marks:         marksRepo,
+		Checks:        checksRepo,
+		Tasks:         tasksRepo,
+		Photos:        photoRepo,
+		Users:         usersRepo,
+		Organizations: organizationsRepo,
+	}).WithEvents(publisher).WithSettings(settingsUseCase)
+	checksrest.Register(router, log, authMiddleware, checksUseCase, idempotencyMiddleware)
+
+	// Changing the dictionary drops its cached responses (any language).
+	markTypesUseCase := usecase.NewMarkTypes(log, trManager, marksRepo).
+		WithCache(redisClient, mwcache.Prefix(http.MethodGet, path.Join(marksrest.Path, marksrest.TypesPath)))
+	adminrest.Register(router, log, adminrest.Params{
+		AuthMiddleware: authMiddleware,
+		Settings:       settingsUseCase,
+		MarkTypes:      markTypesUseCase,
+	})
+
+	reportsUseCase := usecase.NewReports(log, cfg.Reports, trManager, usecase.ReportsRepositories{
+		Comments: commentsRepo,
+		Reports:  reportsRepo,
+		Marks:    marksRepo,
+		Checks:   checksRepo,
+	}).WithEvents(publisher)
+	reportsrest.Register(router, log, authMiddleware, reportsUseCase)
+
 	usersUseCase := usecase.NewUsers(log, usecase.UsersRepositories{
-		Users: usersRepo,
+		Users:         usersRepo,
+		RefreshTokens: redisClient,
+		AuthVersions:  authVersions,
 	})
-	usersrest.Register(router, log, usersUseCase)
+	usersrest.Register(router, log, authMiddleware, usersUseCase)
+
+	// Badges are awarded by cmd/notifier; the REST server only reads them.
+	achievementsUseCase := usecase.NewAchievements(log, usecase.AchievementsRepositories{
+		Achievements: postgres.NewAchievements(postgresDB.DB, trmsqlx.DefaultCtxGetter),
+		Users:        usersRepo,
+	})
+	achievementsrest.Register(router, log, authMiddleware, achievementsUseCase)
 
 	authUseCase := usecase.NewAuth(log, cfg.Auth, usecase.AuthRepositories{
-		Users: usersRepo,
+		Users:         usersRepo,
+		RefreshTokens: redisClient,
+		AuthVersions:  authVersions,
 	})
-	authrest.Register(router, log, authUseCase)
+	authRateLimit := ratelimit.New(log, redisClient, ratelimit.Config{
+		Requests: cfg.REST.RateLimit.Requests,
+		Window:   cfg.REST.RateLimit.Window,
+	})
+	authrest.Register(router, log, authUseCase, authMiddleware, authRateLimit)
 
-	tasksRepo := postgres.NewTasks(postgresDB.DB, trmsqlx.DefaultCtxGetter)
 	tasksUseCase := usecase.NewTasks(log, usecase.TasksRepositories{
 		Tasks: tasksRepo,
+	}).WithEvents(publisher)
+	tasksrest.Register(router, log, authMiddleware, tasksUseCase, redisClient)
+
+	notificationsRepo := postgres.NewNotifications(postgresDB.DB, trmsqlx.DefaultCtxGetter)
+	// The REST server only stores manual data and reads notifications; push
+	// delivery happens in cmd/notifier, hence no PushSender here.
+	notificationsUseCase := usecase.NewNotifications(log, nil, usecase.NotificationsRepositories{
+		Notifications: notificationsRepo,
+		Devices:       notificationsRepo,
 	})
-	tasksrest.Register(router, log, tasksUseCase)
+	notificationsrest.Register(router, log, authMiddleware, notificationsUseCase)
+
+	// One call for a client coming back online: its tasks, unread
+	// notifications and checks since the last sync.
+	syncUseCase := usecase.NewSync(log, usecase.SyncRepositories{
+		Tasks:         tasksRepo,
+		Notifications: notificationsRepo,
+		Checks:        checksRepo,
+	})
+	syncrest.Register(router, log, authMiddleware, syncUseCase)
+
+	// The REST server only manages webhooks and serves the test delivery;
+	// events are delivered by cmd/notifier.
+	webhookSender, webhookURLs := app.NewWebhookSender(log, cfg.Webhooks)
+	webhooksUseCase := usecase.NewWebhooks(log, usecase.WebhooksDeps{
+		Sender: webhookSender,
+		URLs:   webhookURLs,
+	}, usecase.WebhooksRepositories{
+		Webhooks: postgres.NewWebhooks(postgresDB.DB, trmsqlx.DefaultCtxGetter),
+	})
+	webhooksrest.Register(router, log, authMiddleware, webhooksUseCase)
 
 	server := &http.Server{
 		Addr:         cfg.REST.Host + ":" + strconv.Itoa(cfg.REST.Port),
@@ -129,62 +305,42 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 	}
 
 	return &App{
-		server: server,
-		log:    log,
-		db:     postgresDB,
-		router: router,
-		port:   cfg.REST.Port,
+		server:          server,
+		log:             log,
+		closers:         closers,
+		shutdownTimeout: cfg.ShutdownTimeout,
+		port:            cfg.REST.Port,
 	}
 }
 
-func initPhotosRepository(log *slog.Logger, cfg *config.Config) usecase.PhotosRepository {
-	switch cfg.PhotoStorage {
-	case config.S3:
-		s3Client, err := s3.New(log, cfg.Aws)
-		if err != nil {
-			log.Error("failed connection to s3", slogger.Err(err))
-			panic(err)
-		}
-		log.Info("s3 connected!")
-
-		return s3.NewPhotos(s3Client)
-	default:
-		return local.NewPhotos()
-	}
-}
-
-func (a *App) MustRun() {
-	if err := a.Run(); err != nil {
-		panic(err)
-	}
-}
-
+// Run starts the HTTP server and blocks until it stops. A clean shutdown
+// (http.ErrServerClosed) is reported as nil.
 func (a *App) Run() error {
 	const op = "rest.Run"
 
 	a.log.Info("server started", slog.String("address", ":"+strconv.Itoa(a.port)))
-	if err := a.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		a.log.Error("failed to start server")
+	if err := a.server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		a.log.Error("failed to start server", slogger.Err(err))
 		return fmt.Errorf("%s: %w", op, err)
 	}
 
 	return nil
 }
 
+// Stop gracefully shuts down the HTTP server and closes every infrastructure
+// client (S3, Redis, PostgreSQL) in that order.
 func (a *App) Stop() {
 	const op = "rest.Stop"
 
-	a.log.With(slog.String("op", op)).
-		Info("stopping REST server", slog.Int("port", a.port))
+	log := a.log.With(slog.String("op", op))
+	log.Info("stopping REST server", slog.Int("port", a.port))
 
-	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), 10*time.Second)
+	shutdownCtx, shutdownRelease := context.WithTimeout(context.Background(), a.shutdownTimeout)
 	defer shutdownRelease()
 
 	if err := a.server.Shutdown(shutdownCtx); err != nil {
-		a.log.Error("an error occurred while stopping the server", slogger.Err(err))
+		log.Error("an error occurred while stopping the server", slogger.Err(err))
 	}
 
-	if err := a.db.DB.Close(); err != nil {
-		a.log.Error("an error occurred while closing the connection to the database", slogger.Err(err))
-	}
+	a.closers.Close(log)
 }

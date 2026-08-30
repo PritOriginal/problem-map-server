@@ -1,0 +1,27 @@
+version: "2"
+run:
+  timeout: 5m
+  build-tags: [nomsgpack]
+linters:
+  default: standard
+  enable:
+    - errorlint
+    - gosec
+    - misspell
+    - unconvert
+    - unparam
+    - bodyclose
+    - sqlclosecheck
+    - rowserrcheck
+  exclusions:
+    paths:
+      - docs
+    rules:
+      - path: _test\.go
+        linters: [gosec, unparam]
+      - path: mocks
+        linters: [all]
+formatters:
+  enable: [gofmt, goimports]
+  exclusions:
+    paths: [docs]

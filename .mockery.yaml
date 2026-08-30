@@ -7,6 +7,21 @@ packages:
           pkgname: "usecase"
           dir: "internal/usecase"
           filename: "trm_mocks.go"
+  github.com/nats-io/nats.go/jetstream:
+    interfaces:
+      Msg:
+        config:
+          pkgname: "nats"
+          dir: "internal/nats"
+          filename: "jetstream_mocks.go"
+  github.com/PritOriginal/problem-map-server/internal/nats:
+    config:
+      all: true
+      filename: "mocks.go"
+  github.com/PritOriginal/problem-map-server/internal/events:
+    config:
+      all: true
+      filename: "mocks.go"
   github.com/PritOriginal/problem-map-server/internal/usecase:
     config:
       all: true
@@ -14,7 +29,33 @@ packages:
     config:
       all: true
       recursive: true
+  github.com/PritOriginal/problem-map-server/internal/grpc:
+    config:
+      all: true
+      recursive: true
+  github.com/PritOriginal/problem-map-server/internal/auth:
+    config:
+      all: true
+      filename: "mocks.go"
+  github.com/PritOriginal/problem-map-server/internal/middleware:
+    config:
+      # Not `all`: VersionChecker is an alias of auth.VersionChecker and its
+      # mock lives in package auth.
+      include-interface-regex: "^VersionSource$"
+      filename: "mocks.go"
   github.com/PritOriginal/problem-map-server/internal/middleware/cache:
+    config:
+      all: true
+      filename: "mocks.go"
+  github.com/PritOriginal/problem-map-server/internal/middleware/ratelimit:
+    config:
+      all: true
+      filename: "mocks.go"
+  github.com/PritOriginal/problem-map-server/internal/middleware/apikey:
+    config:
+      all: true
+      filename: "mocks.go"
+  github.com/PritOriginal/problem-map-server/internal/middleware/idempotency:
     config:
       all: true
       filename: "mocks.go"

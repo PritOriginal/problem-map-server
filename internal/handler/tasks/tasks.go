@@ -2,22 +2,26 @@ package tasksrest
 
 import (
 	"context"
-	"errors"
 	"log/slog"
-	"strconv"
+	"time"
 
+	"github.com/PritOriginal/problem-map-server/internal/handler/listquery"
+	"github.com/PritOriginal/problem-map-server/internal/middleware"
+	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/repository"
+	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
+	jwt "github.com/appleboy/gin-jwt/v3"
 	"github.com/gin-gonic/gin"
 )
 
 type Tasks interface {
-	GetTasks(ctx context.Context) ([]models.Task, error)
+	ListTasks(ctx context.Context, filters models.GetTasksFilters) (models.Page[models.Task], error)
 	GetTaskById(ctx context.Context, id int) (models.Task, error)
-	GetTasksByUserId(ctx context.Context, userId int) ([]models.Task, error)
+	ListTasksByUserId(ctx context.Context, userId int, filters models.GetTasksByUserIdFilters) (models.Page[models.Task], error)
 	AddTask(ctx context.Context, task models.Task) (int64, error)
+	GetTaskStatuses(ctx context.Context, lang models.Lang) ([]models.TaskStatus, error)
 }
 
 type handler struct {
@@ -25,39 +29,63 @@ type handler struct {
 	uc  Tasks
 }
 
-func Register(r *gin.Engine, log *slog.Logger, uc Tasks) {
+// DictionaryCacheTTL is how long the task statuses stay cached.
+const DictionaryCacheTTL = 24 * time.Hour
+
+// Register mounts the routes; cacher (may be nil) backs the cache of
+// GET /tasks/statuses.
+func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddleware, uc Tasks, cacher mwcache.Cacher) {
 	handler := &handler{log: log, uc: uc}
 
 	tasks := r.Group("/tasks")
 	{
 		tasks.GET("", handler.GetTasks())
+		tasks.GET("statuses", mwcache.New(cacher, DictionaryCacheTTL), handler.GetTaskStatuses())
 		tasks.GET(":id", handler.GetTaskById())
 		tasks.GET("user/:id", handler.GetTasksByUserId())
-		tasks.POST("", handler.AddTask())
+		auth := tasks.Group("", authMiddleware.MiddlewareFunc(),
+			middleware.RequireRole(models.RoleModerator, models.RoleAdmin))
+		{
+			auth.POST("", handler.AddTask())
+		}
 	}
 }
 
-// GetTasks lists all existing tasks
+// GetTasks lists tasks, paginated
 //
 //	@Summary		List tasks
-//	@Description	get tasks
+//	@Description	get tasks page; pagination info is returned in the top-level `meta` field ({limit, offset, total})
 //	@Tags			tasks
 //	@Produce		json
-//	@Success		200	{object}	responses.Response[tasksrest.GetTasksResponse]
-//	@Failure		500	{object}	responses.Response[any]
+//	@Param			statuses	query		string	false	"filter by statuses, comma-separated ids"
+//	@Param			limit		query		int		false	"page size, 1..500"	default(100)
+//	@Param			offset		query		int		false	"page offset"		default(0)
+//	@Success		200			{object}	responses.Response[tasksrest.GetTasksResponse]
+//	@Failure		400			{object}	responses.Response[any]
+//	@Failure		500			{object}	responses.Response[any]
 //	@Router			/tasks [get]
 func (h *handler) GetTasks() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		tasks, err := h.uc.GetTasks(c.Request.Context())
+		const op = "tasksrest.GetTasks"
+
+		var req GetTasksRequest
+		if !listquery.Bind(c, h.log, &req) {
+			return
+		}
+		filters, err := req.Filters()
 		if err != nil {
-			h.log.Error("error get tasks", logger.Err(err))
-			responses.Internal(c, "error get tasks")
+			h.log.Debug("failed parse filters", logger.Err(err))
+			responses.BadRequest(c, err.Error())
 			return
 		}
 
-		responses.OK(c, GetTasksResponse{
-			Tasks: tasks,
-		})
+		page, err := h.uc.ListTasks(c.Request.Context(), filters)
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		listquery.OK(c, GetTasksResponse{Tasks: page.Items}, filters.Pagination, page.Total)
 	}
 }
 
@@ -75,22 +103,17 @@ func (h *handler) GetTasks() gin.HandlerFunc {
 //	@Router			/tasks/{id} [get]
 func (h *handler) GetTaskById() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
+		const op = "tasksrest.GetTaskById"
+
+		id, err := handlers.ParamInt(c, "id")
 		if err != nil {
-			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(c, "failed parse id")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
 		task, err := h.uc.GetTaskById(c.Request.Context(), id)
 		if err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
-				h.log.Debug("task not found", slog.Int("id", id))
-				responses.NotFound(c, "task not found")
-			} else {
-				h.log.Error("error get task by id", slog.Int("id", id), logger.Err(err))
-				responses.Internal(c, "error get task by id")
-			}
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -106,46 +129,67 @@ func (h *handler) GetTaskById() gin.HandlerFunc {
 //	@Description	get tasks by user id
 //	@Tags			tasks
 //	@Produce		json
-//	@Param			id	path		int	true	"user id"
-//	@Success		200	{object}	responses.Response[tasksrest.GetTasksByUserIdResponse]
-//	@Failure		400	{object}	responses.Response[any]
-//	@Failure		500	{object}	responses.Response[any]
+//	@Param			id			path		int		true	"user id"
+//	@Param			statuses	query		string	false	"filter by statuses, comma-separated ids"
+//	@Param			limit		query		int		false	"page size, 1..500"	default(100)
+//	@Param			offset		query		int		false	"page offset"		default(0)
+//	@Success		200			{object}	responses.Response[tasksrest.GetTasksByUserIdResponse]
+//	@Failure		400			{object}	responses.Response[any]
+//	@Failure		500			{object}	responses.Response[any]
 //	@Router			/tasks/user/{id} [get]
 func (h *handler) GetTasksByUserId() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userId, err := strconv.Atoi(c.Param("id"))
+		const op = "tasksrest.GetTasksByUserId"
+
+		userId, err := handlers.ParamInt(c, "id")
 		if err != nil {
-			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(c, "failed parse id")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
-		tasks, err := h.uc.GetTasksByUserId(c.Request.Context(), userId)
+		var req GetTasksRequest
+		if !listquery.Bind(c, h.log, &req) {
+			return
+		}
+		filters, err := req.Filters()
 		if err != nil {
-			h.log.Error("error get tasks by user id", slog.Int("user_id", userId), logger.Err(err))
-			responses.Internal(c, "error get tasks by user id")
+			h.log.Debug("failed parse filters", logger.Err(err))
+			responses.BadRequest(c, err.Error())
 			return
 		}
 
-		responses.OK(c, GetTasksByUserIdResponse{
-			Tasks: tasks,
+		page, err := h.uc.ListTasksByUserId(c.Request.Context(), userId, models.GetTasksByUserIdFilters{
+			Statuses:   filters.Statuses,
+			Pagination: filters.Pagination,
 		})
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		listquery.OK(c, GetTasksByUserIdResponse{Tasks: page.Items}, filters.Pagination, page.Total)
 	}
 }
 
 // AddTask add new task
 //
 //	@Summary		Add task
-//	@Description	add new task
+//	@Description	assign a new verification task to the user given by user_id (moderator or admin only)
 //	@Tags			tasks
+//	@Accept			json
 //	@Produce		json
+//	@Security		BearerAuth
 //	@Param			request	body		tasksrest.AddTaskRequest	true	"query params"
 //	@Success		201		{object}	responses.Response[tasksrest.AddTaskResponse]
 //	@Failure		400		{object}	responses.Response[any]
+//	@Failure		401		{object}	responses.Response[any]
+//	@Failure		403		{object}	responses.Response[any]
 //	@Failure		500		{object}	responses.Response[any]
 //	@Router			/tasks [post]
 func (h *handler) AddTask() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		const op = "tasksrest.AddTask"
+
 		var req AddTaskRequest
 		if err := c.ShouldBindJSON(&req); err != nil {
 			h.log.Debug("failed binding request", logger.Err(err))
@@ -161,8 +205,7 @@ func (h *handler) AddTask() gin.HandlerFunc {
 
 		taskId, err := h.uc.AddTask(c.Request.Context(), task)
 		if err != nil {
-			h.log.Error("failed add task", logger.Err(err))
-			responses.Internal(c, "failed add task")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -173,5 +216,34 @@ func (h *handler) AddTask() gin.HandlerFunc {
 		responses.Created(c, AddTaskResponse{
 			TaskId: int(taskId),
 		})
+	}
+}
+
+// GetTaskStatuses lists all existing task statuses
+//
+//	@Summary		List task statuses
+//	@Description	get task statuses; `name` is localised by the Accept-Language header (ru, en; default ru), `code` is a stable identifier
+//	@Tags			tasks
+//	@Produce		json
+//	@Param			Accept-Language	header		string	false	"response language"	Enums(ru, en)	default(ru)
+//	@Param			If-None-Match	header		string	false	"ETag of a previous response; 304 when the dictionary did not change"
+//	@Success		200				{object}	responses.Response[tasksrest.GetTaskStatusesResponse]
+//	@Header			200				{string}	ETag			"validator for If-None-Match"
+//	@Header			200				{string}	Cache-Control	"public, max-age=60"
+//	@Success		304				"not modified"
+//	@Failure		500				{object}	responses.Response[any]
+//	@Router			/tasks/statuses [get]
+func (h *handler) GetTaskStatuses() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		const op = "tasksrest.GetTaskStatuses"
+
+		ctx := c.Request.Context()
+		statuses, err := h.uc.GetTaskStatuses(ctx, models.LangFromContext(ctx))
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		responses.OK(c, GetTaskStatusesResponse{TaskStatuses: statuses})
 	}
 }

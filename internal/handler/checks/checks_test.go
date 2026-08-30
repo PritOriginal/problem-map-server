@@ -11,8 +11,8 @@ import (
 	"time"
 
 	checksrest "github.com/PritOriginal/problem-map-server/internal/handler/checks"
+	"github.com/PritOriginal/problem-map-server/internal/handler/handlertest"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/PritOriginal/problem-map-server/pkg/token"
@@ -29,7 +29,7 @@ type ChecksSuite struct {
 	uc *checksrest.MockChecks
 }
 
-func (suite *ChecksSuite) SetupSuite() {
+func (suite *ChecksSuite) SetupTest() {
 	authMiddleware, err := jwt.New(&jwt.GinJWTMiddleware{
 		Key: []byte("1234"),
 	})
@@ -48,7 +48,7 @@ func (suite *ChecksSuite) SetupSuite() {
 	gin.SetMode(gin.TestMode)
 	suite.r = gin.New()
 
-	checksrest.Register(suite.r, log, authMiddleware, suite.uc)
+	checksrest.Register(suite.r, log, authMiddleware, suite.uc, nil)
 }
 
 func TestChecks(t *testing.T) {
@@ -88,7 +88,7 @@ func (suite *ChecksSuite) TestGetCheckById() {
 			name:            "Err404",
 			id:              "1",
 			wantErrParseId:  false,
-			errGetCheckById: repository.ErrNotFound,
+			errGetCheckById: usecase.ErrNotFound,
 			statusCode:      404,
 		},
 	}
@@ -104,7 +104,7 @@ func (suite *ChecksSuite) TestGetCheckById() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -142,8 +142,8 @@ func (suite *ChecksSuite) TestGetChecksByMarkId() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			if !tt.wantErrParseId {
-				suite.uc.On("GetChecksByMarkId", mock.Anything, mock.AnythingOfType("int")).Once().
-					Return([]models.Check{}, tt.errGetChecksByMarkId)
+				suite.uc.On("ListChecksByMarkId", mock.Anything, mock.AnythingOfType("int"), models.Pagination{Limit: models.DefaultLimit}).Once().
+					Return(models.Page[models.Check]{Items: []models.Check{}}, tt.errGetChecksByMarkId)
 			}
 
 			w := httptest.NewRecorder()
@@ -151,7 +151,7 @@ func (suite *ChecksSuite) TestGetChecksByMarkId() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -189,8 +189,8 @@ func (suite *ChecksSuite) TestGetChecksByUserId() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			if !tt.wantErrParseId {
-				suite.uc.On("GetChecksByUserId", mock.Anything, mock.AnythingOfType("int")).Once().
-					Return([]models.Check{}, tt.errGetChecksByUserId)
+				suite.uc.On("ListChecksByUserId", mock.Anything, mock.AnythingOfType("int"), models.Pagination{Limit: models.DefaultLimit}).Once().
+					Return(models.Page[models.Check]{Items: []models.Check{}}, tt.errGetChecksByUserId)
 			}
 
 			w := httptest.NewRecorder()
@@ -198,7 +198,7 @@ func (suite *ChecksSuite) TestGetChecksByUserId() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }
@@ -207,6 +207,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 	tests := []struct {
 		name            string
 		req             checksrest.AddCheckRequest
+		invalidPhoto    bool
 		wantErrParseReq bool
 		errAddCheck     error
 		statusCode      int
@@ -233,14 +234,14 @@ func (suite *ChecksSuite) TestAddCheck() {
 			statusCode:      400,
 		},
 		{
-			name: "Err400NotFoundMark",
+			name: "Err404NotFoundMark",
 			req: checksrest.AddCheckRequest{
 				MarkID:  1,
 				Result:  true,
 				Comment: "",
 			},
 			errAddCheck: usecase.ErrNotFound,
-			statusCode:  400,
+			statusCode:  404,
 		},
 		{
 			name: "Err409Conflict",
@@ -251,6 +252,37 @@ func (suite *ChecksSuite) TestAddCheck() {
 			},
 			errAddCheck: usecase.ErrConflict,
 			statusCode:  409,
+		},
+		{
+			name: "Err403OwnMark",
+			req: checksrest.AddCheckRequest{
+				MarkID:  1,
+				Result:  true,
+				Comment: "",
+			},
+			errAddCheck: usecase.ErrForbidden,
+			statusCode:  403,
+		},
+		{
+			name: "Err429DailyLimit",
+			req: checksrest.AddCheckRequest{
+				MarkID:  1,
+				Result:  true,
+				Comment: "",
+			},
+			errAddCheck: usecase.ErrTooManyRequests,
+			statusCode:  429,
+		},
+		{
+			name: "Err400InvalidPhoto",
+			req: checksrest.AddCheckRequest{
+				MarkID:  1,
+				Result:  true,
+				Comment: "",
+			},
+			invalidPhoto:    true,
+			wantErrParseReq: true,
+			statusCode:      400,
 		},
 		{
 			name: "Err500",
@@ -275,18 +307,22 @@ func (suite *ChecksSuite) TestAddCheck() {
 
 			b := &bytes.Buffer{}
 			mpw := multipart.NewWriter(b)
-			mpw.WriteField("mark_id", strconv.Itoa(tt.req.MarkID))
-			mpw.WriteField("result", strconv.FormatBool(tt.req.Result))
-			mpw.WriteField("comment", tt.req.Comment)
+			suite.NoError(mpw.WriteField("mark_id", strconv.Itoa(tt.req.MarkID)))
+			suite.NoError(mpw.WriteField("result", strconv.FormatBool(tt.req.Result)))
+			suite.NoError(mpw.WriteField("comment", tt.req.Comment))
 
 			image := gofakeit.ImageJpeg(10, 10)
+			if tt.invalidPhoto {
+				image = []byte("not an image")
+			}
 			fw, err := mpw.CreateFormFile("photos", "test.jpg")
 			suite.NoError(err)
-			io.Copy(fw, bytes.NewBuffer(image))
+			_, err = io.Copy(fw, bytes.NewBuffer(image))
+			suite.NoError(err)
 
-			mpw.Close()
+			suite.NoError(mpw.Close())
 
-			accessToken, err := token.CreateToken(1*time.Minute, 1, "1234")
+			accessToken, err := token.CreateToken(1*time.Minute, 1, string(models.RoleUser), "1234")
 			suite.NoError(err)
 
 			req := httptest.NewRequest("POST", "/checks", b)
@@ -295,7 +331,7 @@ func (suite *ChecksSuite) TestAddCheck() {
 
 			suite.r.ServeHTTP(w, req)
 
-			suite.Equal(tt.statusCode, w.Code)
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
 		})
 	}
 }

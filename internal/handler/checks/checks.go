@@ -2,14 +2,12 @@ package checksrest
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log/slog"
-	"strconv"
 
+	"github.com/PritOriginal/problem-map-server/internal/handler/listquery"
+	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/repository"
-	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/logger"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
@@ -20,8 +18,8 @@ import (
 type Checks interface {
 	AddCheck(ctx context.Context, check models.Check, photos []io.Reader) (int64, error)
 	GetCheckById(ctx context.Context, id int) (models.Check, error)
-	GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error)
-	GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error)
+	ListChecksByMarkId(ctx context.Context, markId int, p models.Pagination) (models.Page[models.Check], error)
+	ListChecksByUserId(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Check], error)
 }
 
 type handler struct {
@@ -29,17 +27,27 @@ type handler struct {
 	uc  Checks
 }
 
-func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddleware, uc Checks) {
+// Register mounts the routes. idempotency handles the Idempotency-Key
+// header of POST /checks and may be nil.
+func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddleware, uc Checks, idempotency gin.HandlerFunc) {
 	handler := &handler{log: log, uc: uc}
 
-	checks := r.Group("/checks")
+	// The viewer is recorded so that the checks of a hidden mark stay
+	// visible to its author and to moderators; anonymous requests still pass.
+	checks := r.Group("/checks", middleware.OptionalAuth(authMiddleware))
 	{
 		checks.GET(":id", handler.GetCheckById())
 		checks.GET("mark/:markId", handler.GetChecksByMarkId())
 		checks.GET("user/:userId", handler.GetChecksByUserId())
 		auth := checks.Group("", authMiddleware.MiddlewareFunc())
 		{
-			auth.POST("", handler.AddCheck())
+			// The body limit must be in place before the idempotency
+			// middleware reads the form to fingerprint it.
+			create := auth.Group("", middleware.MaxBodySize(handlers.MaxUploadBodySize))
+			if idempotency != nil {
+				create.Use(idempotency)
+			}
+			create.POST("", handler.AddCheck())
 		}
 	}
 }
@@ -58,22 +66,17 @@ func Register(r *gin.Engine, log *slog.Logger, authMiddleware *jwt.GinJWTMiddlew
 //	@Router			/checks/{id} [get]
 func (h *handler) GetCheckById() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		id, err := strconv.Atoi(c.Param("id"))
+		const op = "checksrest.GetCheckById"
+
+		id, err := handlers.ParamInt(c, "id")
 		if err != nil {
-			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(c, "failed parse id")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
 		check, err := h.uc.GetCheckById(c.Request.Context(), id)
 		if err != nil {
-			if errors.Is(err, repository.ErrNotFound) {
-				h.log.Debug("check not found", slog.Int("id", id))
-				responses.NotFound(c, "check not found")
-			} else {
-				h.log.Error("error get check by id", logger.Err(err))
-				responses.Internal(c, "error get check by id")
-			}
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
@@ -86,33 +89,39 @@ func (h *handler) GetCheckById() gin.HandlerFunc {
 // GetChecksByMarkId get check by mark id
 //
 //	@Summary		Get check by mark id
-//	@Description	get check by mark id
+//	@Description	get check by mark id; a hidden mark is 404 for everybody but its author and moderators
 //	@Tags			checks
 //	@Produce		json
-//	@Param			id	path		int	true	"mark id"
-//	@Success		200	{object}	responses.Response[checksrest.GetChecksByMarkIdResponse]
-//	@Failure		400	{object}	responses.Response[any]
-//	@Failure		500	{object}	responses.Response[any]
+//	@Param			id		path		int	true	"mark id"
+//	@Param			limit	query		int	false	"page size, 1..500"	default(100)
+//	@Param			offset	query		int	false	"page offset"		default(0)
+//	@Success		200		{object}	responses.Response[checksrest.GetChecksByMarkIdResponse]
+//	@Failure		400		{object}	responses.Response[any]
+//	@Failure		404		{object}	responses.Response[any]
+//	@Failure		500		{object}	responses.Response[any]
 //	@Router			/checks/mark/{id} [get]
 func (h *handler) GetChecksByMarkId() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		markId, err := strconv.Atoi(c.Param("markId"))
+		const op = "checksrest.GetChecksByMarkId"
+
+		markId, err := handlers.ParamInt(c, "markId")
 		if err != nil {
-			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(c, "failed parse id")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
-		checks, err := h.uc.GetChecksByMarkId(c.Request.Context(), markId)
-		if err != nil {
-			h.log.Error("error get checks by mark id", logger.Err(err))
-			responses.Internal(c, "error get checks by mark id")
+		p, ok := listquery.BindPagination(c, h.log)
+		if !ok {
 			return
 		}
 
-		responses.OK(c, GetChecksByMarkIdResponse{
-			Checks: checks,
-		})
+		page, err := h.uc.ListChecksByMarkId(c.Request.Context(), markId, p)
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		listquery.OK(c, GetChecksByMarkIdResponse{Checks: page.Items}, p, page.Total)
 	}
 }
 
@@ -122,47 +131,62 @@ func (h *handler) GetChecksByMarkId() gin.HandlerFunc {
 //	@Description	get checks by user id
 //	@Tags			checks
 //	@Produce		json
-//	@Param			id	path		int	true	"user id"
-//	@Success		200	{object}	responses.Response[checksrest.GetChecksByUserIdResponse]
-//	@Failure		400	{object}	responses.Response[any]
-//	@Failure		500	{object}	responses.Response[any]
+//	@Param			id		path		int	true	"user id"
+//	@Param			limit	query		int	false	"page size, 1..500"	default(100)
+//	@Param			offset	query		int	false	"page offset"		default(0)
+//	@Success		200		{object}	responses.Response[checksrest.GetChecksByUserIdResponse]
+//	@Failure		400		{object}	responses.Response[any]
+//	@Failure		500		{object}	responses.Response[any]
 //	@Router			/checks/user/{id} [get]
 func (h *handler) GetChecksByUserId() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userId, err := strconv.Atoi(c.Param("userId"))
+		const op = "checksrest.GetChecksByUserId"
+
+		userId, err := handlers.ParamInt(c, "userId")
 		if err != nil {
-			h.log.Debug("failed parse id", logger.Err(err))
-			responses.BadRequest(c, "failed parse id")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
-		checks, err := h.uc.GetChecksByUserId(c.Request.Context(), userId)
-		if err != nil {
-			h.log.Error("error get checks by user id", logger.Err(err))
-			responses.Internal(c, "error get checks by user id")
+		p, ok := listquery.BindPagination(c, h.log)
+		if !ok {
 			return
 		}
 
-		responses.OK(c, GetChecksByUserIdResponse{
-			Checks: checks,
-		})
+		page, err := h.uc.ListChecksByUserId(c.Request.Context(), userId, p)
+		if err != nil {
+			responses.FromError(c, h.log, op, err)
+			return
+		}
+
+		listquery.OK(c, GetChecksByUserIdResponse{Checks: page.Items}, p, page.Total)
 	}
 }
 
 // AddCheck add check
 //
 //	@Summary		Add check
-//	@Description	add check
+//	@Description	add check; the mark's author may not check their own mark (403), one check per voting stage (409), at most `rating.max-checks-per-day` checks per rolling 24 hours (429)
 //	@Tags			checks
 //	@Accept			mpfd
 //	@Produce		json
-//	@Param			Authorization	header		string	true	"Insert your access token"	default(Bearer <Add access token here>)
+//	@Security		BearerAuth
+//	@Param			Idempotency-Key	header		string	false	"UUID chosen by the client; a repeat with the same key within 24h returns the stored response with `Idempotent-Replayed: true` (425 while the first request is in flight, 422 when reused with other form fields)"
 //	@Success		201				{object}	responses.Response[checksrest.AddCheckResponse]
 //	@Failure		400				{object}	responses.Response[any]
+//	@Failure		401				{object}	responses.Response[any]
+//	@Failure		403				{object}	responses.Response[any]
+//	@Failure		404				{object}	responses.Response[any]
+//	@Failure		409				{object}	responses.Response[any]
+//	@Failure		422				{object}	responses.Response[any]	"Idempotency-Key reused with a different payload (`error.code` is `idempotency_key_reused`)"
+//	@Failure		425				{object}	responses.Response[any]	"a request with the same Idempotency-Key is in flight (`error.code` is `idempotency_in_flight`); retry after `Retry-After` seconds"
+//	@Failure		429				{object}	responses.Response[any]
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/checks [post]
 func (h *handler) AddCheck() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		const op = "checksrest.AddCheck"
+
 		var req AddCheckRequest
 		if err := c.ShouldBind(&req); err != nil {
 			h.log.Debug("failed binding request", logger.Err(err))
@@ -172,20 +196,11 @@ func (h *handler) AddCheck() gin.HandlerFunc {
 
 		photos, err := handlers.ParsePhotos(req.Photos)
 		if err != nil {
-			h.log.Error("error parse photos", logger.Err(err))
-			responses.Internal(c, "error parse photos")
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 
-		claims := jwt.ExtractClaims(c)
-
-		userIdStr, err := claims.GetSubject()
-		if err != nil {
-			h.log.Debug("invalid token", logger.Err(err))
-			responses.Unauthorized(c, "invalid token")
-			return
-		}
-		userId, err := strconv.Atoi(userIdStr)
+		userId, err := middleware.UserIDFromClaims(c)
 		if err != nil {
 			h.log.Debug("invalid token", logger.Err(err))
 			responses.Unauthorized(c, "invalid token")
@@ -200,18 +215,7 @@ func (h *handler) AddCheck() gin.HandlerFunc {
 		}
 		checkId, err := h.uc.AddCheck(c.Request.Context(), check, photos)
 		if err != nil {
-			switch err {
-			case usecase.ErrNotFound:
-				h.log.Debug("mark not found", slog.Int("mark_id", req.MarkID))
-				responses.BadRequest(c, "mark not found")
-				return
-			case usecase.ErrConflict:
-				h.log.Debug("user has already completed the check", slog.Int("mark_id", req.MarkID), slog.Int("user_id", userId))
-				responses.Conflict(c, "user has already completed the check")
-			default:
-				h.log.Error("error add check", logger.Err(err))
-				responses.Internal(c, "error add check")
-			}
+			responses.FromError(c, h.log, op, err)
 			return
 		}
 

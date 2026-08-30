@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
@@ -12,24 +13,32 @@ type Postgres struct {
 	DB *sqlx.DB
 }
 
+// New opens a connection pool and verifies it with a ping.
 func New(cfg config.DatabaseConfig) (*Postgres, error) {
 	const op = "storage.postgres.New"
 
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=disable",
-		cfg.Host, cfg.Port, cfg.Username, cfg.Password, cfg.Name)
-
-	db, err := sqlx.Open("postgres", psqlInfo)
+	db, err := sqlx.Open("postgres", cfg.DSN())
 	if err != nil {
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 
-	pingErr := db.Ping()
-	if pingErr != nil {
+	db.SetMaxOpenConns(cfg.Pool.MaxOpenConns)
+	db.SetMaxIdleConns(cfg.Pool.MaxIdleConns)
+	db.SetConnMaxLifetime(cfg.Pool.ConnMaxLifetime)
+
+	if err := db.Ping(); err != nil {
+		_ = db.Close()
 		return nil, fmt.Errorf("%s: %w", op, err)
 	}
 	return &Postgres{DB: db}, nil
 }
 
-func (s *Postgres) Stop() error {
+// Ping verifies the database connection is alive.
+func (s *Postgres) Ping(ctx context.Context) error {
+	return s.DB.PingContext(ctx)
+}
+
+// Close closes the underlying connection pool.
+func (s *Postgres) Close() error {
 	return s.DB.Close()
 }

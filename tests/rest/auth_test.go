@@ -8,10 +8,13 @@ import (
 	"io"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/config"
 	authrest "github.com/PritOriginal/problem-map-server/internal/handler/auth"
+	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
+	"github.com/PritOriginal/problem-map-server/pkg/token"
 	"github.com/brianvoe/gofakeit/v7"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -20,10 +23,11 @@ import (
 type AuthSuite struct {
 	suite.Suite
 	Cfg *config.Config
+	fx  *fixtures
 }
 
 func (st *AuthSuite) SetupSuite() {
-	st.Cfg = config.MustLoadPath("../../configs/config.yaml")
+	st.Cfg, st.fx = loadFixtures(st.T())
 }
 
 func TestAuthSuite(t *testing.T) {
@@ -34,6 +38,7 @@ func (st *AuthSuite) TestSignUp() {
 	username := gofakeit.FirstName()
 	login := gofakeit.Username()
 	password := gofakeit.Password(true, true, true, true, true, 10)
+	homePoint := models.NewPoint(fixtureHomePoint)
 
 	tests := []struct {
 		name       string
@@ -44,9 +49,10 @@ func (st *AuthSuite) TestSignUp() {
 		{
 			name: "Ok201",
 			req: authrest.SignUpRequest{
-				Username: username,
-				Login:    login,
-				Password: password,
+				Username:  username,
+				Login:     login,
+				Password:  password,
+				HomePoint: homePoint,
 			},
 			statusCode: http.StatusCreated,
 		},
@@ -64,11 +70,31 @@ func (st *AuthSuite) TestSignUp() {
 			statusCode: http.StatusBadRequest,
 		},
 		{
+			name: "Err400InvalidReq",
+			req: authrest.SignUpRequest{
+				Username:  "name",
+				Login:     "username",
+				HomePoint: homePoint,
+			},
+			statusCode: http.StatusBadRequest,
+		},
+		{
 			name: "Err409",
 			req: authrest.SignUpRequest{
-				Username: username,
-				Login:    login,
-				Password: password,
+				Username:  username,
+				Login:     login,
+				Password:  password,
+				HomePoint: homePoint,
+			},
+			statusCode: http.StatusConflict,
+		},
+		{
+			name: "Err409FixtureLogin",
+			req: authrest.SignUpRequest{
+				Username:  st.fx.user.Username,
+				Login:     st.fx.user.Login,
+				Password:  st.fx.user.Password,
+				HomePoint: homePoint,
 			},
 			statusCode: http.StatusConflict,
 		},
@@ -107,7 +133,7 @@ func signUp(t *testing.T, req io.Reader, cfg *config.RESTConfig, expectedStatusC
 		req,
 	)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	require.Equal(t, expectedStatusCode, resp.StatusCode)
 
@@ -119,17 +145,8 @@ func signUp(t *testing.T, req io.Reader, cfg *config.RESTConfig, expectedStatusC
 }
 
 func (st *AuthSuite) TestSignIn() {
-	username := gofakeit.FirstName()
-	login := gofakeit.Username()
-	password := gofakeit.Password(true, true, true, true, true, 10)
-
-	signUpReqJSON, err := json.Marshal(authrest.SignUpRequest{
-		Username: username,
-		Login:    login,
-		Password: password,
-	})
-	st.NoError(err)
-	_ = signUp(st.T(), bytes.NewBuffer(signUpReqJSON), &st.Cfg.REST, http.StatusCreated)
+	login := st.fx.user.Login
+	password := st.fx.user.Password
 
 	tests := []struct {
 		name       string
@@ -158,10 +175,18 @@ func (st *AuthSuite) TestSignIn() {
 			statusCode: 400,
 		},
 		{
-			name: "Err401",
+			name: "Err401WrongPassword",
 			req: authrest.SignInRequest{
-				Login:    "username",
-				Password: "password",
+				Login:    login,
+				Password: password + "x",
+			},
+			statusCode: http.StatusUnauthorized,
+		},
+		{
+			name: "Err401UnknownLogin",
+			req: authrest.SignInRequest{
+				Login:    "no-such-user-" + login,
+				Password: password,
 			},
 			statusCode: http.StatusUnauthorized,
 		},
@@ -200,7 +225,7 @@ func signIn(t *testing.T, req io.Reader, cfg *config.RESTConfig, expectedStatusC
 		req,
 	)
 	require.NoError(t, err)
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	require.Equal(t, expectedStatusCode, resp.StatusCode)
 
@@ -212,22 +237,11 @@ func signIn(t *testing.T, req io.Reader, cfg *config.RESTConfig, expectedStatusC
 }
 
 func (st *AuthSuite) TestRefreshTokens() {
-	username := gofakeit.FirstName()
-	login := gofakeit.Username()
-	password := gofakeit.Password(true, true, true, true, true, 10)
-
-	SignUpReqJSON, err := json.Marshal(authrest.SignUpRequest{
-		Username: username,
-		Login:    login,
-		Password: password,
-	})
-	st.NoError(err)
-	_ = signUp(st.T(), bytes.NewBuffer(SignUpReqJSON), &st.Cfg.REST, http.StatusCreated)
-
 	signInReqJson, err := json.Marshal(authrest.SignInRequest{
-		Login:    login,
-		Password: password,
+		Login:    st.fx.user.Login,
+		Password: st.fx.user.Password,
 	})
+	st.Require().NoError(err)
 
 	signInResponse := signIn(st.T(), bytes.NewBuffer(signInReqJson), &st.Cfg.REST, http.StatusOK)
 
@@ -291,7 +305,7 @@ func (st *AuthSuite) TestRefreshTokens() {
 				request,
 			)
 			st.NoError(err)
-			defer resp.Body.Close()
+			defer func() { _ = resp.Body.Close() }()
 
 			st.Equal(tt.statusCode, resp.StatusCode)
 
@@ -315,9 +329,10 @@ func addNewUser(t *testing.T, cfg *config.RESTConfig) responses.Response[authres
 	password := gofakeit.Password(true, true, true, true, true, 10)
 
 	signUpReqJSON, err := json.Marshal(authrest.SignUpRequest{
-		Username: username,
-		Login:    login,
-		Password: password,
+		Username:  username,
+		Login:     login,
+		Password:  password,
+		HomePoint: models.NewPoint(fixtureHomePoint),
 	})
 	require.NoError(t, err)
 	_ = signUp(t, bytes.NewBuffer(signUpReqJSON), cfg, http.StatusCreated)
@@ -326,5 +341,18 @@ func addNewUser(t *testing.T, cfg *config.RESTConfig) responses.Response[authres
 		Login:    login,
 		Password: password,
 	})
+	require.NoError(t, err)
 	return signIn(t, bytes.NewBuffer(signInReqJson), cfg, http.StatusOK)
+}
+
+// moderatorToken registers a new user and issues an access token with the
+// moderator role for it, signed with the server access key from the config.
+func moderatorToken(t *testing.T, cfg *config.Config) string {
+	signInResponse := addNewUser(t, &cfg.REST)
+	userId := currentUserId(t, &cfg.REST, signInResponse.Payload.AccessToken)
+
+	accessToken, err := token.CreateToken(time.Hour, userId, string(models.RoleModerator), cfg.Auth.JWT.Access.Key)
+	require.NoError(t, err)
+
+	return accessToken
 }

@@ -2,11 +2,11 @@ package usecase_test
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"testing"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/internal/repository"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/logger/slogdiscard"
 	"github.com/stretchr/testify/mock"
@@ -20,7 +20,7 @@ type TasksSuite struct {
 	tasksRepo *usecase.MockTasksRepository
 }
 
-func (suite *TasksSuite) SetupSuite() {
+func (suite *TasksSuite) SetupTest() {
 	suite.log = slogdiscard.NewDiscardLogger()
 	suite.tasksRepo = usecase.NewMockTasksRepository(suite.T())
 	suite.uc = usecase.NewTasks(suite.log, usecase.TasksRepositories{
@@ -48,7 +48,7 @@ func (suite *TasksSuite) TestGetTasks() {
 			name: "Err",
 			getTasks: method[[]models.Task]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 	}
@@ -56,19 +56,19 @@ func (suite *TasksSuite) TestGetTasks() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			func() {
-				suite.tasksRepo.On("GetTasks", mock.Anything).Once().
-					Return(tt.getTasks.data, tt.getTasks.err)
+				suite.tasksRepo.On("GetTasks", mock.Anything, mock.AnythingOfType("models.GetTasksFilters")).Once().
+					Return(models.Page[models.Task]{Items: tt.getTasks.data}, tt.getTasks.err)
 				if tt.getTasks.err != nil {
 					return
 				}
 			}()
 
-			_, gotErr := suite.uc.GetTasks(context.Background())
+			_, gotErr := suite.uc.GetTasks(context.Background(), models.GetTasksFilters{})
 
 			if tt.getTasks.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getTasks.err)
 			}
 			suite.tasksRepo.AssertExpectations(suite.T())
 		})
@@ -88,10 +88,17 @@ func (suite *TasksSuite) TestGetTaskById() {
 			},
 		},
 		{
-			name: "Err",
+			name: "ErrRepo",
 			getTaskById: method[models.Task]{
 				data: models.Task{},
-				err:  errors.New(""),
+				err:  errRepo,
+			},
+		},
+		{
+			name: "ErrNotFound",
+			getTaskById: method[models.Task]{
+				data: models.Task{},
+				err:  repository.ErrNotFound,
 			},
 		},
 	}
@@ -111,7 +118,7 @@ func (suite *TasksSuite) TestGetTaskById() {
 			if tt.getTaskById.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getTaskById.err)
 			}
 			suite.tasksRepo.AssertExpectations(suite.T())
 		})
@@ -134,7 +141,7 @@ func (suite *TasksSuite) TestGetTasksByUserId() {
 			name: "Err",
 			getTasksByUserId: method[[]models.Task]{
 				data: nil,
-				err:  errors.New(""),
+				err:  errRepo,
 			},
 		},
 	}
@@ -142,19 +149,19 @@ func (suite *TasksSuite) TestGetTasksByUserId() {
 	for _, tt := range tests {
 		suite.Run(tt.name, func() {
 			func() {
-				suite.tasksRepo.On("GetTasksByUserId", mock.Anything, mock.AnythingOfType("int")).Once().
-					Return(tt.getTasksByUserId.data, tt.getTasksByUserId.err)
+				suite.tasksRepo.On("GetTasksByUserId", mock.Anything, mock.AnythingOfType("int"), mock.AnythingOfType("models.GetTasksByUserIdFilters")).Once().
+					Return(models.Page[models.Task]{Items: tt.getTasksByUserId.data}, tt.getTasksByUserId.err)
 				if tt.getTasksByUserId.err != nil {
 					return
 				}
 			}()
 
-			_, gotErr := suite.uc.GetTasksByUserId(context.Background(), 1)
+			_, gotErr := suite.uc.GetTasksByUserId(context.Background(), 1, models.GetTasksByUserIdFilters{})
 
 			if tt.getTasksByUserId.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.getTasksByUserId.err)
 			}
 			suite.tasksRepo.AssertExpectations(suite.T())
 		})
@@ -174,10 +181,25 @@ func (suite *TasksSuite) TestAddTask() {
 			},
 		},
 		{
-			name: "Err",
+			name: "ErrRepo",
 			addTask: method[int64]{
 				data: int64(0),
-				err:  errors.New(""),
+				err:  errRepo,
+			},
+		},
+		{
+			name: "ErrConflict",
+			addTask: method[int64]{
+				data: int64(0),
+				err:  repository.ErrExists,
+			},
+		},
+		{
+			// Unknown user_id/mark_id is a client error (400), not a 500.
+			name: "ErrInvalidArgumentUnknownReference",
+			addTask: method[int64]{
+				data: int64(0),
+				err:  repository.ErrInvalidReference,
 			},
 		},
 	}
@@ -197,9 +219,45 @@ func (suite *TasksSuite) TestAddTask() {
 			if tt.addTask.err == nil {
 				suite.NoError(gotErr)
 			} else {
-				suite.NotNil(gotErr)
+				assertRepoErr(&suite.Suite, gotErr, tt.addTask.err)
 			}
 			suite.tasksRepo.AssertExpectations(suite.T())
+		})
+	}
+}
+
+func (suite *TasksSuite) TestGetTaskStatuses() {
+	tests := []struct {
+		name string
+		lang models.Lang
+		data []models.TaskStatus
+		err  error
+	}{
+		{
+			name: "OkEN",
+			lang: models.LangEN,
+			data: []models.TaskStatus{{ID: 1, Code: "issued", Name: "Issued"}},
+		},
+		{
+			name: "Err",
+			lang: models.LangRU,
+			err:  errRepo,
+		},
+	}
+
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			suite.tasksRepo.On("GetTaskStatuses", mock.Anything, tt.lang).Once().
+				Return(tt.data, tt.err)
+
+			got, gotErr := suite.uc.GetTaskStatuses(context.Background(), tt.lang)
+
+			if tt.err == nil {
+				suite.NoError(gotErr)
+				suite.Equal(tt.data, got)
+			} else {
+				assertRepoErr(&suite.Suite, gotErr, tt.err)
+			}
 		})
 	}
 }

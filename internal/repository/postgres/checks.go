@@ -2,12 +2,10 @@ package postgres
 
 import (
 	"context"
-	"database/sql"
 	"fmt"
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
-	"github.com/PritOriginal/problem-map-server/internal/repository"
 	trmsqlx "github.com/avito-tech/go-transaction-manager/drivers/sqlx/v2"
 	"github.com/jmoiron/sqlx"
 )
@@ -33,18 +31,15 @@ func (r *ChecksRepository) AddCheck(ctx context.Context, check models.Check) (in
 			INSERT INTO 
 				checks (user_id, mark_id, mark_status_id, mark_status_history_id, comment, result) 
 			VALUES 
-				(:user_id, :mark_id, :mark_status_id, :mark_status_history_id, :comment, :result)
+				($1, $2, $3, $4, $5, $6)
 			RETURNING check_id
 			`
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	stmt, err := tr.PrepareNamedContext(ctx, query)
-	if err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
-	}
-
-	if err := stmt.GetContext(ctx, &id, check); err != nil {
-		return 0, fmt.Errorf("%s: %w", op, err)
+	if err := tr.GetContext(ctx, &id, query,
+		check.UserID, check.MarkID, check.MarkStatusId, check.MarkStatusHistoryItemId, check.Comment, check.Result,
+	); err != nil {
+		return 0, wrapPgError(op, err)
 	}
 
 	return id, nil
@@ -67,62 +62,69 @@ func (r *ChecksRepository) GetCheckById(ctx context.Context, id int) (models.Che
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &check, query, id); err != nil {
-		switch err {
-		case sql.ErrNoRows:
-			return check, repository.ErrNotFound
-		default:
-			return check, fmt.Errorf("%s: %w", op, err)
-		}
+		return check, wrapPgError(op, err)
 	}
 
 	return check, nil
 }
 
-func (r *ChecksRepository) GetChecksByMarkId(ctx context.Context, markId int) ([]models.Check, error) {
+const (
+	checkColumns = "c.*, u.name AS username"
+	checksFrom   = "checks AS c JOIN users AS u ON c.user_id = u.user_id"
+)
+
+func (r *ChecksRepository) GetChecksByMarkId(ctx context.Context, markId int, p models.Pagination) (models.Page[models.Check], error) {
 	const op = "storage.postgres.GetChecksByMarkId"
 
-	checks := []models.Check{}
-
-	query := `
-		SELECT 
-			c.*, u.name as username 
-		FROM 
-			checks as c 
-		JOIN 
-			users AS u ON c.user_id = u.user_id 
-		WHERE 
-			mark_id = $1
-		ORDER BY created_at ASC`
+	q := newListQuery(checkColumns, checksFrom).
+		Where("c.mark_id = ?", markId).
+		OrderBy("c.created_at ASC, c.check_id ASC").
+		Paginate(p)
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	if err := tr.SelectContext(ctx, &checks, query, markId); err != nil {
-		return checks, fmt.Errorf("%s: %w", op, err)
+	page, err := selectPage[models.Check](ctx, tr, q)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return checks, nil
+	return page, nil
 }
 
-func (r *ChecksRepository) GetChecksByUserId(ctx context.Context, userId int) ([]models.Check, error) {
+func (r *ChecksRepository) GetChecksByUserId(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Check], error) {
 	const op = "storage.postgres.GetChecksByUserId"
 
-	checks := []models.Check{}
-
-	query := `
-		SELECT 
-			c.*, u.name as username 
-		FROM 
-			checks as c 
-		JOIN 
-			users AS u ON c.user_id = u.user_id 
-		WHERE 
-			c.user_id = $1`
+	q := newListQuery(checkColumns, checksFrom).
+		Where("c.user_id = ?", userId).
+		OrderBy("c.created_at ASC, c.check_id ASC").
+		Paginate(p)
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
-	if err := tr.SelectContext(ctx, &checks, query, userId); err != nil {
-		return checks, fmt.Errorf("%s: %w", op, err)
+	page, err := selectPage[models.Check](ctx, tr, q)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
 	}
 
-	return checks, nil
+	return page, nil
+}
+
+// GetChecksByUserIdSince returns the user's checks created strictly after
+// since, oldest first (incremental sync).
+func (r *ChecksRepository) GetChecksByUserIdSince(ctx context.Context, userId int, since time.Time, p models.Pagination) (models.Page[models.Check], error) {
+	const op = "storage.postgres.GetChecksByUserIdSince"
+
+	q := newListQuery(checkColumns, checksFrom).
+		Where("c.user_id = ?", userId).
+		Where("c.created_at > ?", since).
+		OrderBy("c.created_at ASC, c.check_id ASC").
+		Paginate(p)
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	page, err := selectPage[models.Check](ctx, tr, q)
+	if err != nil {
+		return page, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return page, nil
 }
 
 func (r *ChecksRepository) GetChecksByMarkHistoryId(ctx context.Context, markHistoryId int) ([]models.Check, error) {
@@ -184,7 +186,7 @@ func (r *ChecksRepository) GetChecksByUserIdAndMarkIdSince(ctx context.Context, 
 		JOIN 
 			users AS u ON c.user_id = u.user_id 
 		WHERE 
-			c.user_id = $1 AND c.mark_id = $2 AND changed_at > $3`
+			c.user_id = $1 AND c.mark_id = $2 AND c.created_at > $3`
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.SelectContext(ctx, &checks, query, userId, markId, dateTime); err != nil {
@@ -192,6 +194,23 @@ func (r *ChecksRepository) GetChecksByUserIdAndMarkIdSince(ctx context.Context, 
 	}
 
 	return checks, nil
+}
+
+// CountChecksByUserIdSince counts the user's checks created after since
+// (used by the daily anti-fraud limit).
+func (r *ChecksRepository) CountChecksByUserIdSince(ctx context.Context, userId int, since time.Time) (int, error) {
+	const op = "storage.postgres.CountChecksByUserIdSince"
+
+	var n int
+
+	query := `SELECT COUNT(*) FROM checks WHERE user_id = $1 AND created_at > $2`
+
+	tr := r.getter.DefaultTrOrDB(ctx, r.db)
+	if err := tr.GetContext(ctx, &n, query, userId, since); err != nil {
+		return 0, fmt.Errorf("%s: %w", op, err)
+	}
+
+	return n, nil
 }
 
 func (r *ChecksRepository) GetUserMarkCheck(ctx context.Context, userId int, markStatusHistoryId int) (models.Check, error) {
@@ -223,16 +242,14 @@ func (r *ChecksRepository) GetUserMarkCheck(ctx context.Context, userId int, mar
 		JOIN 
 			users AS u ON c.user_id = u.user_id 
 		WHERE 
-			c.user_id = $2 AND mark_status_history_id IN (SELECT id FROM r)`
+			c.user_id = $2 AND mark_status_history_id IN (SELECT id FROM r)
+		ORDER BY
+			c.created_at DESC, c.check_id DESC
+		LIMIT 1`
 
 	tr := r.getter.DefaultTrOrDB(ctx, r.db)
 	if err := tr.GetContext(ctx, &check, query, markStatusHistoryId, userId); err != nil {
-		switch err {
-		case sql.ErrNoRows:
-			return check, repository.ErrNotFound
-		default:
-			return check, fmt.Errorf("%s: %w", op, err)
-		}
+		return check, wrapPgError(op, err)
 	}
 
 	return check, nil
