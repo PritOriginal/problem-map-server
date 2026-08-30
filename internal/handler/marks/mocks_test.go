@@ -373,6 +373,65 @@ func (_c *MockMarks_AddMark_Call) RunAndReturn(run func(ctx context.Context, mar
 	return _c
 }
 
+// AddMarks provides a mock function for the type MockMarks
+func (_mock *MockMarks) AddMarks(ctx context.Context, items []models.NewMark) []models.BatchAddResult {
+	ret := _mock.Called(ctx, items)
+
+	if len(ret) == 0 {
+		panic("no return value specified for AddMarks")
+	}
+
+	var r0 []models.BatchAddResult
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []models.NewMark) []models.BatchAddResult); ok {
+		r0 = returnFunc(ctx, items)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]models.BatchAddResult)
+		}
+	}
+	return r0
+}
+
+// MockMarks_AddMarks_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'AddMarks'
+type MockMarks_AddMarks_Call struct {
+	*mock.Call
+}
+
+// AddMarks is a helper method to define mock.On call
+//   - ctx context.Context
+//   - items []models.NewMark
+func (_e *MockMarks_Expecter) AddMarks(ctx any, items any) *MockMarks_AddMarks_Call {
+	return &MockMarks_AddMarks_Call{Call: _e.mock.On("AddMarks", ctx, items)}
+}
+
+func (_c *MockMarks_AddMarks_Call) Run(run func(ctx context.Context, items []models.NewMark)) *MockMarks_AddMarks_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []models.NewMark
+		if args[1] != nil {
+			arg1 = args[1].([]models.NewMark)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *MockMarks_AddMarks_Call) Return(batchAddResults []models.BatchAddResult) *MockMarks_AddMarks_Call {
+	_c.Call.Return(batchAddResults)
+	return _c
+}
+
+func (_c *MockMarks_AddMarks_Call) RunAndReturn(run func(ctx context.Context, items []models.NewMark) []models.BatchAddResult) *MockMarks_AddMarks_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // DeleteMark provides a mock function for the type MockMarks
 func (_mock *MockMarks) DeleteMark(ctx context.Context, actor models.Actor, markId int) error {
 	ret := _mock.Called(ctx, actor, markId)

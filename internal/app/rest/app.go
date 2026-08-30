@@ -98,6 +98,11 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 		TTL:     cfg.REST.Idempotency.TTL,
 		LockTTL: cfg.REST.Idempotency.LockTTL,
 	})
+	// Per-item idempotency of the batch endpoints over the same store and
+	// TTL; fails open without Redis, like the middleware.
+	idempotencyKeys := idempotency.NewKeys(log, redisClient, idempotency.Config{
+		TTL: cfg.REST.Idempotency.TTL,
+	})
 
 	handler.SetSwagger(router)
 
@@ -193,8 +198,9 @@ func New(log *slog.Logger, cfg *config.Config) *App {
 			Requests: cfg.Export.RateLimit.Requests,
 			Window:   cfg.Export.RateLimit.Window,
 		}),
-		APIKey:      apiKeyMiddleware,
-		Idempotency: idempotencyMiddleware,
+		APIKey:          apiKeyMiddleware,
+		Idempotency:     idempotencyMiddleware,
+		IdempotencyKeys: idempotencyKeys,
 	})
 
 	commentsRepo := postgres.NewComments(postgresDB.DB, trmsqlx.DefaultCtxGetter)
