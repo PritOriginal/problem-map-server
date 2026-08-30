@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -460,6 +461,56 @@ func (uc *Marks) AddMark(ctx context.Context, mark models.Mark, photos []io.Read
 	}
 
 	return markId, nil
+}
+
+// AddMarks creates the items one after another with AddMark, in the given
+// order, and reports the outcome of every item separately: a failing item
+// never aborts the batch. The order is what makes the duplicate detection
+// inside a batch work — every item runs its own similarity search against
+// the marks the earlier items have already created, exactly as if the
+// client had sent the requests one by one.
+//
+// Each item is transactional on its own (AddMark wraps the mark, the
+// subscription, the check and the photos in one transaction); the batch as
+// a whole is not, which is the point: the client keeps the successful part
+// of a partially rejected batch.
+//
+// The returned slice always has one result per item, in the input order.
+func (uc *Marks) AddMarks(ctx context.Context, items []models.NewMark) []models.BatchAddResult {
+	const op = "usecase.Marks.AddMarks"
+
+	results := make([]models.BatchAddResult, 0, len(items))
+	for _, item := range items {
+		if err := ctx.Err(); err != nil {
+			results = append(results, models.BatchAddResult{
+				Status: models.BatchStatusFailed,
+				Err:    fmt.Errorf("%s: %w", op, err),
+			})
+			continue
+		}
+
+		markId, err := uc.AddMark(ctx, item.Mark, item.Photos, item.Force)
+		var similar *SimilarMarksError
+		switch {
+		case err == nil:
+			results = append(results, models.BatchAddResult{
+				Status: models.BatchStatusCreated,
+				MarkID: markId,
+			})
+		case errors.As(err, &similar):
+			results = append(results, models.BatchAddResult{
+				Status:       models.BatchStatusDuplicate,
+				SimilarMarks: similar.Marks,
+				Err:          err,
+			})
+		default:
+			results = append(results, models.BatchAddResult{
+				Status: models.BatchStatusFailed,
+				Err:    err,
+			})
+		}
+	}
+	return results
 }
 
 // UpdateMark changes description/type. The owner may edit only an

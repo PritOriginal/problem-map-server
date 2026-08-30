@@ -12,6 +12,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/apikey"
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/idempotency"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
@@ -27,6 +28,7 @@ type Marks interface {
 	GetMarkById(ctx context.Context, id int) (models.Mark, error)
 	ListMarksByUserId(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error)
 	AddMark(ctx context.Context, mark models.Mark, photos []io.Reader, force bool) (int64, error)
+	AddMarks(ctx context.Context, items []models.NewMark) []models.BatchAddResult
 	FindSimilarMarks(ctx context.Context, filters models.GetSimilarMarksFilters) ([]models.MarkWithDistance, error)
 	UpdateMark(ctx context.Context, actor models.Actor, markId int, upd models.MarkUpdate) (models.Mark, error)
 	DeleteMark(ctx context.Context, actor models.Actor, markId int) error
@@ -61,6 +63,9 @@ type handler struct {
 	uc            Marks
 	statusUpdater StatusUpdater
 	exporter      Exporter
+	// keys is the per-item idempotency of POST /marks/batch; a nil *Keys
+	// is usable and simply makes the item keys inert.
+	keys *idempotency.Keys
 }
 
 type Params struct {
@@ -81,6 +86,11 @@ type Params struct {
 	// Idempotency handles the Idempotency-Key header of the mutating routes
 	// (POST /marks); optional.
 	Idempotency gin.HandlerFunc
+	// IdempotencyKeys deduplicates the individual items of POST
+	// /marks/batch by their own "key" (the header-based middleware cannot:
+	// the items are not separate requests). Optional — without it the
+	// per-item keys are ignored and everything else works as usual.
+	IdempotencyKeys *idempotency.Keys
 }
 
 func Register(r *gin.Engine, log *slog.Logger, params Params) {
@@ -89,6 +99,7 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 		uc:            params.Usecase,
 		statusUpdater: params.StatusUpdater,
 		exporter:      params.Exporter,
+		keys:          params.IdempotencyKeys,
 	}
 
 	// The viewer is recorded for every marks route so that is_following is
@@ -139,6 +150,13 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 				create.Use(params.Idempotency)
 			}
 			create.POST("", handler.AddMark())
+
+			// The batch carries the photos of several marks at once, so it
+			// gets its own, larger body limit; the per-item keys inside the
+			// JSON make it idempotent, the header middleware does not
+			// apply.
+			batch := auth.Group("", middleware.MaxBodySize(handlers.MaxBatchUploadBodySize))
+			batch.POST(BatchPath, handler.AddMarksBatch())
 		}
 		cache := marks.Group("")
 		cache.Use(mwcache.New(params.Cacher, DictionaryCacheTTL))

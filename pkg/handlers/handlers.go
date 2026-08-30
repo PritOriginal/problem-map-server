@@ -25,6 +25,17 @@ const (
 	// uploads: MaxPhotos photos of MaxPhotoSize plus room for the remaining
 	// form fields and multipart framing.
 	MaxUploadBodySize = MaxPhotos*MaxPhotoSize + 1<<20
+	// MaxBatchItems is the maximum number of operations accepted in a
+	// single batch request (POST /marks/batch). It bounds both the work of
+	// one request and the size of its body.
+	MaxBatchItems = 20
+	// MaxBatchUploadBodySize is the request body limit of the batch
+	// uploads. It is budgeted as one full-size photo per item plus 4 MiB
+	// for the JSON field and the multipart framing — deliberately not
+	// MaxBatchItems*MaxPhotos*MaxPhotoSize (1 GiB), which no client should
+	// be allowed to push through a single request. A batch whose photos do
+	// not fit must be split; the per-item limit of MaxPhotos still holds.
+	MaxBatchUploadBodySize = MaxBatchItems*MaxPhotoSize + 4<<20
 	// MaxPhotoDimension is the maximum width/height of an uploaded photo in pixels.
 	MaxPhotoDimension = 8000
 )

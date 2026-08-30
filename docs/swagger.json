@@ -2199,6 +2199,75 @@
                 }
             }
         },
+        "/marks/batch": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Apply a queue of offline mark creations in one multipart request. `items` is a JSON array of operations **in the order they must be applied**, and the server applies them one after another, so duplicate detection works exactly as it does for a sequence of `POST /marks`: every item is checked against the marks the earlier items of the same batch have just created.\n\nThe photos of the item at index `i` are sent in the file fields `photos.i` (several files per index are allowed, in order); `items[i].photos` must match how many files are sent for that index.\n\nThe answer is always `200` when the batch itself is well-formed: every item carries its own result (`created`, `replayed`, `duplicate`, `failed`), and a rejected item never cancels the others. An item may set `\"force\": true` to skip its own duplicate detection, and `\"key\"` (a UUID) to make itself idempotent: repeating a batch replays the items whose key already created a mark instead of creating it twice.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "marks"
+                ],
+                "summary": "Add marks in a batch",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "example": "[{\\\"longitude\\\":41.44,\\\"latitude\\\":52.72,\\\"mark_type_id\\\":3,\\\"photos\\\":1}]",
+                        "description": "JSON array of operations, at most 20, in the order they must be applied. Item: {key?: uuid, longitude, latitude, mark_type_id, description?, force?, photos}",
+                        "name": "items",
+                        "in": "formData",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Photos of the item at index 0 (repeat the field for several files); use photos.1, photos.2, … for the next items, at most 5 files per item",
+                        "name": "photos.0",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "per-item results in the request order; check every item's status",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_BatchAddMarksResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "the batch itself is malformed: `items` missing or not a JSON array (`error.code` is `invalid_items`), or more than 20 items (`too_many_items`)",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "413": {
+                        "description": "the request body is larger than the batch limit",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any"
+                        }
+                    }
+                }
+            }
+        },
         "/marks/changes": {
             "get": {
                 "description": "marks updated after `since` (oldest change first; page with limit/offset, total in `meta`), ids of marks deleted after `since` (paged by the same limit/offset, total in `deleted_total`) and ids of marks hidden by moderation after it (paged the same way, total in `hidden_total`); a client drops its copies of the deleted and hidden marks. A hidden mark still shows up in `marks` for its author and for moderators (with `hidden: true`). Store `server_time` and pass it as the next `since`; with several server instances subtract a safety margin (`server_time - 1s`) to cover clock skew between them. `since` in the future is rejected with 400",
@@ -6612,6 +6681,21 @@
                 "MetricMarksClosed"
             ]
         },
+        "github_com_PritOriginal_problem-map-server_internal_models.BatchAddStatus": {
+            "type": "string",
+            "enum": [
+                "created",
+                "duplicate",
+                "failed",
+                "replayed"
+            ],
+            "x-enum-varnames": [
+                "BatchStatusCreated",
+                "BatchStatusDuplicate",
+                "BatchStatusFailed",
+                "BatchStatusReplayed"
+            ]
+        },
         "github_com_PritOriginal_problem-map-server_internal_models.Check": {
             "type": "object",
             "properties": {
@@ -8414,6 +8498,23 @@
                 }
             }
         },
+        "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_BatchAddMarksResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                },
+                "meta": {
+                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta"
+                },
+                "payload": {
+                    "$ref": "#/definitions/internal_handler_marks.BatchAddMarksResponse"
+                },
+                "success": {
+                    "type": "boolean"
+                }
+            }
+        },
         "github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_ConfirmResponse": {
             "type": "object",
             "properties": {
@@ -9968,6 +10069,62 @@
             "properties": {
                 "mark_id": {
                     "type": "integer"
+                }
+            }
+        },
+        "internal_handler_marks.BatchAddMarksResponse": {
+            "type": "object",
+            "properties": {
+                "results": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_handler_marks.BatchMarkResult"
+                    }
+                }
+            }
+        },
+        "internal_handler_marks.BatchMarkResult": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "description": "Error describes a duplicate or a failure.",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo"
+                        }
+                    ]
+                },
+                "index": {
+                    "type": "integer"
+                },
+                "key": {
+                    "description": "Key echoes the item's idempotency key when it sent one.",
+                    "type": "string"
+                },
+                "mark_id": {
+                    "description": "MarkId is filled for created and replayed.",
+                    "type": "integer"
+                },
+                "similar_marks": {
+                    "description": "SimilarMarks lists the nearby marks that made the item a duplicate;\nrepeat that item with \"force\": true to create it anyway.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkWithDistance"
+                    }
+                },
+                "status": {
+                    "description": "Status is one of created, replayed, duplicate, failed.",
+                    "enum": [
+                        "created",
+                        "replayed",
+                        "duplicate",
+                        "failed"
+                    ],
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.BatchAddStatus"
+                        }
+                    ]
                 }
             }
         },
