@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/PritOriginal/problem-map-server/internal/models"
+	"github.com/PritOriginal/problem-map-server/internal/version"
 	"github.com/gin-gonic/gin"
 )
 
@@ -153,16 +154,17 @@ func serve(c *gin.Context, e entry, cacheControl string) {
 	c.Data(status, contentType, e.Body)
 }
 
-// Key builds the cache key of a request: method, full URL and language.
+// Key builds the cache key of a request: build id, method, full URL and
+// language.
 func Key(method, url string, lang models.Lang) string {
-	return fmt.Sprintf("http:%s:%s:%s", method, url, lang)
+	return fmt.Sprintf("%s:%s", Prefix(method, url), lang)
 }
 
 // Prefix is the common prefix of the keys of every cached response of the
 // route (any query string, any language); it is what an invalidation
 // (e.g. usecase.DictionaryCache.DeleteByPrefix) matches on.
 func Prefix(method, path string) string {
-	return fmt.Sprintf("http:%s:%s", method, path)
+	return fmt.Sprintf("http:%s:%s:%s", version.Build(), method, path)
 }
 
 // ETag returns the strong validator of a body: the quoted hex sha256.
