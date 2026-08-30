@@ -14,7 +14,6 @@ import (
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
-	"github.com/PritOriginal/problem-map-server/pkg/handlers"
 	"github.com/PritOriginal/problem-map-server/pkg/responses"
 	"github.com/gin-gonic/gin"
 )
@@ -87,6 +86,7 @@ func Register(r *gin.Engine, log *slog.Logger, uc Map, cacher mwcache.Cacher, mi
 //	@Accept			json
 //	@Produce		json
 //	@Param			admin_levels	query		[]number	false	"filter by admin level"
+//	@Param			geometry		query		boolean		false	"include the geom field (default true); geometry=false returns only id, name and admin_level, a few kilobytes instead of a megabyte — fetch the geometry from /map/admin-boundaries/{id}.geojson"
 //	@Param			If-None-Match	header		string		false	"ETag of a previous response; 304 when the data did not change"
 //	@Success		200				{object}	responses.Response[maprest.GetAdminBoundariesResponse]
 //	@Header			200				{string}	ETag			"validator for If-None-Match"
@@ -99,15 +99,17 @@ func (h *handler) GetAdminBoundaries() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		const op = "maprest.GetAdminBoundaries"
 
-		adminLevels, err := handlers.QueryIntArray(c, "admin_levels")
+		var req GetAdminBoundariesRequest
+		if !listquery.Bind(c, h.log, &req) {
+			return
+		}
+		filters, err := req.Filters()
 		if err != nil {
-			responses.FromError(c, h.log, op, err)
+			responses.BadRequest(c, err.Error())
 			return
 		}
 
-		boundaries, err := h.uc.GetAdminBoundaries(c.Request.Context(), models.GetAdminBoundaryFilters{
-			AdminLevels: adminLevels,
-		})
+		boundaries, err := h.uc.GetAdminBoundaries(c.Request.Context(), filters)
 		if err != nil {
 			responses.FromError(c, h.log, op, err)
 			return

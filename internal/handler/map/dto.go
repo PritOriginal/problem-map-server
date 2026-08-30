@@ -11,6 +11,32 @@ import (
 // MsgTooManyCells is the 400 message when the heatmap grid is too fine.
 const MsgTooManyCells = "too many cells: increase cell_m"
 
+// GetAdminBoundariesRequest is bound from the query string of
+// GET /map/admin-boundaries.
+type GetAdminBoundariesRequest struct {
+	AdminLevels string `form:"admin_levels"`
+	// Geometry toggles the geom field; missing means true, so the default
+	// response keeps its geometry.
+	Geometry *bool `form:"geometry"`
+}
+
+// Filters converts the request to domain filters. Returned errors are safe
+// to show to the client.
+func (r GetAdminBoundariesRequest) Filters() (models.GetAdminBoundaryFilters, error) {
+	adminLevels, err := handlers.ParseIntArray(r.AdminLevels)
+	if err != nil {
+		return models.GetAdminBoundaryFilters{}, fmt.Errorf("failed parse admin levels")
+	}
+	withGeometry := true
+	if r.Geometry != nil {
+		withGeometry = *r.Geometry
+	}
+	return models.GetAdminBoundaryFilters{
+		AdminLevels:  adminLevels,
+		WithGeometry: withGeometry,
+	}, nil
+}
+
 type GetAdminBoundariesResponse struct {
 	AdminBoundaries []models.AdminBoundary `json:"admin_boundaries"`
 }

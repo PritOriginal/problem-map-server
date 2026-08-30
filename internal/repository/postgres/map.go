@@ -26,7 +26,13 @@ func NewMap(db *sqlx.DB, c *trmsqlx.CtxGetter) *MapRepository {
 func (r *MapRepository) GetAdminBoundaries(ctx context.Context, filters models.GetAdminBoundaryFilters) ([]models.AdminBoundary, error) {
 	const op = "storage.postgres.GetAdminBoundaries"
 
-	q := newListQuery("id, name, admin_level, ST_AsEWKB(geom) AS geom", "admin_boundaries").
+	// The geometry dominates the response size, so it is selected only when asked for.
+	columns := "id, name, admin_level"
+	if filters.WithGeometry {
+		columns = "id, name, admin_level, ST_AsEWKB(geom) AS geom"
+	}
+
+	q := newListQuery(columns, "admin_boundaries").
 		OrderBy("id ASC")
 
 	if len(filters.AdminLevels) > 0 {
