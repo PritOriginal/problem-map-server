@@ -17,15 +17,21 @@ func (s *PostgresSuite) TestMap_GetAdminBoundaries() {
 	`)
 	s.Require().NoError(err)
 
+	// WithGeometry is what the caller asks for, and the handler defaults it to true
+	// (see handler/map/dto.go): the cases below therefore set it explicitly rather
+	// than leaning on the zero value, which means "id, name and admin_level only".
 	tests := []struct {
 		name      string
 		filters   models.GetAdminBoundaryFilters
 		wantNames []string
 	}{
-		{name: "all levels", wantNames: []string{"Центр", "Пустой", "Область"}},
-		{name: "level 8", filters: models.GetAdminBoundaryFilters{AdminLevels: []int{8}}, wantNames: []string{"Центр", "Пустой"}},
-		{name: "levels 4 and 8", filters: models.GetAdminBoundaryFilters{AdminLevels: []int{4, 8}}, wantNames: []string{"Центр", "Пустой", "Область"}},
-		{name: "level without boundaries", filters: models.GetAdminBoundaryFilters{AdminLevels: []int{6}}, wantNames: []string{}},
+		{name: "all levels", filters: models.GetAdminBoundaryFilters{WithGeometry: true}, wantNames: []string{"Центр", "Пустой", "Область"}},
+		{name: "level 8", filters: models.GetAdminBoundaryFilters{AdminLevels: []int{8}, WithGeometry: true}, wantNames: []string{"Центр", "Пустой"}},
+		{name: "levels 4 and 8", filters: models.GetAdminBoundaryFilters{AdminLevels: []int{4, 8}, WithGeometry: true}, wantNames: []string{"Центр", "Пустой", "Область"}},
+		{name: "level without boundaries", filters: models.GetAdminBoundaryFilters{AdminLevels: []int{6}, WithGeometry: true}, wantNames: []string{}},
+		// The index the map asks for on load: the geometry dominates the response,
+		// so it is left out and every other column still has to arrive.
+		{name: "without geometry", filters: models.GetAdminBoundaryFilters{}, wantNames: []string{"Центр", "Пустой", "Область"}},
 	}
 
 	for _, tt := range tests {
@@ -39,6 +45,10 @@ func (s *PostgresSuite) TestMap_GetAdminBoundaries() {
 				names = append(names, b.Name)
 				s.NotZero(b.Id)
 				s.NotZero(b.AdminLevel)
+				if !tt.filters.WithGeometry {
+					s.Nil(b.Geom)
+					continue
+				}
 				s.Require().NotNil(b.Geom)
 				s.Equal(4326, b.Geom.Ewkb.SRID())
 				s.Equal(1, b.Geom.Ewkb.NumPolygons())
