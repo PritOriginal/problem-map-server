@@ -13,14 +13,19 @@ import (
 )
 
 type AdminBoundary struct {
-	Id         int           `json:"id" db:"id"`
-	Name       string        `json:"name" db:"name"`
-	AdminLevel int           `json:"admin_level" db:"admin_level"`
-	Geom       *MultiPolygon `json:"geom" db:"geom"`
+	Id         int    `json:"id" db:"id"`
+	Name       string `json:"name" db:"name"`
+	AdminLevel int    `json:"admin_level" db:"admin_level"`
+	// Geom is omitted from the response when the geometry was not requested
+	// (see GetAdminBoundaryFilters.WithGeometry).
+	Geom *MultiPolygon `json:"geom,omitempty" db:"geom"`
 }
 
 type GetAdminBoundaryFilters struct {
 	AdminLevels []int
+	// WithGeometry selects the boundary geometry; without it the response
+	// carries only id, name and admin_level and is orders of magnitude smaller.
+	WithGeometry bool
 }
 
 type AdminBoundaryMarksCount struct {

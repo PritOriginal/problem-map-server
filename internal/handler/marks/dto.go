@@ -8,6 +8,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/handler/listquery"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
+	"github.com/PritOriginal/problem-map-server/pkg/responses"
 )
 
 type GetMarkByIdResponse struct {
@@ -301,4 +302,63 @@ type SetHiddenRequest struct {
 type MergeIntoResponse struct {
 	Mark         models.Mark `json:"mark"`
 	MergedIntoId int         `json:"merged_into_id"`
+}
+
+// BatchPhotosField returns the multipart field name carrying the photos of
+// the i-th item of POST /marks/batch ("photos.0", "photos.1", …).
+func BatchPhotosField(i int) string {
+	return fmt.Sprintf("%s.%d", BatchPhotosPrefix, i)
+}
+
+// BatchAddMarkItem is one operation of POST /marks/batch, decoded from the
+// JSON array of the "items" form field. Coordinates are WGS84 in the
+// GeoJSON/PostGIS order: longitude is X, latitude is Y.
+type BatchAddMarkItem struct {
+	// Key is the optional per-item idempotency key (a UUID chosen by the
+	// client). A repeat of an item whose key was already used within the
+	// TTL is replayed instead of creating a second mark.
+	Key string `json:"key"`
+	// Longitude in degrees (WGS84), stored as X. Example: 41.44 for Tambov.
+	Longitude float64 `json:"longitude" example:"41.44"`
+	// Latitude in degrees (WGS84), stored as Y. Example: 52.72 for Tambov.
+	Latitude   float64 `json:"latitude" example:"52.72"`
+	MarkTypeID int     `json:"mark_type_id"`
+	// Description is limited to models.MaxMarkDescriptionLen runes.
+	Description string `json:"description"`
+	// Force skips the duplicate detection of this item only.
+	Force bool `json:"force"`
+	// Photos is how many files this item sends in the field
+	// BatchPhotosField(index); it must match the files actually sent.
+	Photos int `json:"photos"`
+}
+
+// BatchAddMarksRequest documents the JSON of the "items" form field of
+// POST /marks/batch. The request itself is multipart, so it is decoded by
+// hand rather than bound by Gin.
+type BatchAddMarksRequest struct {
+	Items []BatchAddMarkItem `json:"items"`
+}
+
+// BatchMarkResult is the outcome of one item of POST /marks/batch. Results
+// keep the request order and Index is the position in the request, so a
+// client can match them up even if it ignores the order.
+type BatchMarkResult struct {
+	Index int `json:"index"`
+	// Key echoes the item's idempotency key when it sent one.
+	Key string `json:"key,omitempty"`
+	// Status is one of created, replayed, duplicate, failed.
+	Status models.BatchAddStatus `json:"status" enums:"created,replayed,duplicate,failed"`
+	// MarkId is filled for created and replayed.
+	MarkId int `json:"mark_id,omitempty"`
+	// Error describes a duplicate or a failure.
+	Error *responses.ErrorInfo `json:"error,omitempty"`
+	// SimilarMarks lists the nearby marks that made the item a duplicate;
+	// repeat that item with "force": true to create it anyway.
+	SimilarMarks []models.MarkWithDistance `json:"similar_marks,omitempty"`
+}
+
+// BatchAddMarksResponse is the payload of POST /marks/batch: one result per
+// requested item, in the request order.
+type BatchAddMarksResponse struct {
+	Results []BatchMarkResult `json:"results"`
 }

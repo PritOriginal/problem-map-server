@@ -32,7 +32,11 @@ definitions:
       admin_level:
         type: integer
       geom:
-        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MultiPolygonJSON'
+        allOf:
+        - $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MultiPolygonJSON'
+        description: |-
+          Geom is omitted from the response when the geometry was not requested
+          (see GetAdminBoundaryFilters.WithGeometry).
       id:
         type: integer
       name:
@@ -86,6 +90,18 @@ definitions:
     - MetricCheckStreakDays
     - MetricTasksCompleted
     - MetricMarksClosed
+  github_com_PritOriginal_problem-map-server_internal_models.BatchAddStatus:
+    enum:
+    - created
+    - duplicate
+    - failed
+    - replayed
+    type: string
+    x-enum-varnames:
+    - BatchStatusCreated
+    - BatchStatusDuplicate
+    - BatchStatusFailed
+    - BatchStatusReplayed
   github_com_PritOriginal_problem-map-server_internal_models.Check:
     properties:
       check_id:
@@ -997,6 +1013,8 @@ definitions:
     type: object
   github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo:
     properties:
+      code:
+        type: string
       message:
         type: string
     type: object
@@ -1357,6 +1375,17 @@ definitions:
         $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
       payload:
         $ref: '#/definitions/internal_handler_marks.AddMarkResponse'
+      success:
+        type: boolean
+    type: object
+  github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_BatchAddMarksResponse:
+    properties:
+      error:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+      meta:
+        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ListMeta'
+      payload:
+        $ref: '#/definitions/internal_handler_marks.BatchAddMarksResponse'
       success:
         type: boolean
     type: object
@@ -2406,6 +2435,44 @@ definitions:
     properties:
       mark_id:
         type: integer
+    type: object
+  internal_handler_marks.BatchAddMarksResponse:
+    properties:
+      results:
+        items:
+          $ref: '#/definitions/internal_handler_marks.BatchMarkResult'
+        type: array
+    type: object
+  internal_handler_marks.BatchMarkResult:
+    properties:
+      error:
+        allOf:
+        - $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.ErrorInfo'
+        description: Error describes a duplicate or a failure.
+      index:
+        type: integer
+      key:
+        description: Key echoes the item's idempotency key when it sent one.
+        type: string
+      mark_id:
+        description: MarkId is filled for created and replayed.
+        type: integer
+      similar_marks:
+        description: |-
+          SimilarMarks lists the nearby marks that made the item a duplicate;
+          repeat that item with "force": true to create it anyway.
+        items:
+          $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MarkWithDistance'
+        type: array
+      status:
+        allOf:
+        - $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.BatchAddStatus'
+        description: Status is one of created, replayed, duplicate, failed.
+        enum:
+        - created
+        - replayed
+        - duplicate
+        - failed
     type: object
   internal_handler_marks.ConfirmResponse:
     properties:
@@ -3694,7 +3761,7 @@ paths:
         per rolling 24 hours (429)
       parameters:
       - description: 'UUID chosen by the client; a repeat with the same key within
-          24h returns the stored response with `Idempotent-Replayed: true` (409 while
+          24h returns the stored response with `Idempotent-Replayed: true` (425 while
           the first request is in flight, 422 when reused with other form fields)'
         in: header
         name: Idempotency-Key
@@ -3727,7 +3794,13 @@ paths:
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "422":
-          description: Idempotency-Key reused with a different payload
+          description: Idempotency-Key reused with a different payload (`error.code`
+            is `idempotency_key_reused`)
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "425":
+          description: a request with the same Idempotency-Key is in flight (`error.code`
+            is `idempotency_in_flight`); retry after `Retry-After` seconds
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "429":
@@ -4035,6 +4108,12 @@ paths:
           type: number
         name: admin_levels
         type: array
+      - description: include the geom field (default true); geometry=false returns
+          only id, name and admin_level, a few kilobytes instead of a megabyte — fetch
+          the geometry from /map/admin-boundaries/{id}.geojson
+        in: query
+        name: geometry
+        type: boolean
       - description: ETag of a previous response; 304 when the data did not change
         in: header
         name: If-None-Match
@@ -4396,7 +4475,7 @@ paths:
         is Y (GeoJSON/PostGIS order)'
       parameters:
       - description: 'UUID chosen by the client; a repeat with the same key within
-          24h returns the stored response with `Idempotent-Replayed: true` (409 while
+          24h returns the stored response with `Idempotent-Replayed: true` (425 while
           the first request is in flight, 422 when reused with other form fields)'
         in: header
         name: Idempotency-Key
@@ -4449,13 +4528,18 @@ paths:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "409":
           description: active marks of the same type exist within the dedup radius;
-            `payload.similar_marks` lists them with `distance_m`. Repeat with `?force=true`
-            to create anyway. Also returned (without payload) while a request with
-            the same Idempotency-Key is in progress
+            `error.code` is `similar_marks` and `payload.similar_marks` lists them
+            with `distance_m`. Repeat with `?force=true` to create anyway
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_SimilarMarksPayload'
         "422":
-          description: Idempotency-Key reused with a different payload
+          description: Idempotency-Key reused with a different payload (`error.code`
+            is `idempotency_key_reused`)
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "425":
+          description: a request with the same Idempotency-Key is in flight (`error.code`
+            is `idempotency_in_flight`); retry after `Retry-After` seconds
           schema:
             $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
         "500":
@@ -5175,6 +5259,60 @@ paths:
       - ApiKeyAuth: []
       - BearerAuth: []
       summary: List mark statuses
+      tags:
+      - marks
+  /marks/batch:
+    post:
+      consumes:
+      - multipart/form-data
+      description: |-
+        Apply a queue of offline mark creations in one multipart request. `items` is a JSON array of operations **in the order they must be applied**, and the server applies them one after another, so duplicate detection works exactly as it does for a sequence of `POST /marks`: every item is checked against the marks the earlier items of the same batch have just created.
+
+        The photos of the item at index `i` are sent in the file fields `photos.i` (several files per index are allowed, in order); `items[i].photos` must match how many files are sent for that index.
+
+        The answer is always `200` when the batch itself is well-formed: every item carries its own result (`created`, `replayed`, `duplicate`, `failed`), and a rejected item never cancels the others. An item may set `"force": true` to skip its own duplicate detection, and `"key"` (a UUID) to make itself idempotent: repeating a batch replays the items whose key already created a mark instead of creating it twice.
+      parameters:
+      - description: 'JSON array of operations, at most 20, in the order they must
+          be applied. Item: {key?: uuid, longitude, latitude, mark_type_id, description?,
+          force?, photos}'
+        example: '[{\"longitude\":41.44,\"latitude\":52.72,\"mark_type_id\":3,\"photos\":1}]'
+        in: formData
+        name: items
+        required: true
+        type: string
+      - description: Photos of the item at index 0 (repeat the field for several files);
+          use photos.1, photos.2, … for the next items, at most 5 files per item
+        in: formData
+        name: photos.0
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: per-item results in the request order; check every item's status
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-internal_handler_marks_BatchAddMarksResponse'
+        "400":
+          description: 'the batch itself is malformed: `items` missing or not a JSON
+            array (`error.code` is `invalid_items`), or more than 20 items (`too_many_items`)'
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "413":
+          description: the request body is larger than the batch limit
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/github_com_PritOriginal_problem-map-server_pkg_responses.Response-any'
+      security:
+      - BearerAuth: []
+      summary: Add marks in a batch
       tags:
       - marks
   /marks/changes:

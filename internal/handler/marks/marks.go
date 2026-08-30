@@ -12,6 +12,7 @@ import (
 	"github.com/PritOriginal/problem-map-server/internal/middleware"
 	"github.com/PritOriginal/problem-map-server/internal/middleware/apikey"
 	mwcache "github.com/PritOriginal/problem-map-server/internal/middleware/cache"
+	"github.com/PritOriginal/problem-map-server/internal/middleware/idempotency"
 	"github.com/PritOriginal/problem-map-server/internal/models"
 	"github.com/PritOriginal/problem-map-server/internal/usecase"
 	"github.com/PritOriginal/problem-map-server/pkg/handlers"
@@ -27,6 +28,7 @@ type Marks interface {
 	GetMarkById(ctx context.Context, id int) (models.Mark, error)
 	ListMarksByUserId(ctx context.Context, userId int, p models.Pagination) (models.Page[models.Mark], error)
 	AddMark(ctx context.Context, mark models.Mark, photos []io.Reader, force bool) (int64, error)
+	AddMarks(ctx context.Context, items []models.NewMark) []models.BatchAddResult
 	FindSimilarMarks(ctx context.Context, filters models.GetSimilarMarksFilters) ([]models.MarkWithDistance, error)
 	UpdateMark(ctx context.Context, actor models.Actor, markId int, upd models.MarkUpdate) (models.Mark, error)
 	DeleteMark(ctx context.Context, actor models.Actor, markId int) error
@@ -61,6 +63,9 @@ type handler struct {
 	uc            Marks
 	statusUpdater StatusUpdater
 	exporter      Exporter
+	// keys is the per-item idempotency of POST /marks/batch; a nil *Keys
+	// is usable and simply makes the item keys inert.
+	keys *idempotency.Keys
 }
 
 type Params struct {
@@ -81,6 +86,11 @@ type Params struct {
 	// Idempotency handles the Idempotency-Key header of the mutating routes
 	// (POST /marks); optional.
 	Idempotency gin.HandlerFunc
+	// IdempotencyKeys deduplicates the individual items of POST
+	// /marks/batch by their own "key" (the header-based middleware cannot:
+	// the items are not separate requests). Optional — without it the
+	// per-item keys are ignored and everything else works as usual.
+	IdempotencyKeys *idempotency.Keys
 }
 
 func Register(r *gin.Engine, log *slog.Logger, params Params) {
@@ -89,6 +99,7 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 		uc:            params.Usecase,
 		statusUpdater: params.StatusUpdater,
 		exporter:      params.Exporter,
+		keys:          params.IdempotencyKeys,
 	}
 
 	// The viewer is recorded for every marks route so that is_following is
@@ -139,6 +150,13 @@ func Register(r *gin.Engine, log *slog.Logger, params Params) {
 				create.Use(params.Idempotency)
 			}
 			create.POST("", handler.AddMark())
+
+			// The batch carries the photos of several marks at once, so it
+			// gets its own, larger body limit; the per-item keys inside the
+			// JSON make it idempotent, the header middleware does not
+			// apply.
+			batch := auth.Group("", middleware.MaxBodySize(handlers.MaxBatchUploadBodySize))
+			batch.POST(BatchPath, handler.AddMarksBatch())
 		}
 		cache := marks.Group("")
 		cache.Use(mwcache.New(params.Cacher, DictionaryCacheTTL))
@@ -392,7 +410,7 @@ func (h *handler) GetMarksByUserId() gin.HandlerFunc {
 //	@Accept			mpfd
 //	@Produce		json
 //	@Security		BearerAuth
-//	@Param			Idempotency-Key	header		string	false	"UUID chosen by the client; a repeat with the same key within 24h returns the stored response with `Idempotent-Replayed: true` (409 while the first request is in flight, 422 when reused with other form fields)"
+//	@Param			Idempotency-Key	header		string	false	"UUID chosen by the client; a repeat with the same key within 24h returns the stored response with `Idempotent-Replayed: true` (425 while the first request is in flight, 422 when reused with other form fields)"
 //	@Param			photos			formData	file	true	"Photos of the problem"
 //	@Param			longitude		formData	number	true	"Longitude in degrees (X), WGS84"	example(41.44)
 //	@Param			latitude		formData	number	true	"Latitude in degrees (Y), WGS84"	example(52.72)
@@ -402,8 +420,9 @@ func (h *handler) GetMarksByUserId() gin.HandlerFunc {
 //	@Success		201				{object}	responses.Response[marksrest.AddMarkResponse]
 //	@Failure		400				{object}	responses.Response[any]
 //	@Failure		401				{object}	responses.Response[any]
-//	@Failure		409				{object}	responses.Response[marksrest.SimilarMarksPayload]	"active marks of the same type exist within the dedup radius; `payload.similar_marks` lists them with `distance_m`. Repeat with `?force=true` to create anyway. Also returned (without payload) while a request with the same Idempotency-Key is in progress"
-//	@Failure		422				{object}	responses.Response[any]								"Idempotency-Key reused with a different payload"
+//	@Failure		409				{object}	responses.Response[marksrest.SimilarMarksPayload]	"active marks of the same type exist within the dedup radius; `error.code` is `similar_marks` and `payload.similar_marks` lists them with `distance_m`. Repeat with `?force=true` to create anyway"
+//	@Failure		422				{object}	responses.Response[any]								"Idempotency-Key reused with a different payload (`error.code` is `idempotency_key_reused`)"
+//	@Failure		425				{object}	responses.Response[any]								"a request with the same Idempotency-Key is in flight (`error.code` is `idempotency_in_flight`); retry after `Retry-After` seconds"
 //	@Failure		500				{object}	responses.Response[any]
 //	@Router			/marks [post]
 func (h *handler) AddMark() gin.HandlerFunc {
@@ -454,7 +473,7 @@ func (h *handler) AddMark() gin.HandlerFunc {
 			var similar *usecase.SimilarMarksError
 			if errors.As(err, &similar) {
 				h.log.Debug(op, logger.Err(err))
-				responses.FailWithPayload(c, http.StatusConflict, "similar marks nearby", SimilarMarksPayload{
+				responses.FailWithCodePayload(c, http.StatusConflict, responses.CodeSimilarMarks, "similar marks nearby", SimilarMarksPayload{
 					SimilarMarks: similar.Marks,
 				})
 				return

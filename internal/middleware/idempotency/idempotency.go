@@ -8,8 +8,9 @@
 //   - The in-progress lock is released when the handler answers 5xx or
 //     panics. If the client connection drops after the lock was taken but
 //     before the response was stored (the handler may still complete the
-//     write), a retry within LockTTL gets 409 and the client must retry
-//     after it; a retry after a stored response gets the replay.
+//     write), a retry within LockTTL gets 425 (with Retry-After) and the
+//     client must retry after it; a retry after a stored response gets the
+//     replay.
 //   - The fingerprint of a multipart request covers the form fields only,
 //     not the uploaded files: a repeat with the same key and fields but
 //     other files is treated as the same request and replayed.
@@ -27,6 +28,7 @@ import (
 	"log/slog"
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -50,9 +52,15 @@ const (
 	// a bigger response is served but not stored.
 	MaxStoredBody = 256 << 10
 
-	// MsgInProgress is returned (409) while the first request with the key
-	// is still being handled.
+	// MsgInProgress is returned (425 Too Early) while the first request
+	// with the key is still being handled. The status is deliberately not
+	// 409: a client must be able to tell "retry in a moment" apart from a
+	// domain conflict the same endpoint may answer with.
 	MsgInProgress = "request in progress"
+	// RetryAfterSeconds is the Retry-After hint sent with MsgInProgress.
+	// The lock is normally released within a fraction of a second (as soon
+	// as the first request answers); LockTTL is the upper bound.
+	RetryAfterSeconds = 1
 	// MsgPayloadMismatch is returned (422) when the key is reused with a
 	// different request body.
 	MsgPayloadMismatch = "idempotency key reused with different payload"
@@ -175,7 +183,7 @@ func New(log *slog.Logger, store Store, cfg Config) gin.HandlerFunc {
 			if !found {
 				// The lock vanished in between (handler failed and released
 				// it); the client may simply retry.
-				responses.Fail(c, http.StatusConflict, MsgInProgress)
+				failInProgress(c)
 				c.Abort()
 				return
 			}
@@ -247,16 +255,16 @@ func load(ctx context.Context, log *slog.Logger, store Store, key string) (rec r
 }
 
 // serveStored answers a repeated request from the record: 422 for another
-// payload, 409 while the first request is in flight, otherwise the replay.
+// payload, 425 while the first request is in flight, otherwise the replay.
 func serveStored(c *gin.Context, rec record, fingerprint string) {
 	defer c.Abort()
 
 	if rec.Fingerprint != fingerprint {
-		responses.Fail(c, http.StatusUnprocessableEntity, MsgPayloadMismatch)
+		responses.FailWithCode(c, http.StatusUnprocessableEntity, responses.CodeIdempotencyKeyReused, MsgPayloadMismatch)
 		return
 	}
 	if rec.InProgress {
-		responses.Fail(c, http.StatusConflict, MsgInProgress)
+		failInProgress(c)
 		return
 	}
 
@@ -269,6 +277,14 @@ func serveStored(c *gin.Context, rec record, fingerprint string) {
 		contentType = "application/json"
 	}
 	c.Data(rec.Status, contentType, rec.Body)
+}
+
+// failInProgress answers 425 Too Early with the Retry-After hint: the
+// first request with this key is still running and the client should
+// repeat the very same request shortly.
+func failInProgress(c *gin.Context) {
+	c.Header("Retry-After", strconv.Itoa(RetryAfterSeconds))
+	responses.FailWithCode(c, http.StatusTooEarly, responses.CodeIdempotencyInFlight, MsgInProgress)
 }
 
 // requestFingerprint hashes what identifies the payload: method, path and
