@@ -281,6 +281,87 @@ func (suite *MapSuite) TestGetAdminBoundaries() {
 	}
 }
 
+// TestGetAdminBoundaries_Geometry checks the ?geometry= filter: it is passed
+// down as GetAdminBoundaryFilters.WithGeometry and drops the geom field from
+// the response.
+func (suite *MapSuite) TestGetAdminBoundaries_Geometry() {
+	boundary := models.AdminBoundary{
+		Id: 1, Name: "Центр", AdminLevel: 8,
+		Geom: models.NewMultiPolygon([][][]geom.Coord{{{{41.39, 52.69}, {41.42, 52.69}, {41.42, 52.71}, {41.39, 52.71}, {41.39, 52.69}}}}),
+	}
+
+	tests := []struct {
+		name           string
+		query          string
+		wantFilters    *models.GetAdminBoundaryFilters
+		wantGeomInBody bool
+		statusCode     int
+	}{
+		{
+			name:           "Ok200DefaultWithGeometry",
+			query:          "",
+			wantFilters:    &models.GetAdminBoundaryFilters{AdminLevels: []int{}, WithGeometry: true},
+			wantGeomInBody: true,
+			statusCode:     http.StatusOK,
+		},
+		{
+			name:           "Ok200GeometryTrue",
+			query:          "?geometry=true&admin_levels=8",
+			wantFilters:    &models.GetAdminBoundaryFilters{AdminLevels: []int{8}, WithGeometry: true},
+			wantGeomInBody: true,
+			statusCode:     http.StatusOK,
+		},
+		{
+			name:        "Ok200GeometryFalse",
+			query:       "?geometry=false",
+			wantFilters: &models.GetAdminBoundaryFilters{AdminLevels: []int{}, WithGeometry: false},
+			statusCode:  http.StatusOK,
+		},
+		{name: "Err400BadGeometry", query: "?geometry=abc", statusCode: http.StatusBadRequest},
+	}
+	for _, tt := range tests {
+		suite.Run(tt.name, func() {
+			suite.cacher.
+				On("GetBytes", mock.Anything, mock.AnythingOfType("string")).Once().
+				Return([]byte{}, errors.New(""))
+
+			if tt.wantFilters != nil {
+				suite.cacher.
+					On("Set", mock.Anything, mock.AnythingOfType("string"), mock.Anything, mock.Anything).Once().
+					Return(nil)
+
+				returned := boundary
+				if !tt.wantFilters.WithGeometry {
+					returned.Geom = nil
+				}
+				suite.uc.On("GetAdminBoundaries", mock.Anything, *tt.wantFilters).Once().
+					Return([]models.AdminBoundary{returned}, nil)
+			}
+
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("GET", "/map/admin-boundaries"+tt.query, nil)
+
+			suite.r.ServeHTTP(w, req)
+
+			handlertest.AssertResponse(suite.T(), w, tt.statusCode)
+
+			if tt.wantFilters == nil {
+				return
+			}
+
+			var body struct {
+				Payload struct {
+					AdminBoundaries []map[string]json.RawMessage `json:"admin_boundaries"`
+				} `json:"payload"`
+			}
+			suite.Require().NoError(json.Unmarshal(w.Body.Bytes(), &body))
+			suite.Require().Len(body.Payload.AdminBoundaries, 1)
+			_, ok := body.Payload.AdminBoundaries[0]["geom"]
+			suite.Equal(tt.wantGeomInBody, ok, "body: %s", w.Body.String())
+		})
+	}
+}
+
 func (suite *MapSuite) TestGetAdminBoundariesMarksCount() {
 	tests := []struct {
 		name                            string

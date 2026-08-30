@@ -1558,6 +1558,12 @@ const docTemplate = `{
                         "in": "query"
                     },
                     {
+                        "type": "boolean",
+                        "description": "include the geom field (default true); geometry=false returns only id, name and admin_level, a few kilobytes instead of a megabyte — fetch the geometry from /map/admin-boundaries/{id}.geojson",
+                        "name": "geometry",
+                        "in": "query"
+                    },
+                    {
                         "type": "string",
                         "description": "ETag of a previous response; 304 when the data did not change",
                         "name": "If-None-Match",
@@ -6530,7 +6536,12 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "geom": {
-                    "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MultiPolygonJSON"
+                    "description": "Geom is omitted from the response when the geometry was not requested\n(see GetAdminBoundaryFilters.WithGeometry).",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MultiPolygonJSON"
+                        }
+                    ]
                 },
                 "id": {
                     "type": "integer"

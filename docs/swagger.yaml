@@ -32,7 +32,11 @@ definitions:
       admin_level:
         type: integer
       geom:
-        $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MultiPolygonJSON'
+        allOf:
+        - $ref: '#/definitions/github_com_PritOriginal_problem-map-server_internal_models.MultiPolygonJSON'
+        description: |-
+          Geom is omitted from the response when the geometry was not requested
+          (see GetAdminBoundaryFilters.WithGeometry).
       id:
         type: integer
       name:
@@ -4035,6 +4039,12 @@ paths:
           type: number
         name: admin_levels
         type: array
+      - description: include the geom field (default true); geometry=false returns
+          only id, name and admin_level, a few kilobytes instead of a megabyte — fetch
+          the geometry from /map/admin-boundaries/{id}.geojson
+        in: query
+        name: geometry
+        type: boolean
       - description: ETag of a previous response; 304 when the data did not change
         in: header
         name: If-None-Match
